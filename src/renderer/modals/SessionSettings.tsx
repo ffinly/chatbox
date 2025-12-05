@@ -157,6 +157,7 @@ const SessionSettingsModal = NiceModal.create(
         size="lg"
         title={t('Conversation Settings')}
         onFocus={(e) => e.stopPropagation()}
+        trapFocus={false}
         // fullWidth
       >
         <div style={{ maxHeight: '60vh', overflowY: 'auto', overflowX: 'hidden' }}>
@@ -223,6 +224,9 @@ const SessionSettingsModal = NiceModal.create(
               onChange={(event) => setSystemPrompt(event.target.value)}
               classNames={{
                 input: '!text-chatbox-tint-primary',
+              }}
+              styles={{
+                input: { touchAction: 'manipulation' },
               }}
             />
 

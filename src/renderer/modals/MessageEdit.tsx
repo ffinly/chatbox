@@ -179,7 +179,15 @@ const MessageEditModal = ({
   }
 
   return (
-    <Modal opened={opened} centered size="lg" onClose={onClose} keepMounted={false}>
+    <Modal
+      opened={opened}
+      centered
+      size="lg"
+      onClose={onClose}
+      keepMounted={false}
+      lockScroll={false}
+      trapFocus={false}
+    >
       <Stack gap="md" className=" ">
         <Combobox
           store={combobox}
@@ -231,6 +239,9 @@ const MessageEditModal = ({
               }
             }}
             onKeyDown={onKeyDown}
+            styles={{
+              input: { touchAction: 'manipulation' },
+            }}
           />
         ) : (
           msg.contentParts.map((part, index, arr) => {
@@ -247,6 +258,9 @@ const MessageEditModal = ({
                   value={part.text}
                   onChange={(e) => onContentPartInput(index, e.target.value)}
                   onKeyDown={(e) => handleTextPartKeyDown(e, index)}
+                  styles={{
+                    input: { touchAction: 'manipulation' },
+                  }}
                 />
               )
             }
