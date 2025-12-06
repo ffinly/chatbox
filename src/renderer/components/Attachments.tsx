@@ -1,9 +1,23 @@
+import { Tooltip, Typography } from '@mui/material'
+import { AlertCircle, CheckCircle, Link, Link2, Loader2, Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { ChatboxAIAPIError } from 'src/shared/models/errors'
+import FileIcon from './FileIcon'
 import { ImageInStorage } from './Image'
 import MiniButton from './MiniButton'
-import { Trash2, Link, Link2, Globe } from 'lucide-react'
-import { Typography, Tooltip } from '@mui/material'
-import FileIcon from './FileIcon'
-import { useTranslation } from 'react-i18next'
+
+// 根据错误码获取翻译后的错误消息
+function getTranslatedErrorMessage(errorCode: string | undefined, t: (key: string) => string): string | undefined {
+  if (!errorCode) return undefined
+  const errorDetail = ChatboxAIAPIError.codeNameMap[errorCode]
+  if (errorDetail) {
+    // 使用 i18nKey 进行翻译，去掉其中的 HTML 标签以便在 Tooltip 中显示纯文本
+    const translated = t(errorDetail.i18nKey)
+    // 移除 HTML/JSX 标签，只保留纯文本
+    return translated.replace(/<[^>]*>/g, '')
+  }
+  return t('Processing failed')
+}
 
 export function ImageMiniCard(props: { storageKey: string; onDelete: () => void }) {
   const { storageKey, onDelete } = props
@@ -29,21 +43,52 @@ export function ImageMiniCard(props: { storageKey: string; onDelete: () => void 
   )
 }
 
-export function FileMiniCard(props: { name: string; fileType: string; onDelete: () => void }) {
-  const { name, onDelete } = props
+export function FileMiniCard(props: {
+  name: string
+  fileType: string
+  onDelete: () => void
+  status?: 'processing' | 'completed' | 'error'
+  errorMessage?: string
+  onErrorClick?: () => void
+}) {
+  const { name, onDelete, status, errorMessage, onErrorClick } = props
+  const { t } = useTranslation()
+
+  const handleClick = () => {
+    if (status === 'error' && onErrorClick) {
+      onErrorClick()
+    }
+  }
+
+  // 获取翻译后的错误消息
+  const translatedError = getTranslatedErrorMessage(errorMessage, t)
+
   return (
     <div
       className="w-[100px] h-[100px] p-1 m-1 inline-flex items-center justify-center
                                 bg-white shadow-sm rounded-md border-solid border-gray-400/20
                                 hover:shadow-lg hover:cursor-pointer hover:scale-105 transition-all duration-200
-                                group/file-mini-card"
+                                group/file-mini-card relative"
+      onClick={handleClick}
     >
-      <div className="flex flex-col justify-center items-center">
-        <FileIcon filename={name} className="w-8 h-8 text-black" />
-        <Typography className="w-20 pt-1 text-black text-center" noWrap sx={{ fontSize: '12px' }}>
-          {name}
-        </Typography>
-      </div>
+      <Tooltip title={status === 'error' && translatedError ? translatedError : name}>
+        <div className="flex flex-col justify-center items-center">
+          <FileIcon filename={name} className="w-8 h-8 text-black" />
+          <Typography className="w-20 pt-1 text-black text-center" noWrap sx={{ fontSize: '12px' }}>
+            {name}
+          </Typography>
+        </div>
+      </Tooltip>
+
+      {/* Status indicator */}
+      {status && (
+        <div className="absolute bottom-1 left-1">
+          {status === 'processing' && <Loader2 size="16" className="animate-spin text-blue-500" />}
+          {status === 'completed' && <CheckCircle size="16" className="text-green-500" />}
+          {status === 'error' && <AlertCircle size="16" className="text-red-500" />}
+        </div>
+      )}
+
       {onDelete && (
         <MiniButton
           className="hidden group-hover/file-mini-card:inline-block 
@@ -74,17 +119,35 @@ export function MessageAttachment(props: { label: string; filename?: string; url
   )
 }
 
-export function LinkMiniCard(props: { url: string; onDelete: () => void }) {
-  const { url, onDelete } = props
+export function LinkMiniCard(props: {
+  url: string
+  onDelete: () => void
+  status?: 'processing' | 'completed' | 'error'
+  errorMessage?: string
+  onErrorClick?: () => void
+}) {
+  const { url, onDelete, status, errorMessage, onErrorClick } = props
+  const { t } = useTranslation()
   const label = url.replace(/^https?:\/\//, '')
+
+  const handleClick = () => {
+    if (status === 'error' && onErrorClick) {
+      onErrorClick()
+    }
+  }
+
+  // 获取翻译后的错误消息
+  const translatedError = getTranslatedErrorMessage(errorMessage, t)
+
   return (
     <div
       className="w-[100px] h-[100px] p-1 m-1 inline-flex items-center justify-center
                                 bg-white shadow-sm rounded-md border-solid border-gray-400/20
                                 hover:shadow-lg hover:cursor-pointer hover:scale-105 transition-all duration-200
-                                group/file-mini-card"
+                                group/file-mini-card relative"
+      onClick={handleClick}
     >
-      <Tooltip title={url}>
+      <Tooltip title={status === 'error' && translatedError ? translatedError : url}>
         <div className="flex flex-col justify-center items-center">
           <Link className="w-8 h-8 text-black" strokeWidth={1} />
           <Typography className="w-20 pt-1 text-black text-center" noWrap sx={{ fontSize: '10px' }}>

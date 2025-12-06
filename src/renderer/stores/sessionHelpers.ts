@@ -119,6 +119,9 @@ export async function preprocessFile(
         if (platform.type === 'mobile') {
           throw new Error('mobile_not_support_local_file_parsing')
         }
+        if (platform.type === 'web') {
+          throw new Error('web_not_support_local_file_parsing')
+        }
         // 根据当前 IP，判断是否在错误中推荐 Chatbox AI
         if (remoteConfig.setting_chatboxai_first) {
           throw new Error('model_not_support_file')

@@ -221,6 +221,12 @@ export class ChatboxAIAPIError extends BaseError {
       i18nKey:
         'Mobile devices temporarily do not support local parsing of this file type. Please use text files (txt, markdown, etc.) or use <LinkToAdvancedFileProcessing>Chatbox AI Service</LinkToAdvancedFileProcessing> for cloud-based document analysis.',
     },
+    web_not_support_local_file_parsing: {
+      name: 'web_not_support_local_file_parsing',
+      code: 20028,
+      i18nKey:
+        'The web version temporarily does not support local parsing of this file type. Please use text files (txt, markdown, etc.) or use <LinkToAdvancedFileProcessing>Chatbox AI Service</LinkToAdvancedFileProcessing> for cloud-based document analysis.',
+    },
   }
   static fromCodeName(response: string, codeName: string) {
     if (!codeName) {

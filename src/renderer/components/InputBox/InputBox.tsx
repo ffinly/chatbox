@@ -708,33 +708,65 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
               {pictureKeys?.map((picKey) => (
                 <ImageMiniCard key={picKey} storageKey={picKey} onDelete={() => onImageDeleteClick(picKey)} />
               ))}
-              {attachments?.map((file) => (
-                <FileMiniCard
-                  key={StorageKeyGenerator.fileUniqKey(file)}
-                  name={file.name}
-                  fileType={file.type}
-                  status={preConstructedMessage.preprocessingStatus.files[StorageKeyGenerator.fileUniqKey(file)]}
-                  onDelete={() => {
-                    setPreConstructedMessage((prev) => ({
-                      ...cleanupFile(prev, file),
-                      attachments: (prev.attachments || []).filter(
-                        (f) => StorageKeyGenerator.fileUniqKey(f) !== StorageKeyGenerator.fileUniqKey(file)
-                      ),
-                    }))
-                  }}
-                />
-              ))}
-              {links?.map((link) => (
-                <LinkMiniCard
-                  key={StorageKeyGenerator.linkUniqKey(link.url)}
-                  url={link.url}
-                  status={preConstructedMessage.preprocessingStatus.links[StorageKeyGenerator.linkUniqKey(link.url)]}
-                  onDelete={() => {
-                    setLinks(links.filter((l) => l.url !== link.url))
-                    setPreConstructedMessage((prev) => cleanupLink(prev, link.url))
-                  }}
-                />
-              ))}
+              {attachments?.map((file) => {
+                const fileKey = StorageKeyGenerator.fileUniqKey(file)
+                const status = preConstructedMessage.preprocessingStatus.files[fileKey]
+                const preprocessedFile = preConstructedMessage.preprocessedFiles.find(
+                  (f) => StorageKeyGenerator.fileUniqKey(f.file) === fileKey
+                )
+                return (
+                  <FileMiniCard
+                    key={fileKey}
+                    name={file.name}
+                    fileType={file.type}
+                    status={status}
+                    errorMessage={preprocessedFile?.error}
+                    onErrorClick={() => {
+                      if (preprocessedFile?.error) {
+                        void NiceModal.show('file-parse-error', {
+                          errorCode: preprocessedFile.error,
+                          fileName: file.name,
+                        })
+                      }
+                    }}
+                    onDelete={() => {
+                      setPreConstructedMessage((prev) => ({
+                        ...cleanupFile(prev, file),
+                        attachments: (prev.attachments || []).filter(
+                          (f) => StorageKeyGenerator.fileUniqKey(f) !== fileKey
+                        ),
+                      }))
+                    }}
+                  />
+                )
+              })}
+              {links?.map((link) => {
+                const linkKey = StorageKeyGenerator.linkUniqKey(link.url)
+                const status = preConstructedMessage.preprocessingStatus.links[linkKey]
+                const preprocessedLink = preConstructedMessage.preprocessedLinks.find(
+                  (l) => StorageKeyGenerator.linkUniqKey(l.url) === linkKey
+                )
+                return (
+                  <LinkMiniCard
+                    key={linkKey}
+                    url={link.url}
+                    status={status}
+                    errorMessage={preprocessedLink?.error}
+                    onErrorClick={() => {
+                      if (preprocessedLink?.error) {
+                        void NiceModal.show('file-parse-error', {
+                          errorCode: preprocessedLink.error,
+                          fileName: link.url,
+                        })
+                      }
+                    }}
+                    onDelete={() => {
+                      setLinks(links.filter((l) => l.url !== link.url))
+                      setPreConstructedMessage((prev) => cleanupLink(prev, link.url))
+                    }}
+                  />
+                )
+              })}
             </Flex>
           )}
 
