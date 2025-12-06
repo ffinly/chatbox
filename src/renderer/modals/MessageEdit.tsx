@@ -148,15 +148,15 @@ const MessageEditModal = ({
     }
     const ctrlOrCmd = event.ctrlKey || event.metaKey
     const shift = event.shiftKey
-    const canSaveAndReply = msg.role === 'user'
+
     // ctrl + shift + enter 保存并生成
-    if (event.key === 'Enter' && ctrlOrCmd && shift && canSaveAndReply) {
+    if (event.key === 'Enter' && ctrlOrCmd && shift) {
       event.preventDefault()
       onSaveAndReply()
       return
     }
     // ctrl + enter 保存
-    if (event.key === 'Enter' && ctrlOrCmd && (!shift || !canSaveAndReply)) {
+    if (event.key === 'Enter' && ctrlOrCmd && !shift) {
       event.preventDefault()
       onSave()
       return
@@ -272,11 +272,9 @@ const MessageEditModal = ({
         <Button onClick={onClose} color="chatbox-gray" variant="light">
           {t('cancel')}
         </Button>
-        {msg.role === 'user' && (
-          <Button onClick={onSaveAndReply} variant="light">
-            {t('Save & Resend')}
-          </Button>
-        )}
+        <Button onClick={onSaveAndReply} variant="light">
+          {t('Save & Resend')}
+        </Button>
         <Button onClick={onSave}>{t('save')}</Button>
       </Flex>
     </Modal>
