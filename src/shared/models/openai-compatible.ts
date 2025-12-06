@@ -1,6 +1,6 @@
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { extractReasoningMiddleware, wrapLanguageModel } from 'ai'
-import type { ProviderModelInfo } from '../types'
+import type { ProviderModelInfo, ToolUseScope } from '../types'
 import type { ModelDependencies } from '../types/adapters'
 import AbstractAISDKModel from './abstract-ai-sdk'
 import { ApiError } from './errors'
@@ -38,6 +38,16 @@ export default abstract class OpenAICompatible extends AbstractAISDKModel implem
 
   static isSupportTextEmbedding() {
     return true
+  }
+  isSupportToolUse(scope?: ToolUseScope) {
+    if (
+      scope &&
+      ['web-browsing', 'read-file'].includes(scope) &&
+      /deepseek-(v3|r1)$/.test(this.options.model.modelId.toLowerCase())
+    ) {
+      return false
+    }
+    return super.isSupportToolUse()
   }
 
   protected getProvider() {

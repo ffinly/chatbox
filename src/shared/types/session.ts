@@ -117,7 +117,7 @@ export const StreamTextResultSchema = z.object({
 })
 
 // Tool and provider schemas
-export const ToolUseScopeSchema = z.enum(['web-browsing', 'knowledge-base'])
+export const ToolUseScopeSchema = z.enum(['web-browsing', 'knowledge-base', 'read-file'])
 
 export const ModelProviderSchema = z.union([z.nativeEnum(ModelProviderEnum), z.string()])
 

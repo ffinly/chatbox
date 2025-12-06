@@ -779,7 +779,11 @@ async function generate(
         let firstTokenLatency: number | undefined
         const persistInterval = 2000
         let lastPersistTimestamp = Date.now()
-        const promptMsgs = await genMessageContext(settings, messages.slice(0, targetMsgIx), model.isSupportToolUse())
+        const promptMsgs = await genMessageContext(
+          settings,
+          messages.slice(0, targetMsgIx),
+          model.isSupportToolUse('read-file')
+        )
         const modifyMessageCache: OnResultChangeWithCancel = async (updated) => {
           const textLength = getMessageText(targetMsg, true, true).length
           if (!firstTokenLatency && textLength > 0) {
@@ -1109,7 +1113,7 @@ export async function clearConversationList(keepNum: number) {
 /**
  * 从历史消息中生成 prompt 上下文
  */
-async function genMessageContext(settings: SessionSettings, msgs: Message[], modelSupportToolUse: boolean) {
+async function genMessageContext(settings: SessionSettings, msgs: Message[], modelSupportToolUseForFile: boolean) {
   const {
     // openaiMaxContextTokens,
     maxContextMessageCount,
@@ -1159,7 +1163,7 @@ async function genMessageContext(settings: SessionSettings, msgs: Message[], mod
             attachment += `<FILE_NAME>${file.storageKey}</FILE_NAME>\n`
             attachment += `<FILE_LINES>${content.split('\n').length}</FILE_LINES>\n`
             attachment += `<FILE_SIZE>${content.length} bytes</FILE_SIZE>\n`
-            if (!modelSupportToolUse) {
+            if (!modelSupportToolUseForFile) {
               attachment += '<FILE_CONTENT>\n'
               attachment += `${content}\n`
               attachment += '</FILE_CONTENT>\n'
@@ -1182,7 +1186,7 @@ async function genMessageContext(settings: SessionSettings, msgs: Message[], mod
             attachment += `<FILE_NAME>${link.storageKey}</FILE_NAME>\n`
             attachment += `<FILE_LINES>${content.split('\n').length}</FILE_LINES>\n`
             attachment += `<FILE_SIZE>${content.length} bytes</FILE_SIZE>\n`
-            if (!modelSupportToolUse) {
+            if (!modelSupportToolUseForFile) {
               attachment += `<FILE_CONTENT>\n`
               attachment += `${content}\n`
               attachment += '</FILE_CONTENT>\n'
