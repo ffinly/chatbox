@@ -1,5 +1,6 @@
+import NiceModal from '@ebay/nice-modal-react'
 import { Tooltip, Typography } from '@mui/material'
-import { AlertCircle, CheckCircle, Link, Link2, Loader2, Trash2 } from 'lucide-react'
+import { AlertCircle, CheckCircle, Eye, Link, Link2, Loader2, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ChatboxAIAPIError } from 'src/shared/models/errors'
 import FileIcon from './FileIcon'
@@ -102,20 +103,44 @@ export function FileMiniCard(props: {
   )
 }
 
-export function MessageAttachment(props: { label: string; filename?: string; url?: string }) {
-  const { label, filename, url } = props
+export function MessageAttachment(props: { label: string; filename?: string; url?: string; storageKey?: string }) {
+  const { label, filename, url, storageKey } = props
+  const { t } = useTranslation()
+
+  const handleClick = async () => {
+    if (storageKey) {
+      let title: string
+      if (filename) {
+        title = `${t('File Content')}: ${filename}`
+      } else if (url) {
+        const truncatedUrl = url.length > 50 ? `${url.slice(0, 50)}...` : url
+        title = `${t('Link Content')}: ${truncatedUrl}`
+      } else {
+        title = t('Content')
+      }
+      await NiceModal.show('content-viewer', { title, storageKey })
+    }
+  }
+
+  const isClickable = !!storageKey
+
   return (
-    <div
-      className="flex justify-start items-center mb-2 p-1.5
+    <Tooltip title={isClickable ? t('Click to view parsed content') : ''}>
+      <div
+        className={`flex justify-start items-center mb-2 p-1.5
             border-solid border-slate-400/20 rounded 
-            bg-white dark:bg-slate-800"
-    >
-      {filename && <FileIcon filename={filename} className="w-6 h-6 ml-1 mr-2 text-black dark:text-white" />}
-      {url && <Link2 className="w-6 h-6 ml-1 mr-2 text-black dark:text-white" strokeWidth={1} />}
-      <Typography className="w-32" noWrap>
-        {label}
-      </Typography>
-    </div>
+            bg-white dark:bg-slate-800
+            ${isClickable ? 'cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors' : ''}`}
+        onClick={handleClick}
+      >
+        {filename && <FileIcon filename={filename} className="w-6 h-6 ml-1 mr-2 text-black dark:text-white" />}
+        {url && <Link2 className="w-6 h-6 ml-1 mr-2 text-black dark:text-white" strokeWidth={1} />}
+        <Typography className="w-32" noWrap>
+          {label}
+        </Typography>
+        {isClickable && <Eye className="w-4 h-4 ml-1 text-gray-500 dark:text-gray-400" strokeWidth={1.5} />}
+      </div>
+    </Tooltip>
   )
 }
 

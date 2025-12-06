@@ -422,7 +422,10 @@ const _Message: FC<Props> = (props) => {
                                 className="my-2 p-2 bg-chatbox-background-brand-secondary rounded-md cursor-pointer hover:bg-chatbox-background-brand-secondary-hover transition-colors"
                                 onClick={async (e) => {
                                   e.stopPropagation()
-                                  await NiceModal.show('ocr-content-viewer', { content: item.ocrResult })
+                                  await NiceModal.show('content-viewer', {
+                                    title: t('OCR Text Content'),
+                                    content: item.ocrResult,
+                                  })
                                 }}
                               >
                                 <Typography variant="caption" className="text-gray-600 dark:text-gray-400 block mb-1">
@@ -461,10 +464,15 @@ const _Message: FC<Props> = (props) => {
               {(msg.files || msg.links) && (
                 <div className="flex flex-row items-start justify-start overflow-x-auto overflow-y-hidden pb-1">
                   {msg.files?.map((file) => (
-                    <MessageAttachment key={file.name} label={file.name} filename={file.name} />
+                    <MessageAttachment
+                      key={file.name}
+                      label={file.name}
+                      filename={file.name}
+                      storageKey={file.storageKey}
+                    />
                   ))}
                   {msg.links?.map((link) => (
-                    <MessageAttachment key={link.url} label={link.title} url={link.url} />
+                    <MessageAttachment key={link.url} label={link.title} url={link.url} storageKey={link.storageKey} />
                   ))}
                 </div>
               )}
