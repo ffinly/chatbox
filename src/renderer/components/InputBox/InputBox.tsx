@@ -23,6 +23,12 @@ import _, { pick } from 'lodash'
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useTranslation } from 'react-i18next'
+import {
+  getFileAcceptConfig,
+  getFileAcceptString,
+  getUnsupportedFileType,
+  isSupportedFile,
+} from 'src/shared/file-extensions'
 import { formatNumber } from 'src/shared/utils'
 import useInputBoxHistory from '@/hooks/useInputBoxHistory'
 import { useKnowledgeBase } from '@/hooks/useKnowledgeBase'
@@ -514,16 +520,36 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
           setPreConstructedMessage((prev) => ({
             ...prev,
             pictureKeys: [...(prev.pictureKeys || []), key].slice(-8),
-          })) // 最多插入 8 个图片
+          })) // Maximum 8 images
         } else {
+          // Check if file type is supported
+          if (!isSupportedFile(file.name)) {
+            const unsupportedType = getUnsupportedFileType(file.name)
+            let errorMsg = t('Unsupported file type: {{fileName}}', { fileName: file.name })
+            if (unsupportedType === 'iwork') {
+              errorMsg = t('iWork files (Pages, Keynote) are not supported. Please export to PDF or Office format.')
+            } else if (unsupportedType === 'audio') {
+              errorMsg = t('Audio files are not supported')
+            } else if (unsupportedType === 'video') {
+              errorMsg = t('Video files are not supported')
+            } else if (unsupportedType === 'binary') {
+              errorMsg = t('Binary/executable files are not supported')
+            } else if (unsupportedType === 'archive') {
+              errorMsg = t('Archive files are not supported. Please extract and upload individual files.')
+            } else if (unsupportedType === 'image') {
+              errorMsg = t('Advanced image formats are not supported. Please convert to JPG or PNG.')
+            }
+            toastActions.add(errorMsg)
+            continue
+          }
           setPreConstructedMessage((prev) => {
             const newAttachments = prev.attachments.find(
               (f) => StorageKeyGenerator.fileUniqKey(f) === StorageKeyGenerator.fileUniqKey(file)
             )
               ? prev.attachments
-              : [...(prev.attachments || []), file].slice(-10) // 最多插入 10 个附件
+              : [...(prev.attachments || []), file].slice(-10) // Maximum 10 attachments
 
-            // 只预处理前10个文件，避免浪费资源
+            // Only preprocess first 10 files to avoid wasting resources
             const fileIndex = newAttachments.findIndex(
               (f) => f.name === file.name && f.lastModified === file.lastModified
             )
@@ -623,9 +649,15 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
 
     // 拖拽上传
     const { getRootProps, getInputProps } = useDropzone({
-      onDrop: (acceptedFiles: File[]) => {
+      onDrop: (acceptedFiles: File[], fileRejections) => {
         insertFiles(acceptedFiles)
+        // Show toast for rejected files
+        if (fileRejections.length > 0) {
+          const rejectedNames = fileRejections.map((r) => r.file.name).join(', ')
+          toastActions.add(t('Unsupported file type: {{fileName}}', { fileName: rejectedNames }))
+        }
       },
+      accept: getFileAcceptConfig(),
       noClick: true,
       noKeyboard: true,
     })
@@ -775,7 +807,14 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
               {sessionType !== 'picture' && (
                 <>
                   <ImageUploadInput ref={pictureInputRef} onChange={onFileInputChange} />
-                  <input type="file" ref={fileInputRef} className="hidden" onChange={onFileInputChange} multiple />
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    onChange={onFileInputChange}
+                    multiple
+                    accept={getFileAcceptString()}
+                  />
 
                   <AttachmentMenu
                     onImageUploadClick={onImageUploadClick}
