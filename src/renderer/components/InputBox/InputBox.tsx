@@ -464,11 +464,8 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
     }
 
     const startFilePreprocessing = (file: File) => {
-      // 设置为处理中状态
-      setPreConstructedMessage((prevMsg) => markFileProcessing(prevMsg, file))
-
       // 异步预处理文件，失败时标记为 error，并吞掉异常避免 Promise.all reject
-      const preprocessPromise = sessionHelpers
+      return sessionHelpers
         .preprocessFile(file, { provider: model?.provider || '', modelId: model?.modelId || '' })
         .then((preprocessedFile) => {
           setPreConstructedMessage((prev) => onFileProcessed(prev, file, preprocessedFile, 10))
@@ -488,12 +485,9 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
             )
           )
         })
-
-      // Store the promise
-      setPreConstructedMessage((prev) => storeFilePromise(prev, file, preprocessPromise))
     }
 
-    const insertLinks = async (urls: string[]) => {
+    const insertLinks = (urls: string[]) => {
       let newLinks = [...(links || []), ...urls.map((u) => ({ url: u }))]
       newLinks = _.uniqBy(newLinks, 'url')
       newLinks = newLinks.slice(-6) // 最多插入 6 个链接
@@ -554,7 +548,11 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
               (f) => f.name === file.name && f.lastModified === file.lastModified
             )
             if (fileIndex < 10) {
-              startFilePreprocessing(file)
+              const preprocessPromise = startFilePreprocessing(file)
+              return {
+                ...storeFilePromise(markFileProcessing(prev, file), file, preprocessPromise),
+                attachments: newAttachments,
+              }
             }
 
             return {
