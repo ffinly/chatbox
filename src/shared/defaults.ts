@@ -402,16 +402,12 @@ export const SystemProviders: ProviderBaseInfo[] = [
       models: [
         {
           modelId: 'deepseek-chat',
-          contextWindow: 64_000,
+          contextWindow: 128_000,
           capabilities: ['tool_use'],
         },
         {
-          modelId: 'deepseek-coder',
-          contextWindow: 64_000,
-        },
-        {
           modelId: 'deepseek-reasoner',
-          contextWindow: 64_000,
+          contextWindow: 128_000,
           capabilities: ['reasoning', 'tool_use'],
         },
       ],

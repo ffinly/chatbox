@@ -161,6 +161,7 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.47",
     "@ai-sdk/azure": "^2.0.74",
+    "@ai-sdk/deepseek": "^1.0.31",
     "@ai-sdk/google": "^2.0.43",
     "@ai-sdk/mcp": "^0.0.10",
     "@ai-sdk/mistral": "^2.0.24",
