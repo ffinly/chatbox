@@ -68,6 +68,8 @@ export default class Gemeni extends AbstractAISDKModel {
     }
 
     const settings: CallSettings = {
+      temperature: this.options.temperature,
+      topP: this.options.topP,
       maxOutputTokens: this.options.maxOutputTokens,
       providerOptions: {
         google: {
