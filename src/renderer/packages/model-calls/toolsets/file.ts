@@ -26,28 +26,22 @@ const formatLineWithNumber = (line: string, lineNumber: number) => {
 const GREP_MAX_RESULTS = 100
 
 const toolSetDescription = `
-Two tools are provided to interact with files uploaded by the user.
-Make sure you follow the description of each tool parameter.
+Use these tools to read and search user-uploaded files (marked with <ATTACHMENT_FILE></ATTACHMENT_FILE>).
 
-read_file:
-Read file content from the given file name
+## read_file
+Reads file content with line numbers (like \`cat -n\`).
+- Returns up to ${DEFAULT_LINES} lines by default, max ${MAX_LINES} lines per call
+- Lines exceeding ${MAX_LINE_LENGTH} characters are truncated with "..."
+- Use \`lineOffset\` and \`maxLines\` to read specific portions
+- Prefer \`grep_file\` when searching for specific content
+- Call in parallel when reading multiple files
 
-Content will be returned with a line number before each line like cat -n format.
-Use lineOffset and maxLines parameters when you only need to read a part of the file.
-The maximum number of lines that can be read at once is ${MAX_LINES}, default is ${DEFAULT_LINES}, prevent excessive memory usage.
-Any lines longer than ${MAX_LINE_LENGTH} characters will be truncated, ending with "...".
-This tool is a tool that you typically want to use in parallel. Always read multiple files in one response when possible.
-If the file doesn't exist, an error will be returned.
-If you want to search for a certain content/pattern, prefer grepFile tool over readFile.
-
-grep_file:
-Searches for a keyword or phrase within a file uploaded by the user.
-
-For each match, the line number, line content, and surrounding context lines will be returned.
-Use beforeContextLines and afterContextLines to specify how many context lines to include.
-The maximum number of results that can be returned at once is ${GREP_MAX_RESULTS}.
-This tool is a tool that you typically want to use in parallel. Always search multiple files in one response when possible.
-If the file doesn't exist, an error will be returned.
+## grep_file
+Searches for text patterns within a file.
+- Returns matching lines with line numbers and optional context
+- Use \`beforeContextLines\` / \`afterContextLines\` to include surrounding lines
+- Returns up to ${GREP_MAX_RESULTS} matches maximum
+- Call in parallel when searching multiple files
 `
 
 const readFileTool = tool({

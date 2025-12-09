@@ -4,7 +4,8 @@ import platform from '@/platform'
 
 export const queryKnowledgeBaseTool = (kbId: number) => {
   return tool({
-    description: 'Query a knowledge base',
+    description:
+      'Search the knowledge base with a semantic query. Returns relevant document chunks with file IDs and chunk indices.',
     inputSchema: z.object({
       query: z.string().describe('The query to search the knowledge base'),
     }),
@@ -76,12 +77,19 @@ export function listFilesTool(knowledgeBaseId: number) {
 }
 const getToolSetDescription = (knowledgeBaseId: number, knowledgeBaseName: string) => {
   return `
-  Toolset for interacting with a knowledge base ${knowledgeBaseName}. Includes tools to query the knowledge base, get file metadata, read file chunks, and list files.
-  Available tools:
-  1. query_knowledge_base: Query the knowledge base with a search query.
-  2. get_files_meta: Get metadata for files in the knowledge base.
-  3. read_file_chunks: Read content chunks from specified files in the knowledge base.
-  4. list_files: List all files in the knowledge base.
+Use these tools to interact with the knowledge base "${knowledgeBaseName}".
+
+## query_knowledge_base
+Search the knowledge base with a semantic query. Returns relevant document chunks.
+
+## get_files_meta
+Get metadata (filename, size, chunk count) for specific files by their IDs.
+
+## read_file_chunks
+Read the actual text content from specific file chunks.
+
+## list_files
+List all files in the knowledge base with pagination support.
 `
 }
 export function getToolSet(knowledgeBaseId: number, knowledgeBaseName: string) {

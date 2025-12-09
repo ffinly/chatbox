@@ -7,19 +7,18 @@ import platform from '@/platform'
 import * as settingActions from '@/stores/settingActions'
 
 const toolSetDescription = `
-A set of tools to assist the AI in answering user queries.
+Use these tools to search the web and extract content from URLs.
 
-web_search:
-A search engine. Useful for when you need to answer questions about current events. Input should be a search query. Prefer English query. Query should be short and concise.
+## web_search
+Search the web for current information. Use short, concise queries (English preferred).
 
-parse_link:
-Parses the readable content of a web page. Use this when you need to extract detailed information from a specific URL shared by the user.
-
+## parse_link
+Extract readable content from a URL. Use when you need detailed information from a specific webpage.
 `
 
 export const webSearchTool = tool({
   description:
-    'a search engine. useful for when you need to answer questions about current events. input should be a search query. prefer English query. query should be short and concise',
+    'Search the web for current events and real-time information. Use short, concise queries (English preferred).',
   inputSchema: z.object({
     query: z.string().describe('the search query'),
   }),
