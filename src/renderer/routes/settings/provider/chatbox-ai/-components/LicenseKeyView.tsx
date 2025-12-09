@@ -70,7 +70,7 @@ export const LicenseKeyView = forwardRef<HTMLDivElement, LicenseKeyViewProps>(({
               component="a"
               c="chatbox-brand"
               className="!underline"
-              href={`https://chatboxai.app/redirect_app/how_to_use_license/${language}`}
+              href={`https://chatboxai.app/redirect_app/how_to_use_license/${language}?utm_source=app&utm_content=provider_cb_key_howtouse`}
               target="_blank"
             >
               {t('How to use?')}
@@ -95,7 +95,7 @@ export const LicenseKeyView = forwardRef<HTMLDivElement, LicenseKeyViewProps>(({
             component="a"
             c="chatbox-brand"
             className="!underline"
-            href={`https://chatboxai.app/redirect_app/how_to_use_license/${language}`}
+            href={`https://chatboxai.app/redirect_app/how_to_use_license/${language}?utm_source=app&utm_content=provider_cb_key_howtouse`}
             target="_blank"
           >
             {t('How to use?')}
@@ -155,7 +155,7 @@ export const LicenseKeyView = forwardRef<HTMLDivElement, LicenseKeyViewProps>(({
               </Text>
 
               <a
-                href={`https://chatboxai.app/redirect_app/manage_license/${language}`}
+                href={`https://chatboxai.app/redirect_app/manage_license/${language}?utm_source=app&utm_content=provider_cb_key_activate_error`}
                 target="_blank"
                 className="ml-auto flex flex-row items-center gap-xxs"
               >
@@ -260,7 +260,7 @@ export const LicenseKeyView = forwardRef<HTMLDivElement, LicenseKeyViewProps>(({
                     <Text>{t('You have no more Chatbox AI quota left this month.')}</Text>
 
                     <a
-                      href={`https://chatboxai.app/redirect_app/manage_license/${language}/${memorizedManualLicenseKey}`}
+                      href={`https://chatboxai.app/redirect_app/manage_license/${language}/${memorizedManualLicenseKey}?utm_source=app&utm_content=provider_cb_key_no_quota`}
                       target="_blank"
                       className="ml-auto flex flex-row items-center gap-xxs"
                     >
@@ -278,7 +278,9 @@ export const LicenseKeyView = forwardRef<HTMLDivElement, LicenseKeyViewProps>(({
                 variant="outline"
                 flex={1}
                 onClick={() => {
-                  platform.openLink(`https://chatboxai.app/redirect_app/manage_license/${language}`)
+                  platform.openLink(
+                    `https://chatboxai.app/redirect_app/manage_license/${language}?utm_source=app&utm_content=provider_cb_key_manage_license`
+                  )
                   trackingEvent('click_manage_license_button', { event_category: 'user' })
                 }}
               >
@@ -288,7 +290,9 @@ export const LicenseKeyView = forwardRef<HTMLDivElement, LicenseKeyViewProps>(({
                 variant="outline"
                 flex={1}
                 onClick={() => {
-                  platform.openLink('https://chatboxai.app/redirect_app/view_more_plans')
+                  platform.openLink(
+                    'https://chatboxai.app/redirect_app/view_more_plans?utm_source=app&utm_content=provider_cb_key_more_plans'
+                  )
                   trackingEvent('click_view_more_plans_button', { event_category: 'user' })
                 }}
               >
@@ -328,7 +332,9 @@ export const LicenseKeyView = forwardRef<HTMLDivElement, LicenseKeyViewProps>(({
                 variant="outline"
                 flex={1}
                 onClick={() => {
-                  platform.openLink(`https://chatboxai.app/redirect_app/get_license`)
+                  platform.openLink(
+                    `https://chatboxai.app/redirect_app/get_license?utm_source=app&utm_content=provider_cb_key_get_license`
+                  )
                   trackingEvent('click_get_license_button', { event_category: 'user' })
                 }}
               >
@@ -338,7 +344,9 @@ export const LicenseKeyView = forwardRef<HTMLDivElement, LicenseKeyViewProps>(({
                 variant="outline"
                 flex={1}
                 onClick={() => {
-                  platform.openLink(`https://chatboxai.app/redirect_app/manage_license/${language}`)
+                  platform.openLink(
+                    `https://chatboxai.app/redirect_app/manage_license/${language}?utm_source=app&utm_content=provider_cb_key_retrieve`
+                  )
                   trackingEvent('click_retrieve_license_button', { event_category: 'user' })
                 }}
               >

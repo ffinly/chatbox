@@ -46,7 +46,9 @@ const FileParseError = NiceModal.create(({ errorCode, fileName }: FileParseError
             <a
               className="cursor-pointer underline font-semibold text-blue-600 hover:text-blue-700"
               onClick={() => {
-                platform.openLink('https://chatboxai.app/redirect_app/view_more_plans')
+                platform.openLink(
+                  'https://chatboxai.app/redirect_app/view_more_plans?utm_source=app&utm_content=file_parse_error'
+                )
                 trackingEvent('click_view_more_plans_button_from_file_parse_error', {
                   event_category: 'user',
                 })
@@ -55,10 +57,10 @@ const FileParseError = NiceModal.create(({ errorCode, fileName }: FileParseError
           ),
           LinkToHomePage: <LinkTargetBlank href="https://chatboxai.app" />,
           LinkToAdvancedFileProcessing: (
-            <LinkTargetBlank href="https://chatboxai.app/redirect_app/advanced_file_processing" />
+            <LinkTargetBlank href="https://chatboxai.app/redirect_app/advanced_file_processing?utm_source=app&utm_content=file_parse_error" />
           ),
           LinkToAdvancedUrlProcessing: (
-            <LinkTargetBlank href="https://chatboxai.app/redirect_app/advanced_url_processing" />
+            <LinkTargetBlank href="https://chatboxai.app/redirect_app/advanced_url_processing?utm_source=app&utm_content=file_parse_error" />
           ),
         }}
       />

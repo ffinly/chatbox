@@ -523,7 +523,7 @@ export const LoggedInView = forwardRef<HTMLDivElement, LoggedInViewProps>(
                 </Text>
 
                 <a
-                  href={`https://chatboxai.app/redirect_app/manage_license/${language}/`}
+                  href={`https://chatboxai.app/redirect_app/manage_license/${language}/?utm_source=app&utm_content=provider_cb_login_activate_error`}
                   target="_blank"
                   className="ml-auto flex flex-row items-center gap-xxs"
                 >
@@ -549,7 +549,7 @@ export const LoggedInView = forwardRef<HTMLDivElement, LoggedInViewProps>(
                   <Text>{t('You have no more Chatbox AI quota left this month.')}</Text>
 
                   <a
-                    href={`https://chatboxai.app/redirect_app/manage_license/${language}/`}
+                    href={`https://chatboxai.app/redirect_app/manage_license/${language}/?utm_source=app&utm_content=provider_cb_login_no_quota`}
                     target="_blank"
                     className="ml-auto flex flex-row items-center gap-xxs"
                   >
@@ -566,7 +566,9 @@ export const LoggedInView = forwardRef<HTMLDivElement, LoggedInViewProps>(
           <Button
             variant="outline"
             onClick={() => {
-              platform.openLink('https://chatboxai.app/redirect_app/view_more_plans')
+              platform.openLink(
+                'https://chatboxai.app/redirect_app/view_more_plans?utm_source=app&utm_content=provider_cb_login_more_plans'
+              )
               trackingEvent('click_view_more_plans_button', { event_category: 'user' })
             }}
           >

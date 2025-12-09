@@ -48,7 +48,7 @@ export default function MessageErrTips(props: { msg: Message }) {
           LinkToLicensePricing: (
             <LinkTargetBlank
               className="!font-bold !text-gray-700 hover:!text-blue-600 transition-colors"
-              href="https://chatboxai.app/redirect_app/advanced_url_processing"
+              href="https://chatboxai.app/redirect_app/advanced_url_processing?utm_source=app&utm_content=msg_bad_provider"
             />
           ),
           a: <a href={`https://chatboxai.app/redirect_app/faqs/${settingActions.getLanguage()}`} target="_blank" />,
@@ -118,7 +118,9 @@ export default function MessageErrTips(props: { msg: Message }) {
               <Link
                 className="cursor-pointer italic"
                 onClick={() => {
-                  platform.openLink('https://chatboxai.app/redirect_app/view_more_plans')
+                  platform.openLink(
+                    'https://chatboxai.app/redirect_app/view_more_plans?utm_source=app&utm_content=msg_upgrade_required'
+                  )
                   trackingEvent('click_view_more_plans_button_from_upgrade_error_tips', {
                     event_category: 'user',
                   })
@@ -127,10 +129,10 @@ export default function MessageErrTips(props: { msg: Message }) {
             ),
             LinkToHomePage: <LinkTargetBlank href="https://chatboxai.app"></LinkTargetBlank>,
             LinkToAdvancedFileProcessing: (
-              <LinkTargetBlank href="https://chatboxai.app/redirect_app/advanced_file_processing"></LinkTargetBlank>
+              <LinkTargetBlank href="https://chatboxai.app/redirect_app/advanced_file_processing?utm_source=app&utm_content=msg_upgrade_required"></LinkTargetBlank>
             ),
             LinkToAdvancedUrlProcessing: (
-              <LinkTargetBlank href="https://chatboxai.app/redirect_app/advanced_url_processing"></LinkTargetBlank>
+              <LinkTargetBlank href="https://chatboxai.app/redirect_app/advanced_url_processing?utm_source=app&utm_content=msg_upgrade_required"></LinkTargetBlank>
             ),
           }}
         />
@@ -143,7 +145,7 @@ export default function MessageErrTips(props: { msg: Message }) {
         components={[
           <a
             key="a"
-            href={`https://chatboxai.app/redirect_app/faqs/${settingActions.getLanguage()}`}
+            href={`https://chatboxai.app/redirect_app/faqs/${settingActions.getLanguage()}?utm_source=app&utm_content=msg_error_unknown`}
             target="_blank"
           ></a>,
         ]}

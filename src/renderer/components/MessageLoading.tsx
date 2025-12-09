@@ -1,11 +1,10 @@
-import { Loader } from 'lucide-react'
-import { Message } from 'src/shared/types'
-import { useTranslation } from 'react-i18next'
 import { Typography } from '@mui/material'
-import { Trans } from 'react-i18next'
-import LinkTargetBlank from './Link'
 import { useAtomValue } from 'jotai'
+import { Loader } from 'lucide-react'
+import { Trans, useTranslation } from 'react-i18next'
+import type { Message } from 'src/shared/types'
 import * as atoms from '../stores/atoms'
+import LinkTargetBlank from './Link'
 
 export default function MessageStatuses(props: { statuses: Message['status'] }) {
   const { statuses } = props
@@ -44,7 +43,7 @@ function MessageStatus(props: { status: NonNullable<Message['status']>[number] }
               i18nKey="Due to local processing limitations, <Link>Chatbox AI Service</Link> is recommended for enhanced document processing capabilities and better results."
               components={{
                 Link: (
-                  <LinkTargetBlank href="https://chatboxai.app/redirect_app/advanced_file_processing"></LinkTargetBlank>
+                  <LinkTargetBlank href="https://chatboxai.app/redirect_app/advanced_file_processing?utm_source=app&utm_content=msg_local_limitation"></LinkTargetBlank>
                 ),
               }}
             />
@@ -72,7 +71,7 @@ function MessageStatus(props: { status: NonNullable<Message['status']>[number] }
               i18nKey="Due to local processing limitations, <Link>Chatbox AI Service</Link> is recommended to enhance webpage parsing capabilities, especially for dynamic pages."
               components={{
                 Link: (
-                  <LinkTargetBlank href="https://chatboxai.app/redirect_app/advanced_url_processing"></LinkTargetBlank>
+                  <LinkTargetBlank href="https://chatboxai.app/redirect_app/advanced_url_processing?utm_source=app&utm_content=msg_local_limitation"></LinkTargetBlank>
                 ),
               }}
             />
