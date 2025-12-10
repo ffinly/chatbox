@@ -103,15 +103,23 @@ export const SessionSettingsSchema = GlobalSessionSettingsSchema.extend({
   providerOptions: ProviderOptionsSchema.optional().catch(undefined),
 })
 
+const UnifiedTokenUsageDetailSchema = z.object({
+  type: z.string(), // "plan" | "trial" | ... (more types in future)
+  token_usage: z.number(),
+  token_limit: z.number(),
+})
+
 const ChatboxAILicenseDetailSchema = z.object({
   type: z.enum(['chatboxai-3.5', 'chatboxai-4']).optional(),
   name: z.string(),
+  status: z.string().optional(),
   defaultModel: z.enum(['chatboxai-3.5', 'chatboxai-4']).optional(),
   remaining_quota_35: z.number(),
   remaining_quota_4: z.number(),
   remaining_quota_image: z.number(),
   image_used_count: z.number(),
   image_total_quota: z.number(),
+  plan_image_limit: z.number(),
   token_refreshed_time: z.string(),
   token_next_refresh_time: z.string().optional(),
   token_expire_time: z.string().nullish(),
@@ -120,6 +128,14 @@ const ChatboxAILicenseDetailSchema = z.object({
   expansion_pack_usage: z.number(),
   unified_token_usage: z.number(),
   unified_token_limit: z.number(),
+  unified_token_usage_details: z.array(UnifiedTokenUsageDetailSchema).default([]),
+  key: z.string().optional(),
+  price_type: z.string().optional(),
+  order_type: z.string().optional(),
+  utm_source: z.string().optional(),
+  expires_at: z.string().optional(),
+  recurring_canceled: z.boolean().nullish(),
+  payment_type: z.string().optional(),
 })
 
 export const shortcutSendValues = [
@@ -347,6 +363,7 @@ export type GoogleParams = z.infer<typeof GoogleParamsSchema>
 export type ProviderOptions = z.infer<typeof ProviderOptionsSchema>
 export type GlobalSessionSettings = z.infer<typeof GlobalSessionSettingsSchema>
 export type ChatboxAILicenseDetail = z.infer<typeof ChatboxAILicenseDetailSchema>
+export type UnifiedTokenUsageDetail = z.infer<typeof UnifiedTokenUsageDetailSchema>
 export type ShortcutSendValue = z.infer<typeof ShortcutSendValueSchema>
 export type ShortcutToggleWindowValue = z.infer<typeof ShortcutToggleWindowValueSchema>
 export type ShortcutName = keyof ShortcutSetting

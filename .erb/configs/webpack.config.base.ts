@@ -80,6 +80,9 @@ const configuration: webpack.Configuration = {
       CHATBOX_BUILD_TARGET: 'unknown',
       CHATBOX_BUILD_PLATFORM: 'unknown',
       USE_LOCAL_API: '',
+      USE_BETA_API: '',
+      USE_LOCAL_CHATBOX: '',
+      USE_BETA_CHATBOX: '',
     }),
   ],
 }

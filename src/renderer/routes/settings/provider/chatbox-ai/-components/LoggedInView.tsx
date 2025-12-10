@@ -1,4 +1,4 @@
-import { Alert, Button, Flex, Menu, Paper, Progress, Select, Stack, Text, Title, UnstyledButton } from '@mantine/core'
+import { Alert, Button, Flex, Menu, Paper, Select, Stack, Text, Title, UnstyledButton } from '@mantine/core'
 import { IconArrowRight, IconDots, IconExclamationCircle, IconExternalLink, IconLogout } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { forwardRef, useCallback, useEffect, useState } from 'react'
@@ -9,7 +9,7 @@ import { getLicenseDetailRealtime, getUserProfile, listLicensesByUser } from '@/
 import platform from '@/platform'
 import * as premiumActions from '@/stores/premiumActions'
 import { settingsStore, useSettingsStore } from '@/stores/settingsStore'
-import { formatUsage } from '@/utils/format'
+import { LicenseDetailCard } from './LicenseDetailCard'
 
 interface LoggedInViewProps {
   onLogout: () => void
@@ -414,90 +414,11 @@ export const LoggedInView = forwardRef<HTMLDivElement, LoggedInViewProps>(
 
               {/* License Detail Content */}
               {!activationError && !loadingLicenseDetail && !licenseDetailError && licenseDetail && (
-                <Stack gap="lg">
-                  {/* Chatbox AI Quota & Expansion Pack Quota & Image Quota */}
-                  {(
-                    [
-                      [
-                        t('Chatbox AI Quota'),
-                        licenseDetail.remaining_quota_unified * 100,
-                        formatUsage(
-                          (licenseDetail.unified_token_limit || 0) - (licenseDetail.unified_token_usage || 0),
-                          licenseDetail.unified_token_limit || 0,
-                          2
-                        ),
-                      ],
-                      ...(licenseDetail.expansion_pack_limit
-                        ? [
-                            [
-                              t('Expansion Pack Quota'),
-                              ((licenseDetail.expansion_pack_limit - (licenseDetail.expansion_pack_usage || 0)) /
-                                licenseDetail.expansion_pack_limit) *
-                                100,
-                              formatUsage(
-                                licenseDetail.expansion_pack_limit - (licenseDetail.expansion_pack_usage || 0),
-                                licenseDetail.expansion_pack_limit,
-                                2
-                              ),
-                            ],
-                          ]
-                        : []),
-                      [
-                        t('Chatbox AI Image Quota'),
-                        licenseDetail.image_total_quota > 0
-                          ? ((licenseDetail.image_total_quota - licenseDetail.image_used_count) /
-                              licenseDetail.image_total_quota) *
-                            100
-                          : 0,
-                        `${licenseDetail.image_total_quota - licenseDetail.image_used_count}/${
-                          licenseDetail.image_total_quota
-                        }`,
-                      ],
-                    ] as const
-                  ).map(([key, val, text]) => (
-                    <Stack key={key} gap="xxs">
-                      <Flex align="center" justify="space-between">
-                        <Text>{key}</Text>
-                        <Text c="chatbox-brand" fw="600">
-                          {text}
-                        </Text>
-                      </Flex>
-                      <Progress value={Number(val)} />
-                    </Stack>
-                  ))}
-
-                  {/* Quota Reset & License Expiry */}
-                  <Flex gap="lg">
-                    {[
-                      [t('Quota Reset'), new Date(licenseDetail.token_next_refresh_time!).toLocaleDateString()],
-                      [
-                        t('License Expiry'),
-                        licenseDetail.token_expire_time
-                          ? new Date(licenseDetail.token_expire_time).toLocaleDateString()
-                          : '',
-                      ],
-                    ].map(([key, val]) => (
-                      <Stack key={key} flex={1} gap="xxs">
-                        <Text size="xs" c="dimmed">
-                          {key}
-                        </Text>
-                        <Text size="md" fw="600">
-                          {val}
-                        </Text>
-                      </Stack>
-                    ))}
-                  </Flex>
-
-                  {/* License Plan Overview */}
-                  <Stack flex={1} gap="xxs">
-                    <Text size="xs" c="dimmed">
-                      {t('License Plan Overview')}
-                    </Text>
-                    <Text size="md" fw="600">
-                      {licenseDetail.name}
-                    </Text>
-                  </Stack>
-                </Stack>
+                <LicenseDetailCard
+                  licenseDetail={licenseDetail}
+                  language={language}
+                  utmContent="provider_cb_login_quota_details"
+                />
               )}
 
               {/* No licenses found */}

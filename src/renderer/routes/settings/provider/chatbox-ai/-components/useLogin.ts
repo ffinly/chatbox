@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { debounce } from 'lodash'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { checkLoginStatus, requestLoginTicketId } from '@/packages/remote'
+import { checkLoginStatus, getChatboxOrigin, requestLoginTicketId } from '@/packages/remote'
 import platform from '@/platform'
 import { LOGIN_POLLING_INTERVAL, LOGIN_POLLING_TIMEOUT } from './constants'
 import type { LoginState } from './types'
@@ -35,7 +35,7 @@ export function useLogin({ language, onLoginSuccess }: UseLoginParams) {
       const ticket = await requestLoginTicketId()
       setTicketId(ticket)
 
-      const url = `https://chatboxai.app/${getLanguagePath(language)}/authorize?ticket_id=${ticket}`
+      const url = `${getChatboxOrigin()}/${getLanguagePath(language)}/authorize?ticket_id=${ticket}`
       setLoginUrl(url)
 
       // 对于 web 平台，不自动打开链接，让用户自己点击
