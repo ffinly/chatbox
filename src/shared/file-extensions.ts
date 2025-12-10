@@ -175,6 +175,8 @@ export function getFileAcceptString(): string {
  */
 export function getFileAcceptConfig(): Record<string, string[]> {
   return {
+    // Image files
+    'image/*': ['.jpg', '.jpeg', '.png'],
     // Text files
     'text/plain': ['.txt', '.log', '.nfo', '.ini', '.conf', '.config', '.env'],
     'text/markdown': ['.md', '.mdx'],
