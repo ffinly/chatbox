@@ -13,6 +13,9 @@ import { checkIfUserIsPro, parseFileRemotely } from './remote-file-parser'
 
 const log = getLogger('knowledge-base:file-loaders')
 
+// TODO: 后面优化 pdf 太大（页数过多）时token 消耗太多的问题再打开
+const ENABLE_REMOTE_PARSING_FALLBACK = false
+
 // Error prefix for upgrade required (must match renderer)
 const KB_UPGRADE_REQUIRED_PREFIX = '[KB_UPGRADE_REQUIRED]'
 
@@ -83,7 +86,7 @@ async function parseFileToDocument(
     log.warn(`[FILE] Local parsing failed for ${fileMeta.filename}:`, localError)
 
     // Fallback to remote parsing for Pro users (skip images as they use Vision model)
-    if (checkIfUserIsPro() && !fileMeta.mimeType.startsWith('image/')) {
+    if (ENABLE_REMOTE_PARSING_FALLBACK && checkIfUserIsPro() && !fileMeta.mimeType.startsWith('image/')) {
       try {
         log.info(`[FILE] Attempting remote parsing for ${fileMeta.filename}`)
         const content = await parseFileRemotely(filePath, fileMeta.filename, fileMeta.mimeType)
@@ -106,8 +109,8 @@ async function parseFileToDocument(
       }
     }
 
-    // For non-Pro users, add upgrade prefix to error message
-    if (!checkIfUserIsPro() && !fileMeta.mimeType.startsWith('image/')) {
+    // For non-Pro users, add upgrade prefix to error message (only when fallback is enabled)
+    if (ENABLE_REMOTE_PARSING_FALLBACK && !checkIfUserIsPro() && !fileMeta.mimeType.startsWith('image/')) {
       const errorMessage = localError instanceof Error ? localError.message : String(localError)
       throw new Error(`${KB_UPGRADE_REQUIRED_PREFIX}${errorMessage}`)
     }
