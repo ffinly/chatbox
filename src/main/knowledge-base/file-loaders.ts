@@ -9,11 +9,15 @@ import { parseFile } from '../file-parser'
 import { getLogger } from '../util'
 import { checkProcessingTimeouts, getDatabase, getVectorStore } from './db'
 import { getEmbeddingProvider, getRerankProvider, getVisionProvider } from './model-providers'
+import { checkIfUserIsPro, parseFileRemotely } from './remote-file-parser'
 
 const log = getLogger('knowledge-base:file-loaders')
 
-// Parse file to MDocument based on file type
-async function parseFileToDocument(
+// Error prefix for upgrade required (must match renderer)
+const KB_UPGRADE_REQUIRED_PREFIX = '[KB_UPGRADE_REQUIRED]'
+
+// Parse file to MDocument using local parsers only
+async function parseFileToDocumentLocal(
   filePath: string,
   fileMeta: { fileId: number; filename: string; mimeType: string },
   kbId: number
@@ -63,6 +67,52 @@ async function parseFileToDocument(
     })
   } else {
     throw new Error(`Unsupported file type: ${fileMeta.mimeType}`)
+  }
+}
+
+// Parse file to MDocument with remote fallback for Pro users
+async function parseFileToDocument(
+  filePath: string,
+  fileMeta: { fileId: number; filename: string; mimeType: string },
+  kbId: number
+): Promise<MDocument> {
+  // Try local parsing first
+  try {
+    return await parseFileToDocumentLocal(filePath, fileMeta, kbId)
+  } catch (localError) {
+    log.warn(`[FILE] Local parsing failed for ${fileMeta.filename}:`, localError)
+
+    // Fallback to remote parsing for Pro users (skip images as they use Vision model)
+    if (checkIfUserIsPro() && !fileMeta.mimeType.startsWith('image/')) {
+      try {
+        log.info(`[FILE] Attempting remote parsing for ${fileMeta.filename}`)
+        const content = await parseFileRemotely(filePath, fileMeta.filename, fileMeta.mimeType)
+        log.info(`[FILE] Remote parsing succeeded for ${fileMeta.filename}`)
+        return MDocument.fromText(content)
+      } catch (remoteError) {
+        log.error(`[FILE] Remote parsing also failed for ${fileMeta.filename}:`, remoteError)
+        // Report remote parsing failure to Sentry
+        sentry.withScope((scope) => {
+          scope.setTag('component', 'knowledge-base-file')
+          scope.setTag('operation', 'remote_parsing_fallback')
+          scope.setExtra('fileId', fileMeta.fileId)
+          scope.setExtra('filename', fileMeta.filename)
+          scope.setExtra('mimeType', fileMeta.mimeType)
+          scope.setExtra('localError', String(localError))
+          sentry.captureException(remoteError)
+        })
+        // Re-throw original local error for better context
+        throw localError
+      }
+    }
+
+    // For non-Pro users, add upgrade prefix to error message
+    if (!checkIfUserIsPro() && !fileMeta.mimeType.startsWith('image/')) {
+      const errorMessage = localError instanceof Error ? localError.message : String(localError)
+      throw new Error(`${KB_UPGRADE_REQUIRED_PREFIX}${errorMessage}`)
+    }
+
+    throw localError
   }
 }
 
@@ -278,10 +328,11 @@ async function processPendingFiles() {
         )
       } catch (err: any) {
         log.error(`[FILE] File processing failed: ${file.filename} (id=${file.id})`, err)
-        // Mark as failed
+        // Mark as failed - use err.message to preserve the error message without "Error: " prefix
+        const errorMessage = err instanceof Error ? err.message : String(err)
         await db.execute({
           sql: 'UPDATE kb_file SET status = ?, error = ?, processing_started_at = NULL WHERE id = ?',
-          args: ['failed', String(err), file.id],
+          args: ['failed', errorMessage, file.id],
         })
 
         // Report individual file processing failures

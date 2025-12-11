@@ -25,7 +25,7 @@ export function LicenseDetailCard({ licenseDetail, language, utmContent }: Licen
             <Text fw="600" size="md">
               {formatUsage(
                 (licenseDetail.unified_token_limit || 0) - (licenseDetail.unified_token_usage || 0),
-                licenseDetail.unified_token_usage_details.find((detail) => detail.type === 'plan')?.token_limit || 0,
+                licenseDetail.unified_token_usage_details?.find((detail) => detail.type === 'plan')?.token_limit || 0,
                 2
               )}
             </Text>
@@ -50,20 +50,20 @@ export function LicenseDetailCard({ licenseDetail, language, utmContent }: Licen
 
       {/* Expansion Pack Quota & Image Quota */}
       <Flex gap="lg">
-        {licenseDetail.expansion_pack_limit && (
-          <Stack flex={1} gap="xxs">
-            <Text size="xs" c="dimmed">
-              {t('Expansion Pack Quota')}
-            </Text>
-            <Text size="md" fw="600">
-              {formatUsage(
-                licenseDetail.expansion_pack_limit - (licenseDetail.expansion_pack_usage || 0),
-                licenseDetail.expansion_pack_limit,
-                2
-              )}
-            </Text>
-          </Stack>
-        )}
+        <Stack flex={1} gap="xxs">
+          <Text size="xs" c="dimmed">
+            {t('Expansion Pack Quota')}
+          </Text>
+          <Text size="md" fw="600">
+            {licenseDetail.expansion_pack_limit && licenseDetail.expansion_pack_limit > 0
+              ? formatUsage(
+                  licenseDetail.expansion_pack_limit - (licenseDetail.expansion_pack_usage || 0),
+                  licenseDetail.expansion_pack_limit,
+                  2
+                )
+              : t('No Expansion Pack')}
+          </Text>
+        </Stack>
         <Stack flex={1} gap="xxs">
           <Text size="xs" c="dimmed">
             {t('Image Quota')}

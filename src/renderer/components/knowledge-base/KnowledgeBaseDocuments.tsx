@@ -1,9 +1,11 @@
 import {
   ActionIcon,
+  Alert,
   Box,
   Button,
   Center,
   Collapse,
+  Flex,
   Group,
   Loader,
   Paper,
@@ -15,10 +17,12 @@ import {
   Tooltip,
 } from '@mantine/core'
 import {
+  IconArrowRight,
   IconCheck,
   IconChevronDown,
   IconChevronRight,
   IconCircleCheck,
+  IconExclamationCircle,
   IconFile,
   IconLoader,
   IconPlayerPause,
@@ -29,7 +33,8 @@ import {
   IconUpload,
   IconX,
 } from '@tabler/icons-react'
-import React from 'react'
+import type React from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import type { FileMeta, KnowledgeBase } from 'src/shared/types'
@@ -39,18 +44,22 @@ import { useChunksPreview } from '@/hooks/useChunksPreview'
 import platform from '@/platform'
 import ChunksPreviewModal from './ChunksPreviewModal'
 
+// Error prefix for upgrade required (must match main process)
+const KB_UPGRADE_REQUIRED_PREFIX = '[KB_UPGRADE_REQUIRED]'
+
 interface KnowledgeBaseDocumentsProps {
   knowledgeBase: KnowledgeBase | null
 }
 
 const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowledgeBase }) => {
   const { t } = useTranslation()
-  const [isExpanded, setIsExpanded] = React.useState(false)
-  const [showScrollIndicator, setShowScrollIndicator] = React.useState(true)
-  const [isDragOver, setIsDragOver] = React.useState(false)
-  const [showUploadArea, setShowUploadArea] = React.useState(false)
+  const [isExpanded, setIsExpanded] = useState(false)
+  const [showScrollIndicator, setShowScrollIndicator] = useState(true)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const [showUploadArea, setShowUploadArea] = useState(false)
+  const [showUpgradeAlert, setShowUpgradeAlert] = useState(true)
 
-  const scrollAreaRef = React.useRef<HTMLDivElement>(null)
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
 
   // Chunks preview hook
   const chunksPreview = useChunksPreview()
@@ -68,12 +77,12 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
   const { invalidateFiles } = useKnowledgeBaseFilesActions()
 
   // Flatten all pages of files into a single array
-  const allFiles = React.useMemo(() => {
+  const allFiles = useMemo(() => {
     return filesData?.pages.flatMap((page) => page.files) || []
   }, [filesData])
 
   // Real-time polling for file status updates
-  React.useEffect(() => {
+  useEffect(() => {
     if (!knowledgeBase?.id || allFiles.length === 0) return
 
     // Check if there are any files being processed
@@ -92,8 +101,20 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
     return () => clearInterval(pollInterval)
   }, [knowledgeBase?.id, allFiles, refetch, refetchCount])
 
+  const upgradeRequiredCount = useMemo(
+    () =>
+      allFiles.filter((file) => file.status === 'failed' && file.error?.includes(KB_UPGRADE_REQUIRED_PREFIX)).length,
+    [allFiles]
+  )
+
+  useEffect(() => {
+    if (upgradeRequiredCount > 0) {
+      setShowUpgradeAlert(true)
+    }
+  }, [upgradeRequiredCount])
+
   // MIME type correction for Windows compatibility
-  const correctMimeType = React.useCallback((file: File): FileMeta => {
+  const correctMimeType = useCallback((file: File): FileMeta => {
     const filename = file.name.toLowerCase()
     let mimeType = file.type
 
@@ -145,22 +166,22 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
   const maxHeight = 5 * 60 // 5 items * 60px
 
   // Handle scroll position change
-  const handleScrollPositionChange = React.useCallback((position: { x: number; y: number }) => {
+  const handleScrollPositionChange = useCallback((position: { x: number; y: number }) => {
     setShowScrollIndicator(true)
   }, [])
 
-  const handleScrollToBottom = React.useCallback(() => {
+  const handleScrollToBottom = useCallback(() => {
     setShowScrollIndicator(false)
     fetchNextPage()
   }, [fetchNextPage])
 
   // Update scroll indicator when documents change
-  React.useEffect(() => {
+  useEffect(() => {
     setShowScrollIndicator(allFiles.length > 5)
   }, [allFiles.length])
 
   // Get supported file types
-  const getSupportedFileTypes = React.useCallback(() => {
+  const getSupportedFileTypes = useCallback(() => {
     const documentTypes = [
       '.pdf',
       '.doc',
@@ -208,7 +229,7 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
   }, [knowledgeBase?.visionModel])
 
   // Handle file upload (shared logic)
-  const uploadFiles = React.useCallback(
+  const uploadFiles = useCallback(
     async (files: FileList) => {
       if (!knowledgeBase?.id || !files.length) return
 
@@ -301,7 +322,7 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
   )
 
   // Validate file type against supported types
-  const validateFileType = React.useCallback(
+  const validateFileType = useCallback(
     (file: File): boolean => {
       const supportedTypes = getSupportedFileTypes()
       const fileName = file.name.toLowerCase()
@@ -332,13 +353,13 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
   )
 
   // Handle drag and drop events
-  const handleDragOver = React.useCallback((e: React.DragEvent) => {
+  const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
     setIsDragOver(true)
   }, [])
 
-  const handleDragLeave = React.useCallback((e: React.DragEvent) => {
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
     // Only hide drag over state if we're leaving the drop zone completely
@@ -347,7 +368,7 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
     }
   }, [])
 
-  const handleDrop = React.useCallback(
+  const handleDrop = useCallback(
     async (e: React.DragEvent) => {
       e.preventDefault()
       e.stopPropagation()
@@ -401,7 +422,7 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
   )
 
   // Handle file deletion
-  const handleDeleteFile = React.useCallback(
+  const handleDeleteFile = useCallback(
     async (fileId: number) => {
       try {
         const knowledgeBaseController = platform.getKnowledgeBaseController()
@@ -417,7 +438,7 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
   )
 
   // Handle file retry
-  const handleRetryFile = React.useCallback(
+  const handleRetryFile = useCallback(
     async (fileId: number) => {
       try {
         const knowledgeBaseController = platform.getKnowledgeBaseController()
@@ -436,7 +457,7 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
   )
 
   // Handle file pause
-  const handlePauseFile = React.useCallback(
+  const handlePauseFile = useCallback(
     async (fileId: number) => {
       try {
         const knowledgeBaseController = platform.getKnowledgeBaseController()
@@ -455,7 +476,7 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
   )
 
   // Handle file resume
-  const handleResumeFile = React.useCallback(
+  const handleResumeFile = useCallback(
     async (fileId: number) => {
       try {
         const knowledgeBaseController = platform.getKnowledgeBaseController()
@@ -570,7 +591,7 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
   }
 
   // Handle file upload via button
-  const handleAddFile = React.useCallback(async () => {
+  const handleAddFile = useCallback(async () => {
     if (!knowledgeBase?.id) return
 
     // Toggle upload area visibility
@@ -581,7 +602,7 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
   }, [knowledgeBase?.id, showUploadArea])
 
   // Handle file selection via file dialog
-  const handleFileDialog = React.useCallback(async () => {
+  const handleFileDialog = useCallback(async () => {
     if (!knowledgeBase?.id) return
 
     try {
@@ -724,6 +745,32 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
                 </Paper>
               </Box>
             )}
+
+            {showUpgradeAlert &&
+              allFiles.some((file) => file.status === 'failed' && file.error?.includes(KB_UPGRADE_REQUIRED_PREFIX)) && (
+                <Alert variant="light" color="yellow" p="sm" withCloseButton onClose={() => setShowUpgradeAlert(false)}>
+                  <Flex gap="xs" align="center" c="chatbox-primary">
+                    <IconExclamationCircle size={16} className="flex-shrink-0" />
+                    <Text>
+                      {t(
+                        "Local file processing failed. You can upgrade your plan to use Chatbox AI's advanced file processing capabilities."
+                      )}
+                    </Text>
+
+                    <a
+                      href={`https://chatboxai.app/redirect_app/advanced_file_processing?utm_source=app&utm_content=kb`}
+                      target="_blank"
+                      className="ml-auto flex flex-row items-center gap-xxs"
+                      rel="noopener"
+                    >
+                      <Text span fw={600} className="whitespace-nowrap">
+                        {t('Upgrade')}
+                      </Text>
+                      <IconArrowRight size={12} />
+                    </a>
+                  </Flex>
+                </Alert>
+              )}
 
             {/* Scrollable Document List with Scroll Indicator */}
             {allFiles.length > 0 && (
