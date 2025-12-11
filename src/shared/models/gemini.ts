@@ -77,11 +77,7 @@ export default class Gemeni extends AbstractAISDKModel {
         } satisfies GoogleGenerativeAIProviderOptions,
       },
     }
-    if (
-      ['gemini-2.0-flash-preview-image-generation', 'gemini-2.5-flash-image-preview'].includes(
-        this.options.model.modelId
-      )
-    ) {
+    if (['gemini-3-pro-image-preview', 'gemini-2.5-flash-image'].includes(this.options.model.modelId)) {
       settings.providerOptions = {
         google: {
           ...providerParams,
