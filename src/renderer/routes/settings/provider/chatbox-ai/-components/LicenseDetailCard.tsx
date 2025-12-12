@@ -15,6 +15,12 @@ interface LicenseDetailCardProps {
 export function LicenseDetailCard({ licenseDetail, language, utmContent }: LicenseDetailCardProps) {
   const { t } = useTranslation()
 
+  // Check if user is trial-only (plan token_limit is 0, but trial has token_limit)
+  const planDetail = licenseDetail.unified_token_usage_details?.find((detail) => detail.type === 'plan')
+  const trialDetail = licenseDetail.unified_token_usage_details?.find((detail) => detail.type === 'trial')
+  const isTrialOnly = (planDetail?.token_limit || 0) === 0 && (trialDetail?.token_limit || 0) > 0
+  const quotaLimit = isTrialOnly ? trialDetail?.token_limit || 0 : planDetail?.token_limit || 0
+
   return (
     <Stack gap="lg">
       {/* Plan Quota */}
@@ -25,7 +31,7 @@ export function LicenseDetailCard({ licenseDetail, language, utmContent }: Licen
             <Text fw="600" size="md">
               {formatUsage(
                 (licenseDetail.unified_token_limit || 0) - (licenseDetail.unified_token_usage || 0),
-                licenseDetail.unified_token_usage_details?.find((detail) => detail.type === 'plan')?.token_limit || 0,
+                quotaLimit || 0,
                 2
               )}
             </Text>
@@ -69,21 +75,23 @@ export function LicenseDetailCard({ licenseDetail, language, utmContent }: Licen
             {t('Image Quota')}
           </Text>
           <Text size="md" fw="600">
-            {`${licenseDetail.image_total_quota - licenseDetail.image_used_count}/${licenseDetail.plan_image_limit}`}
+            {`${licenseDetail.image_total_quota - licenseDetail.image_used_count}/${isTrialOnly ? licenseDetail.image_total_quota : licenseDetail.plan_image_limit}`}
           </Text>
         </Stack>
       </Flex>
 
       {/* Quota Reset & License Expiry */}
       <Flex gap="lg">
-        <Stack flex={1} gap="xxs">
-          <Text size="xs" c="dimmed">
-            {t('Quota Reset')}
-          </Text>
-          <Text size="md" fw="600">
-            {new Date(licenseDetail.token_next_refresh_time!).toLocaleDateString()}
-          </Text>
-        </Stack>
+        {!isTrialOnly && (
+          <Stack flex={1} gap="xxs">
+            <Text size="xs" c="dimmed">
+              {t('Quota Reset')}
+            </Text>
+            <Text size="md" fw="600">
+              {new Date(licenseDetail.token_next_refresh_time!).toLocaleDateString()}
+            </Text>
+          </Stack>
+        )}
         <Stack flex={1} gap="xxs">
           <Text size="xs" c="dimmed">
             {t('License Expiry')}
@@ -100,7 +108,7 @@ export function LicenseDetailCard({ licenseDetail, language, utmContent }: Licen
           {t('License Plan Overview')}
         </Text>
         <Text size="md" fw="600">
-          {licenseDetail.name}
+          {licenseDetail.name} {isTrialOnly ? t('(Trial)') : null}
         </Text>
       </Stack>
     </Stack>

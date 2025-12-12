@@ -1,4 +1,5 @@
 {
+  "(Trial)": "(Essai)",
   "[Ctrl+Enter] Save, [Ctrl+Shift+Enter] Save and Resend": "[Ctrl+Enter] Enregistrer, [Ctrl+Shift+Enter] Enregistrer et Renvoyer",
   "[Enter] send, [Shift+Enter] line break, [Ctrl+Enter] send without generating": "[Entrée] envoyer, [Maj+Entrée] saut de ligne, [Ctrl+Entrée] envoyer sans générer",
   "{{count}} conversations could not be recovered due to data read errors": "{{count}} conversations n'ont pas pu être récupérées en raison d'erreurs de lecture de données",

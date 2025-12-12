@@ -1,4 +1,5 @@
 {
+  "(Trial)": "(تجريبي)",
   "[Ctrl+Enter] Save, [Ctrl+Shift+Enter] Save and Resend": "[Ctrl+Enter] حفظ، [Ctrl+Shift+Enter] حفظ وإعادة الإرسال",
   "[Enter] send, [Shift+Enter] line break, [Ctrl+Enter] send without generating": "[Enter] إرسال، [Shift+Enter] فاصل سطر، [Ctrl+Enter] إرسال بدون توليد",
   "{{count}} conversations could not be recovered due to data read errors": "لم يتم استرداد {{count}} محادثة بسبب أخطاء في قراءة البيانات",

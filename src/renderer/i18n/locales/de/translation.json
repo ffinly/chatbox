@@ -1,4 +1,5 @@
 {
+  "(Trial)": "(Testversion)",
   "[Ctrl+Enter] Save, [Ctrl+Shift+Enter] Save and Resend": "[Strg+Enter] Speichern, [Strg+Umschalt+Enter] Speichern und erneut senden",
   "[Enter] send, [Shift+Enter] line break, [Ctrl+Enter] send without generating": "[Enter] senden, [Shift+Enter] Zeilenumbruch, [Strg+Enter] senden ohne Generierung",
   "{{count}} conversations could not be recovered due to data read errors": "{{count}} Konversationen konnten aufgrund von Datenlesefehlern nicht wiederhergestellt werden",

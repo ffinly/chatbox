@@ -1,4 +1,5 @@
 {
+  "(Trial)": "（試用）",
   "[Ctrl+Enter] Save, [Ctrl+Shift+Enter] Save and Resend": "[Ctrl+Enter] 儲存, [Ctrl+Shift+Enter] 儲存後重發",
   "[Enter] send, [Shift+Enter] line break, [Ctrl+Enter] send without generating": "[Enter] 傳送、[Shift＋Enter] 換行、[Ctrl＋Enter] 傳送但不產生",
   "{{count}} conversations could not be recovered due to data read errors": "{{count}} 個對話因資料讀取錯誤而無法復原",
