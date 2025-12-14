@@ -626,6 +626,7 @@
   "Showing {{loaded}} of {{total}} chunks": "顯示 {{loaded}} / 共 {{total}} 區塊",
   "Showing first {{count}} chunks": "顯示前 {{count}} 個區塊",
   "Smartest AI-Powered Services for Rapid Access": "最智能的 AI 服務，快速訪問",
+  "Some files failed to parse. Please remove them and try again.": "部分檔案解析失敗，請移除後重試。",
   "Sorry, the current model {{model}} API itself does not support image understanding. If you need to send images, please switch to another model or use the recommended <OpenMorePlanButton>Chatbox AI Models</OpenMorePlanButton>.": "抱歉，當前模型 {{model}} API 本身不支持圖片理解。如果您需要發送圖片，請切換到其他模型或使用推薦的 <OpenMorePlanButton>Chatbox AI Models</OpenMorePlanButton>。",
   "Sorry, the current model {{model}} API itself does not support image understanding. If you need to send images, please switch to another model.": "抱歉，當前模型 {{model}} API 本身不支持圖片理解。如果您需要發送圖片，請切換到其他模型。",
   "Spam or advertising": "垃圾廣告",

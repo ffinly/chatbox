@@ -621,6 +621,7 @@
   "Showing {{loaded}} of {{total}} chunks": "{{total}}개 중 {{loaded}}개 청크 표시 중",
   "Showing first {{count}} chunks": "처음 {{count}}개 청크 표시",
   "Smartest AI-Powered Services for Rapid Access": "빠른 액세스를 위한 가장 스마트한 AI 서비스",
+  "Some files failed to parse. Please remove them and try again.": "일부 파일 파싱에 실패했습니다. 파일을 제거한 후 다시 시도해 주세요.",
   "Sorry, the current model {{model}} API itself does not support image understanding. If you need to send images, please switch to another model or use the recommended <OpenMorePlanButton>Chatbox AI Models</OpenMorePlanButton>.": "현재 모델 {{model}} API는 이미지 이해를 지원하지 않습니다. 이미지를 보내려면 다른 모델로 전환하거나 권장되는 <OpenMorePlanButton>Chatbox AI 모델</OpenMorePlanButton>을 사용하세요.",
   "Sorry, the current model {{model}} API itself does not support image understanding. If you need to send images, please switch to another model.": "현재 모델 {{model}} API는 이미지 이해를 지원하지 않습니다. 이미지를 보내려면 다른 모델로 전환하세요.",
   "Spam or advertising": "스팸 또는 광고",

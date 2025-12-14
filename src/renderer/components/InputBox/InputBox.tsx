@@ -210,6 +210,17 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
       return hasProcessingFiles || hasProcessingLinks
     }, [preConstructedMessage.preprocessingStatus])
 
+    // Check if any preprocessing has errors
+    const hasPreprocessErrors = useMemo(() => {
+      const hasErrorFiles = Object.values(preConstructedMessage.preprocessingStatus.files || {}).some(
+        (status) => status === 'error'
+      )
+      const hasErrorLinks = Object.values(preConstructedMessage.preprocessingStatus.links || {}).some(
+        (status) => status === 'error'
+      )
+      return hasErrorFiles || hasErrorLinks
+    }, [preConstructedMessage.preprocessingStatus])
+
     const disableSubmit = useMemo(
       () => !(messageInput.trim() || links?.length || attachments?.length || pictureKeys?.length),
       [messageInput, links, attachments, pictureKeys]
@@ -289,6 +300,12 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
     const closeSelectModelErrorTipCb = useRef<NodeJS.Timeout>()
     const handleSubmit = async (needGenerating = true) => {
       if (disableSubmit || generating || isSubmitting || isPreprocessing) {
+        return
+      }
+
+      // 有解析失败的文件或链接时，阻止发送并显示 toast
+      if (hasPreprocessErrors) {
+        toastActions.add(t('Some files failed to parse. Please remove them and try again.'))
         return
       }
 

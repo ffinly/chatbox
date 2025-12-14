@@ -1,4 +1,4 @@
-export const officeExts = ['.pdf', '.docx', '.pptx', '.xlsx', '.odt', '.odp', '.ods']
+export const officeExts = ['.pdf', '.doc', '.docx', '.pptx', '.xlsx', '.odt', '.odp', '.ods']
 
 export function isOfficeFilePath(filePath: string) {
   return officeExts.some((ext) => filePath.toLowerCase().endsWith(ext))
@@ -201,6 +201,7 @@ export function getFileAcceptConfig(): Record<string, string[]> {
     'text/x-scala': ['.scala'],
     // Office files
     'application/pdf': ['.pdf'],
+    'application/msword': ['.doc'],
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
     'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],

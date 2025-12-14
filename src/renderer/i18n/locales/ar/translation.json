@@ -620,6 +620,7 @@
   "Showing {{loaded}} of {{total}} chunks": "عرض {{loaded}} من {{total}} أجزاء",
   "Showing first {{count}} chunks": "إظهار أول {{count}} أجزاء",
   "Smartest AI-Powered Services for Rapid Access": "أذكى الخدمات المدعومة بالذكاء الاصطناعي للوصول السريع",
+  "Some files failed to parse. Please remove them and try again.": "فشلت بعض الملفات في التحليل. يرجى إزالتها والمحاولة مرة أخرى.",
   "Sorry, the current model {{model}} API itself does not support image understanding. If you need to send images, please switch to another model or use the recommended <OpenMorePlanButton>Chatbox AI Models</OpenMorePlanButton>.": "للأسف، النموذج الحالي {{model}} API لا يدعم فهم الصور. إذا كنت تحتاج إلى إرسال صور، يرجى التبديل إلى نموذج آخر أو استخدام النماذج الموصى بها <OpenMorePlanButton>Chatbox AI</OpenMorePlanButton>.",
   "Sorry, the current model {{model}} API itself does not support image understanding. If you need to send images, please switch to another model.": "للأسف، النموذج الحالي {{model}} API لا يدعم فهم الصور. إذا كنت تحتاج إلى إرسال صور، يرجى التبديل إلى نموذج آخر.",
   "Spam or advertising": "إعلانات أو إعلانات",

@@ -620,6 +620,7 @@
   "Showing {{loaded}} of {{total}} chunks": "Mostrando {{loaded}} de {{total}} fragmentos",
   "Showing first {{count}} chunks": "Mostrando los primeros {{count}} fragmentos",
   "Smartest AI-Powered Services for Rapid Access": "Servicios más inteligentes impulsados por IA para acceso rápido",
+  "Some files failed to parse. Please remove them and try again.": "Algunos archivos no se pudieron analizar. Por favor, elimínelos y vuelva a intentarlo.",
   "Sorry, the current model {{model}} API itself does not support image understanding. If you need to send images, please switch to another model or use the recommended <OpenMorePlanButton>Chatbox AI Models</OpenMorePlanButton>.": "Lo sentimos, el modelo actual {{model}} API no soporta el procesamiento de imágenes. Si necesita enviar imágenes, por favor cambie a otro modelo o use los <OpenMorePlanButton>modelos Chatbox AI</OpenMorePlanButton> recomendados.",
   "Sorry, the current model {{model}} API itself does not support image understanding. If you need to send images, please switch to another model.": "Lo sentimos, el modelo actual {{model}} API no soporta el procesamiento de imágenes. Si necesita enviar imágenes, por favor cambie a otro modelo.",
   "Spam or advertising": "Spam o publicidad",

@@ -621,6 +621,7 @@
   "Showing {{loaded}} of {{total}} chunks": "{{total}}個中{{loaded}}個のチャンクを表示中",
   "Showing first {{count}} chunks": "最初の {{count}} チャンクを表示中",
   "Smartest AI-Powered Services for Rapid Access": "最もスマートなAIパワードサービスで迅速なアクセス",
+  "Some files failed to parse. Please remove them and try again.": "一部のファイルの解析に失敗しました。それらを削除して、再度お試しください。",
   "Sorry, the current model {{model}} API itself does not support image understanding. If you need to send images, please switch to another model or use the recommended <OpenMorePlanButton>Chatbox AI Models</OpenMorePlanButton>.": "現在のモデル{{model}} APIは画像の理解をサポートしていません。画像を送信する必要がある場合は、別のモデルに切り替えるか、推奨される<OpenMorePlanButton>Chatbox AIモデル</OpenMorePlanButton>を使用してください。",
   "Sorry, the current model {{model}} API itself does not support image understanding. If you need to send images, please switch to another model.": "現在のモデル{{model}} APIは画像の理解をサポートしていません。画像を送信する必要がある場合は、別のモデルに切り替えてください。",
   "Spam or advertising": "スパムまたは広告",

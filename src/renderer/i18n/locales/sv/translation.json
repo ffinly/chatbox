@@ -620,6 +620,7 @@
   "Showing {{loaded}} of {{total}} chunks": "Visar {{loaded}} av {{total}} segment",
   "Showing first {{count}} chunks": "Visar första {{count}} bitar",
   "Smartest AI-Powered Services for Rapid Access": "Smartaste AI-drivna tjänsterna för snabb åtkomst",
+  "Some files failed to parse. Please remove them and try again.": "Vissa filer kunde inte parsas. Ta bort dem och försök igen.",
   "Sorry, the current model {{model}} API itself does not support image understanding. If you need to send images, please switch to another model or use the recommended <OpenMorePlanButton>Chatbox AI Models</OpenMorePlanButton>.": "Tyvärr, den aktuella modellen {{model}} API:et självt stöder inte bildförståelse. Om du behöver skicka bilder, vänligen byt till en annan modell eller använd den rekommenderade <OpenMorePlanButton>Chatbox AI Modeller</OpenMorePlanButton>.",
   "Sorry, the current model {{model}} API itself does not support image understanding. If you need to send images, please switch to another model.": "Tyvärr, den aktuella modellen {{model}} API:et självt stöder inte bildförståelse. Om du behöver skicka bilder, vänligen byt till en annan modell.",
   "Spam or advertising": "Spam eller reklam",

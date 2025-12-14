@@ -620,6 +620,7 @@
   "Showing {{loaded}} of {{total}} chunks": "Viser {{loaded}} av {{total}} biter",
   "Showing first {{count}} chunks": "Viser første {{count}} biter",
   "Smartest AI-Powered Services for Rapid Access": "De smarteste KI-drevne tjenestene for rask tilgang",
+  "Some files failed to parse. Please remove them and try again.": "Noen filer klarte ikke å tolkes. Vennligst fjern dem og prøv igjen.",
   "Sorry, the current model {{model}} API itself does not support image understanding. If you need to send images, please switch to another model or use the recommended <OpenMorePlanButton>Chatbox AI Models</OpenMorePlanButton>.": "Beklager, den nåværende modellen {{model}} API i seg selv støtter ikke bildeforståelse. Hvis du trenger å sende bilder, vennligst bytt til en annen modell eller bruk den anbefalte <OpenMorePlanButton>Chatbox AI-modeller</OpenMorePlanButton>.",
   "Sorry, the current model {{model}} API itself does not support image understanding. If you need to send images, please switch to another model.": "Beklager, den nåværende modellen {{model}} API i seg selv støtter ikke bildeforståelse. Hvis du trenger å sende bilder, vennligst bytt til en annen modell.",
   "Spam or advertising": "Spam eller reklame",
