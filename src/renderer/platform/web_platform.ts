@@ -43,6 +43,9 @@ export default class WebPlatform extends IndexedDBStorage implements Platform {
   public onWindowShow(callback: () => void): () => void {
     return () => null
   }
+  public onWindowFocused(callback: () => void): () => void {
+    return () => null
+  }
   public onUpdateDownloaded(callback: () => void): () => void {
     return () => null
   }

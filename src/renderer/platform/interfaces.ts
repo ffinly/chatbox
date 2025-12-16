@@ -27,6 +27,7 @@ export interface Platform extends Storage {
   shouldUseDarkColors(): Promise<boolean>
   onSystemThemeChange(callback: () => void): () => void
   onWindowShow(callback: () => void): () => void
+  onWindowFocused(callback: () => void): () => void
   onUpdateDownloaded(callback: () => void): () => void
   onNavigate?(callback: (path: string) => void): () => void
   openLink(url: string): Promise<void>

@@ -17,15 +17,18 @@ export default function useShortcut() {
     const handleKeyDown = (e: KeyboardEvent) => {
       keyboardShortcut(e)
     }
-    const cancel = platform.onWindowShow(() => {
+    const focusMessageInput = () => {
       // 大屏幕下，窗口显示时自动聚焦输入框
       if (!isSmallScreen) {
         dom.focusMessageInput()
       }
-    })
+    }
+    const cancelOnFocus = platform.onWindowFocused(focusMessageInput)
+    const cancelOnShow = platform.onWindowShow(focusMessageInput)
     window.addEventListener('keydown', handleKeyDown)
     return () => {
-      cancel()
+      cancelOnFocus()
+      cancelOnShow()
       window.removeEventListener('keydown', handleKeyDown)
     }
   }, [isSmallScreen])

@@ -305,6 +305,10 @@ async function createWindow() {
     mainWindow?.webContents.send('window:maximized-changed', false)
   })
 
+  mainWindow.on('focus', () => {
+    mainWindow?.webContents.send('window:focused')
+  })
+
   const menuBuilder = new MenuBuilder(mainWindow)
   menuBuilder.buildMenu()
 

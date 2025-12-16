@@ -47,6 +47,9 @@ export default class DesktopPlatform implements Platform {
   public onWindowShow(callback: () => void): () => void {
     return this.ipc.onWindowShow(callback)
   }
+  public onWindowFocused(callback: () => void): () => void {
+    return this.ipc.onWindowFocused(callback)
+  }
   public onUpdateDownloaded(callback: () => void): () => void {
     return this.ipc.onUpdateDownloaded(callback)
   }

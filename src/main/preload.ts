@@ -34,6 +34,10 @@ const electronHandler: ElectronIPC = {
     ipcRenderer.on('window:maximized-changed', callback)
     return () => ipcRenderer.off('window:maximized-changed', callback)
   },
+  onWindowFocused: (callback: (_: Electron.IpcRendererEvent) => void) => {
+    ipcRenderer.on('window:focused', callback)
+    return () => ipcRenderer.off('window:focused', callback)
+  },
   onWindowShow: (callback: () => void) => {
     ipcRenderer.on('window-show', callback)
     return () => ipcRenderer.off('window-show', callback)
