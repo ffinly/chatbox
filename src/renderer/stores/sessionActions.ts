@@ -1159,8 +1159,9 @@ async function genMessageContext(settings: SessionSettings, msgs: Message[], mod
           const content = await storage.getBlob(file.storageKey).catch(() => '')
           if (content) {
             let attachment = `\n\n<ATTACHMENT_FILE>\n`
-            attachment += `<FILE_INDEX>File ${attachmentIndex++}</FILE_INDEX>\n`
-            attachment += `<FILE_NAME>${file.storageKey}</FILE_NAME>\n`
+            attachment += `<FILE_INDEX>${attachmentIndex++}</FILE_INDEX>\n`
+            attachment += `<FILE_NAME>${file.name}</FILE_NAME>\n`
+            attachment += `<FILE_KEY>${file.storageKey}</FILE_KEY>\n`
             attachment += `<FILE_LINES>${content.split('\n').length}</FILE_LINES>\n`
             attachment += `<FILE_SIZE>${content.length} bytes</FILE_SIZE>\n`
             if (!modelSupportToolUseForFile) {
@@ -1183,7 +1184,8 @@ async function genMessageContext(settings: SessionSettings, msgs: Message[], mod
           if (content) {
             let attachment = `\n\n<ATTACHMENT_FILE>\n`
             attachment += `<FILE_INDEX>${attachmentIndex++}</FILE_INDEX>\n`
-            attachment += `<FILE_NAME>${link.storageKey}</FILE_NAME>\n`
+            attachment += `<FILE_NAME>${link.title}</FILE_NAME>\n`
+            attachment += `<FILE_KEY>${link.storageKey}</FILE_KEY>\n`
             attachment += `<FILE_LINES>${content.split('\n').length}</FILE_LINES>\n`
             attachment += `<FILE_SIZE>${content.length} bytes</FILE_SIZE>\n`
             if (!modelSupportToolUseForFile) {

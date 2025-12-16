@@ -33,10 +33,10 @@ Reads file content with line numbers (like \`cat -n\`).
 - Returns up to ${DEFAULT_LINES} lines by default, max ${MAX_LINES} lines per call
 - Lines exceeding ${MAX_LINE_LENGTH} characters are truncated with "..."
 - Use \`lineOffset\` and \`maxLines\` to read specific portions
-- Prefer \`grep_file\` when searching for specific content
+- Prefer \`search_file_content\` when searching for specific content
 - Call in parallel when reading multiple files
 
-## grep_file
+## search_file_content
 Searches for text patterns within a file.
 - Returns matching lines with line numbers and optional context
 - Use \`beforeContextLines\` / \`afterContextLines\` to include surrounding lines
@@ -47,7 +47,7 @@ Searches for text patterns within a file.
 const readFileTool = tool({
   description: 'Reads the content of a file uploaded by the user.',
   inputSchema: z.object({
-    fileName: z.string().describe('The identifier of the file to read.'),
+    fileKey: z.string().describe('The identifier of the file to read within tag `<FILE_KEY>`.'),
     lineOffset: z
       .number()
       .int()
@@ -64,10 +64,13 @@ const readFileTool = tool({
       .describe(`Optional maximum number of lines to read. Defaults to ${DEFAULT_LINES}.`),
   }),
   execute: async (
-    input: { fileName: string; lineOffset?: number; maxLines?: number },
+    input: { fileKey: string; lineOffset?: number; maxLines?: number },
     _context: { abortSignal?: AbortSignal }
   ) => {
-    const fileContent = (await platform.getStoreBlob(input.fileName)) || ''
+    const fileContent = await platform.getStoreBlob(input.fileKey)
+    if (fileContent === null) {
+      return 'File not found or inaccessible. Ensure the fileKey is the correct identifier within <FILE_KEY> tags.'
+    }
     const lines = fileContent.split('\n')
     const lineOffset = input.lineOffset ?? 0
     const maxLines = input.maxLines ?? DEFAULT_LINES
@@ -75,7 +78,7 @@ const readFileTool = tool({
     const truncatedLines = selectedLines.map(truncateLine)
     const numberedLines = truncatedLines.map((line, index) => formatLineWithNumber(line, lineOffset + index + 1))
     return {
-      fileName: input.fileName,
+      fileKey: input.fileKey,
       content: numberedLines.join('\n'),
       lineOffset,
       linesRead: selectedLines.length,
@@ -87,7 +90,7 @@ const readFileTool = tool({
 const grepFileTool = tool({
   description: 'Searches for a keyword or phrase within a file uploaded by the user.',
   inputSchema: z.object({
-    fileName: z.string().describe('The identifier of the file to search.'),
+    fileKey: z.string().describe('The identifier of the file to read within tag `<FILE_KEY>`.'),
     query: z.string().describe('The keyword or phrase to search for within the file.'),
     beforeContextLines: z
       .number()
@@ -112,7 +115,7 @@ const grepFileTool = tool({
   }),
   execute: async (
     input: {
-      fileName: string
+      fileKey: string
       query: string
       beforeContextLines?: number
       afterContextLines?: number
@@ -120,7 +123,10 @@ const grepFileTool = tool({
     },
     _context: { abortSignal?: AbortSignal }
   ) => {
-    const fileContent = (await platform.getStoreBlob(input.fileName)) || ''
+    const fileContent = await platform.getStoreBlob(input.fileKey)
+    if (fileContent === null) {
+      return 'File not found or inaccessible. Ensure the fileKey is the correct identifier within <FILE_KEY> tags.'
+    }
     const lines = fileContent.split('\n')
     const results: Array<{ lineNumber: number; lineContent: string; context: string[] }> = []
 
@@ -141,7 +147,7 @@ const grepFileTool = tool({
     }
 
     return {
-      fileName: input.fileName,
+      fileKey: input.fileKey,
       query: input.query,
       results,
       totalMatches: results.length,
@@ -153,6 +159,6 @@ export default {
   description: toolSetDescription,
   tools: {
     read_file: readFileTool,
-    grep_file: grepFileTool,
+    search_file_content: grepFileTool,
   },
 }
