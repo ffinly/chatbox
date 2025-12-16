@@ -189,7 +189,7 @@ describe('OpenAI Adapter', () => {
       const toolCall = toolCallParts[0] as { type: string; toolCallId: string; toolName: string; args: string }
       expect(toolCall.toolCallId).toBe('call_abc')
       expect(toolCall.toolName).toBe('get_weather')
-      expect(JSON.parse(toolCall.args)).toEqual({ location: 'Tokyo' })
+      expect(toolCall.args).toEqual({ location: 'Tokyo' })
     })
   })
 
