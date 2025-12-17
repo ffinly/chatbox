@@ -38,6 +38,7 @@
     "test:ui": "vitest --ui",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:file-conversation": "vitest run test/integration/file-conversation --testTimeout=120000",
     "lint": "biome lint .",
     "lint:fix": "biome lint . --write",
     "check": "npx tsc --noEmit",

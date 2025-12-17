@@ -803,7 +803,7 @@ async function generate(
           }
         }
 
-        const result = await streamText(model, {
+        const { result } = await streamText(model, {
           sessionId: session.id,
           messages: promptMsgs,
           onResultChangeWithCancel: modifyMessageCache,
@@ -1113,7 +1113,26 @@ export async function clearConversationList(keepNum: number) {
 /**
  * 从历史消息中生成 prompt 上下文
  */
-async function genMessageContext(settings: SessionSettings, msgs: Message[], modelSupportToolUseForFile: boolean) {
+/**
+ * 构造消息上下文
+ * 处理消息列表，包括：
+ * - 根据 maxContextMessageCount 限制上下文消息数量
+ * - 为文件附件添加 ATTACHMENT_FILE 标记
+ * - 为链接附件添加 ATTACHMENT_FILE 标记
+ *
+ * @param settings 会话设置
+ * @param msgs 原始消息列表
+ * @param modelSupportToolUseForFile 模型是否支持文件读取工具（如果支持，则不直接包含文件内容）
+ * @param storageAdapter 可选的存储适配器，用于读取文件内容（默认使用 storage.getBlob）
+ * @returns 处理后的消息列表
+ */
+export async function genMessageContext(
+  settings: SessionSettings,
+  msgs: Message[],
+  modelSupportToolUseForFile: boolean,
+  storageAdapter?: { getBlob: (key: string) => Promise<string> }
+) {
+  const storageGetBlob = storageAdapter?.getBlob ?? ((key: string) => storage.getBlob(key).catch(() => ''))
   const {
     // openaiMaxContextTokens,
     maxContextMessageCount,
@@ -1156,7 +1175,7 @@ async function genMessageContext(settings: SessionSettings, msgs: Message[], mod
       for (const file of msg.files) {
         if (file.storageKey) {
           msg = cloneMessage(msg) // 复制一份消息，避免修改原始消息
-          const content = await storage.getBlob(file.storageKey).catch(() => '')
+          const content = await storageGetBlob(file.storageKey)
           if (content) {
             let attachment = `\n\n<ATTACHMENT_FILE>\n`
             attachment += `<FILE_INDEX>${attachmentIndex++}</FILE_INDEX>\n`
@@ -1180,7 +1199,7 @@ async function genMessageContext(settings: SessionSettings, msgs: Message[], mod
       for (const link of msg.links) {
         if (link.storageKey) {
           msg = cloneMessage(msg) // 复制一份消息，避免修改原始消息
-          const content = await storage.getBlob(link.storageKey).catch(() => '')
+          const content = await storageGetBlob(link.storageKey)
           if (content) {
             let attachment = `\n\n<ATTACHMENT_FILE>\n`
             attachment += `<FILE_INDEX>${attachmentIndex++}</FILE_INDEX>\n`

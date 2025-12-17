@@ -5,6 +5,7 @@ import { getModel } from 'src/shared/models'
 import { ChatboxAIAPIError } from 'src/shared/models/errors'
 import { sequenceMessages } from 'src/shared/utils/message'
 import { getModelSettings } from 'src/shared/utils/model_settings'
+import { core } from 'zod'
 import { createModelDependencies } from '@/adapters'
 import * as settingActions from '@/stores/settingActions'
 import { settingsStore } from '@/stores/settingsStore'
@@ -46,7 +47,8 @@ async function handleSearchResult(
   params: { providerOptions?: ProviderOptions }
 ) {
   if (!result?.searchResults?.length || result.type === 'none') {
-    return model.chat(coreMessages, { signal: controller.signal, onResultChange })
+    const chatResult = await model.chat(coreMessages, { signal: controller.signal, onResultChange })
+    return { result: chatResult, coreMessages }
   }
 
   const toolCallPart: MessageToolCallPart = {
@@ -64,7 +66,7 @@ async function handleSearchResult(
       ? constructMessagesWithKnowledgeBaseResults(messages, result.searchResults)
       : constructMessagesWithSearchResults(messages, result.searchResults)
 
-  return model.chat(await convertToModelMessages(messagesWithResults), {
+  const chatResult = await model.chat(await convertToModelMessages(messagesWithResults), {
     signal: controller.signal,
     onResultChange: (data) => {
       if (data.contentParts) {
@@ -75,6 +77,7 @@ async function handleSearchResult(
     },
     providerOptions: params.providerOptions,
   })
+  return { result: chatResult, coreMessages }
 }
 
 async function ocrMessages(messages: Message[]) {
@@ -113,7 +116,7 @@ export async function streamText(
     webBrowsing?: boolean
   },
   signal?: AbortSignal
-) {
+): Promise<{ result: StreamTextResult; coreMessages: ModelMessage[] }> {
   const { knowledgeBase, webBrowsing, sessionId } = params
   const hasFileOrLink = params.messages.some((m) => m.files?.length || m.links?.length)
 
@@ -126,6 +129,8 @@ export async function streamText(
   let result: StreamTextResult = {
     contentParts: [],
   }
+  let coreMessages: ModelMessage[] = []
+
   // for model not support tool use, use prompt engineering to handle knowledge base and web search
   const needFileToolSet = hasFileOrLink && model.isSupportToolUse()
   const kbNotSupported = knowledgeBase && !model.isSupportToolUse('knowledge-base')
@@ -181,7 +186,7 @@ export async function streamText(
       })
     }
 
-    const coreMessages = await convertToModelMessages(messages, { modelSupportVision: model.isSupportVision() })
+    coreMessages = await convertToModelMessages(messages, { modelSupportVision: model.isSupportVision() })
 
     // 3. handle model not support tool use scenarios
     if (kbNotSupported || webNotSupported) {
@@ -294,12 +299,12 @@ export async function streamText(
       tools,
     })
 
-    return result
+    return { result, coreMessages }
   } catch (err) {
     console.error(err)
     // if a cancellation is performed, do not throw an exception, otherwise the content will be overwritten.
     if (controller.signal.aborted) {
-      return result
+      return { result, coreMessages }
     }
     throw err
   }

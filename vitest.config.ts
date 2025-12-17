@@ -8,7 +8,7 @@ export default defineConfig({
     env: {
       NODE_ENV: 'test',
     },
-    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    include: ['src/**/*.{test,spec}.{ts,tsx}', 'test/integration/**/*.{test,spec}.{ts,tsx}'],
     exclude: ['node_modules', 'dist', 'release', '.erb'],
     setupFiles: [],
     testTimeout: 10000,
