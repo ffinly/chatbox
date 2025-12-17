@@ -3,8 +3,8 @@ import { setTimeout } from 'node:timers/promises'
 import { MDocument } from '@mastra/rag'
 import { embedMany, type ModelMessage } from 'ai'
 import { isEpubFilePath, isOfficeFilePath, isTextFilePath } from '../../shared/file-extensions'
-import { rerank } from '../../shared/models/rerank'
 import { ChatboxAIAPIError } from '../../shared/models/errors'
+import { rerank } from '../../shared/models/rerank'
 import { sentry } from '../adapters/sentry'
 import { parseFile } from '../file-parser'
 import { getLogger } from '../util'
@@ -155,11 +155,16 @@ export async function processFileWithMastra(
     })
 
     if (!allChunks || allChunks.length === 0) {
-      // throw new Error('No chunks generated from document')
-      await db.execute({
-        sql: 'UPDATE kb_file SET chunk_count = 0, status = ? WHERE id = ?',
-        args: ['done', fileMeta.fileId],
-      })
+      if (useRemoteParsing) {
+        // Server parsing also resulted in 0 chunks, mark as done (truly empty file)
+        await db.execute({
+          sql: 'UPDATE kb_file SET chunk_count = 0, status = ? WHERE id = ?',
+          args: ['done', fileMeta.fileId],
+        })
+      } else {
+        // Local parsing resulted in 0 chunks, mark as failed so user can retry with server parsing
+        throw new Error('No content extracted from file')
+      }
       return
     }
 
