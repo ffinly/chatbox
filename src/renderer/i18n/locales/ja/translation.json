@@ -577,6 +577,7 @@
   "Retrieves up-to-date documentation and code examples for any library.": "あらゆるライブラリの最新のドキュメントとコード例を取得します。",
   "Retry": "再試行",
   "Retry All": "すべてを再試行",
+  "Retry locally": "ローカルで再試行",
   "Retry with Server Parsing": "サーバー解析で再試行",
   "Return to the top": "トップに戻る",
   "Roadmap": "ロードマップ",

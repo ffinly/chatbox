@@ -577,6 +577,7 @@
   "Retrieves up-to-date documentation and code examples for any library.": "어떤 라이브러리든 최신 문서와 코드 예시를 가져옵니다.",
   "Retry": "재시도",
   "Retry All": "모두 다시 시도",
+  "Retry locally": "로컬에서 재시도",
   "Retry with Server Parsing": "서버 파싱으로 다시 시도",
   "Return to the top": "맨 위로 돌아가기",
   "Roadmap": "로드맵",

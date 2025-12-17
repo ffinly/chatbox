@@ -577,6 +577,7 @@
   "Retrieves up-to-date documentation and code examples for any library.": "Récupère la documentation et les exemples de code à jour pour toute bibliothèque.",
   "Retry": "Pensez étape par étape.\n1. Le texte à traduire est \"Retry\".\n2. Le contexte est une interface utilisateur d'un logiciel d'IA chatbot.\n3. \"Retry\" est un bouton ou une action qui signifie \"essayer à nouveau\".\n4. La traduction la plus courante et appropriée pour \"Retry\" dans une interface utilisateur en français est \"Réessayer\".\n\nLa traduction est \"Réessayer\".Réessayer",
   "Retry All": "Réessayer tout",
+  "Retry locally": "Poursuivre en local",
   "Retry with Server Parsing": "Réessayer avec l'analyse par le serveur",
   "Return to the top": "Retour en haut",
   "Roadmap": "Feuille de route",

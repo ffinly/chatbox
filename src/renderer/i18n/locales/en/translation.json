@@ -499,6 +499,7 @@
   "Retrieves up-to-date documentation and code examples for any library.": "Retrieves up-to-date documentation and code examples for any library.",
   "Retry": "Retry",
   "Retry All": "Retry All",
+  "Retry locally": "Retry locally",
   "Retry with Server Parsing": "Retry with Server Parsing",
   "Return to the top": "Return to the top",
   "save": "save",

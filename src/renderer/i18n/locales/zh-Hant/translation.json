@@ -582,6 +582,7 @@
   "Retrieves up-to-date documentation and code examples for any library.": "擷取任何函式庫的最新文件和程式碼範例。",
   "Retry": "重試",
   "Retry All": "重試全部",
+  "Retry locally": "本機重試",
   "Retry with Server Parsing": "重試伺服器解析",
   "Return to the top": "跳轉到頂部",
   "Roadmap": "未來規劃",

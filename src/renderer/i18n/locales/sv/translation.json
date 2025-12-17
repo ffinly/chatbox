@@ -576,6 +576,7 @@
   "Retrieves up-to-date documentation and code examples for any library.": "Hämtar aktuell dokumentation och kodexempel för vilket bibliotek som helst.",
   "Retry": "Tänk steg för steg. Jag är en professionell översättare för UI. Jag ska översätta texten \"Retry\" till svenska.\n\n1. **Analysera ordet:** \"Retry\" betyder att försöka igen.\n2. **Kontext:** I ett UI är det ofta en knapp eller en länk som användaren klickar på för att upprepa en misslyckad åtgärd.\n3. **Svenska motsvarigheter:**\n    * \"Försök igen\" - Mycket vanligt och direkt.\n    * \"Återförsök\" - Mer formellt, men också korrekt.\n    * \"Prova igen\" - Lite mer informellt, men också gångbart.\n4. **UI-standarder:** \"Försök igen\" är den mest etablerade och intuitiva översättningen för \"Retry\" i svenska användargränssnitt. Den är kort, tydlig och lätt att förstå.\n\n**Slutgiltigt val:** \"Försök igen\"\n\nFörsök igen",
   "Retry All": "Återförsök alla",
+  "Retry locally": "Försök igen lokalt",
   "Retry with Server Parsing": "Försök igen med servertolkning",
   "Return to the top": "Återgå till toppen",
   "Roadmap": "Utvecklingsplan",

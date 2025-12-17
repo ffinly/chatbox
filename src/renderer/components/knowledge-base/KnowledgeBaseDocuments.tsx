@@ -881,7 +881,7 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
                                 color="blue"
                                 size="sm"
                                 onClick={() => handleRetryFile(doc.id)}
-                                title={t('Retry')}
+                                title={t('Retry locally')}
                               >
                                 <IconRefresh size={14} />
                               </ActionIcon>

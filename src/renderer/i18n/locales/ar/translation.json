@@ -576,6 +576,7 @@
   "Retrieves up-to-date documentation and code examples for any library.": "يسترجع وثائق محدّثة وأمثلة برمجية لأي مكتبة.",
   "Retry": "إعادة المحاولة",
   "Retry All": "إعادة محاولة الكل",
+  "Retry locally": "إعادة المحاولة محليًا",
   "Retry with Server Parsing": "إعادة المحاولة بالتحليل عبر الخادم",
   "Return to the top": "العودة إلى الأعلى",
   "Roadmap": "خارطة الطريق",

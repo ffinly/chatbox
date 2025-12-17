@@ -576,6 +576,7 @@
   "Retrieves up-to-date documentation and code examples for any library.": "Henter oppdatert dokumentasjon og kodeeksempler for ethvert bibliotek.",
   "Retry": "Prøv på nytt",
   "Retry All": "Prøv alle på nytt",
+  "Retry locally": "Tenk lokalt på nytt",
   "Retry with Server Parsing": "Prøv igjen med serverparsing",
   "Return to the top": "Tilbake til toppen",
   "Roadmap": "Veikart",

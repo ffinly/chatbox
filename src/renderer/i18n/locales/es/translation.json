@@ -576,6 +576,7 @@
   "Retrieves up-to-date documentation and code examples for any library.": "Recupera documentación y ejemplos de código al día para cualquier biblioteca.",
   "Retry": "Reintentar",
   "Retry All": "Reintentar todo",
+  "Retry locally": "Reintentar localmente",
   "Retry with Server Parsing": "Reintentar con análisis del servidor",
   "Return to the top": "Volver al principio",
   "Roadmap": "Hoja de ruta",
