@@ -1,7 +1,7 @@
 /**
  * 文件对话集成测试
  *
- * 测试 AI 通过 tools (read_file, grep_file) 读取文件内容的机制
+ * 测试 AI 通过 tools (read_file, search_file_content) 读取文件内容的机制
  *
  * 运行方式：
  * 1. 设置环境变量 CHATBOX_LICENSE_KEY
@@ -32,7 +32,7 @@ const shouldSkip = !LICENSE_KEY
 
 // 默认的 system prompt，所有测试用例都会使用
 const DEFAULT_SYSTEM_PROMPT = `You are a helpful AI assistant that can read and analyze files.
-When the user attaches files, use the provided tools (read_file, grep_file) to access their content.
+When the user attaches files, use the provided tools (read_file, search_file_content) to access their content.
 Always provide accurate and helpful responses based on the file content.
 Be concise but thorough in your explanations.`
 
@@ -123,8 +123,8 @@ describe('File Conversation Integration Tests', () => {
     // 1. 如果 noSystemPrompt 为 true，不使用任何 system prompt
     // 2. 如果提供了 options.systemPrompt，使用它
     // 3. 否则使用默认的 DEFAULT_SYSTEM_PROMPT
-    const systemPrompt = options?.noSystemPrompt 
-      ? undefined 
+    const systemPrompt = options?.noSystemPrompt
+      ? undefined
       : (options?.systemPrompt ?? DEFAULT_SYSTEM_PROMPT)
 
     const result = await runTest({
@@ -208,17 +208,17 @@ describe('File Conversation Integration Tests', () => {
     }, 60000)
   })
 
-  describe('Grep File Tests', () => {
-    it.skipIf(shouldSkip)('should use grep to search for specific content', async () => {
+  describe('Search File Content Tests', () => {
+    it.skipIf(shouldSkip)('should use search_file_content to search for specific content', async () => {
       const mdFile = loadTestFile('sample.md', 'text/markdown')
 
       const result = await runConversationTest(
-        'Markdown Grep Search',
+        'Markdown File Content Search',
         [mdFile],
-        'Search the attached markdown file for "RATE_LIMITED" and explain what this error code means.',
+        'Search the attached markdown file for "RATE_LIMITED" and explain what this error code means. You must use the search_file_content tool to find the relevant section.',
         (result) => {
           const usedTools = result.toolCalls.map((tc) => tc.toolName)
-          expect(usedTools.some((t) => t === 'grep_file' || t === 'read_file')).toBe(true)
+          expect(usedTools.some((t) => t === 'search_file_content')).toBe(true)
 
           const responseText = result.response?.contentParts
             ?.filter((p) => p.type === 'text')

@@ -1,7 +1,7 @@
 /**
  * 文件对话集成测试框架
  *
- * 用于测试 AI 通过 tools (read_file, grep_file) 读取文件内容的机制
+ * 用于测试 AI 通过 tools (read_file, search_file_content) 读取文件内容的机制
  *
  * 使用方式：
  * 1. 设置环境变量 CHATBOX_LICENSE_KEY
@@ -582,7 +582,7 @@ export interface RunConversationTestOptions {
 /**
  * 运行单个对话测试（便捷函数）
  * 用于在测试文件中直接调用，无需创建 TestRunner 实例
- * 
+ *
  * 使用真实的 genMessageContext 来构造消息上下文（包括文件附件处理）
  */
 export async function runConversationTest(options: RunConversationTestOptions): Promise<TestResult> {
@@ -596,7 +596,7 @@ export async function runConversationTest(options: RunConversationTestOptions): 
   try {
     // 使用传入的 platform 或创建新的
     const testPlatform = platform || new TestPlatform()
-    
+
     // 加载文件到 platform
     for (const file of files) {
       testPlatform.loadFile(file.storageKey, file.content)

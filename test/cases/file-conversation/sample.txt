@@ -8,7 +8,7 @@ The file conversation mechanism allows AI to read file contents through tools ra
 
 1. **Token Efficiency**: Only relevant portions of files are read on demand
 2. **Large File Support**: Files too large for context can be processed in chunks
-3. **Search Capability**: The grep_file tool enables efficient content search
+3. **Search Capability**: The search_file_content tool enables efficient content search
 
 ## Sample Data
 

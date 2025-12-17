@@ -87,7 +87,7 @@ const readFileTool = tool({
   },
 })
 
-const grepFileTool = tool({
+const searchFileTool = tool({
   description: 'Searches for a keyword or phrase within a file uploaded by the user.',
   inputSchema: z.object({
     fileKey: z.string().describe('The identifier of the file to read within tag `<FILE_KEY>`.'),
@@ -159,6 +159,6 @@ export default {
   description: toolSetDescription,
   tools: {
     read_file: readFileTool,
-    search_file_content: grepFileTool,
+    search_file_content: searchFileTool,
   },
 }
