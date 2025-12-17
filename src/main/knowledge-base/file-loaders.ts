@@ -4,20 +4,50 @@ import { MDocument } from '@mastra/rag'
 import { embedMany, type ModelMessage } from 'ai'
 import { isEpubFilePath, isOfficeFilePath, isTextFilePath } from '../../shared/file-extensions'
 import { rerank } from '../../shared/models/rerank'
+import { ChatboxAIAPIError } from '../../shared/models/errors'
 import { sentry } from '../adapters/sentry'
 import { parseFile } from '../file-parser'
 import { getLogger } from '../util'
 import { checkProcessingTimeouts, getDatabase, getVectorStore } from './db'
 import { getEmbeddingProvider, getRerankProvider, getVisionProvider } from './model-providers'
-import { checkIfUserIsPro, parseFileRemotely } from './remote-file-parser'
+import { parseFileRemotely } from './remote-file-parser'
 
 const log = getLogger('knowledge-base:file-loaders')
 
-// TODO: 后面优化 pdf 太大（页数过多）时token 消耗太多的问题再打开
-const ENABLE_REMOTE_PARSING_FALLBACK = false
+/**
+ * Parse error message to extract user-friendly message
+ * Handles JSON error responses from Chatbox AI API
+ * Uses i18nKey from ChatboxAIAPIError.codeNameMap for known error codes
+ */
+function parseErrorMessage(errorMessage: string): string {
+  // Try to extract error code from JSON error response
+  // Format: "Status Code 500, {"error":{"code":"system_error","detail":"Server error...","status":500,"title":"Server Error"}}"
+  try {
+    // Find JSON part in the message
+    const jsonMatch = errorMessage.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      const jsonStr = jsonMatch[0]
+      const parsed = JSON.parse(jsonStr)
+      const errorCode = parsed.error?.code
 
-// Error prefix for upgrade required (must match renderer)
-const KB_UPGRADE_REQUIRED_PREFIX = '[KB_UPGRADE_REQUIRED]'
+      // Try to get i18nKey from ChatboxAIAPIError.codeNameMap
+      if (errorCode && ChatboxAIAPIError.codeNameMap[errorCode]) {
+        return ChatboxAIAPIError.codeNameMap[errorCode].i18nKey
+      }
+
+      // Fallback to detail or title
+      if (parsed.error?.detail) {
+        return parsed.error.detail
+      }
+      if (parsed.error?.title) {
+        return parsed.error.title
+      }
+    }
+  } catch {
+    // JSON parsing failed, return original message
+  }
+  return errorMessage
+}
 
 // Parse file to MDocument using local parsers only
 async function parseFileToDocumentLocal(
@@ -73,60 +103,36 @@ async function parseFileToDocumentLocal(
   }
 }
 
-// Parse file to MDocument with remote fallback for Pro users
+// Parse file to MDocument with optional remote parsing
 async function parseFileToDocument(
   filePath: string,
   fileMeta: { fileId: number; filename: string; mimeType: string },
-  kbId: number
+  kbId: number,
+  useRemoteParsing = false
 ): Promise<MDocument> {
-  // Try local parsing first
-  try {
-    return await parseFileToDocumentLocal(filePath, fileMeta, kbId)
-  } catch (localError) {
-    log.warn(`[FILE] Local parsing failed for ${fileMeta.filename}:`, localError)
-
-    // Fallback to remote parsing for Pro users (skip images as they use Vision model)
-    if (ENABLE_REMOTE_PARSING_FALLBACK && checkIfUserIsPro() && !fileMeta.mimeType.startsWith('image/')) {
-      try {
-        log.info(`[FILE] Attempting remote parsing for ${fileMeta.filename}`)
-        const content = await parseFileRemotely(filePath, fileMeta.filename, fileMeta.mimeType)
-        log.info(`[FILE] Remote parsing succeeded for ${fileMeta.filename}`)
-        return MDocument.fromText(content)
-      } catch (remoteError) {
-        log.error(`[FILE] Remote parsing also failed for ${fileMeta.filename}:`, remoteError)
-        // Report remote parsing failure to Sentry
-        sentry.withScope((scope) => {
-          scope.setTag('component', 'knowledge-base-file')
-          scope.setTag('operation', 'remote_parsing_fallback')
-          scope.setExtra('fileId', fileMeta.fileId)
-          scope.setExtra('filename', fileMeta.filename)
-          scope.setExtra('mimeType', fileMeta.mimeType)
-          scope.setExtra('localError', String(localError))
-          sentry.captureException(remoteError)
-        })
-        // Re-throw original local error for better context
-        throw localError
-      }
-    }
-
-    // For non-Pro users, add upgrade prefix to error message (only when fallback is enabled)
-    if (ENABLE_REMOTE_PARSING_FALLBACK && !checkIfUserIsPro() && !fileMeta.mimeType.startsWith('image/')) {
-      const errorMessage = localError instanceof Error ? localError.message : String(localError)
-      throw new Error(`${KB_UPGRADE_REQUIRED_PREFIX}${errorMessage}`)
-    }
-
-    throw localError
+  // If remote parsing is explicitly requested, use it directly
+  if (useRemoteParsing) {
+    log.info(`[FILE] Using remote parsing for ${fileMeta.filename} (requested by user)`)
+    const content = await parseFileRemotely(filePath, fileMeta.filename, fileMeta.mimeType)
+    log.info(`[FILE] Remote parsing succeeded for ${fileMeta.filename}`)
+    return MDocument.fromText(content)
   }
+
+  // Use local parsing
+  return await parseFileToDocumentLocal(filePath, fileMeta, kbId)
 }
 
 // Use mastra to parse, chunk, embed, and store files, embeddingProvider parameter is required
 export async function processFileWithMastra(
   filePath: string,
   fileMeta: { fileId: number; filename: string; mimeType: string },
-  kbId: number
+  kbId: number,
+  useRemoteParsing = false
 ) {
   const startTime = Date.now()
-  log.debug(`[FILE] Starting file processing: ${fileMeta.filename} (id=${fileMeta.fileId})`)
+  log.debug(
+    `[FILE] Starting file processing: ${fileMeta.filename} (id=${fileMeta.fileId}, useRemoteParsing=${useRemoteParsing})`
+  )
 
   try {
     const db = getDatabase()
@@ -139,7 +145,7 @@ export async function processFileWithMastra(
     const currentTotalChunks = (fileRecord.rows[0]?.total_chunks as number) || 0
 
     // 1. Parse file to get all chunks
-    const doc = await parseFileToDocument(filePath, fileMeta, kbId)
+    const doc = await parseFileToDocument(filePath, fileMeta, kbId, useRemoteParsing)
 
     // 2. Chunking
     const allChunks = await doc.chunk({
@@ -314,25 +320,29 @@ async function processPendingFiles() {
     log.debug(`[FILE] Processing ${rs.rows.length} pending files`)
 
     for (const file of rs.rows) {
-      try {
-        log.debug(`[FILE] Processing file: ${file.filename} (id=${file.id})`)
+      const useRemoteParsing = Boolean(file.use_remote_parsing)
 
-        // Mark as processing and record the processing start time
+      try {
+        log.debug(`[FILE] Processing file: ${file.filename} (id=${file.id}, useRemoteParsing=${useRemoteParsing})`)
+
+        // Mark as processing, record the processing start time, save parsing method, and clear the use_remote_parsing flag
         await db.execute({
-          sql: 'UPDATE kb_file SET status = ?, processing_started_at = CURRENT_TIMESTAMP WHERE id = ?',
-          args: ['processing', file.id],
+          sql: 'UPDATE kb_file SET status = ?, processing_started_at = CURRENT_TIMESTAMP, use_remote_parsing = 0, parsed_remotely = ? WHERE id = ?',
+          args: ['processing', useRemoteParsing ? 1 : 0, file.id],
         })
 
         // Use mastra to parse, chunk, embed, and store (supports resuming from chunk_count)
         await processFileWithMastra(
           file.filepath as string,
           { fileId: file.id as number, filename: file.filename as string, mimeType: file.mime_type as string },
-          file.kb_id as number
+          file.kb_id as number,
+          useRemoteParsing
         )
       } catch (err: any) {
         log.error(`[FILE] File processing failed: ${file.filename} (id=${file.id})`, err)
-        // Mark as failed - use err.message to preserve the error message without "Error: " prefix
-        const errorMessage = err instanceof Error ? err.message : String(err)
+        // Mark as failed - parse error message to extract user-friendly message
+        const rawErrorMessage = err instanceof Error ? err.message : String(err)
+        const errorMessage = parseErrorMessage(rawErrorMessage)
         await db.execute({
           sql: 'UPDATE kb_file SET status = ?, error = ?, processing_started_at = NULL WHERE id = ?',
           args: ['failed', errorMessage, file.id],

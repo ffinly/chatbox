@@ -102,7 +102,25 @@ export default function Toolbar({ sessionId }: { sessionId: string }) {
       )}
 
       <ActionIcon variant="subtle" size={28} color="chatbox-secondary" onClick={() => setThreadHistoryDrawerOpen(true)}>
-        <IconHistory strokeWidth={1.8} />
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="lucide lucide-table-of-contents-icon lucide-table-of-contents"
+        >
+          <path d="M16 5H3" />
+          <path d="M16 12H3" />
+          <path d="M16 19H3" />
+          <path d="M21 5h.01" />
+          <path d="M21 12h.01" />
+          <path d="M21 19h.01" />
+        </svg>
       </ActionIcon>
 
       <ActionMenu

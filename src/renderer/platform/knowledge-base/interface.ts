@@ -14,7 +14,7 @@ export interface KnowledgeBaseController {
   listFilesPaginated(kbId: number, offset?: number, limit?: number): Promise<KnowledgeBaseFile[]>
   uploadFile(kbId: number, file: FileMeta): Promise<void>
   deleteFile(fileId: number): Promise<void>
-  retryFile(fileId: number): Promise<void>
+  retryFile(fileId: number, useRemoteParsing?: boolean): Promise<void>
   pauseFile(fileId: number): Promise<void>
   resumeFile(fileId: number): Promise<void>
   search(kbId: number, query: string): Promise<KnowledgeBaseSearchResult[]>

@@ -39,8 +39,8 @@ class DesktopKnowledgeBaseController implements KnowledgeBaseController {
     return await this.ipc.invoke('kb:file:delete', fileId)
   }
 
-  async retryFile(fileId: number) {
-    return await this.ipc.invoke('kb:file:retry', fileId)
+  async retryFile(fileId: number, useRemoteParsing = false) {
+    return await this.ipc.invoke('kb:file:retry', fileId, useRemoteParsing)
   }
 
   async pauseFile(fileId: number) {

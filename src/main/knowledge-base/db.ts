@@ -62,6 +62,20 @@ async function initDB(db: Client) {
       }
     })
 
+    // Add use_remote_parsing column if it doesn't exist (for remote parsing feature)
+    await db.batch([`ALTER TABLE kb_file ADD COLUMN use_remote_parsing INTEGER DEFAULT 0`]).catch((error) => {
+      if (error instanceof Error && !error.message.includes('duplicate column name')) {
+        log.error('[DB] Failed to add use_remote_parsing column', error)
+      }
+    })
+
+    // Add parsed_remotely column to track which parsing method was used (for UI display)
+    await db.batch([`ALTER TABLE kb_file ADD COLUMN parsed_remotely INTEGER DEFAULT 0`]).catch((error) => {
+      if (error instanceof Error && !error.message.includes('duplicate column name')) {
+        log.error('[DB] Failed to add parsed_remotely column', error)
+      }
+    })
+
     log.info('[DB] Database initialized')
   } catch (error) {
     log.error('[DB] Failed to initialize database:', error)

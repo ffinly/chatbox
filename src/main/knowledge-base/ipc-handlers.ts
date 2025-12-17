@@ -4,6 +4,7 @@ import { sentry } from '../adapters/sentry'
 import { getLogger } from '../util'
 import { getDatabase, getVectorStore, parseSQLiteTimestamp, withTransaction } from './db'
 import { readChunks, searchKnowledgeBase } from './file-loaders'
+import { checkIfUserIsPro } from './remote-file-parser'
 
 const log = getLogger('knowledge-base:ipc-handlers')
 
@@ -223,6 +224,7 @@ export function registerKnowledgeBaseHandlers() {
         status: row.status,
         error: row.error,
         createdAt: parseSQLiteTimestamp(row.created_at as string),
+        parsed_remotely: row.parsed_remotely || 0,
       }))
     } catch (error: any) {
       log.error(`ipcMain: kb:file:list failed for kbId=${kbId}`, error)
@@ -290,6 +292,7 @@ export function registerKnowledgeBaseHandlers() {
         status: row.status,
         error: row.error,
         createdAt: parseSQLiteTimestamp(row.created_at as string),
+        parsed_remotely: row.parsed_remotely || 0,
       }))
     } catch (error: any) {
       log.error(`ipcMain: kb:file:list-paginated failed for kbId=${kbId}`, error)
@@ -467,12 +470,17 @@ export function registerKnowledgeBaseHandlers() {
   })
 
   // Retry failed files
-  ipcMain.handle('kb:file:retry', async (_event, fileId: number) => {
+  ipcMain.handle('kb:file:retry', async (_event, fileId: number, useRemoteParsing = false) => {
     try {
-      log.debug(`ipcMain: kb:file:retry, fileId=${fileId}`)
+      log.debug(`ipcMain: kb:file:retry, fileId=${fileId}, useRemoteParsing=${useRemoteParsing}`)
 
       if (!fileId || fileId <= 0) {
         throw new Error('Invalid file ID')
+      }
+
+      // If remote parsing is requested, check if user is Pro
+      if (useRemoteParsing && !checkIfUserIsPro()) {
+        throw new Error('Remote parsing is only available for Pro users')
       }
 
       const db = getDatabase()
@@ -489,13 +497,15 @@ export function registerKnowledgeBaseHandlers() {
         throw new Error('Only failed files can be retried')
       }
 
-      // Reset file status to pending for reprocessing
+      // Reset file status to pending for reprocessing, also set use_remote_parsing flag
       await db.execute({
-        sql: 'UPDATE kb_file SET status = ?, error = NULL, processing_started_at = NULL WHERE id = ?',
-        args: ['pending', fileId],
+        sql: 'UPDATE kb_file SET status = ?, error = NULL, chunk_count = 0, total_chunks = 0, processing_started_at = NULL, use_remote_parsing = ? WHERE id = ?',
+        args: ['pending', useRemoteParsing ? 1 : 0, fileId],
       })
 
-      log.info(`[IPC] File retry request created: ${file.filename} (id=${fileId})`)
+      log.info(
+        `[IPC] File retry request created: ${file.filename} (id=${fileId}, useRemoteParsing=${useRemoteParsing})`
+      )
       return { success: true }
     } catch (error: any) {
       log.error(`ipcMain: kb:file:retry failed for fileId=${fileId}`, error)
@@ -503,6 +513,7 @@ export function registerKnowledgeBaseHandlers() {
         scope.setTag('component', 'knowledge-base-ipc')
         scope.setTag('operation', 'file_retry')
         scope.setExtra('fileId', fileId)
+        scope.setExtra('useRemoteParsing', useRemoteParsing)
         sentry.captureException(error)
       })
       throw error

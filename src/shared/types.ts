@@ -628,6 +628,7 @@ export interface KnowledgeBaseFile {
   status: string
   error: string
   createdAt: number
+  parsed_remotely: number
 }
 
 export interface KnowledgeBaseSearchResult {

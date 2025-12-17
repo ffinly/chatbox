@@ -17,13 +17,13 @@ import {
   Tooltip,
 } from '@mantine/core'
 import {
-  IconArrowRight,
   IconCheck,
   IconChevronDown,
   IconChevronRight,
   IconCircleCheck,
   IconExclamationCircle,
   IconFile,
+  IconInfoCircle,
   IconLoader,
   IconPlayerPause,
   IconPlayerPlay,
@@ -31,7 +31,6 @@ import {
   IconRefresh,
   IconTrash,
   IconUpload,
-  IconX,
 } from '@tabler/icons-react'
 import type React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -42,10 +41,10 @@ import { formatFileSize } from 'src/shared/utils'
 import { useKnowledgeBaseFiles, useKnowledgeBaseFilesActions, useKnowledgeBaseFilesCount } from '@/hooks/knowledge-base'
 import { useChunksPreview } from '@/hooks/useChunksPreview'
 import platform from '@/platform'
+import { useSettingsStore } from '@/stores/settingsStore'
+import { trackEvent } from '@/utils/track'
 import ChunksPreviewModal from './ChunksPreviewModal'
-
-// Error prefix for upgrade required (must match main process)
-const KB_UPGRADE_REQUIRED_PREFIX = '[KB_UPGRADE_REQUIRED]'
+import { RemoteRetryModal } from './RemoteRetryModal'
 
 interface KnowledgeBaseDocumentsProps {
   knowledgeBase: KnowledgeBase | null
@@ -53,11 +52,12 @@ interface KnowledgeBaseDocumentsProps {
 
 const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowledgeBase }) => {
   const { t } = useTranslation()
+  const licenseDetail = useSettingsStore((state) => state.licenseDetail)
   const [isExpanded, setIsExpanded] = useState(false)
   const [showScrollIndicator, setShowScrollIndicator] = useState(true)
   const [isDragOver, setIsDragOver] = useState(false)
   const [showUploadArea, setShowUploadArea] = useState(false)
-  const [showUpgradeAlert, setShowUpgradeAlert] = useState(true)
+  const [showRemoteRetryModal, setShowRemoteRetryModal] = useState(false)
 
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
@@ -101,17 +101,13 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
     return () => clearInterval(pollInterval)
   }, [knowledgeBase?.id, allFiles, refetch, refetchCount])
 
-  const upgradeRequiredCount = useMemo(
-    () =>
-      allFiles.filter((file) => file.status === 'failed' && file.error?.includes(KB_UPGRADE_REQUIRED_PREFIX)).length,
-    [allFiles]
-  )
+  // Failed files for remote retry feature
+  const failedFiles = useMemo(() => allFiles.filter((file) => file.status === 'failed'), [allFiles])
 
-  useEffect(() => {
-    if (upgradeRequiredCount > 0) {
-      setShowUpgradeAlert(true)
-    }
-  }, [upgradeRequiredCount])
+  // Check if user is Pro (has license that's not lite)
+  const isPro = useMemo(() => {
+    return licenseDetail && !licenseDetail.name.toLowerCase().includes('lite')
+  }, [licenseDetail])
 
   // MIME type correction for Windows compatibility
   const correctMimeType = useCallback((file: File): FileMeta => {
@@ -553,7 +549,7 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
     }
   }
 
-  const getStatusIcon = (status: string, error?: string) => {
+  const getStatusIcon = (status: string, error?: string, parsedRemotely?: number) => {
     switch (status) {
       case 'completed':
       case 'done':
@@ -566,19 +562,25 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
         return <IconLoader size={16} color="var(--chatbox-tint-gray)" />
       case 'paused':
         return <IconPlayerPause size={16} color="var(--chatbox-tint-warning)" />
-      case 'failed':
+      case 'failed': {
+        const isServerFailed = Boolean(parsedRemotely)
         return (
-          <Tooltip
-            label={error || t('Processing failed')}
-            multiline
-            w={300}
-            withArrow
-            position="top"
-            transitionProps={{ duration: 200 }}
-          >
-            <IconX size={16} color="var(--chatbox-tint-error)" style={{ cursor: 'help' }} />
-          </Tooltip>
+          <Flex gap={4} align="center">
+            <Tooltip
+              label={error || t('Processing failed')}
+              multiline
+              w={300}
+              withArrow
+              position="top"
+              transitionProps={{ duration: 200 }}
+            >
+              <Pill size="xs" c={isServerFailed ? 'orange' : 'gray'} className="cursor-help">
+                {isServerFailed ? t('Server parse failed') : t('Local parse failed')}
+              </Pill>
+            </Tooltip>
+          </Flex>
         )
+      }
       default:
         return null
     }
@@ -746,31 +748,46 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
               </Box>
             )}
 
-            {showUpgradeAlert &&
-              allFiles.some((file) => file.status === 'failed' && file.error?.includes(KB_UPGRADE_REQUIRED_PREFIX)) && (
-                <Alert variant="light" color="yellow" p="sm" withCloseButton onClose={() => setShowUpgradeAlert(false)}>
-                  <Flex gap="xs" align="center" c="chatbox-primary">
-                    <IconExclamationCircle size={16} className="flex-shrink-0" />
-                    <Text>
-                      {t(
-                        "Local file processing failed. You can upgrade your plan to use Chatbox AI's advanced file processing capabilities."
-                      )}
+            {/* Failed files banner - for remote retry */}
+            {failedFiles.length > 0 && (
+              <Alert variant="light" color="yellow" p="sm">
+                <Flex gap="xs" align="center" justify="space-between">
+                  <Flex gap="xs" align="center" style={{ flex: 1 }}>
+                    <Text size="sm">
+                      {isPro
+                        ? t('{{count}} file(s) failed to parse', { count: failedFiles.length })
+                        : t(
+                            "{{count}} file(s) failed to parse locally. You can upgrade your plan to use Chatbox AI's advanced file processing service.",
+                            { count: failedFiles.length }
+                          )}
                     </Text>
-
-                    <a
-                      href={`https://chatboxai.app/redirect_app/advanced_file_processing?utm_source=app&utm_content=kb`}
-                      target="_blank"
-                      className="ml-auto flex flex-row items-center gap-xxs"
-                      rel="noopener"
-                    >
-                      <Text span fw={600} className="whitespace-nowrap">
-                        {t('Upgrade')}
-                      </Text>
-                      <IconArrowRight size={12} />
-                    </a>
                   </Flex>
-                </Alert>
-              )}
+                  {isPro ? (
+                    <Button
+                      size="xs"
+                      variant="light"
+                      className="flex-shrink-0"
+                      onClick={() => setShowRemoteRetryModal(true)}
+                    >
+                      {t('Use server parsing')}
+                    </Button>
+                  ) : (
+                    <Button
+                      size="xs"
+                      variant="light"
+                      className="flex-shrink-0"
+                      onClick={() =>
+                        platform.openLink(
+                          'https://chatboxai.app/redirect_app/advanced_file_processing?utm_source=app&utm_content=kb'
+                        )
+                      }
+                    >
+                      {t('Upgrade')}
+                    </Button>
+                  )}
+                </Flex>
+              </Alert>
+            )}
 
             {/* Scrollable Document List with Scroll Indicator */}
             {allFiles.length > 0 && (
@@ -851,9 +868,13 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
                           </Group>
 
                           <Group gap="sm" align="center">
-                            <Center w={20} h={20}>
-                              {getStatusIcon(doc.status, doc.error)}
-                            </Center>
+                            {doc.status === 'failed' ? (
+                              getStatusIcon(doc.status, doc.error, doc.parsed_remotely)
+                            ) : (
+                              <Center w={20} h={20}>
+                                {getStatusIcon(doc.status, doc.error)}
+                              </Center>
+                            )}
                             {doc.status === 'failed' && (
                               <ActionIcon
                                 variant="subtle"
@@ -957,6 +978,17 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
         onClose={chunksPreview.closePreview}
         file={chunksPreview.selectedFile}
         knowledgeBaseId={knowledgeBase?.id}
+      />
+
+      {/* Remote Retry Modal */}
+      <RemoteRetryModal
+        opened={showRemoteRetryModal}
+        onClose={() => setShowRemoteRetryModal(false)}
+        failedFiles={failedFiles}
+        onSuccess={() => {
+          refetch()
+          refetchCount()
+        }}
       />
     </Stack>
   )
