@@ -7,6 +7,7 @@ import clsx from 'clsx'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { CopilotDetail, Session } from 'src/shared/types'
+import { ModelProviderEnum } from 'src/shared/types'
 import { v4 as uuidv4 } from 'uuid'
 import { z } from 'zod'
 import InputBox, { type InputBoxPayload } from '@/components/InputBox'
@@ -20,7 +21,7 @@ import { router } from '@/router'
 import { createSession as createSessionStore } from '@/stores/chatStore'
 import { submitNewUserMessage, switchCurrentSession } from '@/stores/sessionActions'
 import { initEmptyChatSession } from '@/stores/sessionHelpers'
-import { useUIStore } from '@/stores/uiStore'
+import { uiStore, useUIStore } from '@/stores/uiStore'
 
 export const Route = createFileRoute('/')({
   component: Index,
@@ -93,6 +94,15 @@ function Index() {
     }
   }, [routerState.location.search])
 
+  // Auto-enable web browsing mode when initial provider is ChatboxAI
+  useEffect(() => {
+    if (session.settings?.provider === ModelProviderEnum.ChatboxAI) {
+      uiStore.getState().setInputBoxWebBrowsingMode(true)
+    }
+    // Only run on mount to set initial state
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const handleSubmit = useCallback(
     async ({ constructedMessage, needGenerating = true }: InputBoxPayload) => {
       const newSession = await createSessionStore({
@@ -131,6 +141,10 @@ function Index() {
         modelId: m,
       },
     }))
+    // Auto-enable web browsing mode when provider is ChatboxAI
+    if (p === ModelProviderEnum.ChatboxAI) {
+      uiStore.getState().setInputBoxWebBrowsingMode(true)
+    }
   }, [])
 
   const onClickSessionSettings = useCallback(async () => {
