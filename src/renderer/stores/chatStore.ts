@@ -20,7 +20,11 @@ import { v4 as uuidv4 } from 'uuid'
 import storage, { StorageKey } from '@/storage'
 import { StorageKeyGenerator } from '@/storage/StoreStorage'
 import * as defaults from '../../shared/defaults'
+import { getLogger } from '../lib/utils'
 import { migrateSession, sortSessions } from '../utils/session-utils'
+
+const log = getLogger('chat-store')
+
 import { lastUsedModelStore } from './lastUsedModelStore'
 import queryClient from './queryClient'
 import { getSessionMeta } from './sessionHelpers'
@@ -37,9 +41,15 @@ const QueryKeys = {
 // list sessions meta
 async function _listSessionsMeta(): Promise<SessionMeta[]> {
   console.debug('chatStore', 'listSessionsMeta')
-  const sessionMetaList = await storage.getItem<SessionMeta[]>(StorageKey.ChatSessionsList, [])
-  // session list showing order: reversed, pinned at top
-  return sessionMetaList
+  try {
+    const sessionMetaList = await storage.getItem<SessionMeta[]>(StorageKey.ChatSessionsList, [])
+    // session list showing order: reversed, pinned at top
+    return sessionMetaList
+  } catch (error) {
+    log.error(`Failed to read session list from storage (key: ${StorageKey.ChatSessionsList}):`, error)
+    // Re-throw to prevent empty data from being written back
+    throw error
+  }
 }
 
 const listSessionsMetaQueryOptions = {
@@ -78,11 +88,18 @@ export async function updateSessionList(updater: UpdaterFn<SessionMeta[]>) {
 // get session
 async function _getSessionById(id: string): Promise<Session | null> {
   console.debug('chatStore', 'getSessionById', id)
-  const session = await storage.getItem<Session | null>(StorageKeyGenerator.session(id), null)
-  if (!session) {
-    return null
+  const storageKey = StorageKeyGenerator.session(id)
+  try {
+    const session = await storage.getItem<Session | null>(storageKey, null)
+    if (!session) {
+      return null
+    }
+    return migrateSession(session)
+  } catch (error) {
+    log.error(`Failed to read session from storage (key: ${storageKey}, sessionId: ${id}):`, error)
+    // Re-throw to prevent incorrect state
+    throw error
   }
-  return migrateSession(session)
 }
 
 const getSessionQueryOptions = (sessionId: string) => ({
