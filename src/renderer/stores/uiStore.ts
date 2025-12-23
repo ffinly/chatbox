@@ -22,6 +22,7 @@ export const uiStore = createStore(
         messageScrollingAtBottom: false,
         showSidebar: platform.type !== 'mobile',
         openSearchDialog: false,
+        searchDialogGlobalOnly: false, // 是否只显示全局搜索（用于对话列表）
         openAboutDialog: false, // 是否展示相关信息的窗口
         inputBoxWebBrowsingMode: false,
         sessionKnowledgeBaseMap: {} as Record<string, Pick<KnowledgeBase, 'id' | 'name'> | undefined>,
@@ -65,8 +66,8 @@ export const uiStore = createStore(
           set({ showSidebar })
         },
 
-        setOpenSearchDialog: (openSearchDialog: boolean) => {
-          set({ openSearchDialog })
+        setOpenSearchDialog: (openSearchDialog: boolean, globalOnly = false) => {
+          set({ openSearchDialog, searchDialogGlobalOnly: globalOnly })
         },
 
         setOpenAboutDialog: (openAboutDialog: boolean) => {

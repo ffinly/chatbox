@@ -18,13 +18,14 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import NiceModal from '@ebay/nice-modal-react'
 import { ActionIcon, Flex, Text, Tooltip } from '@mantine/core'
-import { IconArchive } from '@tabler/icons-react'
+import { IconArchive, IconSearch } from '@tabler/icons-react'
 import { useRouterState } from '@tanstack/react-router'
 import type { MutableRefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Virtuoso } from 'react-virtuoso'
 import { useSessionList } from '@/stores/chatStore'
 import { reorderSessions } from '@/stores/sessionActions'
+import { useUIStore } from '@/stores/uiStore'
 import SessionItem from './SessionItem'
 
 export interface Props {
@@ -34,6 +35,7 @@ export interface Props {
 export default function SessionList(props: Props) {
   const { t } = useTranslation()
   const { sessionMetaList: sortedSessions, refetch } = useSessionList()
+  const setOpenSearchDialog = useUIStore((s) => s.setOpenSearchDialog)
   const sensors = useSensors(
     useSensor(TouchSensor, {
       activationConstraint: {
@@ -74,6 +76,17 @@ export default function SessionList(props: Props) {
         <Text c="chatbox-tertiary" flex={1}>
           {t('chat')}
         </Text>
+
+        <Tooltip label={t('Search')} openDelay={1000} withArrow>
+          <ActionIcon
+            variant="subtle"
+            color="chatbox-tertiary"
+            size={20}
+            onClick={() => setOpenSearchDialog(true, true)}
+          >
+            <IconSearch />
+          </ActionIcon>
+        </Tooltip>
 
         <Tooltip label={t('Clear Conversation List')} openDelay={1000} withArrow>
           <ActionIcon

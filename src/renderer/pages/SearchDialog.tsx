@@ -23,6 +23,7 @@ export default function SearchDialog(props: Props) {
   const isSmallScreen = useIsSmallScreen()
   const open = useUIStore((s) => s.openSearchDialog)
   const setOpen = useUIStore((s) => s.setOpenSearchDialog)
+  const globalOnly = useUIStore((s) => s.searchDialogGlobalOnly)
   const [mode, setMode] = useState<'command' | 'search-result'>('command')
   const [loading, setLoading] = useState<boolean>(false)
   const [searchInput, _setSearchInput] = useState('')
@@ -48,10 +49,11 @@ export default function SearchDialog(props: Props) {
     _setSearchInput(input)
   }
   const onSearchClick = (flag: 'current-session' | 'global') => {
+    if (!searchInput.trim()) return
     setMode('search-result')
     setSearchResult([])
     setLoading(true)
-    if (!currentSessionId) {
+    if (flag === 'current-session' && !currentSessionId) {
       setLoading(false)
       return
     }
@@ -61,6 +63,12 @@ export default function SearchDialog(props: Props) {
     setSearchResultMarks([searchInput])
     setLoading(false)
     ref.current?.select() // 搜索后全选输入框，方便删除回退
+  }
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (globalOnly && e.key === 'Enter' && searchInput.trim()) {
+      e.preventDefault()
+      onSearchClick('global')
+    }
   }
   return (
     // 通过显隐的方式控制组件，避免组件重复卸载挂载导致的状态丢失，主要是希望保持搜索结果的选中状态，这样用户体验会好很多
@@ -78,10 +86,11 @@ export default function SearchDialog(props: Props) {
             autoFocus={!isSmallScreen}
             value={searchInput}
             onInput={onSearchInput}
+            onKeyDown={onKeyDown}
             className={cn('border-none', 'shadow-none', theme.palette.mode === 'dark' ? 'text-white' : 'text-black')}
-            placeholder={t('Type a command or search') + '...'}
+            placeholder={globalOnly ? t('Search conversations') + '...' : t('Type a command or search') + '...'}
           />
-          {mode === 'command' && (
+          {mode === 'command' && !globalOnly && (
             <CommandList>
               <CommandEmpty>{t('No results found')}</CommandEmpty>
               <CommandGroup heading={t('Search')}>
