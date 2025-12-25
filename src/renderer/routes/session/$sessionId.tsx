@@ -1,7 +1,6 @@
 import NiceModal from '@ebay/nice-modal-react'
 import { Button } from '@mantine/core'
 import type { Message, ModelProvider } from '@shared/types'
-import { ModelProviderEnum } from '@shared/types'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { ForwardedRef, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -16,7 +15,6 @@ import { lastUsedModelStore } from '@/stores/lastUsedModelStore'
 import * as scrollActions from '@/stores/scrollActions'
 import { modifyMessage, removeCurrentThread, startNewThread, submitNewUserMessage } from '@/stores/sessionActions'
 import { getAllMessageList } from '@/stores/sessionHelpers'
-import { uiStore } from '@/stores/uiStore'
 
 export const Route = createFileRoute('/session/$sessionId')({
   component: RouteComponent,
@@ -47,13 +45,6 @@ function RouteComponent() {
       scrollActions.scrollToBottom('auto') // 每次启动时自动滚动到底部
     }, 200)
   }, [])
-
-  // Auto-enable web browsing mode when provider is ChatboxAI
-  useEffect(() => {
-    if (currentSession?.settings?.provider === ModelProviderEnum.ChatboxAI) {
-      uiStore.getState().setInputBoxWebBrowsingMode(true)
-    }
-  }, [currentSession?.settings?.provider])
 
   // currentSession变化时（包括session settings变化），存下当前的settings作为新Session的默认值
   useEffect(() => {

@@ -47,9 +47,9 @@ export default function useShortcut() {
     }
     if (e.key === 'e' && ctrlKey) {
       dom.focusMessageInput()
-      uiStore.setState((state) => ({
-        inputBoxWebBrowsingMode: !state.inputBoxWebBrowsingMode,
-      }))
+      // Toggle session-level web browsing mode using cached display value
+      const sessionId = getDefaultStore().get(currentSessionIdAtom) || 'new'
+      uiStore.getState().toggleSessionWebBrowsing(sessionId)
       return
     }
 

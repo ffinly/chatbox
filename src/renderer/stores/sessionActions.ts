@@ -34,6 +34,7 @@ import {
   type MessageImagePart,
   type MessagePicture,
   type ModelProvider,
+  ModelProviderEnum,
   type Session,
   type SessionMeta,
   type SessionSettings,
@@ -54,9 +55,23 @@ import { settingsStore } from './settingsStore'
 import { uiStore } from './uiStore'
 
 /**
+ * Get session-level web browsing setting
+ * Returns user's explicit setting if set, otherwise returns default based on provider
+ */
+function getSessionWebBrowsing(sessionId: string, provider: string | undefined): boolean {
+  const sessionValue = uiStore.getState().sessionWebBrowsingMap[sessionId]
+  if (sessionValue !== undefined) {
+    return sessionValue
+  }
+  // Default: true for ChatboxAI, false for others
+  return provider === ModelProviderEnum.ChatboxAI
+}
+
+/**
  * 跟踪生成事件
  */
 function trackGenerateEvent(
+  sessionId: string,
   settings: SessionSettings,
   globalSettings: Settings,
   sessionType: SessionType | undefined,
@@ -79,7 +94,7 @@ function trackGenerateEvent(
     }
   }
 
-  const webBrowsing = uiStore.getState().inputBoxWebBrowsingMode
+  const webBrowsing = getSessionWebBrowsing(sessionId, settings.provider)
 
   trackEvent('generate', {
     provider: providerIdentifier,
@@ -595,7 +610,7 @@ export async function submitNewUserMessage(
     return
   }
   const { newUserMsg, needGenerating } = params
-  const webBrowsing = uiStore.getState().inputBoxWebBrowsingMode
+  const webBrowsing = getSessionWebBrowsing(sessionId, settings.provider)
 
   // 先在聊天列表中插入发送的用户消息
   await insertMessage(sessionId, newUserMsg)
@@ -720,7 +735,7 @@ async function generate(
   }
 
   // 跟踪生成事件
-  trackGenerateEvent(settings, globalSettings, session.type, options)
+  trackGenerateEvent(sessionId, settings, globalSettings, session.type, options)
 
   // 将消息的状态修改成初始状态
   targetMsg = {
@@ -770,7 +785,7 @@ async function generate(
     const model = getModel(settings, globalSettings, configs, dependencies)
     const sessionKnowledgeBaseMap = uiStore.getState().sessionKnowledgeBaseMap
     const knowledgeBase = sessionKnowledgeBaseMap[sessionId]
-    const webBrowsing = uiStore.getState().inputBoxWebBrowsingMode
+    const webBrowsing = getSessionWebBrowsing(sessionId, settings.provider)
     switch (session.type) {
       // 对话消息生成
       case 'chat':

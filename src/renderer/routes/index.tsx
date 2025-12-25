@@ -21,7 +21,7 @@ import { router } from '@/router'
 import { createSession as createSessionStore } from '@/stores/chatStore'
 import { submitNewUserMessage, switchCurrentSession } from '@/stores/sessionActions'
 import { initEmptyChatSession } from '@/stores/sessionHelpers'
-import { uiStore, useUIStore } from '@/stores/uiStore'
+import { useUIStore } from '@/stores/uiStore'
 
 export const Route = createFileRoute('/')({
   component: Index,
@@ -41,6 +41,9 @@ function Index() {
   const addSessionKnowledgeBase = useUIStore((s) => s.addSessionKnowledgeBase)
   const showCopilotsInNewSession = useUIStore((s) => s.showCopilotsInNewSession)
   const widthFull = useUIStore((s) => s.widthFull)
+  const sessionWebBrowsingMap = useUIStore((s) => s.sessionWebBrowsingMap)
+  const setSessionWebBrowsing = useUIStore((s) => s.setSessionWebBrowsing)
+  const clearSessionWebBrowsing = useUIStore((s) => s.clearSessionWebBrowsing)
   const [session, setSession] = useState<Session>({
     id: 'new',
     ...initEmptyChatSession(),
@@ -94,15 +97,6 @@ function Index() {
     }
   }, [routerState.location.search])
 
-  // Auto-enable web browsing mode when initial provider is ChatboxAI
-  useEffect(() => {
-    if (session.settings?.provider === ModelProviderEnum.ChatboxAI) {
-      uiStore.getState().setInputBoxWebBrowsingMode(true)
-    }
-    // Only run on mount to set initial state
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   const handleSubmit = useCallback(
     async ({ constructedMessage, needGenerating = true }: InputBoxPayload) => {
       const newSession = await createSessionStore({
@@ -122,6 +116,13 @@ function Index() {
         setNewSessionState({})
       }
 
+      // Transfer web browsing setting from "new" session to the actual session
+      const newSessionWebBrowsing = sessionWebBrowsingMap['new']
+      if (newSessionWebBrowsing !== undefined) {
+        setSessionWebBrowsing(newSession.id, newSessionWebBrowsing)
+        clearSessionWebBrowsing('new')
+      }
+
       switchCurrentSession(newSession.id)
 
       void submitNewUserMessage(newSession.id, {
@@ -129,7 +130,15 @@ function Index() {
         needGenerating,
       })
     },
-    [session, addSessionKnowledgeBase, newSessionState.knowledgeBase, setNewSessionState]
+    [
+      session,
+      addSessionKnowledgeBase,
+      newSessionState.knowledgeBase,
+      setNewSessionState,
+      sessionWebBrowsingMap,
+      setSessionWebBrowsing,
+      clearSessionWebBrowsing,
+    ]
   )
 
   const onSelectModel = useCallback((p: string, m: string) => {
@@ -141,10 +150,6 @@ function Index() {
         modelId: m,
       },
     }))
-    // Auto-enable web browsing mode when provider is ChatboxAI
-    if (p === ModelProviderEnum.ChatboxAI) {
-      uiStore.getState().setInputBoxWebBrowsingMode(true)
-    }
   }, [])
 
   const onClickSessionSettings = useCallback(async () => {

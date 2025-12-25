@@ -18,6 +18,7 @@ import isEmpty from 'lodash/isEmpty'
 import { useMemo } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import storage, { StorageKey } from '@/storage'
+import { uiStore } from './uiStore'
 import { StorageKeyGenerator } from '@/storage/StoreStorage'
 import * as defaults from '../../shared/defaults'
 import { getLogger } from '../lib/utils'
@@ -240,6 +241,9 @@ export async function deleteSession(id: string) {
     }
     return sessions.filter((session) => session.id !== id)
   })
+  // Clean up UI state to prevent memory leak
+  uiStore.getState().clearSessionWebBrowsing(id)
+  uiStore.getState().removeSessionKnowledgeBase(id)
 }
 
 // MARK: session settings operations

@@ -134,12 +134,35 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
     const shortcuts = useSettingsStore((state) => state.shortcuts)
     const widthFull = useUIStore((s) => s.widthFull) || fullWidth
 
-    // Use atom as the source of truth for pictureKeys and attachments
-    const webBrowsingMode = useUIStore((s) => s.inputBoxWebBrowsingMode)
-    const setWebBrowsingMode = useUIStore((s) => s.setInputBoxWebBrowsingMode)
-
     const currentSessionId = sessionId
     const isNewSession = currentSessionId === 'new'
+
+    // Session-level web browsing mode
+    const sessionWebBrowsingMap = useUIStore((s) => s.sessionWebBrowsingMap)
+    const setSessionWebBrowsing = useUIStore((s) => s.setSessionWebBrowsing)
+    const updateCurrentWebBrowsingDisplay = useUIStore((s) => s.updateCurrentWebBrowsingDisplay)
+    // Get session-specific value, or use default based on provider (ChatboxAI defaults to true)
+    const webBrowsingMode = useMemo(() => {
+      const sessionValue = sessionWebBrowsingMap[currentSessionId || 'new']
+      if (sessionValue !== undefined) {
+        return sessionValue
+      }
+      // Default: true for ChatboxAI, false for others
+      return model?.provider === ModelProviderEnum.ChatboxAI
+    }, [sessionWebBrowsingMap, currentSessionId, model?.provider])
+
+    // this is used for keyboard shortcut. if we don't provide this, kbd wont know what to set when it's a new session(it doesnt have provider info)
+    useEffect(() => {
+      updateCurrentWebBrowsingDisplay(currentSessionId || 'new', webBrowsingMode)
+    }, [currentSessionId, webBrowsingMode, updateCurrentWebBrowsingDisplay])
+
+    const setWebBrowsingMode = useCallback(
+      (enabled: boolean) => {
+        setSessionWebBrowsing(currentSessionId || 'new', enabled)
+      },
+      [currentSessionId, setSessionWebBrowsing]
+    )
+
     const { messageInput, setMessageInput, clearDraft } = useMessageInput('', { isNewSession })
 
     // Pre-constructed message state (scoped by session)
