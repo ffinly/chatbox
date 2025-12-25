@@ -82,7 +82,7 @@
   --chatbox-background-warning-secondary: rgb(250, 176, 5, 0.1);
   --chatbox-background-warning-secondary-hover: rgb(250, 176, 5, 0.12);
 
-  --chatbox-background-mask-overlay: rgb(59, 59, 59, 0.48);
+  --chatbox-background-mask-overlay: rgb(59, 59, 59, 0.64);
   --chatbox-background-mask-lighten: rgb(255, 255, 255, 0.76);
 }
 
@@ -144,7 +144,7 @@
   --chatbox-background-warning-secondary: rgb(250, 176, 5, 0.15);
   --chatbox-background-warning-secondary-hover: rgb(250, 176, 5, 0.2);
 
-  --chatbox-background-mask-overlay: rgb(31, 31, 31, 0.96);
+  --chatbox-background-mask-overlay: rgb(31, 31, 31, 0.78);
   --chatbox-background-mask-lighten: rgb(173, 181, 189, 0.48);
 }
 
@@ -263,7 +263,8 @@
   background: rgba(255, 255, 255, 0.2);
 }
 
-[data-mantine-color-scheme="dark"] .katex-display:hover::-webkit-scrollbar-thumb {
+[data-mantine-color-scheme="dark"]
+  .katex-display:hover::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.3);
 }
 
@@ -288,4 +289,21 @@ html[data-need-room-for-windows-controls="true"] .pswp__top-bar {
 
 *::-webkit-scrollbar-corner {
   background-color: transparent;
+}
+
+div[data-vaul-handle] {
+  margin: 12px auto;
+  width: 64px;
+  height: 4px;
+  background-color: var(--chatbox-tint-tertiary);
+  border-radius: 2px;
+  cursor: grab;
+  user-select: none;
+  opacity: 0.5;
+}
+div[data-vaul-overlay] {
+  z-index: 2000;
+}
+div[data-vaul-drawer] {
+  z-index: 2000;
 }

@@ -12,6 +12,7 @@ import * as promptFormat from '@/packages/prompts'
 import { useSessionSettings } from '@/stores/chatStore'
 import { compressAndCreateThread } from '@/stores/sessionActions'
 import { settingsStore } from '@/stores/settingsStore'
+import { AdaptiveModal } from './AdaptiveModal'
 import { Modal } from './Overlay'
 import { ScalableIcon } from './ScalableIcon'
 
@@ -122,7 +123,7 @@ export function CompressionModal({ opened, onClose, session }: CompressionModalP
   }, [opened])
 
   return (
-    <Modal
+    <AdaptiveModal
       opened={opened}
       onClose={
         !isCompressing && !isCompleted
@@ -145,12 +146,10 @@ export function CompressionModal({ opened, onClose, session }: CompressionModalP
                 'This will summarize the current conversation and start a new thread with the compressed context. Continue?'
               )}
             </Text>
-            <Flex gap="sm" justify="flex-end">
-              <Button variant="subtle" onClick={onClose}>
-                {t('Cancel')}
-              </Button>
+            <AdaptiveModal.Actions>
+              <AdaptiveModal.CloseButton onClick={onClose} />
               <Button onClick={handleConfirm}>{t('Confirm')}</Button>
-            </Flex>
+            </AdaptiveModal.Actions>
           </>
         )}
 
@@ -191,6 +190,6 @@ export function CompressionModal({ opened, onClose, session }: CompressionModalP
           </>
         )}
       </Stack>
-    </Modal>
+    </AdaptiveModal>
   )
 }

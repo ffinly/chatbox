@@ -122,23 +122,23 @@ const _Message: FC<Props> = (props) => {
     setQuote(input)
   }, [msg, setQuote])
 
-  const handleStop = () => {
+  const handleStop = useCallback(() => {
     modifyMessage(sessionId, { ...msg, generating: false }, true)
-  }
+  }, [sessionId, msg])
 
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(() => {
     handleStop()
     regenerateInNewFork(sessionId, msg)
-  }
+  }, [handleStop, sessionId, msg])
 
-  const onGenerateMore = () => {
+  const onGenerateMore = useCallback(() => {
     generateMore(sessionId, msg.id)
-  }
+  }, [sessionId, msg.id])
 
-  const onCopyMsg = () => {
+  const onCopyMsg = useCallback(() => {
     copyToClipboard(getMessageText(msg, true, false))
     toastActions.add(t('copied to clipboard'), 2000)
-  }
+  }, [msg, t])
 
   // 复制特定 reasoning 内容
   const onCopyReasoningContent =
@@ -159,9 +159,9 @@ const _Message: FC<Props> = (props) => {
     removeMessage(sessionId, msg.id)
   }, [msg.id, sessionId])
 
-  const onEditClick = async () => {
+  const onEditClick = useCallback(async () => {
     await NiceModal.show('message-edit', { sessionId, msg: msg })
-  }
+  }, [msg, sessionId])
 
   // for testing: manual trigger error
   const onTriggerError = useCallback(() => {
@@ -256,6 +256,39 @@ const _Message: FC<Props> = (props) => {
 
   const actionMenuItems = useMemo<ActionMenuItemProps[]>(
     () => [
+      ...(isSamllScreen
+        ? [
+            !msg.generating &&
+              msg.role === 'assistant' && {
+                text: t('Reply Again'),
+                icon: IconReload,
+                onClick: handleRefresh,
+              },
+            msg.role !== 'assistant' && {
+              text: t('Reply Again Below'),
+              icon: IconArrowDown,
+              onClick: onGenerateMore,
+            },
+            !msg.model?.startsWith('Chatbox-AI') &&
+              !(msg.role === 'assistant' && props.sessionType === 'picture') && {
+                text: t('edit'),
+                icon: IconPencil,
+                onClick: onEditClick,
+              },
+            !(props.sessionType === 'picture' && msg.role === 'assistant') && {
+              text: t('copy'),
+              icon: IconCopy,
+              onClick: onCopyMsg,
+            },
+            !msg.generating &&
+              props.sessionType === 'picture' &&
+              msg.role === 'assistant' && {
+                text: t('Generate More Images Below'),
+                icon: IconPhotoPlus,
+                onClick: onGenerateMore,
+              },
+          ].filter((i) => !!i)
+        : []),
       {
         text: t('quote'),
         icon: IconQuoteFilled,
@@ -293,7 +326,22 @@ const _Message: FC<Props> = (props) => {
         onClick: onDelMsg,
       },
     ],
-    [t, msg.role, onReport, quoteMsg, onDelMsg, onTriggerError, onViewMessageJson]
+    [
+      t,
+      msg.role,
+      onReport,
+      quoteMsg,
+      onDelMsg,
+      onViewMessageJson,
+      isSamllScreen,
+      handleRefresh,
+      msg.generating,
+      onGenerateMore,
+      onEditClick,
+      onCopyMsg,
+      msg.model,
+      props.sessionType,
+    ]
   )
   const [actionMenuOpened, setActionMenuOpened] = useState(false)
 

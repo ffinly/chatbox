@@ -10,7 +10,6 @@ import FileParseError from './FileParseError'
 import JsonViewer from './JsonViewer'
 import MessageEdit from './MessageEdit'
 import ModelEdit from './ModelEdit'
-import ProviderSelector from './ProviderSelector'
 import ReportContent from './ReportContent'
 import SessionSettings from './SessionSettings'
 import ThreadNameEdit from './ThreadNameEdit'
@@ -19,7 +18,6 @@ import Welcome from './Welcome'
 NiceModal.register('welcome', Welcome)
 NiceModal.register('file-parse-error', FileParseError)
 NiceModal.register('content-viewer', ContentViewer)
-NiceModal.register('provider-selector', ProviderSelector)
 NiceModal.register('session-settings', SessionSettings)
 NiceModal.register('app-store-rating', AppStoreRating)
 NiceModal.register('artifact-preview', ArtifactPreview)

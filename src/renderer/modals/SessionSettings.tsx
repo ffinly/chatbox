@@ -6,7 +6,6 @@ import {
   FileButton,
   Flex,
   Input,
-  Modal,
   Slider,
   Stack,
   Switch,
@@ -27,6 +26,7 @@ import { IconInfoCircle, IconTrash } from '@tabler/icons-react'
 import { pick } from 'lodash'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { AdaptiveModal } from '@/components/AdaptiveModal'
 import { AssistantAvatar } from '@/components/Avatar'
 import { handleImageInputAndSave } from '@/components/Image'
 import ImageStyleSelect from '@/components/ImageStyleSelect'
@@ -146,7 +146,7 @@ const SessionSettingsModal = NiceModal.create(
     }
 
     return (
-      <Modal
+      <AdaptiveModal
         opened={modal.visible}
         onClose={() => {
           modal.resolve()
@@ -270,13 +270,12 @@ const SessionSettingsModal = NiceModal.create(
             </Stack>
           </Stack>
         </div>
-        <Flex justify="flex-end" align="center" gap="md" px="md" py="sm" pb="0">
-          <Button onClick={onCancel} variant="subtle" color="chatbox-secondary">
-            {t('cancel')}
-          </Button>
+
+        <AdaptiveModal.Actions>
+          <AdaptiveModal.CloseButton onClick={onCancel} />
           <Button onClick={onSave}>{t('save')}</Button>
-        </Flex>
-      </Modal>
+        </AdaptiveModal.Actions>
+      </AdaptiveModal>
     )
   }
 )

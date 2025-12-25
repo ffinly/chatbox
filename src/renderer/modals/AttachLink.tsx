@@ -1,9 +1,8 @@
 import NiceModal, { useModal } from '@ebay/nice-modal-react'
-import { Button, Flex, Textarea } from '@mantine/core'
-import _ from 'lodash'
+import { Button, Textarea } from '@mantine/core'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Modal } from '@/components/Overlay'
+import { AdaptiveModal } from '@/components/AdaptiveModal'
 
 const AttachLink = NiceModal.create(() => {
   const modal = useModal()
@@ -36,7 +35,7 @@ const AttachLink = NiceModal.create(() => {
   }
 
   return (
-    <Modal
+    <AdaptiveModal
       opened={modal.visible}
       onClose={() => {
         modal.resolve()
@@ -56,13 +55,11 @@ const AttachLink = NiceModal.create(() => {
         onKeyDown={onKeyDown}
       />
 
-      <Flex gap="md" mt="md" justify="flex-end" align="center">
-        <Button onClick={onClose} color="chatbox-gray" variant="light">
-          {t('cancel')}
-        </Button>
+      <AdaptiveModal.Actions>
+        <AdaptiveModal.CloseButton onClick={onClose} />
         <Button onClick={onSubmit}>{t('submit')}</Button>
-      </Flex>
-    </Modal>
+      </AdaptiveModal.Actions>
+    </AdaptiveModal>
   )
 })
 

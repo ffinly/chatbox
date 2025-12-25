@@ -120,6 +120,7 @@ function SessionItem(props: Props) {
       </Text>
 
       <ActionMenu
+        type="desktop"
         items={actionMenuItems}
         position="bottom-start"
         opened={menuOpened}

@@ -1,9 +1,9 @@
 import NiceModal, { useModal } from '@ebay/nice-modal-react'
-import { Button, Flex, Input } from '@mantine/core'
+import { Button, Input } from '@mantine/core'
 import type { Session } from '@shared/types'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Modal } from '@/components/Overlay'
+import { AdaptiveModal } from '@/components/AdaptiveModal'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { useSession } from '@/stores/chatStore'
 import { editThread } from '@/stores/sessionActions'
@@ -34,23 +34,21 @@ const ThreadNameEdit = NiceModal.create((props: { sessionId: string; threadId: s
     if (!currentSession) return
     await editThread(currentSession.id, threadId, { name: threadName })
     onClose()
-  }, [onClose, threadId, threadName, currentSession?.id])
+  }, [onClose, threadId, threadName, currentSession?.id, currentSession])
 
   const onContentInput = useCallback((e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
     setThreadName(e.target.value)
   }, [])
 
   return (
-    <Modal opened={modal.visible} onClose={onClose} centered title={t('Edit Thread Name')}>
+    <AdaptiveModal opened={modal.visible} onClose={onClose} centered title={t('Edit Thread Name')}>
       <Input autoFocus={!isSmallScreen} placeholder="Thread Name" value={threadName} onChange={onContentInput} />
 
-      <Flex gap="md" mt="md" justify="flex-end" align="center">
-        <Button onClick={onClose} color="chatbox-gray" variant="light">
-          {t('cancel')}
-        </Button>
+      <AdaptiveModal.Actions>
+        <AdaptiveModal.CloseButton onClick={onClose} />
         <Button onClick={onSave}>{t('save')}</Button>
-      </Flex>
-    </Modal>
+      </AdaptiveModal.Actions>
+    </AdaptiveModal>
   )
 })
 

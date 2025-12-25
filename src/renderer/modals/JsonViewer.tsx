@@ -1,9 +1,9 @@
 import NiceModal, { useModal } from '@ebay/nice-modal-react'
-import { Button, Flex, Text } from '@mantine/core'
+import { Button, Text } from '@mantine/core'
 import { IconCheck, IconCopy } from '@tabler/icons-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Modal } from '@/components/Overlay'
+import { AdaptiveModal } from '@/components/AdaptiveModal'
 import { ScalableIcon } from '@/components/ScalableIcon'
 import { useCopied } from '@/hooks/useCopied'
 
@@ -24,7 +24,7 @@ const JsonViewer = NiceModal.create(({ title, data }: JsonViewerProps) => {
   }
 
   return (
-    <Modal opened={modal.visible} onClose={onClose} size="xl" centered title={title}>
+    <AdaptiveModal opened={modal.visible} onClose={onClose} size="xl" centered title={title}>
       <div className="bg-chatbox-background-secondary border border-solid border-chatbox-border-secondary rounded-xs max-h-[60vh] overflow-y-auto p-sm">
         <Text
           component="pre"
@@ -39,7 +39,8 @@ const JsonViewer = NiceModal.create(({ title, data }: JsonViewerProps) => {
         </Text>
       </div>
 
-      <Flex gap="md" mt="md" justify="flex-end" align="center">
+      <AdaptiveModal.Actions>
+        <AdaptiveModal.CloseButton onClick={onClose} />
         <Button
           onClick={copy}
           variant="light"
@@ -47,11 +48,8 @@ const JsonViewer = NiceModal.create(({ title, data }: JsonViewerProps) => {
         >
           {copied ? t('copied to clipboard') : t('copy')}
         </Button>
-        <Button onClick={onClose} color="chatbox-gray" variant="light">
-          {t('close')}
-        </Button>
-      </Flex>
-    </Modal>
+      </AdaptiveModal.Actions>
+    </AdaptiveModal>
   )
 })
 

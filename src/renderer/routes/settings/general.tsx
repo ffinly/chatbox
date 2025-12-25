@@ -21,6 +21,7 @@ import dayjs from 'dayjs'
 import { mapValues, uniqBy } from 'lodash'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { AdaptiveSelect } from '@/components/AdaptiveSelect'
 import LazySlider from '@/components/LazySlider'
 import { languageNameMap, languages } from '@/i18n/locales'
 import platform from '@/platform'
@@ -46,7 +47,7 @@ export function RouteComponent() {
         <Title order={5}>{t('Display Settings')}</Title>
 
         {/* language */}
-        <Select
+        <AdaptiveSelect
           maw={320}
           comboboxProps={{ withinPortal: true }}
           value={settings.language}
@@ -71,7 +72,7 @@ export function RouteComponent() {
         />
 
         {/* theme */}
-        <Select
+        <AdaptiveSelect
           maw={320}
           comboboxProps={{ withinPortal: true, withArrow: true }}
           label={t('Theme')}

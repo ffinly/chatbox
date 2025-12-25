@@ -1,4 +1,3 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ActionIcon,
   Badge,
@@ -20,6 +19,8 @@ import {
 } from '@mantine/core'
 import { IconDatabase, IconEye, IconFile, IconRefresh, IconSearch } from '@tabler/icons-react'
 import { createFileRoute } from '@tanstack/react-router'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { AdaptiveModal } from '@/components/AdaptiveModal'
 import storage from '@/storage'
 
 export const Route = createFileRoute('/dev/storage')({
@@ -276,7 +277,12 @@ function StorageViewerPage() {
         </Paper>
       </Stack>
 
-      <Modal opened={detail !== null} onClose={closeDetail} size="xl" title={detail ? renderModalTitle(detail) : ''}>
+      <AdaptiveModal
+        opened={detail !== null}
+        onClose={closeDetail}
+        size="xl"
+        title={detail ? renderModalTitle(detail) : ''}
+      >
         {detail?.type === 'kv' && (
           <Stack gap="sm">
             <Group gap="xs">
@@ -308,7 +314,7 @@ function StorageViewerPage() {
             )}
           </Stack>
         )}
-      </Modal>
+      </AdaptiveModal>
     </Container>
   )
 }

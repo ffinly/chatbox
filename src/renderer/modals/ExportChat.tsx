@@ -1,10 +1,11 @@
 import NiceModal, { useModal } from '@ebay/nice-modal-react'
-import { Button, Flex, Select, Stack, Text } from '@mantine/core'
+import { Button, Select, Stack, Text } from '@mantine/core'
 import type { ExportChatFormat, ExportChatScope } from '@shared/types'
 import { useAtomValue } from 'jotai'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Modal } from '@/components/Overlay'
+import { AdaptiveModal } from '@/components/AdaptiveModal'
+import { AdaptiveSelect } from '@/components/AdaptiveSelect'
 import { currentSessionIdAtom } from '@/stores/atoms'
 import { exportSessionChat } from '@/stores/sessionActions'
 
@@ -29,7 +30,7 @@ const ExportChat = NiceModal.create(() => {
   }
 
   return (
-    <Modal
+    <AdaptiveModal
       opened={modal.visible}
       onClose={() => {
         modal.resolve()
@@ -44,8 +45,9 @@ const ExportChat = NiceModal.create(() => {
             {t('Exports are for viewing only. Use Settings → Backup if you need a backup you can restore.')}
           </Text>
         </div>
-        <Select
+        <AdaptiveSelect
           label={t('Scope')}
+          classNames={{ dropdown: 'pointer-events-auto' }}
           data={['all_threads', 'current_thread'].map((scope) => ({
             label: t((scope.charAt(0).toUpperCase() + scope.slice(1).toLowerCase()).split('_').join(' ')),
             value: scope,
@@ -54,20 +56,21 @@ const ExportChat = NiceModal.create(() => {
           onChange={(e) => e && setScope(e as ExportChatScope)}
         />
 
-        <Select
+        <AdaptiveSelect
           label={t('Format')}
+          classNames={{ dropdown: 'pointer-events-auto' }}
           data={['Markdown', 'TXT', 'HTML']}
           value={format}
           onChange={(e) => e && setFormat(e as ExportChatFormat)}
         />
       </Stack>
-      <Flex gap="md" mt="md" justify="flex-end" align="center">
-        <Button onClick={onCancel} color="chatbox-gray" variant="light">
-          {t('cancel')}
-        </Button>
+
+      <AdaptiveModal.Actions>
+        <AdaptiveModal.CloseButton onClick={onCancel} />
+
         <Button onClick={onExport}>{t('export')}</Button>
-      </Flex>
-    </Modal>
+      </AdaptiveModal.Actions>
+    </AdaptiveModal>
   )
 })
 

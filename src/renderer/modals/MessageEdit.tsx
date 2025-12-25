@@ -1,8 +1,9 @@
 import NiceModal, { useModal } from '@ebay/nice-modal-react'
-import { Button, Combobox, Flex, Input, InputBase, Modal, Stack, Textarea, useCombobox } from '@mantine/core'
+import { Button, Combobox, Input, InputBase, Stack, Textarea, useCombobox } from '@mantine/core'
 import { type Message, type MessageContentParts, type MessageRole, MessageRoleEnum } from '@shared/types'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { AdaptiveModal } from '@/components/AdaptiveModal'
 import { AssistantAvatar, SystemAvatar, UserAvatar } from '@/components/Avatar'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { generateMoreInNewFork, modifyMessage } from '@/stores/sessionActions'
@@ -179,7 +180,7 @@ const MessageEditModal = ({
   }
 
   return (
-    <Modal
+    <AdaptiveModal
       opened={opened}
       centered
       size="lg"
@@ -191,6 +192,7 @@ const MessageEditModal = ({
       <Stack gap="md" className=" ">
         <Combobox
           store={combobox}
+          classNames={{ dropdown: 'pointer-events-auto' }}
           onOptionSubmit={(val) => {
             setMsg({
               role: val as MessageRole,
@@ -268,15 +270,14 @@ const MessageEditModal = ({
           })
         )}
       </Stack>
-      <Flex gap="md" mt="md" justify="flex-end" align="center">
-        <Button onClick={onClose} color="chatbox-gray" variant="light">
-          {t('cancel')}
-        </Button>
+
+      <AdaptiveModal.Actions>
+        <AdaptiveModal.CloseButton onClick={onClose} />
         <Button onClick={onSaveAndReply} variant="light">
           {t('Save & Resend')}
         </Button>
         <Button onClick={onSave}>{t('save')}</Button>
-      </Flex>
-    </Modal>
+      </AdaptiveModal.Actions>
+    </AdaptiveModal>
   )
 }

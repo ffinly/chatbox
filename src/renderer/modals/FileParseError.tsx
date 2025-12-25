@@ -1,10 +1,10 @@
 import NiceModal, { useModal } from '@ebay/nice-modal-react'
-import { Alert, Button, Flex, Stack, Text } from '@mantine/core'
+import { Alert, Stack, Text } from '@mantine/core'
+import { ChatboxAIAPIError } from '@shared/models/errors'
 import { IconAlertCircle } from '@tabler/icons-react'
 import { Trans, useTranslation } from 'react-i18next'
-import { ChatboxAIAPIError } from '@shared/models/errors'
+import { AdaptiveModal } from '@/components/AdaptiveModal'
 import LinkTargetBlank from '@/components/Link'
-import { Modal } from '@/components/Overlay'
 import { ScalableIcon } from '@/components/ScalableIcon'
 import { trackingEvent } from '@/packages/event'
 import platform from '@/platform'
@@ -68,7 +68,7 @@ const FileParseError = NiceModal.create(({ errorCode, fileName }: FileParseError
   }
 
   return (
-    <Modal opened={modal.visible} onClose={onClose} size="md" centered title={t('File Processing Error')}>
+    <AdaptiveModal opened={modal.visible} onClose={onClose} size="md" centered title={t('File Processing Error')}>
       <Stack gap="md">
         {fileName && (
           <Text size="sm" c="chatbox-secondary">
@@ -80,13 +80,11 @@ const FileParseError = NiceModal.create(({ errorCode, fileName }: FileParseError
           {renderErrorTips()}
         </Alert>
 
-        <Flex gap="md" mt="sm" justify="flex-end" align="center">
-          <Button onClick={onClose} color="chatbox-gray" variant="light">
-            {t('close')}
-          </Button>
-        </Flex>
+        <AdaptiveModal.Actions>
+          <AdaptiveModal.CloseButton onClick={onClose} />
+        </AdaptiveModal.Actions>
       </Stack>
-    </Modal>
+    </AdaptiveModal>
   )
 })
 

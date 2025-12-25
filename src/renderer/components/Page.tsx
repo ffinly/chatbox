@@ -5,6 +5,7 @@ import type { FC } from 'react'
 import useNeedRoomForWinControls from '@/hooks/useNeedRoomForWinControls'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { useUIStore } from '@/stores/uiStore'
+import Divider from './Divider'
 import WindowControls from './WindowControls'
 
 export type PageProps = {
@@ -20,12 +21,7 @@ export const Page: FC<PageProps> = ({ children, title, left }) => {
   const { needRoomForMacWindowControls } = useNeedRoomForWinControls()
   return (
     <div className="flex flex-col h-full">
-      <Flex
-        h={54}
-        align="center"
-        px="sm"
-        className={clsx('title-bar border-0 border-b border-solid border-chatbox-border-primary')}
-      >
+      <Flex h={54} align="center" px="sm" className={clsx('title-bar')}>
         {left ||
           ((!showSidebar || isSmallScreen) && (
             <Flex align="center" className={needRoomForMacWindowControls ? 'pl-20' : ''}>
@@ -54,6 +50,8 @@ export const Page: FC<PageProps> = ({ children, title, left }) => {
         <WindowControls className="-mr-3 ml-2" />
         {isSmallScreen && <Box w={28} />}
       </Flex>
+
+      <Divider />
 
       <div className="flex-1 overflow-auto">{children}</div>
     </div>

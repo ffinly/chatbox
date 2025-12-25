@@ -15,6 +15,7 @@ import { createFileRoute, Link, Outlet, useCanGoBack, useRouter, useRouterState 
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
 import { Toaster } from 'sonner'
+import Divider from '@/components/Divider'
 import Page from '@/components/Page'
 import { ScalableIcon } from '@/components/ScalableIcon'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
@@ -134,10 +135,7 @@ export function SettingsRoot() {
               disabled={routerState.location.pathname.startsWith(`/settings/${item.key}`)}
               key={item.key}
               to={`/settings/${item.key}` as any}
-              className={clsx(
-                'no-underline w-full',
-                isSmallScreen ? 'border-solid border-0 border-b border-chatbox-border-primary' : ''
-              )}
+              className={'block no-underline w-full'}
             >
               <Flex
                 component="span"
@@ -168,6 +166,8 @@ export function SettingsRoot() {
                   <ScalableIcon icon={IconChevronRight} size={20} className="!text-chatbox-tint-tertiary" />
                 )}
               </Flex>
+
+              {isSmallScreen && <Divider />}
             </Link>
           ))}
         </Stack>

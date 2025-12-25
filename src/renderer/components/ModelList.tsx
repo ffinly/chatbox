@@ -70,7 +70,11 @@ export function ModelList({
         />
       )}
 
-      <Stack gap={0} px="xxs" className={`border-solid border rounded-sm min-h-[100px] border-chatbox-border-primary`}>
+      <Stack
+        gap={0}
+        px="xxs"
+        className={`border-solid border rounded-sm min-h-[100px] max-h-[80vh] overflow-y-auto border-chatbox-border-primary`}
+      >
         {filteredModels.length > 0 ? (
           filteredModels.map((model) => (
             <Flex

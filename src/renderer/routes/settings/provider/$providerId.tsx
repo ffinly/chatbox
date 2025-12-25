@@ -38,6 +38,8 @@ import { uniq } from 'lodash'
 import { type ChangeEvent, useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { createModelDependencies } from '@/adapters'
+import { AdaptiveModal } from '@/components/AdaptiveModal'
+import { AdaptiveSelect } from '@/components/AdaptiveSelect'
 import { ModelList } from '@/components/ModelList'
 import { Modal } from '@/components/Overlay'
 import PopoverConfirm from '@/components/PopoverConfirm'
@@ -326,7 +328,7 @@ function ProviderSettings({ providerId }: { providerId: string }) {
               <Text span fw="600">
                 {t('API Mode')}
               </Text>
-              <Select
+              <AdaptiveSelect
                 value={baseInfo.type}
                 onChange={(value) => {
                   setSettings({
@@ -642,17 +644,14 @@ function ProviderSettings({ providerId }: { providerId: string }) {
           />
         </Stack>
 
-        <Modal
+        <AdaptiveModal
           keepMounted={false}
           opened={!!fetchedModels}
           onClose={() => {
             setFetchedModels(undefined)
           }}
-          title={t('Edit Model')}
+          title={t('Models')}
           centered={true}
-          classNames={{
-            content: '!max-h-[95vh]',
-          }}
         >
           <ModelList
             models={fetchedModels || []}
@@ -664,10 +663,10 @@ function ProviderSettings({ providerId }: { providerId: string }) {
               setProviderSettings({ models: displayModels.filter((m) => m.modelId !== modelId) })
             }
           />
-        </Modal>
+        </AdaptiveModal>
 
         {/* Test Model Selector Modal */}
-        <Modal
+        <AdaptiveModal
           opened={showTestModelSelector}
           onClose={() => setShowTestModelSelector(false)}
           title={t('Select Test Model')}
@@ -702,10 +701,10 @@ function ProviderSettings({ providerId }: { providerId: string }) {
               </Text>
             )}
           </Stack>
-        </Modal>
+        </AdaptiveModal>
 
         {/* Model Test Result Modal */}
-        <Modal
+        <AdaptiveModal
           opened={!!modelTestResult}
           onClose={() => setModelTestResult(null)}
           title={t('Model Test Results')}
@@ -803,12 +802,12 @@ function ProviderSettings({ providerId }: { providerId: string }) {
               </Stack>
             </Stack>
           )}
-          <Flex justify="flex-end">
+          <AdaptiveModal.Actions>
             <Button mt="md" onClick={() => setModelTestResult(null)}>
               {t('Confirm')}
             </Button>
-          </Flex>
-        </Modal>
+          </AdaptiveModal.Actions>
+        </AdaptiveModal>
       </Stack>
     </Stack>
   )

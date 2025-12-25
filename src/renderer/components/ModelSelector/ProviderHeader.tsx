@@ -1,6 +1,7 @@
 import { Flex, Text } from '@mantine/core'
 import { IconChevronDown, IconServer, IconStarFilled } from '@tabler/icons-react'
 import clsx from 'clsx'
+import Divider from '../Divider'
 import ProviderIcon from '../icons/ProviderIcon'
 import { ScalableIcon } from '../ScalableIcon'
 
@@ -37,7 +38,7 @@ export const ProviderHeader = ({
 
   // 根据是否是移动端决定样式
   const iconSize = isMobile ? 16 : 12
-  const padding = isMobile ? 'py-xs px-xxs' : 'px-sm py-xs'
+  const padding = isMobile ? 'py-xs pb-0 px-xxs' : 'px-sm py-xs'
   const textColor = isMobile ? 'chatbox-tertiary' : 'chatbox-secondary'
   const textWeight = isMobile ? 600 : 500
   const iconClass = isMobile
@@ -49,7 +50,7 @@ export const ProviderHeader = ({
         : ''
 
   // Desktop 版本的容器样式
-  const desktopContainerClass = `${isClickable ? 'cursor-pointer select-none hover:bg-chatbox-background-primary-hover' : ''} ${padding} sticky top-0 z-10 bg-chatbox-background-primary ${className}`
+  const desktopContainerClass = `${isClickable ? 'cursor-pointer select-none hover:bg-chatbox-background-primary-hover' : ''} ${padding} sticky top-0 z-10 bg-chatbox-background-primary border-0 border-b border-solid border-chatbox-border-primary ${className}`
 
   // Mobile 版本的容器样式
   const mobileContainerClass = `${padding} ${isMobile ? 'text-chatbox-tint-tertiary' : ''} sticky top-0 z-10 bg-chatbox-background-primary ${className}`
@@ -78,7 +79,6 @@ export const ProviderHeader = ({
     <div
       className={containerClass}
       style={{
-        borderBottom: '1px solid var(--chatbox-border-primary)',
         userSelect: isClickable && !isMobile ? 'none' : undefined,
         ...style,
       }}
@@ -121,6 +121,8 @@ export const ProviderHeader = ({
           </Text>
         )}
       </Flex>
+
+      {isMobile && <Divider className="mt-xs" />}
     </div>
   )
 }

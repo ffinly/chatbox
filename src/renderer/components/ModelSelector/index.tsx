@@ -60,16 +60,6 @@ export const ModelSelector = forwardRef<HTMLDivElement, ModelSelectorProps>(
         }
       })
 
-      // If showing only favorites, filter providers to only those with favorited models
-      if (activeTab === 'favorite') {
-        return filtered
-          .map((provider) => ({
-            ...provider,
-            models: provider.models?.filter((model) => isFavoritedModel(provider.id, model.modelId)),
-          }))
-          .filter((provider) => provider.models && provider.models.length > 0)
-      }
-
       return filtered
     }, [providers, search, modelFilter, activeTab, isFavoritedModel])
 

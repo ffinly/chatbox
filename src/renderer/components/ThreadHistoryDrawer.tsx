@@ -1,7 +1,8 @@
 import NiceModal from '@ebay/nice-modal-react'
-import { ActionIcon, Badge, Flex, Text } from '@mantine/core'
+import { ActionIcon, Badge, Flex, ScrollArea, Text } from '@mantine/core'
+import SwipeableDrawer from '@mui/material/SwipeableDrawer'
 import type { Session, SessionThreadBrief } from '@shared/types'
-import { IconDots, IconEdit, IconSwitch, IconTrash } from '@tabler/icons-react'
+import { IconDots, IconEdit, IconSwitch, IconTrash, IconX } from '@tabler/icons-react'
 import { useAtom, useAtomValue } from 'jotai'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -11,8 +12,8 @@ import { scrollToIndex } from '@/stores/scrollActions'
 import { removeCurrentThread, removeThread, switchThread as switchThreadAction } from '@/stores/sessionActions'
 import { getAllMessageList, getCurrentThreadHistoryHash } from '@/stores/sessionHelpers'
 import { useLanguage } from '@/stores/settingsStore'
+import { CHATBOX_BUILD_PLATFORM } from '@/variables'
 import ActionMenu from './ActionMenu'
-import { Drawer } from './Overlay'
 import { ScalableIcon } from './ScalableIcon'
 
 export default function ThreadHistoryDrawer({ session }: { session: Session }) {
@@ -52,27 +53,48 @@ export default function ThreadHistoryDrawer({ session }: { session: Session }) {
   )
 
   return (
-    <Drawer
-      opened={!!showDrawer}
+    <SwipeableDrawer
+      anchor={language === 'ar' ? 'left' : 'right'}
+      variant="temporary"
+      open={!!showDrawer}
       onClose={() => setShowDrawer(false)}
-      position={language === 'ar' ? 'left' : 'right'}
-      size={280}
-      title={t('Thread History')}
-      classNames={{
-        body: 'flex flex-col p-0 gap-xs',
+      onOpen={() => setShowDrawer(true)}
+      title={t('Thread History') || ''}
+      ModalProps={{
+        keepMounted: true, // Better open performance on mobile.
       }}
+      classes={{
+        paper:
+          'bg-none box-border max-w-75vw min-w-[240px] flex flex-col gap-0 pt-[var(--mobile-safe-area-inset-top)] pb-[var(--mobile-safe-area-inset-bottom)]',
+      }}
+      SlideProps={language === 'ar' ? { direction: 'right' } : undefined}
+      PaperProps={
+        language === 'ar' ? { sx: { direction: 'rtl', overflowY: 'initial' } } : { sx: { overflowY: 'initial' } }
+      }
+      disableSwipeToOpen={CHATBOX_BUILD_PLATFORM !== 'ios'} // 只在iOS设备上启用SwipeToOpen
+      disableEnforceFocus={true} // 关闭 focus trap，避免在侧边栏打开时弹出的 modal 中 input 无法点击
     >
-      {threadList.map((thread, index) => (
-        <ThreadItem
-          key={thread.id}
-          thread={thread}
-          goto={gotoThreadMessage}
-          showHistoryDrawer={showDrawer}
-          switchThread={handleSwitchThread}
-          lastOne={index === threadList.length - 1}
-        />
-      ))}
-    </Drawer>
+      <Flex align="center" justify="space-between" className="px-sm py-xs">
+        <Text size="md" fw={600}>
+          {t('Thread History')}
+        </Text>
+        <ActionIcon variant="transparent" color="chatbox-primary" onClick={() => setShowDrawer(false)}>
+          <ScalableIcon icon={IconX} size={20} />
+        </ActionIcon>
+      </Flex>
+      <ScrollArea className="flex-1">
+        {threadList.map((thread, index) => (
+          <ThreadItem
+            key={thread.id}
+            thread={thread}
+            goto={gotoThreadMessage}
+            showHistoryDrawer={showDrawer}
+            switchThread={handleSwitchThread}
+            lastOne={index === threadList.length - 1}
+          />
+        ))}
+      </ScrollArea>
+    </SwipeableDrawer>
   )
 }
 
@@ -119,6 +141,7 @@ function ThreadItem(props: {
       </Text>
       <ActionMenu
         position="bottom"
+        type="desktop"
         items={[
           { text: t('Edit Thread Name'), icon: IconEdit, onClick: onEditButtonClick },
           { text: t('Switch'), icon: IconSwitch, onClick: onSwitchButtonClick },

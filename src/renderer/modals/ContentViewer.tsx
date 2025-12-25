@@ -3,7 +3,7 @@ import { Button, Flex, Loader, Text } from '@mantine/core'
 import { IconCheck, IconCopy } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Modal } from '@/components/Overlay'
+import { AdaptiveModal } from '@/components/AdaptiveModal'
 import { ScalableIcon } from '@/components/ScalableIcon'
 import { useCopied } from '@/hooks/useCopied'
 import storage from '@/storage'
@@ -40,7 +40,7 @@ const ContentViewer = NiceModal.create(({ title, content: directContent, storage
   const { copied, copy: onCopy } = useCopied(content)
 
   return (
-    <Modal opened={modal.visible} onClose={onClose} size="lg" centered title={title || t('Content')}>
+    <AdaptiveModal opened={modal.visible} onClose={onClose} size="lg" centered title={title || t('Content')}>
       {needsLoading ? (
         <Flex justify="center" align="center" className="min-h-[200px]">
           <Loader />
@@ -63,7 +63,8 @@ const ContentViewer = NiceModal.create(({ title, content: directContent, storage
         </div>
       )}
 
-      <Flex gap="md" mt="md" justify="flex-end" align="center">
+      <AdaptiveModal.Actions>
+        <AdaptiveModal.CloseButton onClick={onClose} />
         <Button
           onClick={onCopy}
           variant="light"
@@ -72,11 +73,8 @@ const ContentViewer = NiceModal.create(({ title, content: directContent, storage
         >
           {t('copy')}
         </Button>
-        <Button onClick={onClose} color="chatbox-gray" variant="light">
-          {t('close')}
-        </Button>
-      </Flex>
-    </Modal>
+      </AdaptiveModal.Actions>
+    </AdaptiveModal>
   )
 })
 

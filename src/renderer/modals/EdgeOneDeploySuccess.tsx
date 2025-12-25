@@ -2,13 +2,16 @@ import NiceModal, { useModal } from '@ebay/nice-modal-react'
 import { ActionIcon, Button, CopyButton, Flex, Stack, Text, TextInput, Tooltip } from '@mantine/core'
 import { IconCheck, IconCopy, IconExternalLink } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
-import { Modal } from '@/components/Overlay'
+import { AdaptiveModal } from '@/components/AdaptiveModal'
+import { ScalableIcon } from '@/components/ScalableIcon'
+import { useIsSmallScreen } from '@/hooks/useScreenChange'
 
 export interface EdgeOneDeploySuccessProps {
   url: string
 }
 
 const EdgeOneDeploySuccess = NiceModal.create(({ url }: EdgeOneDeploySuccessProps) => {
+  const isSmallScreen = useIsSmallScreen()
   const modal = useModal()
   const { t } = useTranslation()
 
@@ -18,12 +21,12 @@ const EdgeOneDeploySuccess = NiceModal.create(({ url }: EdgeOneDeploySuccessProp
   }
 
   return (
-    <Modal opened={modal.visible} onClose={onClose} centered title={t('Webpage Published')}>
+    <AdaptiveModal opened={modal.visible} onClose={onClose} centered title={t('Webpage Published')}>
       <Stack>
         <Text size="sm" c="dimmed">
           {t('Your HTML content has been published. You can access it via the link below.')}
         </Text>
-        <Flex gap="xs">
+        <Flex gap="xs" className={isSmallScreen ? 'flex-col' : ''}>
           <TextInput
             value={url}
             readOnly
@@ -45,20 +48,22 @@ const EdgeOneDeploySuccess = NiceModal.create(({ url }: EdgeOneDeploySuccessProp
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            leftSection={<IconExternalLink size={16} />}
-            color="blue"
-            variant="filled"
+            leftSection={<ScalableIcon icon={IconExternalLink} size={16} />}
+            c="white"
           >
             {t('Open')}
           </Button>
         </Flex>
-        <Flex justify="flex-end" mt="md">
-          <Button variant="default" onClick={onClose}>
-            {t('Close')}
-          </Button>
-        </Flex>
+
+        {!isSmallScreen && (
+          <AdaptiveModal.Actions>
+            <Button variant="default" onClick={onClose}>
+              {t('Close')}
+            </Button>
+          </AdaptiveModal.Actions>
+        )}
       </Stack>
-    </Modal>
+    </AdaptiveModal>
   )
 })
 

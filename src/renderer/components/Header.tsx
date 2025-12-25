@@ -10,6 +10,7 @@ import type { Session } from '../../shared/types'
 import useNeedRoomForWinControls from '../hooks/useNeedRoomForWinControls'
 import { useIsSmallScreen } from '../hooks/useScreenChange'
 import * as settingActions from '../stores/settingActions'
+import Divider from './Divider'
 import { ScalableIcon } from './ScalableIcon'
 import Toolbar from './Toolbar'
 import WindowControls from './WindowControls'
@@ -55,50 +56,49 @@ export default function Header(props: { session: Session }) {
   }
 
   return (
-    <Flex
-      h={54}
-      align="center"
-      px="sm"
-      className={clsx('flex-none title-bar border-0 border-b border-solid border-chatbox-border-primary')}
-    >
-      {(!showSidebar || isSmallScreen) && (
-        <Flex align="center" className={needRoomForMacWindowControls ? 'pl-20' : ''}>
-          <ActionIcon
-            className="controls"
-            variant="subtle"
-            size={isSmallScreen ? 24 : 20}
-            color={isSmallScreen ? 'chatbox-secondary' : 'chatbox-tertiary'}
-            mr="sm"
-            onClick={() => setShowSidebar(!showSidebar)}
-          >
-            {isSmallScreen ? <IconMenu2 /> : <IconLayoutSidebarLeftExpand />}
-          </ActionIcon>
+    <>
+      <Flex h={54} align="center" px="sm" className={'flex-none title-bar'}>
+        {(!showSidebar || isSmallScreen) && (
+          <Flex align="center" className={needRoomForMacWindowControls ? 'pl-20' : ''}>
+            <ActionIcon
+              className="controls"
+              variant="subtle"
+              size={isSmallScreen ? 24 : 20}
+              color={isSmallScreen ? 'chatbox-secondary' : 'chatbox-tertiary'}
+              mr="sm"
+              onClick={() => setShowSidebar(!showSidebar)}
+            >
+              {isSmallScreen ? <IconMenu2 /> : <IconLayoutSidebarLeftExpand />}
+            </ActionIcon>
+          </Flex>
+        )}
+
+        <Flex align="center" gap={'xxs'} flex={1} {...(isSmallScreen ? { justify: 'center', pl: 28, pr: 8 } : {})}>
+          <Title order={4} fz={!isSmallScreen ? 20 : undefined} lineClamp={1}>
+            {currentSession?.name}
+          </Title>
+
+          <Tooltip label={t('Customize settings for the current conversation')}>
+            <ActionIcon
+              className="controls"
+              variant="subtle"
+              color="chatbox-tertiary"
+              size={20}
+              onClick={() => {
+                editCurrentSession()
+              }}
+            >
+              <ScalableIcon icon={IconPencil} size={20} />
+            </ActionIcon>
+          </Tooltip>
         </Flex>
-      )}
 
-      <Flex align="center" gap={'xxs'} flex={1} {...(isSmallScreen ? { justify: 'center', pl: 28, pr: 8 } : {})}>
-        <Title order={4} fz={!isSmallScreen ? 20 : undefined} lineClamp={1}>
-          {currentSession?.name}
-        </Title>
+        <Toolbar sessionId={currentSession.id} />
 
-        <Tooltip label={t('Customize settings for the current conversation')}>
-          <ActionIcon
-            className="controls"
-            variant="subtle"
-            color="chatbox-tertiary"
-            size={20}
-            onClick={() => {
-              editCurrentSession()
-            }}
-          >
-            <ScalableIcon icon={IconPencil} size={20} />
-          </ActionIcon>
-        </Tooltip>
+        <WindowControls className="-mr-3 ml-2" />
       </Flex>
 
-      <Toolbar sessionId={currentSession.id} />
-
-      <WindowControls className="-mr-3 ml-2" />
-    </Flex>
+      <Divider />
+    </>
   )
 }

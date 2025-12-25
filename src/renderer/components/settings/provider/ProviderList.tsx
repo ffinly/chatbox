@@ -8,6 +8,7 @@ import clsx from 'clsx'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import CustomProviderIcon from '@/components/CustomProviderIcon'
+import Divider from '@/components/Divider'
 import { ScalableIcon } from '@/components/ScalableIcon'
 import { useProviders } from '@/hooks/useProviders'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
@@ -63,10 +64,7 @@ export function ProviderList({ providers, onAddProvider, onImportProvider, isImp
               key={provider.id}
               to={provider.id === 'chatbox-ai' ? `/settings/provider/chatbox-ai` : `/settings/provider/$providerId`}
               params={{ providerId: provider.id }}
-              className={clsx(
-                'no-underline',
-                isSmallScreen ? 'border-solid border-0 border-b border-chatbox-border-primary' : ''
-              )}
+              className={'block no-underline'}
             >
               <Flex
                 component="span"
@@ -114,6 +112,8 @@ export function ProviderList({ providers, onAddProvider, onImportProvider, isImp
                   <ScalableIcon icon={IconChevronRight} size={20} className="!text-chatbox-tint-tertiary ml-2" />
                 )}
               </Flex>
+
+              {isSmallScreen && <Divider />}
             </Link>
           ))}
         </Stack>

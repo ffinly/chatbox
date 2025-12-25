@@ -1,7 +1,7 @@
 import NiceModal, { useModal } from '@ebay/nice-modal-react'
 import { Button, Image, List, Paper, Stack, Text, Title } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
-import { Modal } from '@/components/Overlay'
+import { AdaptiveModal } from '@/components/AdaptiveModal'
 import icon from '../static/icon.png'
 import { navigateToSettings } from './Settings'
 
@@ -15,7 +15,7 @@ const Welcome = NiceModal.create(() => {
   }
 
   return (
-    <Modal
+    <AdaptiveModal
       opened={modal.visible}
       onClose={onClose}
       withCloseButton={false}
@@ -65,7 +65,7 @@ const Welcome = NiceModal.create(() => {
           {t('Setup later')}
         </Button>
       </Stack>
-    </Modal>
+    </AdaptiveModal>
   )
 })
 

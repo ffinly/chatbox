@@ -1,4 +1,4 @@
-import { ActionIcon, Box, Button, Divider, Flex, Image, NavLink, Stack, Text, Tooltip } from '@mantine/core'
+import { ActionIcon, Box, Button, Flex, Image, NavLink, Stack, Text, Tooltip } from '@mantine/core'
 import SwipeableDrawer from '@mui/material/SwipeableDrawer'
 import {
   IconCirclePlus,
@@ -13,6 +13,7 @@ import { useNavigate } from '@tanstack/react-router'
 import clsx from 'clsx'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import Divider from './components/Divider'
 import ThemeSwitchButton from './components/dev/ThemeSwitchButton'
 import { ScalableIcon } from './components/ScalableIcon'
 import SessionList from './components/SessionList'

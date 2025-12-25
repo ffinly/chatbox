@@ -3,6 +3,7 @@ import type { ProviderModelInfo } from '@shared/types'
 import { IconRefresh, IconRestore } from '@tabler/icons-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { AdaptiveModal } from '@/components/AdaptiveModal'
 import { ModelList } from '@/components/ModelList'
 import { Modal } from '@/components/Overlay'
 import { ScalableIcon } from '@/components/ScalableIcon'
@@ -71,16 +72,13 @@ export function ModelManagement({
         <ModelList models={chatboxAIModels} showActions={true} onDeleteModel={onDeleteModel} showSearch={false} />
       </Stack>
 
-      <Modal
+      <AdaptiveModal
         keepMounted={false}
         opened={showFetchedModels}
         onClose={() => setShowFetchedModels(false)}
-        title={t('Edit Model')}
+        title={t('Models')}
         centered={true}
         size="lg"
-        classNames={{
-          content: '!max-h-[95vh]',
-        }}
       >
         <ModelList
           models={allChatboxAIModels}
@@ -90,7 +88,7 @@ export function ModelManagement({
           displayedModelIds={chatboxAIModels.map((m) => m.modelId)}
           showSearch={true}
         />
-      </Modal>
+      </AdaptiveModal>
     </>
   )
 }

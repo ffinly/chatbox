@@ -1,6 +1,6 @@
-import { Select } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import type { SessionSettings } from '../../shared/types'
+import { AdaptiveSelect } from './AdaptiveSelect'
 
 export interface Props {
   value: SessionSettings['dalleStyle']
@@ -12,7 +12,7 @@ export default function ImageStyleSelect(props: Props) {
   const { t } = useTranslation()
 
   return (
-    <Select
+    <AdaptiveSelect
       label={t('Image Style')}
       data={[
         {

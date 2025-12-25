@@ -27,6 +27,7 @@ import {
   Popover,
   rem,
   Select,
+  Slider,
   Switch,
   Text,
   TextInput,
@@ -459,6 +460,12 @@ const creteMantineTheme = (scale = 1) =>
       Popover: Popover.extend({
         defaultProps: {
           zIndex: 3000,
+        },
+      }),
+      Slider: Slider.extend({
+        classNames: {
+          trackContainer: 'max-sm:pointer-events-none',
+          thumb: 'max-sm:pointer-events-auto',
         },
       }),
     },

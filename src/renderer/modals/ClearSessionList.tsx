@@ -1,8 +1,8 @@
 import NiceModal, { useModal } from '@ebay/nice-modal-react'
-import { Button, Flex, Input } from '@mantine/core'
+import { Button, Input } from '@mantine/core'
 import { type ChangeEvent, useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { Modal } from '@/components/Overlay'
+import { AdaptiveModal } from '@/components/AdaptiveModal'
 import { trackingEvent } from '@/packages/event'
 import { clearConversationList } from '@/stores/sessionActions'
 
@@ -33,7 +33,7 @@ const ClearSessionList = NiceModal.create(() => {
   }
 
   return (
-    <Modal
+    <AdaptiveModal
       opened={modal.visible}
       onClose={() => {
         modal.resolve()
@@ -42,31 +42,31 @@ const ClearSessionList = NiceModal.create(() => {
       centered
       title={t('Clear Conversation List')}
     >
-      <Trans
-        i18nKey="Keep only the Top <input /> Conversations in List and Permanently Delete the Rest"
-        values={{ n: value }}
-        components={{
-          input: (
-            <Input
-              key={'0'}
-              value={value}
-              onChange={handleInput}
-              className=" inline-block w-14"
-              classNames={{ input: '!border-0 !border-b !rounded-none !bg-transparent' }}
-            />
-          ),
-        }}
-      />
+      <div>
+        <Trans
+          i18nKey="Keep only the Top <input /> Conversations in List and Permanently Delete the Rest"
+          values={{ n: value }}
+          components={{
+            input: (
+              <Input
+                key={'0'}
+                value={value}
+                onChange={handleInput}
+                className="inline-block w-[4em]"
+                classNames={{ input: '!border-0 !border-b !rounded-none !bg-transparent !text-center' }}
+              />
+            ),
+          }}
+        />
+      </div>
 
-      <Flex gap="md" mt="md" justify="flex-end" align="center">
-        <Button onClick={handleClose} color="chatbox-gray" variant="light">
-          {t('cancel')}
-        </Button>
+      <AdaptiveModal.Actions>
+        <AdaptiveModal.CloseButton onClick={handleClose} />
         <Button onClick={clean} color="chatbox-error">
           {t('clean it up')}
         </Button>
-      </Flex>
-    </Modal>
+      </AdaptiveModal.Actions>
+    </AdaptiveModal>
   )
 })
 

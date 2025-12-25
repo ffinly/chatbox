@@ -4,7 +4,8 @@ import type { ProviderModelInfo } from '@shared/types'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { createModelDependencies } from '@/adapters'
-import { Modal } from '@/components/Overlay'
+import { AdaptiveModal } from '@/components/AdaptiveModal'
+import { AdaptiveSelect } from '@/components/AdaptiveSelect'
 import platform from '@/platform'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { type ModelTestState, testModelCapabilities } from '@/utils/model-tester'
@@ -85,7 +86,7 @@ const ModelEdit = NiceModal.create((props: { model?: ProviderModelInfo; provider
   }
 
   return (
-    <Modal
+    <AdaptiveModal
       keepMounted={false}
       opened={modal.visible}
       onClose={handleCancel}
@@ -120,7 +121,8 @@ const ModelEdit = NiceModal.create((props: { model?: ProviderModelInfo; provider
         {/* Model Type */}
         <Stack gap="xs">
           <Text fw="600">{t('Model Type')}</Text>
-          <Select
+          <AdaptiveSelect
+            classNames={{ dropdown: 'pointer-events-auto' }}
             comboboxProps={{ withinPortal: false }}
             allowDeselect={false}
             styles={{
@@ -215,28 +217,26 @@ const ModelEdit = NiceModal.create((props: { model?: ProviderModelInfo; provider
           </Flex>
         </Stack>
 
-        <Flex align="center" justify="flex-end" gap="xs">
-          <Text>
-            {testState.basicTest?.status === 'success' ? (
-              <Text c="chatbox-success">{t('Test successful')}</Text>
-            ) : testState.basicTest?.status === 'error' ? (
-              <Tooltip label={testState.basicTest.error} multiline maw={300}>
-                <Text c="chatbox-error" style={{ cursor: 'help' }}>
-                  {t('Test failed')}
-                </Text>
-              </Tooltip>
-            ) : null}
-          </Text>
-          <Button onClick={handleCancel} color="chatbox-gray" variant="light">
-            {t('Cancel')}
-          </Button>
+        <AdaptiveModal.Actions>
+          {testState.basicTest?.status === 'success' ? (
+            <Text c="chatbox-success" className="text-center">
+              {t('Test successful')}
+            </Text>
+          ) : testState.basicTest?.status === 'error' ? (
+            <Tooltip label={testState.basicTest.error} multiline maw={300}>
+              <Text c="chatbox-error" style={{ cursor: 'help' }} className="text-center">
+                {t('Test failed')}
+              </Text>
+            </Tooltip>
+          ) : null}
+          <AdaptiveModal.CloseButton onClick={handleCancel} />
           <Button variant="light" onClick={handleTestModel}>
             {testState.testing ? <Loader size="xs" /> : t('Test Model')}
           </Button>
           <Button onClick={handleSave}>{t('Save')}</Button>
-        </Flex>
+        </AdaptiveModal.Actions>
       </Stack>
-    </Modal>
+    </AdaptiveModal>
   )
 })
 
