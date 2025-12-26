@@ -385,7 +385,7 @@ export function getModel(
   }
 }
 
-export const aiProviderNameHash: Record<ModelProvider, string> = {
+export const aiProviderNameHash: Record<ModelProviderEnum, string> = {
   [ModelProviderEnum.OpenAI]: 'OpenAI API',
   [ModelProviderEnum.OpenAIResponses]: 'OpenAI Responses API',
   [ModelProviderEnum.Azure]: 'Azure OpenAI API',

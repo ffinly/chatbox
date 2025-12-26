@@ -13,10 +13,10 @@ import * as path from 'node:path'
 import type { ModelMessage } from 'ai'
 import { v4 as uuidv4 } from 'uuid'
 import TestPlatform from '../../../src/renderer/platform/test_platform'
-import { createAfetch } from '../../../src/shared/request/request'
-import type { Message, MessageFile, SessionSettings, Settings, StreamTextResult } from '../../../src/shared/types'
+import type { Message, SessionSettings, Settings, StreamTextResult } from '../../../src/shared/types'
 import type { ModelDependencies } from '../../../src/shared/types/adapters'
-import type { SentryAdapter, SentryScope } from '../../../src/shared/utils/sentry_adapter'
+import { createMockModelDependencies } from '../mocks/model-dependencies'
+import { MockSentryAdapter } from '../mocks/sentry'
 
 // ============ 类型定义 ============
 
@@ -80,33 +80,6 @@ export interface TestResult {
   }>
 }
 
-// ============ Mock Sentry ============
-
-class MockSentryAdapter implements SentryAdapter {
-  private errors: any[] = []
-
-  captureException(error: any): void {
-    this.errors.push(error)
-    console.error('[MockSentry] Captured exception:', error)
-  }
-
-  withScope(callback: (scope: SentryScope) => void): void {
-    const scope: SentryScope = {
-      setTag: (key: string, value: string) => {},
-      setExtra: (key: string, value: any) => {},
-    }
-    callback(scope)
-  }
-
-  getErrors(): any[] {
-    return this.errors
-  }
-
-  clear(): void {
-    this.errors = []
-  }
-}
-
 // ============ 测试上下文 ============
 
 /**
@@ -146,50 +119,7 @@ export class FileConversationTestContext {
    * 使用真实的请求适配器，mock sentry，使用 TestPlatform 的存储
    */
   async createModelDependencies(): Promise<ModelDependencies> {
-    const platformInfo = {
-      type: this.platform.type,
-      platform: await this.platform.getPlatform(),
-      os: 'test',
-      version: await this.platform.getVersion(),
-    }
-
-    const afetch = createAfetch(platformInfo)
-    const testPlatform = this.platform
-    const testSentry = this.sentry
-
-    return {
-      storage: {
-        async saveImage(folder: string, dataUrl: string): Promise<string> {
-          const storageKey = `picture:${folder}:${uuidv4()}`
-          await testPlatform.setStoreBlob(storageKey, dataUrl)
-          return storageKey
-        },
-        async getImage(storageKey: string): Promise<string> {
-          const blob = await testPlatform.getStoreBlob(storageKey)
-          return blob || ''
-        },
-      },
-      request: {
-        fetchWithOptions: async (
-          url: string,
-          init?: RequestInit,
-          options?: { retry?: number; parseChatboxRemoteError?: boolean }
-        ): Promise<Response> => {
-          return afetch(url, init, options || {})
-        },
-        async apiRequest(options): Promise<Response> {
-          const init: RequestInit = {
-            method: options.method || 'GET',
-            headers: options.headers,
-            body: options.body,
-            signal: options.signal,
-          }
-          return afetch(options.url, init, { retry: options.retry })
-        },
-      },
-      sentry: testSentry,
-      getRemoteConfig: () => ({}),
-    }
+    return createMockModelDependencies(this.platform, this.sentry)
   }
 
   /**
@@ -323,7 +253,9 @@ export class FileConversationTestRunner {
         modelSupportToolUseForFile,
         storageAdapter
       )
-      console.log(`  genMessageContext: modelSupportToolUseForFile=${modelSupportToolUseForFile}, messages=${promptMessages.length}`)
+      console.log(
+        `  genMessageContext: modelSupportToolUseForFile=${modelSupportToolUseForFile}, messages=${promptMessages.length}`
+      )
 
       // 执行对话
       let streamResult: { result: StreamTextResult; coreMessages: ModelMessage[] } | undefined
@@ -667,7 +599,9 @@ export async function runConversationTest(options: RunConversationTestOptions): 
       modelSupportToolUseForFile,
       storageAdapter
     )
-    console.log(`  genMessageContext: modelSupportToolUseForFile=${modelSupportToolUseForFile}, messages=${promptMessages.length}`)
+    console.log(
+      `  genMessageContext: modelSupportToolUseForFile=${modelSupportToolUseForFile}, messages=${promptMessages.length}`
+    )
 
     // 执行对话
     const streamResult = await streamText(
@@ -755,11 +689,7 @@ export async function runConversationTest(options: RunConversationTestOptions): 
 /**
  * 创建测试文件对象
  */
-export function createTestFile(
-  fileName: string,
-  content: string,
-  fileType: string = 'text/plain'
-): TestFile {
+export function createTestFile(fileName: string, content: string, fileType: string = 'text/plain'): TestFile {
   return {
     storageKey: `file:test:${uuidv4()}`,
     fileName,
@@ -771,10 +701,7 @@ export function createTestFile(
 /**
  * 从实际文件加载测试文件
  */
-export function loadTestFileFromDisk(
-  filePath: string,
-  fileType?: string
-): TestFile {
+export function loadTestFileFromDisk(filePath: string, fileType?: string): TestFile {
   const content = fs.readFileSync(filePath, 'utf-8')
   const fileName = path.basename(filePath)
   const detectedType = fileType || detectFileType(fileName)
