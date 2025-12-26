@@ -198,6 +198,10 @@ export default class TestPlatform implements Platform {
     return () => {}
   }
 
+  public onWindowFocused(callback: () => void): () => void {
+    return () => {}
+  }
+
   public onUpdateDownloaded(callback: () => void): () => void {
     return () => {}
   }
