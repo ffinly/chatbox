@@ -1351,10 +1351,7 @@ function buildSwitchForkPatch(
     const { messages, fork } = rootResult
     return {
       messages,
-      messageForksHash: {
-        ...messageForksHash,
-        [forkMessageId]: fork,
-      },
+      messageForksHash: computeNextMessageForksHash(messageForksHash, forkMessageId, fork),
     }
   }
 
@@ -1363,14 +1360,16 @@ function buildSwitchForkPatch(
   }
 
   let updatedFork: MessageForkEntry | null = null
+  let forkWasProcessed = false
   const updatedThreads = session.threads.map((thread) => {
-    if (updatedFork) {
+    if (forkWasProcessed) {
       return thread
     }
     const result = switchForkInMessages(thread.messages, forkEntry, forkMessageId, direction)
     if (!result) {
       return thread
     }
+    forkWasProcessed = true
     updatedFork = result.fork
     return {
       ...thread,
@@ -1378,16 +1377,13 @@ function buildSwitchForkPatch(
     }
   })
 
-  if (!updatedFork) {
+  if (!forkWasProcessed) {
     return null
   }
 
   return {
     threads: updatedThreads,
-    messageForksHash: {
-      ...messageForksHash,
-      [forkMessageId]: updatedFork,
-    },
+    messageForksHash: computeNextMessageForksHash(messageForksHash, forkMessageId, updatedFork),
   }
 }
 
@@ -1396,36 +1392,63 @@ function switchForkInMessages(
   forkEntry: MessageForkEntry,
   forkMessageId: string,
   direction: 'next' | 'prev'
-): { messages: Message[]; fork: MessageForkEntry } | null {
+): { messages: Message[]; fork: MessageForkEntry | null } | null {
   const forkMessageIndex = messages.findIndex((m) => m.id === forkMessageId)
   if (forkMessageIndex < 0) {
     return null
   }
 
-  const total = forkEntry.lists.length
-  const newPosition = direction === 'next' ? (forkEntry.position + 1) % total : (forkEntry.position - 1 + total) % total
-
   const currentTail = messages.slice(forkMessageIndex + 1)
-  const branchMessages = forkEntry.lists[newPosition]?.messages ?? []
+  const currentPosition = forkEntry.position
+
+  // Check if current branch is empty (user deleted all messages in this branch)
+  const isCurrentBranchEmpty = currentTail.length === 0
+
+  // If current branch is empty, remove it from lists
+  let updatedLists = forkEntry.lists
+  let adjustedCurrentPosition = currentPosition
+
+  if (isCurrentBranchEmpty) {
+    updatedLists = forkEntry.lists.filter((_, index) => index !== currentPosition)
+    // If only one branch remains after removing empty branch, clear fork entirely
+    if (updatedLists.length <= 1) {
+      const remainingMessages = updatedLists[0]?.messages ?? []
+      return {
+        messages: messages.slice(0, forkMessageIndex + 1).concat(remainingMessages),
+        fork: null,
+      }
+    }
+    // Adjust position for removed branch
+    adjustedCurrentPosition = currentPosition >= updatedLists.length ? updatedLists.length - 1 : currentPosition
+  }
+
+  const total = updatedLists.length
+  const newPosition =
+    direction === 'next' ? (adjustedCurrentPosition + 1) % total : (adjustedCurrentPosition - 1 + total) % total
+
+  const branchMessages = updatedLists[newPosition]?.messages ?? []
+
+  const finalLists = updatedLists.map((list, index) => {
+    // If we didn't remove current branch, save currentTail to it
+    if (!isCurrentBranchEmpty && index === adjustedCurrentPosition && adjustedCurrentPosition !== newPosition) {
+      return {
+        ...list,
+        messages: currentTail,
+      }
+    }
+    if (index === newPosition) {
+      return {
+        ...list,
+        messages: [],
+      }
+    }
+    return list
+  })
 
   const updatedFork: MessageForkEntry = {
     ...forkEntry,
     position: newPosition,
-    lists: forkEntry.lists.map((list, index) => {
-      if (index === forkEntry.position && forkEntry.position !== newPosition) {
-        return {
-          ...list,
-          messages: currentTail,
-        }
-      }
-      if (index === newPosition) {
-        return {
-          ...list,
-          messages: [],
-        }
-      }
-      return list
-    }),
+    lists: finalLists,
   }
 
   return {

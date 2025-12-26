@@ -18,11 +18,11 @@ import isEmpty from 'lodash/isEmpty'
 import { useMemo } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import storage, { StorageKey } from '@/storage'
-import { uiStore } from './uiStore'
 import { StorageKeyGenerator } from '@/storage/StoreStorage'
 import * as defaults from '../../shared/defaults'
 import { getLogger } from '../lib/utils'
 import { migrateSession, sortSessions } from '../utils/session-utils'
+import { uiStore } from './uiStore'
 
 const log = getLogger('chat-store')
 
@@ -434,17 +434,120 @@ export async function removeMessage(sessionId: string, messageId: string) {
     if (!session) {
       throw new Error(`session ${sessionId} not found`)
     }
+
+    const newMessages = session.messages.filter((m) => m.id !== messageId)
+    const newThreads = session.threads?.map((thread) => ({
+      ...thread,
+      messages: thread.messages.filter((m) => m.id !== messageId),
+    }))
+
+    // Clean up empty fork branches after message removal and auto-switch if needed
+    const { messages: finalMessages, messageForksHash: newMessageForksHash } = cleanupEmptyForkBranches(
+      session.messageForksHash,
+      newMessages,
+      newThreads
+    )
+
     return {
       ...session,
-      messages: session.messages.filter((m) => m.id !== messageId),
-      threads: session.threads?.map((thread) => {
-        return {
-          ...thread,
-          messages: thread.messages.filter((m) => m.id !== messageId),
-        }
-      }),
+      messages: finalMessages,
+      threads: newThreads,
+      messageForksHash: newMessageForksHash,
     }
   })
+}
+
+/**
+ * Clean up empty fork branches after message removal.
+ * If the current branch (messages after forkMessageId) is empty, remove it from the fork
+ * and automatically switch to another branch by loading its messages.
+ */
+function cleanupEmptyForkBranches(
+  messageForksHash: Session['messageForksHash'],
+  messages: Message[],
+  threads: Session['threads']
+): { messages: Message[]; messageForksHash: Session['messageForksHash'] } {
+  if (!messageForksHash) {
+    return { messages, messageForksHash }
+  }
+
+  let resultHash: Session['messageForksHash'] = messageForksHash
+  let resultMessages = messages
+
+  for (const [forkMessageId, forkEntry] of Object.entries(messageForksHash)) {
+    // Check if fork point exists in messages
+    const forkIndexInMessages = resultMessages.findIndex((m) => m.id === forkMessageId)
+
+    if (forkIndexInMessages >= 0) {
+      // Fork is in main messages - check if tail is empty fork point 是 user msg，之后的 bot msg 是具体的分叉
+      // 当用户这条消息(fork point)是最后一条消息，后面没了 bot msg，则当前分支是空的
+      const currentBranchIsEmpty = forkIndexInMessages === resultMessages.length - 1
+
+      if (currentBranchIsEmpty) {
+        // Remove current branch from lists
+        const remainingLists = forkEntry.lists.filter((_, index) => index !== forkEntry.position)
+
+        if (remainingLists.length <= 1) {
+          // Only one or zero branches left - remove the fork and load remaining messages
+          const remainingBranchMessages = remainingLists[0]?.messages ?? []
+          // Append remaining branch messages after the fork point
+          resultMessages = resultMessages.slice(0, forkIndexInMessages + 1).concat(remainingBranchMessages)
+          // Remove this fork from hash
+          const { [forkMessageId]: _removed, ...rest } = resultHash ?? {}
+          resultHash = Object.keys(rest).length ? rest : undefined
+        } else {
+          // Multiple branches remain - switch to nearest position and load its messages
+          const newPosition = Math.min(forkEntry.position, remainingLists.length - 1)
+          const newBranchMessages = remainingLists[newPosition]?.messages ?? []
+
+          // Load the new branch's messages
+          resultMessages = resultMessages.slice(0, forkIndexInMessages + 1).concat(newBranchMessages)
+
+          // Clear the messages from the loaded branch (since they're now in main messages)
+          const updatedLists = remainingLists.map((list, index) =>
+            index === newPosition ? { ...list, messages: [] } : list
+          )
+
+          resultHash = {
+            ...resultHash,
+            [forkMessageId]: {
+              ...forkEntry,
+              position: newPosition,
+              lists: updatedLists,
+            },
+          }
+        }
+      }
+    } else if (threads) {
+      // Fork might be in threads - just update the hash without modifying main messages
+      for (const thread of threads) {
+        const forkIndexInThread = thread.messages.findIndex((m) => m.id === forkMessageId)
+        if (forkIndexInThread >= 0) {
+          const currentBranchIsEmpty = forkIndexInThread === thread.messages.length - 1
+          if (currentBranchIsEmpty) {
+            const remainingLists = forkEntry.lists.filter((_, index) => index !== forkEntry.position)
+            if (remainingLists.length <= 1) {
+              const { [forkMessageId]: _removed, ...rest } = resultHash ?? {}
+              resultHash = Object.keys(rest).length ? rest : undefined
+            } else {
+              const newPosition = Math.min(forkEntry.position, remainingLists.length - 1)
+              resultHash = {
+                ...resultHash,
+                [forkMessageId]: {
+                  ...forkEntry,
+                  position: newPosition,
+                  lists: remainingLists,
+                },
+              }
+            }
+          }
+          break
+        }
+      }
+    }
+  }
+
+  return { messages: resultMessages, messageForksHash: resultHash }
 }
 
 // MARK: data recovery operations
