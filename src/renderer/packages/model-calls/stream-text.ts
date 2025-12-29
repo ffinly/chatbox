@@ -137,8 +137,17 @@ export async function streamText(
 
   // 1. inject system prompt for tool use
   let toolSetInstructions = ''
-  if (knowledgeBase && !kbNotSupported) {
-    toolSetInstructions += getToolSet(knowledgeBase.id, knowledgeBase.name).description
+  // 预加载知识库工具集（异步获取文件列表）
+  let kbToolSet = null
+  if (knowledgeBase) {
+    try {
+      kbToolSet = await getToolSet(knowledgeBase.id, knowledgeBase.name)
+    } catch (err) {
+      console.error('Failed to load knowledge base toolset:', err)
+    }
+  }
+  if (kbToolSet && !kbNotSupported) {
+    toolSetInstructions += kbToolSet.description
   }
   if (needFileToolSet) {
     toolSetInstructions += fileToolSet.description
@@ -186,6 +195,25 @@ export async function streamText(
     }
 
     coreMessages = await convertToModelMessages(messages, { modelSupportVision: model.isSupportVision() })
+
+    // 2.5 inject knowledge base reminder into last user message (only in coreMessages, not UI)
+    if (kbToolSet) {
+      const kbReminder = '\n\n[System: Consider if this question could be answered by searching the knowledge base.]'
+      for (let i = coreMessages.length - 1; i >= 0; i--) {
+        const msg = coreMessages[i]
+        if (msg.role === 'user') {
+          if (typeof msg.content === 'string') {
+            msg.content += kbReminder
+          } else if (Array.isArray(msg.content)) {
+            const lastTextPart = msg.content.findLast((p) => p.type === 'text')
+            if (lastTextPart && 'text' in lastTextPart) {
+              lastTextPart.text += kbReminder
+            }
+          }
+          break
+        }
+      }
+    }
 
     // 3. handle model not support tool use scenarios
     if (kbNotSupported || webNotSupported) {
@@ -274,10 +302,10 @@ export async function streamText(
         tools.parse_link = parseLinkTool
       }
     }
-    if (knowledgeBase) {
+    if (kbToolSet) {
       tools = {
         ...tools,
-        ...getToolSet(knowledgeBase.id, knowledgeBase.name).tools,
+        ...kbToolSet.tools,
       }
     }
 

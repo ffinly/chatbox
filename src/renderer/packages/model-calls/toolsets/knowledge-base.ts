@@ -75,26 +75,38 @@ export function listFilesTool(knowledgeBaseId: number) {
     },
   })
 }
-const getToolSetDescription = (knowledgeBaseId: number, knowledgeBaseName: string) => {
+async function getToolSetDescription(knowledgeBaseId: number, knowledgeBaseName: string) {
+  // 预加载文件列表，让模型知道知识库中有什么文件
+  const knowledgeBaseController = platform.getKnowledgeBaseController()
+  const files = await knowledgeBaseController.listFilesPaginated(knowledgeBaseId, 0, 50)
+  const doneFiles = files.filter((f) => f.status === 'done')
+  const fileListStr =
+    doneFiles.length > 0 ? doneFiles.map((f) => `- "${f.filename}"`).join('\n') : '(No files available yet)'
+
   return `
-Use these tools to interact with the knowledge base "${knowledgeBaseName}".
+## Knowledge Base: "${knowledgeBaseName}"
 
-## query_knowledge_base
-Search the knowledge base with a semantic query. Returns relevant document chunks.
+You have access to a knowledge base containing these documents:
 
-## get_files_meta
-Get metadata (filename, size, chunk count) for specific files by their IDs.
+${fileListStr}
 
-## read_file_chunks
-Read the actual text content from specific file chunks.
+### Tools:
+- **query_knowledge_base** - Semantic search (fast, low cost). Use liberally.
+- **read_file_chunks** - Read document content.
+- **get_files_meta** - Get file metadata.
+- **list_files** - List all files (paginated).
 
-## list_files
-List all files in the knowledge base with pagination support.
+### IMPORTANT - When to search:
+- **For EVERY new question**, independently consider whether the knowledge base might help
+- Even if you searched before, **search again** if the current question touches a different topic
+- Previous search results may not cover the current question - don't assume you already have the answer
+- When in doubt, search. It's better to search and find nothing than to miss relevant information.
 `
 }
-export function getToolSet(knowledgeBaseId: number, knowledgeBaseName: string) {
+
+export async function getToolSet(knowledgeBaseId: number, knowledgeBaseName: string) {
   return {
-    description: getToolSetDescription(knowledgeBaseId, knowledgeBaseName),
+    description: await getToolSetDescription(knowledgeBaseId, knowledgeBaseName),
     tools: {
       query_knowledge_base: queryKnowledgeBaseTool(knowledgeBaseId),
       get_files_meta: getFilesMetaTool(knowledgeBaseId),
