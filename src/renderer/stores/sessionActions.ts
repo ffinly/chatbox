@@ -1158,6 +1158,34 @@ export async function genMessageContext(
   if (maxContextMessageCount === undefined) {
     throw new Error('maxContextMessageCount is not set')
   }
+
+  // Pre-fetch all blob contents in parallel to avoid N+1 sequential fetches
+  const allStorageKeys = new Set<string>()
+  for (const msg of msgs) {
+    if (msg.files) {
+      for (const file of msg.files) {
+        if (file.storageKey) {
+          allStorageKeys.add(file.storageKey)
+        }
+      }
+    }
+    if (msg.links) {
+      for (const link of msg.links) {
+        if (link.storageKey) {
+          allStorageKeys.add(link.storageKey)
+        }
+      }
+    }
+  }
+  const blobContents = new Map<string, string>()
+  if (allStorageKeys.size > 0) {
+    const keys = Array.from(allStorageKeys)
+    const contents = await Promise.all(keys.map((key) => storageGetBlob(key)))
+    keys.forEach((key, index) => {
+      blobContents.set(key, contents[index])
+    })
+  }
+
   const head = msgs[0].role === 'system' ? msgs[0] : undefined
   if (head) {
     msgs = msgs.slice(1)
@@ -1190,7 +1218,7 @@ export async function genMessageContext(
       for (const file of msg.files) {
         if (file.storageKey) {
           msg = cloneMessage(msg) // 复制一份消息，避免修改原始消息
-          const content = await storageGetBlob(file.storageKey)
+          const content = blobContents.get(file.storageKey) ?? ''
           if (content) {
             let attachment = `\n\n<ATTACHMENT_FILE>\n`
             attachment += `<FILE_INDEX>${attachmentIndex++}</FILE_INDEX>\n`
@@ -1214,7 +1242,7 @@ export async function genMessageContext(
       for (const link of msg.links) {
         if (link.storageKey) {
           msg = cloneMessage(msg) // 复制一份消息，避免修改原始消息
-          const content = await storageGetBlob(link.storageKey)
+          const content = blobContents.get(link.storageKey) ?? ''
           if (content) {
             let attachment = `\n\n<ATTACHMENT_FILE>\n`
             attachment += `<FILE_INDEX>${attachmentIndex++}</FILE_INDEX>\n`
