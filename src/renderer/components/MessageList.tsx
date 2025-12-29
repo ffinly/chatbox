@@ -52,7 +52,28 @@ import Message from './Message'
 import MessageNavigation, { ScrollToBottomButton } from './MessageNavigation'
 import { ScalableIcon } from './ScalableIcon'
 
+// LRU-like cache with max size to prevent unbounded memory growth
+const MAX_SCROLL_CACHE_SIZE = 100
 const sessionScrollPositionCache = new Map<string, StateSnapshot>()
+
+function setScrollPosition(sessionId: string, snapshot: StateSnapshot) {
+  // Delete and re-add to move to end (most recently used)
+  sessionScrollPositionCache.delete(sessionId)
+  sessionScrollPositionCache.set(sessionId, snapshot)
+
+  // Evict oldest entries if over limit
+  if (sessionScrollPositionCache.size > MAX_SCROLL_CACHE_SIZE) {
+    const firstKey = sessionScrollPositionCache.keys().next().value
+    if (firstKey) {
+      sessionScrollPositionCache.delete(firstKey)
+    }
+  }
+}
+
+// Export cleanup function for use when sessions are deleted
+export function clearScrollPositionCache(sessionId: string) {
+  sessionScrollPositionCache.delete(sessionId)
+}
 
 export interface MessageListRef {
   scrollToTop: (behavior?: ScrollBehavior) => void
@@ -213,7 +234,7 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
       currentVirtuoso?.getState((state) => {
         if (state.ranges.length > 0) {
           // useEffect 可能执行两次，这里根据 ranges 判断是否为第一次 useEffect 严格测试导致的执行
-          sessionScrollPositionCache.set(currentSession.id, state)
+          setScrollPosition(currentSession.id, state)
         }
       })
     }

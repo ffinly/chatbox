@@ -26,6 +26,8 @@ import { uiStore } from './uiStore'
 
 const log = getLogger('chat-store')
 
+import { clearScrollPositionCache } from '@/components/MessageList'
+import { cleanupSessionAtomCache } from './atoms/throttleWriteSessionAtom'
 import { lastUsedModelStore } from './lastUsedModelStore'
 import queryClient from './queryClient'
 import { getSessionMeta } from './sessionHelpers'
@@ -241,9 +243,12 @@ export async function deleteSession(id: string) {
     }
     return sessions.filter((session) => session.id !== id)
   })
-  // Clean up UI state to prevent memory leak
+  // Clean up UI state and caches to prevent memory leaks
   uiStore.getState().clearSessionWebBrowsing(id)
   uiStore.getState().removeSessionKnowledgeBase(id)
+  cleanupSessionAtomCache(id)
+  clearScrollPositionCache(id)
+  delete sessionUpdateQueues[id]
 }
 
 // MARK: session settings operations
