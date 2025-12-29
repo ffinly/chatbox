@@ -290,8 +290,8 @@ export const DesktopModelSelector = forwardRef<HTMLDivElement, DesktopModelSelec
                         return (
                           <ModelItem
                             key={`${fm.provider.id}/${fm.model.modelId}`}
-                            showIcon={true}
                             providerId={fm.provider.id}
+                            providerName={fm.provider.name}
                             model={fm.model}
                             isFavorited={true}
                             isSelected={selectedProviderId === fm.provider.id && selectedModelId === fm.model.modelId}

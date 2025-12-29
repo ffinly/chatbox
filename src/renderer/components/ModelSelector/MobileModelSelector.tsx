@@ -93,7 +93,7 @@ export const MobileModelSelector = forwardRef<HTMLDivElement, MobileModelSelecto
       return (
         <Stack gap="md">
           {Object.entries(groupFavoriteModels(favoritedModels)).map(([providerId, group]) => (
-            <Stack key={providerId} gap="xs">
+            <Stack key={providerId} gap={4}>
               <ProviderHeader
                 provider={group.provider || { id: providerId, name: providerId }}
                 modelCount={group.models.length}
@@ -107,7 +107,6 @@ export const MobileModelSelector = forwardRef<HTMLDivElement, MobileModelSelecto
                     key={`${fm.provider.id}/${fm.model.modelId}`}
                     providerId={fm.provider.id}
                     model={fm.model}
-                    showIcon={false}
                     isFavorited={true}
                     isSelected={selectedProviderId === fm.provider.id && selectedModelId === fm.model.modelId}
                     hideFavoriteIcon={true}
@@ -175,11 +174,13 @@ export const MobileModelSelector = forwardRef<HTMLDivElement, MobileModelSelecto
                         component="button"
                         align="center"
                         gap="xs"
-                        px="md"
-                        py="sm"
+                        px="sm"
+                        py="xs"
                         className={clsx(
-                          'rounded-md border-solid border border-chatbox-border-secondary outline-none',
-                          !selectedProviderId && !selectedModelId ? SELECTED_BG_CLASS : 'bg-transparent'
+                          'rounded-md outline-none',
+                          !selectedProviderId && !selectedModelId
+                            ? SELECTED_BG_CLASS
+                            : 'bg-transparent active:bg-chatbox-background-brand-secondary-hover'
                         )}
                         onClick={() => {
                           handleOptionSubmit('')
@@ -196,40 +197,6 @@ export const MobileModelSelector = forwardRef<HTMLDivElement, MobileModelSelecto
                         </Text>
                       </Flex>
                     )}
-                    {favoritedModels && favoritedModels.length > 0 && (
-                      <Stack gap="xs">
-                        <ProviderHeader
-                          provider={{ id: 'favorite', name: t('Favorite') }}
-                          variant="mobile-favorite"
-                          showChevron={false}
-                        />
-
-                        {favoritedModels.map((fm) => {
-                          if (!fm.provider || !fm.model) return null
-                          return (
-                            <ModelItemInDrawer
-                              key={`${fm.provider.id}/${fm.model.modelId}`}
-                              providerId={fm.provider.id}
-                              model={fm.model}
-                              showIcon={true}
-                              isFavorited={true}
-                              isSelected={selectedProviderId === fm.provider.id && selectedModelId === fm.model.modelId}
-                              hideFavoriteIcon={false}
-                              onSelect={() => {
-                                if (fm.provider && fm.model) {
-                                  handleOptionSubmit(`${fm.provider.id}/${fm.model.modelId}`)
-                                }
-                              }}
-                              onToggleFavorited={() => {
-                                if (fm.provider && fm.model) {
-                                  unfavoriteModel(fm.provider.id, fm.model.modelId)
-                                }
-                              }}
-                            />
-                          )
-                        })}
-                      </Stack>
-                    )}
                     {filteredProviders.map((provider) => {
                       const isCollapsed = collapsedProviders[provider.id] || false
                       if (!provider.models?.length) return null
@@ -244,7 +211,7 @@ export const MobileModelSelector = forwardRef<HTMLDivElement, MobileModelSelecto
                           />
 
                           <Collapse in={!isCollapsed}>
-                            <Stack gap="xs">
+                            <Stack gap={4}>
                               {provider.models?.map((model: ProviderModelInfo) => {
                                 const isFavorited = isFavoritedModel(provider.id, model.modelId)
                                 return (

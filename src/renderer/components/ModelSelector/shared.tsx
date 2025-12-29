@@ -3,7 +3,7 @@ import type { ProviderModelInfo } from '@shared/types'
 import { IconBulb, IconEye, IconStar, IconStarFilled, IconTool } from '@tabler/icons-react'
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
-import ProviderIcon from '../icons/ProviderIcon'
+import { ModelIcon } from '../icons/ModelIcon'
 import { ScalableIcon } from '../ScalableIcon'
 
 // Common styles
@@ -33,19 +33,19 @@ export const groupFavoriteModels = (favoritedModels: FavoriteModel[] | undefined
 
 export const ModelItem = ({
   providerId,
+  providerName,
   model,
   isFavorited,
   isSelected,
   onToggleFavorited,
-  showIcon,
   hideFavoriteIcon,
 }: {
   providerId: string
+  providerName?: string
   model: ProviderModelInfo
   isFavorited: boolean
   isSelected?: boolean
   onToggleFavorited(): void
-  showIcon?: boolean
   hideFavoriteIcon?: boolean
 }) => {
   const { t } = useTranslation()
@@ -58,7 +58,7 @@ export const ModelItem = ({
         isSelected && SELECTED_BG_CLASS
       )}
     >
-      {showIcon && <ProviderIcon size={12} provider={providerId} className="mr-xs flex-shrink-0" />}
+      <ModelIcon modelId={model.modelId} providerId={providerId} size={16} className="mr-xs flex-shrink-0" />
       <Text
         span
         className="flex-shrink"
@@ -66,6 +66,11 @@ export const ModelItem = ({
       >
         {model.nickname || model.modelId}
       </Text>
+      {providerName && (
+        <Text span size="xs" c="chatbox-tertiary" className="ml-xxs flex-shrink-0">
+          ({providerName})
+        </Text>
+      )}
       {model.labels?.includes('pro') && (
         <Badge color="chatbox-brand" size="xs" variant="light" ml="xxs" className="flex-shrink-0 flex-grow-0">
           Pro
@@ -121,21 +126,21 @@ export const ModelItem = ({
 
 export const ModelItemInDrawer = ({
   providerId,
+  providerName,
   model,
   isFavorited,
   isSelected,
   onToggleFavorited,
   onSelect,
-  showIcon,
   hideFavoriteIcon,
 }: {
   providerId: string
+  providerName?: string
   model: ProviderModelInfo
   isFavorited?: boolean
   isSelected?: boolean
   onToggleFavorited?(): void
   onSelect?(): void
-  showIcon?: boolean
   hideFavoriteIcon?: boolean
 }) => {
   const { t } = useTranslation()
@@ -146,22 +151,27 @@ export const ModelItemInDrawer = ({
       key={model.modelId}
       align="center"
       gap="xs"
-      px="md"
-      py="sm"
+      px="sm"
+      py="xs"
       c={isRecommended ? 'chatbox-brand' : 'chatbox-secondary'}
       className={clsx(
-        'border-solid border border-chatbox-border-secondary outline-none rounded-md',
-        isSelected ? clsx(SELECTED_BG_CLASS, 'border-chatbox-border-brand') : 'bg-transparent'
+        'outline-none rounded-md border-0',
+        isSelected ? SELECTED_BG_CLASS : 'bg-transparent active:bg-chatbox-background-brand-secondary-hover'
       )}
       onClick={() => {
         onSelect?.()
       }}
     >
-      {showIcon && <ProviderIcon size={20} provider={providerId} className="flex-shrink-0 text-inherit" />}
+      <ModelIcon modelId={model.modelId} providerId={providerId} size={20} className="flex-shrink-0" />
 
       <Text span size="md" className="flex-grow-0 flex-shrink text-left overflow-hidden break-words !text-inherit">
         {model.nickname || model.modelId}
       </Text>
+      {providerName && (
+        <Text span size="xs" c="chatbox-tertiary" className="flex-shrink-0">
+          ({providerName})
+        </Text>
+      )}
       {model.labels?.includes('pro') && (
         <Badge color="chatbox-brand" size="xs" variant="light" className="flex-grow-0 flex-shrink-0">
           Pro
