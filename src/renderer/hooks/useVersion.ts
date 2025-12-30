@@ -4,6 +4,7 @@ import { useAtomValue } from 'jotai'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { remoteConfigAtom } from '@/stores/atoms'
 import { CHATBOX_BUILD_PLATFORM } from '@/variables'
+import * as remote from '../packages/remote'
 import platform from '../platform'
 
 function getInitialTime() {
@@ -29,11 +30,30 @@ export function isFirstDay(): boolean {
 
 export default function useVersion() {
   const [version, _setVersion] = useState('')
+  const [needCheckUpdate, setNeedCheckUpdate] = useState(false)
+  const isExceeded = useMemo(
+    () =>
+      CHATBOX_BUILD_PLATFORM === 'ios' &&
+      Date.now() - getInitialTime() < 24 * 3600 * 1000 &&
+      version &&
+      remoteConfig.current_version &&
+      compareVersions(version, remoteConfig.current_version) === 1,
+    [version, remoteConfig]
+  )
   const updateCheckTimer = useRef<NodeJS.Timeout>()
   useEffect(() => {
     const handler = async () => {
+      const config = await platform.getConfig()
+      const settings = await platform.getSettings()
       const version = await platform.getVersion()
       _setVersion(version)
+      try {
+        const os = await platform.getPlatform()
+        const needUpdate = await remote.checkNeedUpdate(version, os, config, settings)
+        setNeedCheckUpdate(needUpdate)
+      } catch (e) {
+        console.log(e)
+      }
     }
     handler()
     updateCheckTimer.current = setInterval(handler, 2 * 60 * 60 * 1000)
@@ -47,5 +67,7 @@ export default function useVersion() {
 
   return {
     version,
+    isExceeded,
+    needCheckUpdate,
   }
 }

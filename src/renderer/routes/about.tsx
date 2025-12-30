@@ -47,14 +47,12 @@ function RouteComponent() {
                   Chatbox {/\d/.test(version.version) ? `(v${version.version})` : ''}
                 </Title>
 
-                {!isSmallScreen && (
-                  <Button
-                    size="xs"
-                    onClick={() => platform.openLink(`https://chatboxai.app/redirect_app/check_update/${language}`)}
-                  >
-                    {t('Check Update')}
-                  </Button>
-                )}
+                <Button
+                  size="xs"
+                  onClick={() => platform.openLink(`https://chatboxai.app/redirect_app/check_update/${language}`)}
+                >
+                  {t('Check Update')}
+                </Button>
               </Flex>
               <Text>{t('about-slogan')}</Text>
               <Text c="chatbox-tertiary">{t('about-introduction')}</Text>

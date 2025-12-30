@@ -218,7 +218,14 @@ export default function Sidebar() {
           <NavLink
             c="chatbox-tertiary"
             className="rounded"
-            label={`${t('About')} ${/\d/.test(versionHook.version) ? `(${versionHook.version})` : ''}`}
+            label={
+              <Flex align="center" gap={6}>
+                <span>{`${t('About')} ${/\d/.test(versionHook.version) ? `(${versionHook.version})` : ''}`}</span>
+                {CHATBOX_BUILD_PLATFORM === 'android' && versionHook.needCheckUpdate && (
+                  <Box w={8} h={8} miw={8} bg="chatbox-brand" style={{ borderRadius: '50%' }} />
+                )}
+              </Flex>
+            }
             leftSection={<ScalableIcon icon={IconInfoCircle} size={20} />}
             onClick={() => {
               navigate({
