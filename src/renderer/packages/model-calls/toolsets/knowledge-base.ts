@@ -4,10 +4,16 @@ import platform from '@/platform'
 
 export const queryKnowledgeBaseTool = (kbId: number) => {
   return tool({
-    description:
-      'Search the knowledge base with a semantic query. Returns relevant document chunks with file IDs and chunk indices.',
+    description: `Search the knowledge base with a semantic query. Returns relevant document chunks.
+
+CRITICAL: You MUST call this tool FIRST for every new user question before attempting to answer.
+- Do NOT rely on your own knowledge - always search the knowledge base first
+- Do NOT assume previous search results cover the current question
+- Even for follow-up questions, search again if the topic shifts
+- Searching is fast and low-cost - when in doubt, search
+- Only skip searching if the user explicitly asks about something unrelated to the documents`,
     inputSchema: z.object({
-      query: z.string().describe('The query to search the knowledge base'),
+      query: z.string().describe('The search query - rephrase the user question for better semantic matching'),
     }),
     execute: async (input: { query: string }) => {
       const knowledgeBaseController = platform.getKnowledgeBaseController()

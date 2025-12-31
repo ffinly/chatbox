@@ -196,25 +196,6 @@ export async function streamText(
 
     coreMessages = await convertToModelMessages(messages, { modelSupportVision: model.isSupportVision() })
 
-    // 2.5 inject knowledge base reminder into last user message (only in coreMessages, not UI)
-    if (kbToolSet) {
-      const kbReminder = '\n\n[System: Consider if this question could be answered by searching the knowledge base.]'
-      for (let i = coreMessages.length - 1; i >= 0; i--) {
-        const msg = coreMessages[i]
-        if (msg.role === 'user') {
-          if (typeof msg.content === 'string') {
-            msg.content += kbReminder
-          } else if (Array.isArray(msg.content)) {
-            const lastTextPart = msg.content.findLast((p) => p.type === 'text')
-            if (lastTextPart && 'text' in lastTextPart) {
-              lastTextPart.text += kbReminder
-            }
-          }
-          break
-        }
-      }
-    }
-
     // 3. handle model not support tool use scenarios
     if (kbNotSupported || webNotSupported) {
       // 当两个功能都启用且都不支持工具调用时，使用组合搜索
