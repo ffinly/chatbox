@@ -555,6 +555,7 @@
   "Remaining/Total Quota": "잔여/총 할당량",
   "Remote (http/sse)": "원격 (http/sse)",
   "rename": "이름 변경",
+  "Renew License": "라이선스 갱신",
   "Reply Again": "다시 답변하기",
   "Reply Again Below": "아래에 다시 답변하기",
   "report": "신고",
@@ -793,5 +794,6 @@
   "Your HTML content has been published. You can access it via the link below.": "HTML 콘텐츠가 게시되었습니다. 아래 링크를 통해 접속할 수 있습니다.",
   "Your license has expired.": "라이선스가 만료되었습니다.",
   "Your license has expired. Please check your subscription or purchase a new one.": "라이선스가 만료되었습니다. 구독을 확인하거나 새로운 라이선스를 구매하세요.",
+  "Your license has expired. You can continue using your quota pack.": "라이선스가 만료되었습니다. 할당량 팩은 계속 사용하실 수 있습니다.",
   "Your rating on the App Store would help make Chatbox even better!": "App Store에서 평점을 주시면 Chatbox을 더 나은 것으로 만들 수 있습니다!"
 }

@@ -555,6 +555,7 @@
   "Remaining/Total Quota": "Verbleibendes/Gesamtkontingent",
   "Remote (http/sse)": "Remote (http/sse)",
   "rename": "Umbenennen",
+  "Renew License": "Lizenz verlängern",
   "Reply Again": "Antworten Sie erneut",
   "Reply Again Below": "Antworten Sie erneut unten",
   "report": "Melden",
@@ -794,5 +795,6 @@
   "Your HTML content has been published. You can access it via the link below.": "Ihr HTML-Inhalt wurde veröffentlicht. Sie können über den untenstehenden Link darauf zugreifen.",
   "Your license has expired.": "Ihre Lizenz ist abgelaufen.",
   "Your license has expired. Please check your subscription or purchase a new one.": "Ihre Lizenz ist abgelaufen. Bitte überprüfen Sie Ihr Abonnement oder kaufen Sie ein neues.",
+  "Your license has expired. You can continue using your quota pack.": "Ihre Lizenz ist abgelaufen. Sie können Ihr Kontingentpaket weiterhin verwenden.",
   "Your rating on the App Store would help make Chatbox even better!": "Ihre Bewertung in der App Store hilft, Chatbox noch besser zu machen!"
 }

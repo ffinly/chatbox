@@ -1,5 +1,5 @@
-import { Flex, Progress, Stack, Text } from '@mantine/core'
-import { IconExternalLink } from '@tabler/icons-react'
+import { Alert, Flex, Progress, Stack, Text } from '@mantine/core'
+import { IconAlertTriangle, IconArrowRight, IconExternalLink } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
 import type { ChatboxAILicenseDetail } from '@shared/types'
 import { ScalableIcon } from '@/components/ScalableIcon'
@@ -21,8 +21,28 @@ export function LicenseDetailCard({ licenseDetail, language, utmContent }: Licen
   const isTrialOnly = (planDetail?.token_limit || 0) === 0 && (trialDetail?.token_limit || 0) > 0
   const quotaLimit = isTrialOnly ? trialDetail?.token_limit || 0 : planDetail?.token_limit || 0
 
+  const isExpired = licenseDetail.token_expire_time ? new Date(licenseDetail.token_expire_time) < new Date() : false
+
   return (
     <Stack gap="lg">
+      {isExpired && (
+        <Alert variant="light" color="orange" p="sm">
+          <Flex gap="xs" align="center" c="chatbox-primary">
+            <ScalableIcon icon={IconAlertTriangle} className="flex-shrink-0" />
+            <Text>{t('Your license has expired. You can continue using your quota pack.')}</Text>
+            <a
+              href={`https://chatboxai.app/redirect_app/manage_license/${language}/?utm_source=app&utm_content=${utmContent}_expired`}
+              target="_blank"
+              className="ml-auto flex flex-row items-center gap-xxs"
+            >
+              <Text span fw={600} className="whitespace-nowrap">
+                {t('Renew License')}
+              </Text>
+              <ScalableIcon icon={IconArrowRight} />
+            </a>
+          </Flex>
+        </Alert>
+      )}
       {/* Plan Quota */}
       <Stack gap="xxs">
         <Flex align="center" justify="space-between">
@@ -96,8 +116,9 @@ export function LicenseDetailCard({ licenseDetail, language, utmContent }: Licen
           <Text size="xs" c="dimmed">
             {t('License Expiry')}
           </Text>
-          <Text size="md" fw="600">
+          <Text size="md" fw="600" c={isExpired ? 'red' : undefined}>
             {licenseDetail.token_expire_time ? new Date(licenseDetail.token_expire_time).toLocaleDateString() : ''}
+            {isExpired && ` (${t('Expired')})`}
           </Text>
         </Stack>
       </Flex>

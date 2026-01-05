@@ -555,6 +555,7 @@
   "Remaining/Total Quota": "残り/合計クォータ",
   "Remote (http/sse)": "リモート (http/sse)",
   "rename": "名前を変更",
+  "Renew License": "ライセンス更新",
   "Reply Again": "もう一度返信",
   "Reply Again Below": "下記で再び返信",
   "report": "報告",
@@ -793,5 +794,6 @@
   "Your HTML content has been published. You can access it via the link below.": "HTMLコンテンツが公開されました。以下のリンクからアクセスできます。",
   "Your license has expired.": "ライセンスの有効期限が切れました。",
   "Your license has expired. Please check your subscription or purchase a new one.": "ライセンスが期限切れです。サブスクリプションを確認するか、新しいものを購入してください。",
+  "Your license has expired. You can continue using your quota pack.": "ライセンスの有効期限が切れました。クォータパックは引き続きご利用いただけます。",
   "Your rating on the App Store would help make Chatbox even better!": "App Storeでの評価は、Chatboxをさらに良くするのに役立ちます！"
 }

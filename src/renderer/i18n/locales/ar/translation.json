@@ -554,6 +554,7 @@
   "Remaining/Total Quota": "الحصة المتبقية / الإجمالية",
   "Remote (http/sse)": "عن بعد (http/sse)",
   "rename": "إعادة تسمية",
+  "Renew License": "تجديد الرخصة",
   "Reply Again": "الرد مرة أخرى",
   "Reply Again Below": "الرد مرة أخرى أدناه",
   "report": "الإبلاغ",
@@ -792,5 +793,6 @@
   "Your HTML content has been published. You can access it via the link below.": "تم نشر محتوى HTML الخاص بك. يمكنك الوصول إليه عبر الرابط أدناه.",
   "Your license has expired.": "لقد انتهت صلاحية ترخيصك.",
   "Your license has expired. Please check your subscription or purchase a new one.": "انتهت صلاحية ترخيصك. يرجى التحقق من اشتراكك أو شراء ترخيص جديد.",
+  "Your license has expired. You can continue using your quota pack.": "انتهت صلاحية ترخيصك. يمكنك متابعة استخدام حزمة حصتك.",
   "Your rating on the App Store would help make Chatbox even better!": "تقييمك في App Store سيساعد على جعل Chatbox أفضل!"
 }

@@ -479,6 +479,7 @@
   "Regulate the volume of historical messages sent to the AI, striking a harmonious balance between depth of comprehension and the efficiency of responses.": "Regulate the volume of historical messages sent to the AI, striking a harmonious balance between depth of comprehension and the efficiency of responses.",
   "Remaining/Total Quota": "Remaining/Total Quota",
   "Remote (http/sse)": "Remote (http/sse)",
+  "Renew License": "Renew License",
   "Reply Again": "Reply Again",
   "Reply Again Below": "Reply Again Below",
   "report": "report",
@@ -671,5 +672,6 @@
   "Your current plan does not support advanced file processing. Upgrade plan to get enhanced file processing capabilities.": "Your current plan does not support advanced file processing. Upgrade plan to get enhanced file processing capabilities.",
   "Your HTML content has been published. You can access it via the link below.": "Your HTML content has been published. You can access it via the link below.",
   "Your license has expired.": "Your license has expired.",
+  "Your license has expired. You can continue using your quota pack.": "Your license has expired. You can continue using your quota pack.",
   "Your rating on the App Store would help make Chatbox even better!": "Your rating on the App Store would help make Chatbox even better!"
 }

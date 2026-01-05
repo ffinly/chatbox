@@ -554,6 +554,7 @@
   "Remaining/Total Quota": "Gjenstående/Total kvote",
   "Remote (http/sse)": "Fjern (http/sse)",
   "rename": "Gi nytt navn",
+  "Renew License": "Forny lisens",
   "Reply Again": "Svar igjen",
   "Reply Again Below": "Svar igjen nedenfor",
   "report": "Rapporter",
@@ -792,5 +793,6 @@
   "Your HTML content has been published. You can access it via the link below.": "Ditt HTML-innhold er publisert. Du finner det via lenken nedenfor.",
   "Your license has expired.": "Lisensen din har utløpt.",
   "Your license has expired. Please check your subscription or purchase a new one.": "Lisensen din har utløpt. Vennligst sjekk abonnementet ditt eller kjøp en ny.",
+  "Your license has expired. You can continue using your quota pack.": "Lisensen din har utløpt. Du kan fortsette å bruke kvotepakken din.",
   "Your rating on the App Store would help make Chatbox even better!": "Din betyg på App Store hjelper til å gjøre Chatbox enda bedre!"
 }

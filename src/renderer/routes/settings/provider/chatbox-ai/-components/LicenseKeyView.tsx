@@ -137,7 +137,16 @@ export const LicenseKeyView = forwardRef<HTMLDivElement, LicenseKeyViewProps>(({
               </Button>
             )}
           </Flex>
-          {activated && <Text c="chatbox-success">{t('License Activated')}</Text>}
+          {activated && (
+            <Flex gap="xs" align="center">
+              <Text c="chatbox-success">{t('License Activated')}</Text>
+              {licenseDetail?.token_expire_time && new Date(licenseDetail.token_expire_time) < new Date() && (
+                <Text c="orange" size="sm">
+                  ({t('Expired')})
+                </Text>
+              )}
+            </Flex>
+          )}
         </Stack>
 
         {activateError && (
