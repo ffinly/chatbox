@@ -189,7 +189,7 @@ const MessageEditModal = ({
       lockScroll={false}
       trapFocus={false}
     >
-      <Stack gap="md" className=" ">
+      <Stack gap="md" className="max-h-[70vh] overflow-y-auto -m-3 p-3">
         <Combobox
           store={combobox}
           classNames={{ dropdown: 'pointer-events-auto' }}
