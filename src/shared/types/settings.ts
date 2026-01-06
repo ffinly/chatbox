@@ -4,6 +4,32 @@ import { ModelProviderEnum, ModelProviderType } from './provider'
 // Re-export for backward compatibility
 export { ModelProviderType } from './provider'
 
+// ===== Document Parser Types =====
+
+/**
+ * Document parser service type
+ * - none: No parsing service, only supports basic text files (mobile/web default)
+ * - local: Local parsing using built-in libraries (desktop default)
+ * - chatbox-ai: Chatbox cloud parsing service (requires login, consumes compute points)
+ * - mineru: Third-party MinerU parsing service (desktop only)
+ */
+export type DocumentParserType = 'none' | 'local' | 'chatbox-ai' | 'mineru'
+
+export const DocumentParserConfigSchema = z.object({
+  type: z.enum(['none', 'local', 'chatbox-ai', 'mineru']),
+  mineru: z
+    .object({
+      apiToken: z.string(),
+    })
+    .optional(),
+})
+
+export type DocumentParserConfig = z.infer<typeof DocumentParserConfigSchema>
+
+export const DEFAULT_DOCUMENT_PARSER_CONFIG: DocumentParserConfig = {
+  type: 'local',
+}
+
 export const ProviderModelInfoSchema = z.object({
   modelId: z.string(),
   type: z.enum(['chat', 'embedding', 'rerank']).optional().catch(undefined),
@@ -199,6 +225,8 @@ const ExtensionSettingsSchema = z.object({
       }),
     })
     .optional(),
+  // Document parser configuration for global default
+  documentParser: DocumentParserConfigSchema.optional(),
 })
 
 const MCPTransportConfigSchema = z.discriminatedUnion('type', [

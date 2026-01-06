@@ -6,6 +6,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { AdaptiveModal } from '@/components/AdaptiveModal'
 import LinkTargetBlank from '@/components/Link'
 import { ScalableIcon } from '@/components/ScalableIcon'
+import { navigateToSettings } from '@/modals/Settings'
 import { trackingEvent } from '@/packages/event'
 import platform from '@/platform'
 
@@ -52,6 +53,15 @@ const FileParseError = NiceModal.create(({ errorCode, fileName }: FileParseError
                 trackingEvent('click_view_more_plans_button_from_file_parse_error', {
                   event_category: 'user',
                 })
+              }}
+            />
+          ),
+          OpenDocumentParserSettingButton: (
+            <a
+              className="cursor-pointer underline font-semibold text-blue-600 hover:text-blue-700"
+              onClick={() => {
+                onClose()
+                navigateToSettings('/document-parser')
               }}
             />
           ),

@@ -7,6 +7,7 @@ import {
   type SessionThread,
   type TokenCountMap,
 } from './types/session'
+import type { DocumentParserConfig, DocumentParserType } from './types/settings'
 
 export type Updater<T extends object> = Partial<T> | UpdaterFn<T>
 export type UpdaterFn<T extends object> = (data: T | null | undefined) => T
@@ -607,12 +608,16 @@ export function copyThreads(source?: SessionThread[]): SessionThread[] | undefin
 }
 
 // RAG 相关
+export type KnowledgeBaseProviderMode = 'chatbox-ai' | 'custom'
+
 export interface KnowledgeBase {
   id: number
   name: string
   embeddingModel: string
   rerankModel: string
   visionModel?: string
+  providerMode?: KnowledgeBaseProviderMode // Provider mode selected when creating the KB
+  documentParser?: DocumentParserConfig // Parser configuration for this knowledge base
   createdAt: number
 }
 
@@ -629,6 +634,7 @@ export interface KnowledgeBaseFile {
   error: string
   createdAt: number
   parsed_remotely: number
+  parser_type?: DocumentParserType // The parser type used to parse this file
 }
 
 export interface KnowledgeBaseSearchResult {

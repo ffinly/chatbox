@@ -3,6 +3,7 @@
 
 import * as defaults from '@shared/defaults'
 import { type ProviderSettings, type Settings, SettingsSchema } from '@shared/types'
+import type { DocumentParserConfig } from '@shared/types/settings'
 import deepmerge from 'deepmerge'
 import type { WritableDraft } from 'immer'
 import { createStore, useStore } from 'zustand'
@@ -13,6 +14,15 @@ import platform from '@/platform'
 import storage from '@/storage'
 
 const log = getLogger('settings-store')
+
+/**
+ * Returns platform-specific default document parser configuration.
+ * - Desktop: 'local' (has full Node.js environment for local parsing)
+ * - Mobile/Web: 'none' (only basic text file support by default, user can enable chatbox-ai)
+ */
+export function getPlatformDefaultDocumentParser(): DocumentParserConfig {
+  return platform.type === 'desktop' ? { type: 'local' } : { type: 'none' }
+}
 
 type Action = {
   setSettings: (nextStateOrUpdater: Partial<Settings> | ((state: WritableDraft<Settings>) => void)) => void
@@ -80,6 +90,14 @@ export const settingsStore = createStore<Settings & Action>()(
               }
             default:
               break
+          }
+
+          // Apply platform-specific default for documentParser if not set
+          if (!settings.extension?.documentParser) {
+            settings.extension = {
+              ...settings.extension,
+              documentParser: getPlatformDefaultDocumentParser(),
+            }
           }
 
           return SettingsSchema.parse(settings)

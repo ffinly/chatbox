@@ -800,6 +800,12 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                       }
                     }}
                     onDelete={() => {
+                      // Cancel any ongoing MinerU parsing for this file
+                      if (file.path && platform.cancelMineruParse) {
+                        platform.cancelMineruParse(file.path).catch(() => {
+                          // Ignore cancellation errors
+                        })
+                      }
                       setPreConstructedMessage((prev) => ({
                         ...cleanupFile(prev, file),
                         attachments: (prev.attachments || []).filter(

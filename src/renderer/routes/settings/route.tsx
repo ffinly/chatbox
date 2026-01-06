@@ -7,6 +7,7 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconCircleDottedLetterM,
+  IconFileText,
   IconKeyboard,
   IconMessages,
   IconWorldWww
@@ -56,6 +57,11 @@ const ITEMS = [
         },
       ]
     : []),
+  {
+    key: 'document-parser',
+    label: 'Document Parser',
+    icon: <IconFileText className="w-full h-full" />,
+  },
   {
     key: 'chat',
     label: 'Chat Settings',

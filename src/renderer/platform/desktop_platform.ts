@@ -218,6 +218,27 @@ export default class DesktopPlatform implements Platform {
     return { key, isSupported: true }
   }
 
+  async parseFileWithMineru(
+    file: File,
+    apiToken: string
+  ): Promise<{ success: boolean; content?: string; error?: string; cancelled?: boolean }> {
+    if (!file.path) {
+      // Files without path (e.g., pasted files) are not supported for MinerU parsing
+      return { success: false, error: 'File path is required for MinerU parsing' }
+    }
+
+    return this.ipc.invoke('parser:parse-file-with-mineru', {
+      filePath: file.path,
+      filename: file.name,
+      mimeType: file.type,
+      apiToken,
+    })
+  }
+
+  async cancelMineruParse(filePath: string): Promise<{ success: boolean; error?: string }> {
+    return this.ipc.invoke('parser:cancel-mineru-parse', filePath)
+  }
+
   public async parseUrl(url: string): Promise<{ key: string; title: string }> {
     const json = await this.ipc.invoke('parseUrl', url)
     return JSON.parse(json)

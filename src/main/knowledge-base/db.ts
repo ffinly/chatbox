@@ -76,6 +76,27 @@ async function initDB(db: Client) {
       }
     })
 
+    // Add document_parser column to knowledge_base table (JSON format, NULL means use global config)
+    await db.batch([`ALTER TABLE knowledge_base ADD COLUMN document_parser TEXT DEFAULT NULL`]).catch((error) => {
+      if (error instanceof Error && !error.message.includes('duplicate column name')) {
+        log.error('[DB] Failed to add document_parser column', error)
+      }
+    })
+
+    // Add parser_type column to kb_file table to record which parser was used
+    await db.batch([`ALTER TABLE kb_file ADD COLUMN parser_type TEXT DEFAULT 'local'`]).catch((error) => {
+      if (error instanceof Error && !error.message.includes('duplicate column name')) {
+        log.error('[DB] Failed to add parser_type column', error)
+      }
+    })
+
+    // Add provider_mode column to knowledge_base table to store user's provider mode selection
+    await db.batch([`ALTER TABLE knowledge_base ADD COLUMN provider_mode TEXT DEFAULT NULL`]).catch((error) => {
+      if (error instanceof Error && !error.message.includes('duplicate column name')) {
+        log.error('[DB] Failed to add provider_mode column', error)
+      }
+    })
+
     log.info('[DB] Database initialized')
   } catch (error) {
     log.error('[DB] Failed to initialize database:', error)

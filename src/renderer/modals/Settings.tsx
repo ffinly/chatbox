@@ -11,6 +11,7 @@ import {
 import clsx from 'clsx'
 import { type FC, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Toaster } from 'sonner'
 import SettingsKnowledgeBaseRouteComponent from '@/components/knowledge-base/KnowledgeBase'
 import { Modal } from '@/components/Overlay'
 import { ScalableIcon } from '@/components/ScalableIcon'
@@ -29,6 +30,7 @@ import { RouteComponent as SettingsProviderIndexRouteComponent } from '@/routes/
 import { RouteComponent as SettingsProviderRouteRouteComponent } from '@/routes/settings/provider/route'
 import { SettingsRoot } from '@/routes/settings/route'
 import { RouteComponent as SettingsWebSearchRouteComponent } from '@/routes/settings/web-search'
+import { RouteComponent as SettingsDocumentParserRouteComponent } from '@/routes/settings/document-parser'
 
 export type SettingsModalProps = {}
 
@@ -97,6 +99,7 @@ export const SettingsModal: FC<SettingsModalProps> = (props) => {
       <Box flex={1} w="100%" maw={1200} mx="auto" className="overflow-auto">
         <RouterProvider router={modalRouter} />
       </Box>
+      <Toaster richColors position="bottom-center" />
     </Modal>
   )
 }
@@ -161,6 +164,12 @@ const SettingsKnowledgeBaseRoute = createRoute({
   getParentRoute: () => RootRoute,
 })
 
+const SettingsDocumentParserRoute = createRoute({
+  component: SettingsDocumentParserRouteComponent,
+  path: '/settings/document-parser',
+  getParentRoute: () => RootRoute,
+})
+
 const SettingsHotkeysRoute = createRoute({
   component: SettingsHotkeysRouteComponent,
   path: '/settings/hotkeys',
@@ -210,6 +219,7 @@ const routeTree = RootRoute.addChildren([
   SettingsWebSearchRoute,
   SettingsMcpRoute,
   SettingsKnowledgeBaseRoute,
+  SettingsDocumentParserRoute,
   SettingsHotkeysRoute,
   SettingsDefaultModelsRoute,
   SettingsProviderRouteRoute,

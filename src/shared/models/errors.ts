@@ -227,6 +227,42 @@ export class ChatboxAIAPIError extends BaseError {
       i18nKey:
         'The web version temporarily does not support local parsing of this file type. Please use text files (txt, markdown, etc.) or use <LinkToAdvancedFileProcessing>Chatbox AI Service</LinkToAdvancedFileProcessing> for cloud-based document analysis.',
     },
+    // Document parser errors for InputBox file preprocessing
+    local_parser_failed: {
+      name: 'local_parser_failed',
+      code: 20029,
+      i18nKey:
+        'Local document parsing failed. You can go to <OpenDocumentParserSettingButton>Settings</OpenDocumentParserSettingButton> and switch to Chatbox AI for cloud-based document parsing.',
+    },
+    chatbox_ai_parser_failed: {
+      name: 'chatbox_ai_parser_failed',
+      code: 20030,
+      i18nKey: 'Chatbox AI document parsing failed. Please try again later.',
+    },
+    third_party_parser_failed: {
+      name: 'third_party_parser_failed',
+      code: 20031,
+      i18nKey:
+        'Document parsing failed. You can go to <OpenDocumentParserSettingButton>Settings</OpenDocumentParserSettingButton> and switch to Chatbox AI for cloud-based document parsing.',
+    },
+    third_party_parser_not_supported_in_chat: {
+      name: 'third_party_parser_not_supported_in_chat',
+      code: 20032,
+      i18nKey:
+        'Selected document parser is currently only supported in Knowledge Base. For chat file attachments, please go to <OpenDocumentParserSettingButton>Settings</OpenDocumentParserSettingButton> and switch to Local or Chatbox AI.',
+    },
+    mineru_api_token_required: {
+      name: 'mineru_api_token_required',
+      code: 20033,
+      i18nKey:
+        'MinerU API token is required. Please go to <OpenDocumentParserSettingButton>Settings</OpenDocumentParserSettingButton> and configure your MinerU API token.',
+    },
+    document_parser_not_configured: {
+      name: 'document_parser_not_configured',
+      code: 20034,
+      i18nKey:
+        'This file type requires a document parser. Please go to <OpenDocumentParserSettingButton>Settings</OpenDocumentParserSettingButton> and enable Chatbox AI document parsing.',
+    },
   }
   static fromCodeName(response: string, codeName: string) {
     if (!codeName) {

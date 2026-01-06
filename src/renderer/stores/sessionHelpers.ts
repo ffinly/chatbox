@@ -8,6 +8,8 @@ import type {
   SessionThreadBrief,
   Settings,
 } from '@shared/types'
+import type { DocumentParserConfig } from '@shared/types/settings'
+import { isTextFilePath } from '@shared/file-extensions'
 import { getMessageText, migrateMessage } from '@shared/utils/message'
 import { pick } from 'lodash'
 import i18n from '@/i18n'
@@ -24,15 +26,133 @@ import * as defaults from '../../shared/defaults'
 import { createMessage, type Message, SessionSettingsSchema, TOKEN_CACHE_KEYS } from '../../shared/types'
 import { lastUsedModelStore } from './lastUsedModelStore'
 import * as settingActions from './settingActions'
-import { settingsStore } from './settingsStore'
+import { getPlatformDefaultDocumentParser, settingsStore } from './settingsStore'
 
 const log = getLogger('session-helpers')
+
+/**
+ * Get the effective document parser configuration
+ * Uses global settings, falling back to platform default
+ */
+function getEffectiveDocumentParserConfig(): DocumentParserConfig {
+  const globalConfig = settingsStore.getState().extension?.documentParser
+  return globalConfig ?? getPlatformDefaultDocumentParser()
+}
+
+/**
+ * Parse file using local parser (desktop only)
+ */
+async function parseFileWithLocalParser(
+  file: File,
+  uniqKey: string
+): Promise<{ content: string; storageKey: string; tokenCountMap: Record<string, number> }> {
+  const result = await platform.parseFileLocally(file)
+
+  if (!result.isSupported || !result.key) {
+    throw new Error('local_parser_failed')
+  }
+
+  // Get content from temporary storage
+  const content = (await storage.getBlob(result.key).catch(() => '')) || ''
+
+  // Store content to unique key
+  if (content) {
+    await storage.setBlob(uniqKey, content)
+  }
+
+  // Calculate token counts
+  const tokenCountMap: Record<string, number> = content
+    ? {
+        [TOKEN_CACHE_KEYS.default]: estimateTokens(content),
+        [TOKEN_CACHE_KEYS.deepseek]: estimateTokens(content, { provider: '', modelId: 'deepseek' }),
+      }
+    : {}
+
+  if (content) {
+    await storage.setItem(`${uniqKey}_tokenMap`, tokenCountMap)
+  }
+
+  return { content, storageKey: uniqKey, tokenCountMap }
+}
+
+/**
+ * Parse file using Chatbox AI cloud service
+ */
+async function parseFileWithChatboxAI(
+  file: File,
+  uniqKey: string
+): Promise<{ content: string; storageKey: string; tokenCountMap: Record<string, number> }> {
+  const licenseKey = settingActions.getLicenseKey()
+  const uploadedKey = await remote.uploadAndCreateUserFile(licenseKey || '', file)
+
+  // Get uploaded file content
+  const content = (await storage.getBlob(uploadedKey).catch(() => '')) || ''
+
+  // Store content to unique key
+  if (content) {
+    await storage.setBlob(uniqKey, content)
+  }
+
+  // Calculate token counts
+  const tokenCountMap: Record<string, number> = content
+    ? {
+        [TOKEN_CACHE_KEYS.default]: estimateTokens(content),
+        [TOKEN_CACHE_KEYS.deepseek]: estimateTokens(content, { provider: '', modelId: 'deepseek' }),
+      }
+    : {}
+
+  if (content) {
+    await storage.setItem(`${uniqKey}_tokenMap`, tokenCountMap)
+  }
+
+  return { content, storageKey: uniqKey, tokenCountMap }
+}
+
+/**
+ * Parse file using MinerU service (Desktop only)
+ */
+async function parseFileWithMineruService(
+  file: File,
+  uniqKey: string,
+  apiToken: string
+): Promise<{ content: string; storageKey: string; tokenCountMap: Record<string, number> }> {
+  // Check if platform supports MinerU parsing
+  if (!platform.parseFileWithMineru) {
+    throw new Error('third_party_parser_not_supported_in_chat')
+  }
+
+  // Call platform method to parse file
+  const result = await platform.parseFileWithMineru(file, apiToken)
+
+  // Handle cancellation - throw a special error that will be caught silently
+  if (result.cancelled) {
+    throw new Error('parsing_cancelled')
+  }
+
+  if (!result.success || !result.content) {
+    throw new Error('third_party_parser_failed')
+  }
+
+  const content = result.content
+
+  // Store content to unique key
+  await storage.setBlob(uniqKey, content)
+
+  // Calculate token counts
+  const tokenCountMap: Record<string, number> = {
+    [TOKEN_CACHE_KEYS.default]: estimateTokens(content),
+    [TOKEN_CACHE_KEYS.deepseek]: estimateTokens(content, { provider: '', modelId: 'deepseek' }),
+  }
+
+  await storage.setItem(`${uniqKey}_tokenMap`, tokenCountMap)
+
+  return { content, storageKey: uniqKey, tokenCountMap }
+}
 
 /**
  * 预处理文件以获取内容和存储键
  * @param file 文件对象
  * @param settings 会话设置
- * @param tokenLimit 每个文件的token限制
  * @returns 预处理后的文件信息
  */
 export async function preprocessFile(
@@ -45,23 +165,19 @@ export async function preprocessFile(
   tokenCountMap?: Record<string, number>
   error?: string
 }> {
-  const remoteConfig = settingActions.getRemoteConfig()
-
   try {
-    const isPro = settingActions.isPro()
     const uniqKey = StorageKeyGenerator.fileUniqKey(file)
 
-    // 检查是否已经处理过这个文件
+    // Check if file has already been processed (cache hit)
     const existingContent = await storage.getBlob(uniqKey).catch(() => null)
     if (existingContent) {
       log.debug(`File already preprocessed: ${file.name}, using cached content.`)
-      // Get existing token map or create new one
       const existingTokenMap: Record<string, number> = (await storage.getItem(`${uniqKey}_tokenMap`, {})) as Record<
         string,
         number
       >
 
-      // Calculate tokens for both tokenizers if not cached
+      // Calculate tokens if not cached
       if (!existingTokenMap[TOKEN_CACHE_KEYS.default]) {
         existingTokenMap[TOKEN_CACHE_KEYS.default] = estimateTokens(existingContent)
       }
@@ -72,7 +188,6 @@ export async function preprocessFile(
         })
       }
 
-      // Save updated token map if changes were made
       if (!existingTokenMap[TOKEN_CACHE_KEYS.default] || !existingTokenMap[TOKEN_CACHE_KEYS.deepseek]) {
         await storage.setItem(`${uniqKey}_tokenMap`, existingTokenMap)
       }
@@ -85,83 +200,83 @@ export async function preprocessFile(
       }
     }
 
-    if (isPro) {
-      // ChatboxAI 方案：上传文件并获取内容
-      const licenseKey = settingActions.getLicenseKey()
-      const uploadedKey = await remote.uploadAndCreateUserFile(licenseKey || '', file)
+    // Get document parser configuration from global settings
+    const parserConfig = getEffectiveDocumentParserConfig()
+    log.debug(`Using document parser: ${parserConfig.type} for file: ${file.name}`)
 
-      // 获取上传后的文件内容（如果可用）
-      const content = (await storage.getBlob(uploadedKey).catch(() => '')) || ''
+    let result: { content: string; storageKey: string; tokenCountMap: Record<string, number> }
 
-      // 将内容存储到唯一键下
-      if (content) {
-        await storage.setBlob(uniqKey, content)
-      }
-
-      // Calculate token counts for both tokenizers
-      const tokenCountMap: Record<string, number> = content
-        ? {
-            [TOKEN_CACHE_KEYS.default]: estimateTokens(content),
-            [TOKEN_CACHE_KEYS.deepseek]: estimateTokens(content, { provider: '', modelId: 'deepseek' }),
-          }
-        : {}
-
-      // Store token map for future use
-      if (content) {
-        await storage.setItem(`${uniqKey}_tokenMap`, tokenCountMap)
-      }
-
-      return {
-        file,
-        content,
-        storageKey: uniqKey,
-        tokenCountMap,
+    // Text files always use local parsing for efficiency (same as Knowledge Base behavior)
+    // This applies to all platforms (desktop/web/mobile)
+    if (isTextFilePath(file.name)) {
+      log.debug(`Text file detected, using local parser: ${file.name}`)
+      try {
+        result = await parseFileWithLocalParser(file, uniqKey)
+      } catch (error) {
+        throw new Error('local_parser_failed')
       }
     } else {
-      // 本地方案：解析文件内容
-      const result = await platform.parseFileLocally(file)
-      if (!result.isSupported || !result.key) {
-        if (platform.type === 'mobile') {
-          throw new Error('mobile_not_support_local_file_parsing')
+      // Non-text files use the configured parser
+      switch (parserConfig.type) {
+        case 'none': {
+          // No parser configured - non-text files are not supported
+          // Prompt user to enable a parser in settings
+          throw new Error('document_parser_not_configured')
         }
-        if (platform.type === 'web') {
-          throw new Error('web_not_support_local_file_parsing')
-        }
-        // 根据当前 IP，判断是否在错误中推荐 Chatbox AI
-        if (remoteConfig.setting_chatboxai_first) {
-          throw new Error('model_not_support_file')
-        } else {
-          throw new Error('model_not_support_file_2')
-        }
-      }
 
-      // 从临时存储中获取文件内容
-      const content = (await storage.getBlob(result.key).catch(() => '')) || ''
-
-      // 将内容存储到唯一键下
-      if (content) {
-        await storage.setBlob(uniqKey, content)
-      }
-
-      // Calculate token counts for both tokenizers
-      const tokenCountMap: Record<string, number> = content
-        ? {
-            [TOKEN_CACHE_KEYS.default]: estimateTokens(content),
-            [TOKEN_CACHE_KEYS.deepseek]: estimateTokens(content, { provider: '', modelId: 'deepseek' }),
+        case 'local': {
+          // Local parsing - only available on desktop
+          // On mobile/web, this will fail and throw local_parser_failed
+          try {
+            result = await parseFileWithLocalParser(file, uniqKey)
+          } catch (error) {
+            // Local parsing failed, throw appropriate error
+            throw new Error('local_parser_failed')
           }
-        : {}
+          break
+        }
 
-      // Store token map for future use
-      if (content) {
-        await storage.setItem(`${uniqKey}_tokenMap`, tokenCountMap)
-      }
+        case 'chatbox-ai': {
+          // Chatbox AI cloud parsing - available on all platforms
+          try {
+            result = await parseFileWithChatboxAI(file, uniqKey)
+          } catch (error) {
+            // Chatbox AI parsing failed
+            throw new Error('chatbox_ai_parser_failed')
+          }
+          break
+        }
 
-      return {
-        file,
-        content,
-        storageKey: uniqKey,
-        tokenCountMap,
+        case 'mineru': {
+          // MinerU parsing - available on desktop only
+          const apiToken = parserConfig.mineru?.apiToken
+          if (!apiToken) {
+            throw new Error('mineru_api_token_required')
+          }
+          try {
+            result = await parseFileWithMineruService(file, uniqKey, apiToken)
+          } catch (error) {
+            // Re-throw known errors, wrap unknown ones
+            if (error instanceof Error && error.message.startsWith('third_party_parser')) {
+              throw error
+            }
+            throw new Error('third_party_parser_failed')
+          }
+          break
+        }
+
+        default: {
+          // Unknown parser type, fall back to error
+          throw new Error('document_parser_not_configured')
+        }
       }
+    }
+
+    return {
+      file,
+      content: result.content,
+      storageKey: result.storageKey,
+      tokenCountMap: result.tokenCountMap,
     }
   } catch (error) {
     log.error('Failed to preprocess file:', error)

@@ -1,16 +1,14 @@
-import fs from 'node:fs'
 import { setTimeout } from 'node:timers/promises'
 import { MDocument } from '@mastra/rag'
-import { embedMany, type ModelMessage } from 'ai'
-import { isEpubFilePath, isOfficeFilePath, isTextFilePath } from '../../shared/file-extensions'
+import { embedMany } from 'ai'
 import { ChatboxAIAPIError } from '../../shared/models/errors'
+import type { DocumentParserConfig } from '../../shared/types/settings'
 import { rerank } from '../../shared/models/rerank'
 import { sentry } from '../adapters/sentry'
-import { parseFile } from '../file-parser'
 import { getLogger } from '../util'
 import { checkProcessingTimeouts, getDatabase, getVectorStore } from './db'
-import { getEmbeddingProvider, getRerankProvider, getVisionProvider } from './model-providers'
-import { parseFileRemotely } from './remote-file-parser'
+import { getEmbeddingProvider, getRerankProvider } from './model-providers'
+import { getEffectiveParserConfig, parseFileWithRouter, type ParserFileMeta } from './parsers'
 
 const log = getLogger('knowledge-base:file-loaders')
 
@@ -49,89 +47,34 @@ function parseErrorMessage(errorMessage: string): string {
   return errorMessage
 }
 
-// Parse file to MDocument using local parsers only
-async function parseFileToDocumentLocal(
+// Parse file to MDocument using the parser router
+async function parseFileToDocumentWithRouter(
   filePath: string,
-  fileMeta: { fileId: number; filename: string; mimeType: string },
-  kbId: number
-): Promise<MDocument> {
-  if (isOfficeFilePath(filePath)) {
-    const content = await parseFile(filePath)
-    return MDocument.fromText(content)
-  } else if (fileMeta.mimeType.startsWith('image/')) {
-    const vision = await getVisionProvider(kbId)
-    if (!vision) {
-      throw new Error('visionModel not set')
-    }
-
-    const { model: visionModel } = vision
-
-    // Save image content to dependent storage for later retrieval during chat message conversion
-    const imageBase64 = fs.readFileSync(filePath, { encoding: 'base64' })
-    const dataUrl = `data:${fileMeta.mimeType};base64,${imageBase64}`
-
-    // Assemble chat message (with image)
-    const msg: ModelMessage = {
-      role: 'user',
-      content: [
-        {
-          type: 'text',
-          text: 'OCR the following image into Markdown. Do not sorround your output with triple backticks.',
-        },
-        { type: 'image', image: dataUrl, mediaType: fileMeta.mimeType },
-      ],
-    }
-
-    const chatResult = await visionModel.chat([msg], {})
-    const text = chatResult.contentParts
-      .filter((p) => p.type === 'text')
-      .map((p: any) => p.text)
-      .join('')
-
-    return MDocument.fromMarkdown(text)
-  } else if (isEpubFilePath(filePath)) {
-    const content = await parseFile(filePath)
-    return MDocument.fromText(content)
-  } else if (isTextFilePath(filePath)) {
-    const content = await parseFile(filePath)
-    return new MDocument({
-      docs: [{ text: content }],
-      type: fileMeta.mimeType,
-    })
-  } else {
-    throw new Error(`Unsupported file type: ${fileMeta.mimeType}`)
-  }
-}
-
-// Parse file to MDocument with optional remote parsing
-async function parseFileToDocument(
-  filePath: string,
-  fileMeta: { fileId: number; filename: string; mimeType: string },
+  fileMeta: ParserFileMeta,
   kbId: number,
-  useRemoteParsing = false
-): Promise<MDocument> {
-  // If remote parsing is explicitly requested, use it directly
-  if (useRemoteParsing) {
-    log.info(`[FILE] Using remote parsing for ${fileMeta.filename} (requested by user)`)
-    const content = await parseFileRemotely(filePath, fileMeta.filename, fileMeta.mimeType)
-    log.info(`[FILE] Remote parsing succeeded for ${fileMeta.filename}`)
-    return MDocument.fromText(content)
-  }
+  parserConfig: DocumentParserConfig
+): Promise<{ document: MDocument; parserUsed: string }> {
+  log.info(`[FILE] Parsing ${fileMeta.filename} with ${parserConfig.type} parser`)
 
-  // Use local parsing
-  return await parseFileToDocumentLocal(filePath, fileMeta, kbId)
+  const result = await parseFileWithRouter(filePath, fileMeta, parserConfig, kbId)
+
+  log.info(`[FILE] Parse completed for ${fileMeta.filename}, parser used: ${result.parserUsed}`)
+
+  // Convert content to MDocument based on content type
+  const document = MDocument.fromText(result.content)
+  return { document, parserUsed: result.parserUsed }
 }
 
-// Use mastra to parse, chunk, embed, and store files, embeddingProvider parameter is required
+// Use mastra to parse, chunk, embed, and store files
 export async function processFileWithMastra(
   filePath: string,
   fileMeta: { fileId: number; filename: string; mimeType: string },
   kbId: number,
-  useRemoteParsing = false
+  parserConfig: DocumentParserConfig
 ) {
   const startTime = Date.now()
   log.debug(
-    `[FILE] Starting file processing: ${fileMeta.filename} (id=${fileMeta.fileId}, useRemoteParsing=${useRemoteParsing})`
+    `[FILE] Starting file processing: ${fileMeta.filename} (id=${fileMeta.fileId}, parser=${parserConfig.type})`
   )
 
   try {
@@ -144,8 +87,16 @@ export async function processFileWithMastra(
     const currentChunkCount = (fileRecord.rows[0]?.chunk_count as number) || 0
     const currentTotalChunks = (fileRecord.rows[0]?.total_chunks as number) || 0
 
-    // 1. Parse file to get all chunks
-    const doc = await parseFileToDocument(filePath, fileMeta, kbId, useRemoteParsing)
+    // 1. Parse file using the parser router
+    const parseResult = await parseFileToDocumentWithRouter(filePath, fileMeta, kbId, parserConfig)
+    const doc = parseResult.document
+    const parserUsed = parseResult.parserUsed
+
+    // Update parser_type in database
+    await db.execute({
+      sql: 'UPDATE kb_file SET parser_type = ? WHERE id = ?',
+      args: [parserUsed, fileMeta.fileId],
+    })
 
     // 2. Chunking
     const allChunks = await doc.chunk({
@@ -155,14 +106,14 @@ export async function processFileWithMastra(
     })
 
     if (!allChunks || allChunks.length === 0) {
-      if (useRemoteParsing) {
-        // Server parsing also resulted in 0 chunks, mark as done (truly empty file)
+      // Cloud parsing (chatbox-ai, mineru) resulted in 0 chunks - mark as done (truly empty file)
+      // Local parsing resulted in 0 chunks - mark as failed so user can retry with server parsing
+      if (parserConfig.type === 'chatbox-ai' || parserConfig.type === 'mineru') {
         await db.execute({
           sql: 'UPDATE kb_file SET chunk_count = 0, status = ? WHERE id = ?',
           args: ['done', fileMeta.fileId],
         })
       } else {
-        // Local parsing resulted in 0 chunks, mark as failed so user can retry with server parsing
         throw new Error('No content extracted from file')
       }
       return
@@ -315,8 +266,16 @@ async function processPendingFiles() {
     await checkProcessingTimeouts()
 
     const db = getDatabase()
-    // Query pending files (includes files that were interrupted and reset by cleanup)
-    const rs = await db.execute('SELECT * FROM kb_file WHERE status = ?', ['pending'])
+    // Query pending files with their KB's parser config
+    const rs = await db.execute(
+      `
+      SELECT f.*, kb.document_parser as kb_document_parser
+      FROM kb_file f
+      JOIN knowledge_base kb ON f.kb_id = kb.id
+      WHERE f.status = ?
+    `,
+      ['pending']
+    )
 
     if (rs.rows.length === 0) {
       return
@@ -327,13 +286,33 @@ async function processPendingFiles() {
     for (const file of rs.rows) {
       const useRemoteParsing = Boolean(file.use_remote_parsing)
 
-      try {
-        log.debug(`[FILE] Processing file: ${file.filename} (id=${file.id}, useRemoteParsing=${useRemoteParsing})`)
+      // Parse KB parser config
+      let kbParserConfig: DocumentParserConfig | undefined
+      if (file.kb_document_parser) {
+        try {
+          kbParserConfig = JSON.parse(file.kb_document_parser as string)
+        } catch {
+          log.warn(`[FILE] Failed to parse KB document_parser config for file ${file.id}`)
+        }
+      }
 
-        // Mark as processing, record the processing start time, save parsing method, and clear the use_remote_parsing flag
+      // Get effective parser config
+      // When useRemoteParsing is true (user clicked "Retry with server parsing"), force use Chatbox AI parser
+      // This overrides the KB's configured parser to ensure server parsing is used
+      const effectiveParserConfig: DocumentParserConfig = useRemoteParsing
+        ? { type: 'chatbox-ai' }
+        : getEffectiveParserConfig(kbParserConfig)
+
+      try {
+        log.debug(
+          `[FILE] Processing file: ${file.filename} (id=${file.id}, parser=${effectiveParserConfig.type}, useRemoteParsing=${useRemoteParsing})`
+        )
+
+        // Mark as processing, record the processing start time, save parsing method and parser_type, and clear the use_remote_parsing flag
+        // We set parser_type here at the start so that if parsing fails, the error message will correctly show which parser was used
         await db.execute({
-          sql: 'UPDATE kb_file SET status = ?, processing_started_at = CURRENT_TIMESTAMP, use_remote_parsing = 0, parsed_remotely = ? WHERE id = ?',
-          args: ['processing', useRemoteParsing ? 1 : 0, file.id],
+          sql: 'UPDATE kb_file SET status = ?, processing_started_at = CURRENT_TIMESTAMP, use_remote_parsing = 0, parsed_remotely = ?, parser_type = ? WHERE id = ?',
+          args: ['processing', useRemoteParsing ? 1 : 0, effectiveParserConfig.type, file.id],
         })
 
         // Use mastra to parse, chunk, embed, and store (supports resuming from chunk_count)
@@ -341,7 +320,7 @@ async function processPendingFiles() {
           file.filepath as string,
           { fileId: file.id as number, filename: file.filename as string, mimeType: file.mime_type as string },
           file.kb_id as number,
-          useRemoteParsing
+          effectiveParserConfig
         )
       } catch (err: any) {
         log.error(`[FILE] File processing failed: ${file.filename} (id=${file.id})`, err)
@@ -360,6 +339,7 @@ async function processPendingFiles() {
           scope.setExtra('fileId', file.id)
           scope.setExtra('filename', file.filename)
           scope.setExtra('kbId', file.kb_id)
+          scope.setExtra('parserType', effectiveParserConfig.type)
           sentry.captureException(err)
         })
       }

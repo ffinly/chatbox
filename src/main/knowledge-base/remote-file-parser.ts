@@ -38,20 +38,6 @@ function getChatboxHeaders() {
 }
 
 /**
- * Check if current user is Pro (non-Lite license)
- */
-export function checkIfUserIsPro(): boolean {
-  const settings = getSettings()
-  if (!settings.licenseKey) {
-    return false
-  }
-  if (!settings.licenseDetail || settings.licenseDetail.name.toLowerCase().includes('lite')) {
-    return false
-  }
-  return true
-}
-
-/**
  * Get the license key from settings
  */
 function getLicenseKey(): string | undefined {

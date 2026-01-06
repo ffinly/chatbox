@@ -134,6 +134,14 @@ export default function MessageErrTips(props: { msg: Message }) {
             LinkToAdvancedUrlProcessing: (
               <LinkTargetBlank href="https://chatboxai.app/redirect_app/advanced_url_processing?utm_source=app&utm_content=msg_upgrade_required"></LinkTargetBlank>
             ),
+            OpenDocumentParserSettingButton: (
+              <Link
+                className="cursor-pointer italic"
+                onClick={() => {
+                  navigateToSettings('/document-parser')
+                }}
+              ></Link>
+            ),
           }}
         />
       )

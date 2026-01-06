@@ -1,5 +1,6 @@
 import type { ElectronIPC } from '@shared/electron-types'
-import type { FileMeta } from '@shared/types'
+import type { FileMeta, KnowledgeBaseProviderMode } from '@shared/types'
+import type { DocumentParserConfig } from '@shared/types/settings'
 import type { KnowledgeBaseController } from './interface'
 
 class DesktopKnowledgeBaseController implements KnowledgeBaseController {
@@ -10,7 +11,14 @@ class DesktopKnowledgeBaseController implements KnowledgeBaseController {
     return knowledgeBases
   }
 
-  async create(createParams: { name: string; embeddingModel: string; rerankModel: string; visionModel?: string }) {
+  async create(createParams: {
+    name: string
+    embeddingModel: string
+    rerankModel: string
+    visionModel?: string
+    documentParser?: DocumentParserConfig
+    providerMode?: KnowledgeBaseProviderMode
+  }) {
     await this.ipc.invoke('kb:create', createParams)
   }
 
@@ -66,6 +74,10 @@ class DesktopKnowledgeBaseController implements KnowledgeBaseController {
 
   async readFileChunks(kbId: number, chunks: { fileId: number; chunkIndex: number }[]) {
     return this.ipc.invoke('kb:file:read-chunks', kbId, chunks)
+  }
+
+  async testMineruConnection(apiToken: string): Promise<{ success: boolean; error?: string }> {
+    return this.ipc.invoke('parser:test-mineru', apiToken)
   }
 }
 

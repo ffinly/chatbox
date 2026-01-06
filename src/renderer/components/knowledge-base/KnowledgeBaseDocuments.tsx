@@ -52,7 +52,6 @@ interface KnowledgeBaseDocumentsProps {
 
 const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowledgeBase }) => {
   const { t } = useTranslation()
-  const licenseDetail = useSettingsStore((state) => state.licenseDetail)
   const [isExpanded, setIsExpanded] = useState(false)
   const [showScrollIndicator, setShowScrollIndicator] = useState(true)
   const [isDragOver, setIsDragOver] = useState(false)
@@ -104,10 +103,16 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
   // Failed files for remote retry feature
   const failedFiles = useMemo(() => allFiles.filter((file) => file.status === 'failed'), [allFiles])
 
-  // Check if user is Pro (has license that's not lite)
-  const isPro = useMemo(() => {
-    return licenseDetail && !licenseDetail.name.toLowerCase().includes('lite')
-  }, [licenseDetail])
+  // Parser types that should NOT show the "use Chatbox AI" suggestion when they fail
+  const PARSER_NO_SUGGESTION_LIST: string[] = ['mineru', 'chatbox-ai']
+
+  // Check if we should show the Chatbox AI suggestion for failed files
+  // Show suggestion only if there are failed files that are NOT in the exception list
+  const shouldShowChatboxAISuggestion = useMemo(() => {
+    if (failedFiles.length === 0) return false
+    // Check if any failed file used a parser that should show the suggestion
+    return failedFiles.some((file) => !PARSER_NO_SUGGESTION_LIST.includes(file.parser_type || 'local'))
+  }, [failedFiles])
 
   // MIME type correction for Windows compatibility
   const correctMimeType = useCallback((file: File): FileMeta => {
@@ -549,7 +554,7 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
     }
   }
 
-  const getStatusIcon = (status: string, error?: string, parsedRemotely?: number) => {
+  const getStatusIcon = (status: string, error?: string, parserType?: string) => {
     switch (status) {
       case 'completed':
       case 'done':
@@ -563,7 +568,19 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
       case 'paused':
         return <IconPlayerPause size={16} color="var(--chatbox-tint-warning)" />
       case 'failed': {
-        const isServerFailed = Boolean(parsedRemotely)
+        // Determine label based on actual parser type used
+        const getParserLabel = () => {
+          switch (parserType) {
+            case 'mineru':
+              return t('MinerU parse failed')
+            case 'chatbox-ai':
+              return t('Chatbox AI parse failed')
+            case 'local':
+            default:
+              return t('Local parse failed')
+          }
+        }
+        const isRemoteParser = parserType === 'mineru' || parserType === 'chatbox-ai'
         return (
           <Flex gap={4} align="center">
             <Tooltip
@@ -574,8 +591,8 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
               position="top"
               transitionProps={{ duration: 200 }}
             >
-              <Pill size="xs" c={isServerFailed ? 'orange' : 'gray'} className="cursor-help">
-                {isServerFailed ? t('Server parse failed') : t('Local parse failed')}
+              <Pill size="xs" c={isRemoteParser ? 'orange' : 'gray'} className="cursor-help">
+                {getParserLabel()}
               </Pill>
             </Tooltip>
           </Flex>
@@ -748,43 +765,21 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
               </Box>
             )}
 
-            {/* Failed files banner - for remote retry */}
-            {failedFiles.length > 0 && (
+            {/* Failed files banner - show Chatbox AI suggestion only for local parser failures */}
+            {shouldShowChatboxAISuggestion && (
               <Alert variant="light" color="yellow" p="sm">
                 <Flex gap="xs" align="center" justify="space-between">
                   <Flex gap="xs" align="center" style={{ flex: 1 }}>
-                    <Text size="sm">
-                      {isPro
-                        ? t('{{count}} file(s) failed to parse', { count: failedFiles.length })
-                        : t(
-                            "{{count}} file(s) failed to parse locally. You can upgrade your plan to use Chatbox AI's advanced file processing service.",
-                            { count: failedFiles.length }
-                          )}
-                    </Text>
+                    <Text size="sm">{t('{{count}} file(s) failed to parse', { count: failedFiles.length })}</Text>
                   </Flex>
-                  {isPro ? (
-                    <Button
-                      size="xs"
-                      variant="light"
-                      className="flex-shrink-0"
-                      onClick={() => setShowRemoteRetryModal(true)}
-                    >
-                      {t('Use server parsing')}
-                    </Button>
-                  ) : (
-                    <Button
-                      size="xs"
-                      variant="light"
-                      className="flex-shrink-0"
-                      onClick={() =>
-                        platform.openLink(
-                          'https://chatboxai.app/redirect_app/advanced_file_processing?utm_source=app&utm_content=kb'
-                        )
-                      }
-                    >
-                      {t('Upgrade')}
-                    </Button>
-                  )}
+                  <Button
+                    size="xs"
+                    variant="light"
+                    className="flex-shrink-0"
+                    onClick={() => setShowRemoteRetryModal(true)}
+                  >
+                    {t('Use server parsing')}
+                  </Button>
                 </Flex>
               </Alert>
             )}
@@ -826,17 +821,28 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
                                   {formatFileSize(doc.file_size)}
                                 </Text>
                                 {doc.status === 'done' && (
-                                  <Text
-                                    size="xs"
-                                    c="dimmed"
-                                    style={{ cursor: 'pointer', textDecoration: 'underline' }}
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      chunksPreview.openPreview(doc)
-                                    }}
-                                  >
-                                    {doc.chunk_count} {t('chunks')}
-                                  </Text>
+                                  <>
+                                    <Text
+                                      size="xs"
+                                      c="dimmed"
+                                      style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        chunksPreview.openPreview(doc)
+                                      }}
+                                    >
+                                      {doc.chunk_count} {t('chunks')}
+                                    </Text>
+                                    {doc.parser_type && (
+                                      <Pill size="xs" c="dimmed">
+                                        {doc.parser_type === 'chatbox-ai'
+                                          ? 'Chatbox AI'
+                                          : doc.parser_type === 'mineru'
+                                            ? 'MinerU'
+                                            : 'Local'}
+                                      </Pill>
+                                    )}
+                                  </>
                                 )}
                                 {(doc.status === 'processing' || doc.status === 'paused') && doc.total_chunks > 0 && (
                                   <Box style={{ flex: 1, minWidth: 100 }}>
@@ -869,10 +875,10 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
 
                           <Group gap="sm" align="center">
                             {doc.status === 'failed' ? (
-                              getStatusIcon(doc.status, doc.error, doc.parsed_remotely)
+                              getStatusIcon(doc.status, doc.error, doc.parser_type)
                             ) : (
                               <Center w={20} h={20}>
-                                {getStatusIcon(doc.status, doc.error)}
+                                {getStatusIcon(doc.status, doc.error, doc.parser_type)}
                               </Center>
                             )}
                             {doc.status === 'failed' && (

@@ -1,6 +1,7 @@
 import { Alert, Button, Flex, Group, Paper, Pill, Stack, Text, Title } from '@mantine/core'
 import { SystemProviders } from '@shared/defaults'
 import type { KnowledgeBase, ModelProvider, ProviderModelInfo } from '@shared/types'
+import type { DocumentParserConfig, DocumentParserType } from '@shared/types/settings'
 import { parseKnowledgeBaseModelString } from '@shared/utils/knowledge-base-model-parser'
 import { IconAlertTriangle, IconInfoCircle, IconPlus } from '@tabler/icons-react'
 import compact from 'lodash/compact'
@@ -18,6 +19,8 @@ import { Modal } from '../Overlay'
 import { ScalableIcon } from '../ScalableIcon'
 import KnowledgeBaseDocuments from './KnowledgeBaseDocuments'
 import {
+  DocumentParserDisplay,
+  DocumentParserSelector,
   KnowledgeBaseChatboxAIInfo,
   KnowledgeBaseFormActions,
   KnowledgeBaseModelSelectors,
@@ -91,6 +94,7 @@ const KnowledgeBasePage: React.FC = () => {
   const [newEmbeddingModel, setNewEmbeddingModel] = useState<string | null>(null)
   const [newRerankModel, setNewRerankModel] = useState<string | null>(null)
   const [newVisionModel, setNewVisionModel] = useState<string | null>(null)
+  const [newDocumentParser, setNewDocumentParser] = useState<DocumentParserConfig>({ type: 'local' })
   const [editKb, setEditKb] = useState<(Partial<KnowledgeBase> & { id: number }) | null>(null)
   const [editRerankModel, setEditRerankModel] = useState<string | null>(null)
   const [editVisionModel, setEditVisionModel] = useState<string | null>(null)
@@ -106,6 +110,19 @@ const KnowledgeBasePage: React.FC = () => {
   const canUseChatboxAIProvider = useMemo(() => {
     return !!(chatboxAIModels && licenseKey)
   }, [chatboxAIModels, licenseKey])
+
+  const isChatboxAIKnowledgeBase = useCallback(
+    (kb: KnowledgeBase) => {
+      // Use the stored providerMode if available
+      if (kb.providerMode) {
+        return kb.providerMode === 'chatbox-ai'
+      }
+      // Fallback for legacy KBs created before providerMode was stored: check embedding model
+      if (!chatboxAIModels) return false
+      return kb.embeddingModel === chatboxAIModels.embedding
+    },
+    [chatboxAIModels]
+  )
 
   const [newProviderMode, setNewProviderMode] = useState<'chatbox-ai' | 'custom'>('custom')
 
@@ -200,6 +217,18 @@ const KnowledgeBasePage: React.FC = () => {
     return `${providerName} | ${modelName}`
   }
 
+  function formatParserType(parserType?: DocumentParserType): string {
+    switch (parserType) {
+      case 'chatbox-ai':
+        return 'Chatbox AI'
+      case 'mineru':
+        return 'MinerU'
+      case 'local':
+      default:
+        return t('Local')
+    }
+  }
+
   const fetchKbList = useCallback(async () => {
     if (isUnsupportedPlatform) return
     try {
@@ -252,17 +281,23 @@ const KnowledgeBasePage: React.FC = () => {
     let embeddingModel: string
     let rerankModel: string
     let visionModel: string
+    let documentParser: DocumentParserConfig | undefined
 
     if (newProviderMode === 'chatbox-ai') {
       if (!chatboxAIModels) return
       embeddingModel = chatboxAIModels.embedding
       rerankModel = chatboxAIModels.rerank
       visionModel = chatboxAIModels.vision
+      // Chatbox AI mode uses local parsing by default to save compute points
+      // Users can retry with server parsing (Chatbox AI) if local parsing fails
+      documentParser = { type: 'local' }
     } else {
       if (!newEmbeddingModel) return
       embeddingModel = newEmbeddingModel
       rerankModel = newRerankModel || ''
       visionModel = newVisionModel || ''
+      // Custom mode uses the selected parser config
+      documentParser = newDocumentParser
     }
 
     try {
@@ -271,6 +306,8 @@ const KnowledgeBasePage: React.FC = () => {
         embeddingModel: embeddingModel,
         rerankModel: rerankModel,
         visionModel: visionModel,
+        documentParser: documentParser,
+        providerMode: newProviderMode,
       })
 
       trackEvent('knowledge_base_created', {
@@ -278,6 +315,7 @@ const KnowledgeBasePage: React.FC = () => {
         embedding_model: embeddingModel,
         rerank_model: rerankModel || null,
         vision_model: visionModel || null,
+        document_parser: documentParser?.type || 'global',
         knowledge_base_name: newKbName,
       })
 
@@ -287,6 +325,7 @@ const KnowledgeBasePage: React.FC = () => {
       setNewEmbeddingModel(null)
       setNewRerankModel(null)
       setNewVisionModel(null)
+      setNewDocumentParser({ type: 'local' })
       setShowCreate(false)
       fetchKbList()
     } catch (e) {
@@ -373,17 +412,20 @@ const KnowledgeBasePage: React.FC = () => {
           {newProviderMode === 'chatbox-ai' ? (
             <KnowledgeBaseChatboxAIInfo hasError={!chatboxAIModels} />
           ) : (
-            <KnowledgeBaseModelSelectors
-              embeddingModelList={embeddingModelList}
-              rerankModelList={rerankModelList}
-              visionModelList={visionModelList}
-              embeddingModel={newEmbeddingModel}
-              rerankModel={newRerankModel}
-              visionModel={newVisionModel}
-              onEmbeddingModelChange={setNewEmbeddingModel}
-              onRerankModelChange={setNewRerankModel}
-              onVisionModelChange={setNewVisionModel}
-            />
+            <>
+              <DocumentParserSelector parserConfig={newDocumentParser} onParserConfigChange={setNewDocumentParser} />
+              <KnowledgeBaseModelSelectors
+                embeddingModelList={embeddingModelList}
+                rerankModelList={rerankModelList}
+                visionModelList={visionModelList}
+                embeddingModel={newEmbeddingModel}
+                rerankModel={newRerankModel}
+                visionModel={newVisionModel}
+                onEmbeddingModelChange={setNewEmbeddingModel}
+                onRerankModelChange={setNewRerankModel}
+                onVisionModelChange={setNewVisionModel}
+              />
+            </>
           )}
 
           <KnowledgeBaseFormActions
@@ -403,20 +445,23 @@ const KnowledgeBasePage: React.FC = () => {
             onChange={(value) => editKb && setEditKb({ ...editKb, name: value })}
             label={t('Name') as string}
           />
-          {editKb?.embeddingModel?.startsWith('chatbox-ai') ? (
+          {editKb && isChatboxAIKnowledgeBase(editKb as KnowledgeBase) ? (
             <KnowledgeBaseChatboxAIInfo showModelsLabel />
           ) : (
-            <KnowledgeBaseModelSelectors
-              embeddingModelList={embeddingModelList}
-              rerankModelList={rerankModelList}
-              visionModelList={visionModelList}
-              embeddingModel={editKb ? `${editKb.embeddingModel}` : ''}
-              rerankModel={editRerankModel}
-              visionModel={editVisionModel}
-              onRerankModelChange={setEditRerankModel}
-              onVisionModelChange={setEditVisionModel}
-              isEmbeddingDisabled
-            />
+            <>
+              <DocumentParserDisplay parserType={editKb?.documentParser?.type} />
+              <KnowledgeBaseModelSelectors
+                embeddingModelList={embeddingModelList}
+                rerankModelList={rerankModelList}
+                visionModelList={visionModelList}
+                embeddingModel={editKb ? `${editKb.embeddingModel}` : ''}
+                rerankModel={editRerankModel}
+                visionModel={editVisionModel}
+                onRerankModelChange={setEditRerankModel}
+                onVisionModelChange={setEditVisionModel}
+                isEmbeddingDisabled
+              />
+            </>
           )}
           <KnowledgeBaseFormActions
             onCancel={() => setEditKb(null)}
@@ -490,7 +535,7 @@ const KnowledgeBasePage: React.FC = () => {
                       </Button>
                     </Group>
                     <Group gap="xs" wrap="wrap" align="center">
-                      {kb.embeddingModel?.startsWith('chatbox-ai') ? (
+                      {isChatboxAIKnowledgeBase(kb) ? (
                         <>
                           <Text size="xs" c="dimmed">
                             {t('Models')}:
@@ -505,6 +550,10 @@ const KnowledgeBasePage: React.FC = () => {
                         </>
                       ) : (
                         <>
+                          <Text size="xs" c="dimmed">
+                            {t('Parser')}:
+                          </Text>
+                          <Pill>{formatParserType(kb.documentParser?.type)}</Pill>
                           <Text size="xs" c="dimmed">
                             {t('Embedding')}:
                           </Text>

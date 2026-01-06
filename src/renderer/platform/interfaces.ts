@@ -68,6 +68,15 @@ export interface Platform extends Storage {
 
   parseFileLocally(file: File): Promise<{ key?: string; isSupported: boolean }>
 
+  // Parse file using MinerU service (Desktop only)
+  parseFileWithMineru?(
+    file: File,
+    apiToken: string
+  ): Promise<{ success: boolean; content?: string; error?: string; cancelled?: boolean }>
+
+  // Cancel MinerU parsing task (Desktop only)
+  cancelMineruParse?(filePath: string): Promise<{ success: boolean; error?: string }>
+
   // parseUrl(url: string): Promise<{ key: string, title: string }>
 
   isFullscreen(): Promise<boolean>

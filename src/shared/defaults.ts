@@ -134,6 +134,10 @@ export function settings(): Settings {
           rerank: undefined,
         },
       },
+      // documentParser is NOT set here - it uses platform-specific defaults
+      // Desktop: 'local', Mobile/Web: 'chatbox-ai'
+      // See settingsStore.ts for the platform-aware initialization logic
+      documentParser: undefined,
     },
     mcp: {
       servers: [],
