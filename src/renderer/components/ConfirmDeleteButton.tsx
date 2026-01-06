@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { MenuItem, Button } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import CheckIcon from '@mui/icons-material/Check'
-import { SxProps, useTheme } from '@mui/material/styles'
+import { type SxProps, useTheme } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 import { isHotkeyPressed } from 'react-hotkeys-hook'
 

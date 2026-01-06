@@ -1,5 +1,5 @@
 import { getLicenseKey } from '@/stores/settingActions'
-import { MCPServerConfig } from './types'
+import type { MCPServerConfig } from './types'
 import i18n from '@/i18n'
 
 export interface BuildinMCPServerConfig {

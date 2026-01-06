@@ -1,5 +1,5 @@
-import { Slider, SliderProps } from '@mantine/core'
-import { FC, useCallback, useState } from 'react'
+import { Slider, type SliderProps } from '@mantine/core'
+import { type FC, useCallback, useState } from 'react'
 
 export type LazySliderProps = SliderProps
 

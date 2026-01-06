@@ -1,8 +1,8 @@
 // 由于stdio transport只能在main进程使用，这里实现一个代理transport，通过ipc控制main进程中的stdio transport
 
-import { StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio.js'
-import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
-import { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js'
+import type { StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio.js'
+import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
+import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js'
 
 export class IPCStdioTransport implements Transport {
   static async create(serverParams: StdioServerParameters) {

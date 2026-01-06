@@ -1,4 +1,4 @@
-import * as React from 'react'
+import type * as React from 'react'
 import TextField from '@mui/material/TextField'
 import Autocomplete from '@mui/material/Autocomplete'
 import IconButton from '@mui/material/IconButton'

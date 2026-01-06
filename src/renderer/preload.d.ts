@@ -6,5 +6,3 @@ declare global {
     electronAPI: ElectronIPC
   }
 }
-
-export {}

@@ -1,7 +1,7 @@
 // 保持窗口大小位置变化的代码，很大程度参考了 VSCODE 的实现
 // /Users/benn/Documents/w/vscode/src/vs/platform/windows/electron-main/windowImpl.ts
 
-import { screen, Display, Rectangle } from 'electron'
+import { screen, type Display, type Rectangle } from 'electron'
 import { store } from './store-node'
 
 export interface IWindowState {
@@ -13,7 +13,7 @@ export interface IWindowState {
   readonly display?: number
 }
 
-export const enum WindowMode {
+export enum WindowMode {
   Maximized,
   Normal,
   Minimized, // not used anymore, but also cannot remove due to existing stored UI state (needs migration)
@@ -35,7 +35,7 @@ export function defaultWindowState(mode = WindowMode.Normal): IWindowState {
 const storeKey = 'windowState'
 
 export function getState(): [IWindowState, boolean? /* has multiple displays */] {
-  let state = getCache()
+  const state = getCache()
   return restoreWindowState(state)
 }
 

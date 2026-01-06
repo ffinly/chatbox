@@ -1,5 +1,5 @@
 import { Flex, Text } from '@mantine/core'
-import { FC } from 'react'
+import type { FC } from 'react'
 
 export type CustomProviderIconProps = {
   providerId: string
