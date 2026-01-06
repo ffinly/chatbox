@@ -47,6 +47,13 @@ function is5xxError(error: unknown): boolean {
     const statusCode = (error as { statusCode: unknown }).statusCode
     return typeof statusCode === 'number' && statusCode >= 500 && statusCode < 600
   }
+  if (error instanceof ApiError && error.message) {
+    const match = error.message.match(/Status Code (\d+)/)
+    if (match) {
+      const statusCode = parseInt(match[1], 10)
+      return statusCode >= 500 && statusCode < 600
+    }
+  }
   return false
 }
 
@@ -543,14 +550,11 @@ export default abstract class AbstractAISDKModel implements ModelInterface {
       if (isErrorAttempt(context.current)) {
         const { error } = context.current
         if (is5xxError(error)) {
-          const attemptNumber = context.attempts.length + 1
-          if (attemptNumber <= RETRY_CONFIG.MAX_ATTEMPTS) {
-            return {
-              model: baseModel,
-              maxAttempts: RETRY_CONFIG.MAX_ATTEMPTS,
-              delay: RETRY_CONFIG.INITIAL_DELAY_MS,
-              backoffFactor: RETRY_CONFIG.BACKOFF_FACTOR,
-            }
+          return {
+            model: baseModel,
+            maxAttempts: RETRY_CONFIG.MAX_ATTEMPTS,
+            delay: RETRY_CONFIG.INITIAL_DELAY_MS,
+            backoffFactor: RETRY_CONFIG.BACKOFF_FACTOR,
           }
         }
       }
