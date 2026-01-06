@@ -580,6 +580,7 @@
   "Retry All": "모두 다시 시도",
   "Retry locally": "로컬에서 재시도",
   "Retry with Server Parsing": "서버 파싱으로 다시 시도",
+  "Retrying {{attempt}}/{{maxAttempts}}": "재시도 중 {{attempt}}/{{maxAttempts}}",
   "Return to the top": "맨 위로 돌아가기",
   "Roadmap": "로드맵",
   "save": "저장",

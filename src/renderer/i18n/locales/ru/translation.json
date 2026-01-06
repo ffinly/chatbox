@@ -580,6 +580,7 @@
   "Retry All": "Повторить все",
   "Retry locally": "Повторить локально",
   "Retry with Server Parsing": "Повторить с серверной обработкой",
+  "Retrying {{attempt}}/{{maxAttempts}}": "Повторная попытка {{attempt}}/{{maxAttempts}}",
   "Return to the top": "Вернуться к началу",
   "Roadmap": "План развития",
   "save": "Сохранить",

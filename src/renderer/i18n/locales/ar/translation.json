@@ -579,6 +579,7 @@
   "Retry All": "إعادة محاولة الكل",
   "Retry locally": "إعادة المحاولة محليًا",
   "Retry with Server Parsing": "إعادة المحاولة بالتحليل عبر الخادم",
+  "Retrying {{attempt}}/{{maxAttempts}}": "إعادة المحاولة {{attempt}}/{{maxAttempts}}",
   "Return to the top": "العودة إلى الأعلى",
   "Roadmap": "خارطة الطريق",
   "save": "حفظ",

@@ -502,6 +502,7 @@
   "Retry All": "Retry All",
   "Retry locally": "Retry locally",
   "Retry with Server Parsing": "Retry with Server Parsing",
+  "Retrying {{attempt}}/{{maxAttempts}}": "Retrying {{attempt}}/{{maxAttempts}}",
   "Return to the top": "Return to the top",
   "save": "save",
   "Save": "Save",

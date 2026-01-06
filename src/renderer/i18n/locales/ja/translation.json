@@ -580,6 +580,7 @@
   "Retry All": "すべてを再試行",
   "Retry locally": "ローカルで再試行",
   "Retry with Server Parsing": "サーバー解析で再試行",
+  "Retrying {{attempt}}/{{maxAttempts}}": "再試行中 {{attempt}}/{{maxAttempts}}",
   "Return to the top": "トップに戻る",
   "Roadmap": "ロードマップ",
   "save": "保存",

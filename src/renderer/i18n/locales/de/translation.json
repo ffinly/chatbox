@@ -580,6 +580,7 @@
   "Retry All": "Alle erneut versuchen",
   "Retry locally": "Lokal wiederholen",
   "Retry with Server Parsing": "Gerne, hier ist die Übersetzung ins Deutsche:\n\nMit Server-Parsing erneut versuchen",
+  "Retrying {{attempt}}/{{maxAttempts}}": "Wiederhole Versuch {{attempt}}/{{maxAttempts}}",
   "Return to the top": "Zum Anfang zurückkehren",
   "Roadmap": "Roadmap",
   "save": "Speichern",

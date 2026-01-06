@@ -580,6 +580,7 @@
   "Retry All": "Réessayer tout",
   "Retry locally": "Poursuivre en local",
   "Retry with Server Parsing": "Réessayer avec l'analyse par le serveur",
+  "Retrying {{attempt}}/{{maxAttempts}}": "Réessai {{attempt}}/{{maxAttempts}}",
   "Return to the top": "Retour en haut",
   "Roadmap": "Feuille de route",
   "save": "Enregistrer",

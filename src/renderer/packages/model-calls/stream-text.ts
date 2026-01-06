@@ -8,7 +8,12 @@ import { uniqueId } from 'lodash'
 import { createModelDependencies } from '@/adapters'
 import * as settingActions from '@/stores/settingActions'
 import { settingsStore } from '@/stores/settingsStore'
-import type { ModelInterface, OnResultChange, OnResultChangeWithCancel } from '../../../shared/models/types'
+import type {
+  ModelInterface,
+  OnResultChange,
+  OnResultChangeWithCancel,
+  OnStatusChange,
+} from '../../../shared/models/types'
 import {
   type KnowledgeBase,
   type Message,
@@ -43,10 +48,14 @@ async function handleSearchResult(
   coreMessages: ModelMessage[],
   controller: AbortController,
   onResultChange: OnResultChange,
-  params: { providerOptions?: ProviderOptions }
+  params: { providerOptions?: ProviderOptions; onStatusChange?: OnStatusChange }
 ) {
   if (!result?.searchResults?.length || result.type === 'none') {
-    const chatResult = await model.chat(coreMessages, { signal: controller.signal, onResultChange })
+    const chatResult = await model.chat(coreMessages, {
+      signal: controller.signal,
+      onResultChange,
+      onStatusChange: params.onStatusChange,
+    })
     return { result: chatResult, coreMessages }
   }
 
@@ -74,6 +83,7 @@ async function handleSearchResult(
         onResultChange(data)
       }
     },
+    onStatusChange: params.onStatusChange,
     providerOptions: params.providerOptions,
   })
   return { result: chatResult, coreMessages }
@@ -110,6 +120,7 @@ export async function streamText(
     sessionId?: string
     messages: Message[]
     onResultChangeWithCancel: OnResultChangeWithCancel
+    onStatusChange?: OnStatusChange
     providerOptions?: ProviderOptions
     knowledgeBase?: Pick<KnowledgeBase, 'id' | 'name'>
     webBrowsing?: boolean
@@ -303,6 +314,7 @@ export async function streamText(
       sessionId,
       signal: controller.signal,
       onResultChange,
+      onStatusChange: params.onStatusChange,
       providerOptions: params.providerOptions,
       tools,
     })

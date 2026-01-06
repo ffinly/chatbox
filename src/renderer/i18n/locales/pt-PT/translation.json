@@ -579,6 +579,7 @@
   "Retry All": "Repetir Todos",
   "Retry locally": "Tentar novamente localmente",
   "Retry with Server Parsing": "Tentar Novamente com Processamento no Servidor",
+  "Retrying {{attempt}}/{{maxAttempts}}": "A tentar novamente {{attempt}}/{{maxAttempts}}",
   "Return to the top": "Voltar ao topo",
   "Roadmap": "Roteiro",
   "save": "Guardar",

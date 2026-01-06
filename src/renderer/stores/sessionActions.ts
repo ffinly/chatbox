@@ -822,6 +822,13 @@ async function generate(
           sessionId: session.id,
           messages: promptMsgs,
           onResultChangeWithCancel: modifyMessageCache,
+          onStatusChange: (status) => {
+            targetMsg = {
+              ...targetMsg,
+              status: status ? [status] : [],
+            }
+            void modifyMessage(sessionId, targetMsg, false, true)
+          },
           providerOptions: settings.providerOptions,
           knowledgeBase,
           webBrowsing,

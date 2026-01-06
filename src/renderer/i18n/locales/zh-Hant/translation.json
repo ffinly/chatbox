@@ -585,6 +585,7 @@
   "Retry All": "重試全部",
   "Retry locally": "本機重試",
   "Retry with Server Parsing": "重試伺服器解析",
+  "Retrying {{attempt}}/{{maxAttempts}}": "正在重試 {{attempt}}/{{maxAttempts}}",
   "Return to the top": "跳轉到頂部",
   "Roadmap": "未來規劃",
   "save": "儲存",

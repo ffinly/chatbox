@@ -131,6 +131,12 @@ export const MessageStatusSchema = z.discriminatedUnion('type', [
     type: z.literal('loading_webpage'),
     mode: z.enum(['local', 'advanced']).optional(),
   }),
+  z.object({
+    type: z.literal('retrying'),
+    attempt: z.number(),
+    maxAttempts: z.number(),
+    error: z.string().optional(),
+  }),
 ])
 
 // Main Message schema
@@ -262,6 +268,7 @@ export type MessageContentParts = z.infer<typeof MessageContentPartsSchema>
 export type StreamTextResult = z.infer<typeof StreamTextResultSchema>
 export type ToolUseScope = z.infer<typeof ToolUseScopeSchema>
 export type ModelProvider = z.infer<typeof ModelProviderSchema>
+export type MessageStatus = z.infer<typeof MessageStatusSchema>
 export type Message = z.infer<typeof MessageSchema>
 export type SessionType = z.infer<typeof SessionTypeSchema>
 export type Session = z.infer<typeof SessionSchema>
