@@ -21,7 +21,7 @@ export function AdaptiveModal({ opened, onClose, children, title, ...props }: Ad
           <Drawer.Overlay className="fixed inset-0 bg-chatbox-background-mask-overlay" />
           <Drawer.Content className="flex flex-col h-fit fixed bottom-0 left-0 right-0 outline-none bg-chatbox-background-primary rounded-t-lg">
             <Drawer.Handle />
-            <Stack gap="md" p="sm">
+            <Stack gap="md" p="sm" className="max-h-[85vh] overflow-y-auto">
               {title && typeof title === 'string' && (
                 <Text size="md" fw={600} className="text-center">
                   {title}
