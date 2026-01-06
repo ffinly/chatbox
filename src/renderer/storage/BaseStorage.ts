@@ -16,6 +16,17 @@ export default class BaseStorage {
 
   public async setItemNow<T>(key: string, value: T): Promise<void> {
     try {
+      if (key === 'settings') {
+        const valueObj = value as Record<string, unknown>
+        const providers = valueObj?.providers
+        const providersCount =
+          providers && typeof providers === 'object' && !Array.isArray(providers) ? Object.keys(providers).length : 0
+        if (providersCount === 0) {
+          log.info(
+            `[CONFIG_DEBUG] setItemNow settings with providersCount=0, stack=${new Error().stack?.split('\n').slice(1, 6).join(' <- ')}`
+          )
+        }
+      }
       return await platform.setStoreValue(key, value)
     } catch (error) {
       log.error(`Failed to write to storage (key: ${key}):`, error)
@@ -23,15 +34,24 @@ export default class BaseStorage {
     }
   }
 
-  // getItem 需要保证如果数据不存在，返回默认值的同时，也要将默认值写入存储
   public async getItem<T>(key: string, initialValue: T): Promise<T> {
     try {
-      let value: any = await platform.getStoreValue(key)
+      let value: unknown = await platform.getStoreValue(key)
       if (value === undefined || value === null) {
         value = initialValue
+        if (key === 'settings') {
+          log.info(`[CONFIG_DEBUG] getItem settings: value was null/undefined, using initialValue`)
+        }
         this.setItemNow(key, value)
+      } else if (key === 'settings') {
+        const providers = (value as Record<string, unknown>)?.providers
+        const providersCount =
+          providers && typeof providers === 'object' && !Array.isArray(providers) ? Object.keys(providers).length : 0
+        if (providersCount === 0) {
+          log.info(`[CONFIG_DEBUG] getItem settings: read providersCount=0 from storage`)
+        }
       }
-      return value
+      return value as T
     } catch (error) {
       log.error(`Failed to read from storage (key: ${key}):`, error)
       throw error

@@ -8,8 +8,11 @@ import type { WritableDraft } from 'immer'
 import { createStore, useStore } from 'zustand'
 import { createJSONStorage, persist, subscribeWithSelector } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
+import { getLogger } from '@/lib/utils'
 import platform from '@/platform'
 import storage from '@/storage'
+
+const log = getLogger('settings-store')
 
 type Action = {
   setSettings: (nextStateOrUpdater: Partial<Settings> | ((state: WritableDraft<Settings>) => void)) => void
@@ -92,6 +95,12 @@ export const initSettingsStore = async () => {
   if (!_initSettingsStorePromise) {
     _initSettingsStorePromise = new Promise<Settings>((resolve) => {
       const unsub = settingsStore.persist.onFinishHydration((val) => {
+        const providers = val?.providers
+        const providersCount =
+          providers && typeof providers === 'object' && !Array.isArray(providers) ? Object.keys(providers).length : 0
+        if (providersCount === 0) {
+          log.info(`[CONFIG_DEBUG] onFinishHydration: providersCount=0`)
+        }
         unsub()
         resolve(val)
       })
