@@ -171,8 +171,11 @@ export function sequenceMessages(msgs: Message[]): Message[] {
       const quotedText = linesToQuote.map((line) => `> ${line}`).join('\n')
       // Add back the ending newline(s) to match original structure
       const quote = text.endsWith('\n\n') ? `${quotedText}\n\n` : `${quotedText}\n`
-      msg.contentParts = [{ type: 'text', text: quote }]
-      next = mergeMessages(next, msg)
+      // Clone the message to avoid mutating the original, which could cause
+      // duplicate ">" prefixes if sequenceMessages is called multiple times
+      const quotedMsg = cloneMessage(msg)
+      quotedMsg.contentParts = [{ type: 'text', text: quote }]
+      next = mergeMessages(next, quotedMsg)
       continue
     }
     // If not the first user message, add the current message to the result and start a new one
