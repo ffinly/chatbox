@@ -693,6 +693,7 @@
   "Test Model": "テストモデル",
   "Test successful": "テスト成功",
   "Testing...": "テスト中...",
+  "Text Only": "テキストのみ",
   "Text Request": "テキストリクエスト",
   "Thank you for your report": "ご報告ありがとうございます",
   "The {{model}} API does not support files. Please download <LinkToHomePage>the desktop app</LinkToHomePage> for local processing.": "{{model}} APIはファイルをサポートしていません。ローカル処理のために<LinkToHomePage>デスクトップアプリ</LinkToHomePage>をダウンロードしてください。",

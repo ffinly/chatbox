@@ -15,7 +15,7 @@ const ALL_PARSER_OPTIONS: {
   desktopOnly?: boolean
   mobileWebOnly?: boolean
 }[] = [
-  { value: 'none', label: 'N/A', mobileWebOnly: true }, // Basic text file support only (mobile/web only)
+  { value: 'none', label: 'Text Only', mobileWebOnly: true }, // Basic text file support only (mobile/web only)
   { value: 'local', label: 'Local', desktopOnly: true }, // Only available on desktop
   { value: 'chatbox-ai', label: 'Chatbox AI' },
   { value: 'mineru', label: 'MinerU', desktopOnly: true }, // Only available on desktop (requires IPC)
@@ -277,7 +277,6 @@ export function DocumentParserSettings({ showTitle = true }: DocumentParserSetti
               </Text>
             )
           ) : null}
-
           <Button
             variant="transparent"
             size="compact-xs"

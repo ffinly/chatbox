@@ -701,6 +701,7 @@
   "Test Results": "测试结果",
   "Test successful": "测试成功",
   "Testing...": "测试中...",
+  "Text Only": "纯文本",
   "Text Request": "文本请求",
   "Thank you for your report": "谢谢您的报告",
   "The {{model}} API does not support files. Please download <LinkToHomePage>the desktop app</LinkToHomePage> for local processing.": "{{model}} API 不支持文件。请下载<LinkToHomePage>桌面版应用</LinkToHomePage>来实现本地处理。",

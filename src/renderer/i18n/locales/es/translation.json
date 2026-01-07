@@ -692,6 +692,7 @@
   "Test Model": "Modelo de prueba",
   "Test successful": "Prueba exitosa",
   "Testing...": "Probando...",
+  "Text Only": "Solo texto",
   "Text Request": "Solicitud de texto",
   "Thank you for your report": "Gracias por su informe",
   "The {{model}} API does not support files. Please download <LinkToHomePage>the desktop app</LinkToHomePage> for local processing.": "La API {{model}} no admite archivos. Por favor, descargue <LinkToHomePage>la aplicación de escritorio</LinkToHomePage> para el procesamiento local.",

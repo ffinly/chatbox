@@ -692,6 +692,7 @@
   "Test Model": "Testmodell",
   "Test successful": "Test vellykket",
   "Testing...": "Tester...",
+  "Text Only": "Kun tekst",
   "Text Request": "Tekstforespørsel",
   "Thank you for your report": "Takk for rapporten din",
   "The {{model}} API does not support files. Please download <LinkToHomePage>the desktop app</LinkToHomePage> for local processing.": "{{model}}-APIet støtter ikke filer. Vennligst last ned <LinkToHomePage>skrivebordsappen</LinkToHomePage> for lokal behandling.",

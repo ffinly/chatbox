@@ -697,6 +697,7 @@
   "Test Model": "測試模型",
   "Test successful": "測試成功",
   "Testing...": "測試中...",
+  "Text Only": "僅文字",
   "Text Request": "文字請求",
   "Thank you for your report": "感謝您的報告",
   "The {{model}} API does not support files. Please download <LinkToHomePage>the desktop app</LinkToHomePage> for local processing.": "{{model}} API 不支持文件。請下載 <LinkToHomePage>桌面版應用</LinkToHomePage>來實現本地處理。",

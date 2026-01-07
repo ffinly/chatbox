@@ -693,6 +693,7 @@
   "Test Model": "모델 테스트",
   "Test successful": "테스트 성공",
   "Testing...": "테스트 중...",
+  "Text Only": "텍스트만",
   "Text Request": "텍스트 요청",
   "Thank you for your report": "보고서에 감사드립니다.",
   "The {{model}} API does not support files. Please download <LinkToHomePage>the desktop app</LinkToHomePage> for local processing.": "{{model}} API는 파일을 지원하지 않습니다. 로컬 처리를 위해 <LinkToHomePage>데스크톱 앱</LinkToHomePage>을 다운로드하세요.",

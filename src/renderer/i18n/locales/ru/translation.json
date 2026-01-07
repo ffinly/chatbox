@@ -693,6 +693,7 @@
   "Test Model": "Тестовая модель",
   "Test successful": "Тест успешно",
   "Testing...": "Тестирование...",
+  "Text Only": "Только текст",
   "Text Request": "Текстовый запрос",
   "Thank you for your report": "Спасибо за ваш отчёт",
   "The {{model}} API does not support files. Please download <LinkToHomePage>the desktop app</LinkToHomePage> for local processing.": "API {{model}} не поддерживает файлы. Пожалуйста, скачайте <LinkToHomePage>настольную версию приложения</LinkToHomePage> для локальной обработки.",

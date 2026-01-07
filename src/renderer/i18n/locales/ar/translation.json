@@ -692,6 +692,7 @@
   "Test Model": "نموذج الاختبار",
   "Test successful": "اختبار ناجح",
   "Testing...": "جاري الاختبار...",
+  "Text Only": "نص فقط",
   "Text Request": "طلب نص",
   "Thank you for your report": "شكرا لك على تقريرك",
   "The {{model}} API does not support files. Please download <LinkToHomePage>the desktop app</LinkToHomePage> for local processing.": "لا يدعم API {{model}} الملفات. يرجى تحميل <LinkToHomePage>تطبيق سطح المكتب</LinkToHomePage> لمعالجة محلية.",
