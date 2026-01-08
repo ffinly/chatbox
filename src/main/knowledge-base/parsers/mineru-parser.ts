@@ -310,7 +310,7 @@ export async function testMineruConnection(apiToken: string): Promise<{ success:
     const data = await response.json()
 
     // Check for auth errors
-    if (data.code === 'A0202' || data.code === 'A0211') {
+    if (data.msgCode === 'A0202' || data.msgCode === 'A0211') {
       return { success: false, error: 'Token invalid or expired' }
     }
 
