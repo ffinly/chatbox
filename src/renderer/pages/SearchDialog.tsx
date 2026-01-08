@@ -57,7 +57,7 @@ export default function SearchDialog(props: Props) {
       setLoading(false)
       return
     }
-    searchSessions(searchInput, flag === 'current-session' ? currentSessionId : undefined, (batches) => {
+    searchSessions(searchInput, flag === 'current-session' ? (currentSessionId ?? undefined) : undefined, (batches) => {
       setSearchResult((prev) => [...prev, ...batches])
     })
     setSearchResultMarks([searchInput])
@@ -176,11 +176,29 @@ export default function SearchDialog(props: Props) {
                             'bg-opacity-50'
                           )}
                           onSelect={() => {
-                            switchCurrentSession(result.id)
-                            setTimeout(() => {
-                              scrollActions.scrollToMessage(result.id, message.id)
-                            }, 200)
+                            const targetSessionId = result.id
+                            const targetMessageId = message.id
+                            const needsSwitch = currentSessionId !== targetSessionId
+
+                            if (needsSwitch) {
+                              switchCurrentSession(targetSessionId)
+                            }
+
                             setOpen(false)
+
+                            // Scroll with retry mechanism to ensure message is visible
+                            const tryScroll = async (attempt = 0, maxAttempts = 10) => {
+                              const delay = needsSwitch ? (attempt === 0 ? 300 : 200) : 100
+                              await new Promise((resolve) => setTimeout(resolve, delay))
+
+                              const success = await scrollActions.scrollToMessage(targetSessionId, targetMessageId)
+
+                              if (!success && attempt < maxAttempts) {
+                                tryScroll(attempt + 1, maxAttempts)
+                              }
+                            }
+
+                            tryScroll()
                           }}
                         >
                           {/* 下面这个隐藏元素，是为了避免这个问题：
