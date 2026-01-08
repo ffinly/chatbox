@@ -107,7 +107,13 @@ export function RouteComponent() {
               }}
               error={tavilyAvaliable === false}
             />
-            <Button color="chatbox-gray" variant="light" onClick={checkTavily} loading={checkingTavily}>
+            <Button
+              color="blue"
+              variant="light"
+              onClick={checkTavily}
+              loading={checkingTavily}
+              disabled={!extension.webSearch.tavilyApiKey?.trim()}
+            >
               {t('Check')}
             </Button>
           </Flex>
