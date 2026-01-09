@@ -1,5 +1,5 @@
 import NiceModal, { useModal } from '@ebay/nice-modal-react'
-import { Button, Combobox, Input, InputBase, Stack, Textarea, useCombobox } from '@mantine/core'
+import { Button, Combobox, Input, InputBase, Stack, Text, Textarea, useCombobox } from '@mantine/core'
 import { type Message, type MessageContentParts, type MessageRole, MessageRoleEnum } from '@shared/types'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -45,6 +45,12 @@ const MessageEditModal = ({
   const { t } = useTranslation()
   const isSmallScreen = useIsSmallScreen()
 
+  // Store initial content for dirty checking
+  const [initialMsg] = useState<Message>(() => ({
+    ...origMsg,
+    contentParts: origMsg.contentParts.length ? origMsg.contentParts : [{ type: 'text', text: '' }],
+  }))
+
   const [msg, _setMsg] = useState<Message>({
     ...origMsg,
     contentParts: origMsg.contentParts.length ? origMsg.contentParts : [{ type: 'text', text: '' }],
@@ -52,6 +58,35 @@ const MessageEditModal = ({
   const setMsg = useCallback((m: Partial<Message>) => {
     _setMsg((_m) => ({ ..._m, ...m }))
   }, [])
+
+  // State for confirmation dialog
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+
+  // Check if content has been modified
+  const isDirty = useMemo(() => {
+    // Compare role
+    if (msg.role !== initialMsg.role) {
+      return true
+    }
+    // Compare content parts
+    if (msg.contentParts.length !== initialMsg.contentParts.length) {
+      return true
+    }
+    for (let i = 0; i < msg.contentParts.length; i++) {
+      const currentPart = msg.contentParts[i]
+      const initialPart = initialMsg.contentParts[i]
+      if (currentPart.type !== initialPart.type) {
+        return true
+      }
+      if (currentPart.type === 'text' && initialPart.type === 'text') {
+        if (currentPart.text !== initialPart.text) {
+          return true
+        }
+      }
+    }
+    return false
+  }, [msg, initialMsg])
+
   // Create stable IDs for text parts to maintain focus
   // biome-ignore lint/correctness/useExhaustiveDependencies: ignore contents change
   const textPartIds = useMemo(() => {
@@ -63,6 +98,21 @@ const MessageEditModal = ({
     })
     return ids
   }, [msg.id])
+
+  // Handle close with dirty check
+  const handleClose = useCallback(() => {
+    if (isDirty) {
+      setShowConfirmDialog(true)
+    } else {
+      onClose()
+    }
+  }, [isDirty, onClose])
+
+  // Force close without checking
+  const forceClose = useCallback(() => {
+    setShowConfirmDialog(false)
+    onClose()
+  }, [onClose])
 
   const onSave = () => {
     if (!msg) {
@@ -180,104 +230,127 @@ const MessageEditModal = ({
   }
 
   return (
-    <AdaptiveModal
-      opened={opened}
-      centered
-      size="lg"
-      onClose={onClose}
-      keepMounted={false}
-      lockScroll={false}
-      trapFocus={false}
-    >
-      <Stack gap="md" className="max-h-[70vh] overflow-y-auto -m-3 p-3">
-        <Combobox
-          store={combobox}
-          classNames={{ dropdown: 'pointer-events-auto' }}
-          onOptionSubmit={(val) => {
-            setMsg({
-              role: val as MessageRole,
-            })
-            combobox.closeDropdown()
-          }}
-        >
-          <Combobox.Target>
-            <InputBase
-              component="button"
-              type="button"
-              classNames={{ root: 'self-start', input: 'p-xs pr-8 h-auto ' }}
-              pointer
-              rightSection={<Combobox.Chevron />}
-              rightSectionPointerEvents="none"
-              onClick={() => combobox.toggleDropdown()}
-            >
-              {msg.role ? avatars[msg.role] : <Input.Placeholder>Pick value</Input.Placeholder>}
-            </InputBase>
-          </Combobox.Target>
+    <>
+      <AdaptiveModal
+        opened={opened}
+        centered
+        size="lg"
+        onClose={handleClose}
+        keepMounted={false}
+        lockScroll={false}
+        trapFocus={false}
+      >
+        <Stack gap="md" className="max-h-[70vh] overflow-y-auto -m-3 p-3">
+          <Combobox
+            store={combobox}
+            classNames={{ dropdown: 'pointer-events-auto' }}
+            onOptionSubmit={(val) => {
+              setMsg({
+                role: val as MessageRole,
+              })
+              combobox.closeDropdown()
+            }}
+          >
+            <Combobox.Target>
+              <InputBase
+                component="button"
+                type="button"
+                classNames={{ root: 'self-start', input: 'p-xs pr-8 h-auto ' }}
+                pointer
+                rightSection={<Combobox.Chevron />}
+                rightSectionPointerEvents="none"
+                onClick={() => combobox.toggleDropdown()}
+              >
+                {msg.role ? avatars[msg.role] : <Input.Placeholder>Pick value</Input.Placeholder>}
+              </InputBase>
+            </Combobox.Target>
 
-          <Combobox.Dropdown>
-            <Combobox.Options>
-              {[MessageRoleEnum.System, MessageRoleEnum.Assistant, MessageRoleEnum.User].map((r) => (
-                <Combobox.Option value={r} key={r}>
-                  {avatars[r]}
-                </Combobox.Option>
-              ))}
-            </Combobox.Options>
-          </Combobox.Dropdown>
-        </Combobox>
-        {msg.contentParts.filter((part) => part.type === 'text').length === 0 ? (
-          <Textarea
-            id={`${msg.id}-input`}
-            autoFocus={!isSmallScreen}
-            autosize
-            minRows={5}
-            maxRows={15}
-            placeholder="prompt"
-            value=""
-            onChange={(e) => {
-              if (e.target.value) {
-                setMsg({
-                  contentParts: [{ type: 'text', text: e.target.value }],
-                })
+            <Combobox.Dropdown>
+              <Combobox.Options>
+                {[MessageRoleEnum.System, MessageRoleEnum.Assistant, MessageRoleEnum.User].map((r) => (
+                  <Combobox.Option value={r} key={r}>
+                    {avatars[r]}
+                  </Combobox.Option>
+                ))}
+              </Combobox.Options>
+            </Combobox.Dropdown>
+          </Combobox>
+          {msg.contentParts.filter((part) => part.type === 'text').length === 0 ? (
+            <Textarea
+              id={`${msg.id}-input`}
+              autoFocus={!isSmallScreen}
+              autosize
+              minRows={5}
+              maxRows={15}
+              placeholder="prompt"
+              value=""
+              onChange={(e) => {
+                if (e.target.value) {
+                  setMsg({
+                    contentParts: [{ type: 'text', text: e.target.value }],
+                  })
+                }
+              }}
+              onKeyDown={onKeyDown}
+              styles={{
+                input: { touchAction: 'manipulation' },
+              }}
+            />
+          ) : (
+            msg.contentParts.map((part, index, arr) => {
+              if (part.type === 'text') {
+                return (
+                  <Textarea
+                    key={textPartIds[index] || `text-part-${index}`}
+                    id={`${msg.id}-input-${index}`}
+                    autoFocus={!isSmallScreen && index === 0}
+                    autosize
+                    minRows={arr.length > 1 ? 1 : 5}
+                    maxRows={15}
+                    placeholder="prompt"
+                    value={part.text}
+                    onChange={(e) => onContentPartInput(index, e.target.value)}
+                    onKeyDown={(e) => handleTextPartKeyDown(e, index)}
+                    styles={{
+                      input: { touchAction: 'manipulation' },
+                    }}
+                  />
+                )
               }
-            }}
-            onKeyDown={onKeyDown}
-            styles={{
-              input: { touchAction: 'manipulation' },
-            }}
-          />
-        ) : (
-          msg.contentParts.map((part, index, arr) => {
-            if (part.type === 'text') {
-              return (
-                <Textarea
-                  key={textPartIds[index] || `text-part-${index}`}
-                  id={`${msg.id}-input-${index}`}
-                  autoFocus={!isSmallScreen && index === 0}
-                  autosize
-                  minRows={arr.length > 1 ? 1 : 5}
-                  maxRows={15}
-                  placeholder="prompt"
-                  value={part.text}
-                  onChange={(e) => onContentPartInput(index, e.target.value)}
-                  onKeyDown={(e) => handleTextPartKeyDown(e, index)}
-                  styles={{
-                    input: { touchAction: 'manipulation' },
-                  }}
-                />
-              )
-            }
-            return null
-          })
-        )}
-      </Stack>
+              return null
+            })
+          )}
+        </Stack>
 
-      <AdaptiveModal.Actions>
-        <AdaptiveModal.CloseButton onClick={onClose} />
-        <Button onClick={onSaveAndReply} variant="light">
-          {t('Save & Resend')}
-        </Button>
-        <Button onClick={onSave}>{t('save')}</Button>
-      </AdaptiveModal.Actions>
-    </AdaptiveModal>
+        <AdaptiveModal.Actions>
+          <AdaptiveModal.CloseButton onClick={handleClose} />
+          <Button onClick={onSaveAndReply} variant="light">
+            {t('Save & Resend')}
+          </Button>
+          <Button onClick={onSave}>{t('save')}</Button>
+        </AdaptiveModal.Actions>
+      </AdaptiveModal>
+
+      {/* Confirmation Dialog for Unsaved Changes */}
+      <AdaptiveModal
+        opened={showConfirmDialog}
+        centered
+        size="sm"
+        onClose={() => setShowConfirmDialog(false)}
+        title={t('Discard Changes?')}
+      >
+        <Stack gap="md">
+          <Text size="sm">{t('You have unsaved changes. Exiting will discard these changes.')}</Text>
+          <AdaptiveModal.Actions>
+            <Button variant="light" onClick={() => setShowConfirmDialog(false)}>
+              {t('Continue Editing')}
+            </Button>
+            <Button color="red" onClick={forceClose}>
+              {t('Discard Changes')}
+            </Button>
+          </AdaptiveModal.Actions>
+        </Stack>
+      </AdaptiveModal>
+    </>
   )
 }
