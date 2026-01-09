@@ -159,6 +159,7 @@ export const LicenseKeyView = forwardRef<HTMLDivElement, LicenseKeyViewProps>(({
                   const errorCode = licenseDetailError?.code || activateError
                   switch (errorCode) {
                     case 'not_found':
+                    case 'license_not_found':
                       return t('License not found, please check your license key')
                     case 'expired':
                     case 'expired_license':
@@ -166,6 +167,7 @@ export const LicenseKeyView = forwardRef<HTMLDivElement, LicenseKeyViewProps>(({
                     case 'reached_activation_limit':
                       return t('This license key has reached the activation limit.')
                     case 'quota_exceeded':
+                    case 'token_quota_exhausted':
                       return t('You have no more Chatbox AI quota left this month.')
                     default:
                       return t('Failed to activate license, please check your license key and network connection')
