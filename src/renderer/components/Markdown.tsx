@@ -87,6 +87,7 @@ function Markdown(props: {
   hiddenCodeCopyButton?: boolean
   className?: string
   generating?: boolean
+  forceColorScheme?: 'light' | 'dark'
 }) {
   const {
     children,
@@ -96,6 +97,7 @@ function Markdown(props: {
     hiddenCodeCopyButton,
     className,
     generating,
+    forceColorScheme,
   } = props
 
   const codeFences = useMemo(() => (children.match(/```/g) || []).length, [children])
@@ -125,6 +127,7 @@ function Markdown(props: {
                 hiddenCodeCopyButton={hiddenCodeCopyButton}
                 enableMermaidRendering={enableMermaidRendering}
                 generating={generating && generatingCodeIndex === codeIndex}
+                forceColorScheme={forceColorScheme}
               />
             )
           },
@@ -139,7 +142,7 @@ function Markdown(props: {
             />
           ),
         }),
-        [uniqueId, hiddenCodeCopyButton, enableMermaidRendering, generating, generatingCodeIndex]
+        [uniqueId, hiddenCodeCopyButton, enableMermaidRendering, generating, generatingCodeIndex, forceColorScheme]
       )}
     >
       {enableLaTeXRendering ? latex.processLaTeX(children) : children}
@@ -157,9 +160,10 @@ export const CodeRenderer = memo(
     hiddenCodeCopyButton?: boolean
     generating?: boolean
     enableMermaidRendering?: boolean
+    forceColorScheme?: 'light' | 'dark'
   }) => {
     const theme = useTheme()
-    const { children, className, hiddenCodeCopyButton, generating, enableMermaidRendering } = props
+    const { children, className, hiddenCodeCopyButton, generating, enableMermaidRendering, forceColorScheme } = props
     const language = /language-(\w+)/.exec(className || '')?.[1] || 'text'
     if (!String(children).includes('\n')) {
       return <InlineCode className={className}>{children}</InlineCode>
@@ -175,6 +179,7 @@ export const CodeRenderer = memo(
           hiddenCodeCopyButton={hiddenCodeCopyButton}
           language={language}
           generating={generating}
+          forceColorScheme={forceColorScheme}
         >
           {children}
         </BlockCode>
@@ -297,6 +302,7 @@ type BlockCodeProps = {
   uniqueId?: string
   hiddenCodeCopyButton?: boolean
   generating?: boolean
+  forceColorScheme?: 'light' | 'dark'
 }
 
 const CodeIcons: { [key: string]: ElementType<IconProps> } = {
@@ -337,9 +343,10 @@ const CodeIcons: { [key: string]: ElementType<IconProps> } = {
   DART: IconDart,
 }
 
-const BlockCode = memo(({ children, uniqueId, hiddenCodeCopyButton, language, generating }: BlockCodeProps) => {
+const BlockCode = memo(({ children, uniqueId, hiddenCodeCopyButton, language, generating, forceColorScheme }: BlockCodeProps) => {
   const { t } = useTranslation()
-  const colorScheme = useComputedColorScheme()
+  const computedColorScheme = useComputedColorScheme()
+  const colorScheme = forceColorScheme || computedColorScheme
   const languageName = useMemo(() => language.toUpperCase(), [language])
   const isRenderableCode = useMemo(() => isRenderableCodeLanguage(language), [language])
   const [deploying, setDeploying] = useState(false)

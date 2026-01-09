@@ -294,7 +294,10 @@ export async function formatChatAsHtml(sessionName: string, threads: SessionThre
           content += ReactDOMServer.renderToStaticMarkup(
             <MantineProvider>
               <BlockCodeCollapsedStateProvider defaultCollapsed={false}>
-                <Markdown hiddenCodeCopyButton>{p.text}</Markdown>
+                {/* 导出页面没有 theme，代码块应该总是使用 dark 否则 color scheme 看不清 */}
+                <Markdown hiddenCodeCopyButton forceColorScheme="dark">
+                  {p.text}
+                </Markdown>
               </BlockCodeCollapsedStateProvider>
             </MantineProvider>
           )
