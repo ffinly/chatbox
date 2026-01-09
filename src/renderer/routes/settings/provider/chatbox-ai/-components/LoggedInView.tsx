@@ -51,9 +51,9 @@ export const LoggedInView = forwardRef<HTMLDivElement, LoggedInViewProps>(
     })
 
     const {
-      data: licenseDetail,
+      data: licenseDetailResponse,
       isLoading: loadingLicenseDetail,
-      error: licenseDetailError,
+      error: queryError,
     } = useQuery({
       queryKey: ['licenseDetail', selectedLicenseKey],
       queryFn: () => getLicenseDetailRealtime({ licenseKey: selectedLicenseKey! }),
@@ -63,6 +63,11 @@ export const LoggedInView = forwardRef<HTMLDivElement, LoggedInViewProps>(
       refetchOnWindowFocus: true,
       placeholderData: (previousData) => previousData, // 使用之前的数据作为占位符
     })
+
+    const licenseDetail = licenseDetailResponse?.data
+    // 合并两种错误来源：1) API 返回 200 但带有 error 字段  2) API 返回 4xx/5xx 被 ofetch 抛出
+    const licenseDetailError =
+      licenseDetailResponse?.error || (queryError as any)?.data?.error || (queryError as any)?.error
 
     // 自动激活逻辑
     useEffect(() => {
@@ -399,12 +404,21 @@ export const LoggedInView = forwardRef<HTMLDivElement, LoggedInViewProps>(
               {!activationError && !loadingLicenseDetail && licenseDetailError && (
                 <Stack gap="sm">
                   <Text fw={600} c="chatbox-error">
-                    {(licenseDetailError as any)?.error?.title || t('Failed to load license details')}
-                  </Text>
-                  <Text size="sm" c="chatbox-error">
-                    {(licenseDetailError as any)?.error?.detail ||
-                      (licenseDetailError as any)?.message ||
-                      t('Unable to fetch license information. Please try again later.')}
+                    {(() => {
+                      switch (licenseDetailError.code) {
+                        case 'not_found':
+                          return t('License not found, please check your license key')
+                        case 'expired':
+                        case 'expired_license':
+                          return t('License expired, please check your license key')
+                        case 'reached_activation_limit':
+                          return t('This license key has reached the activation limit.')
+                        case 'quota_exceeded':
+                          return t('You have no more Chatbox AI quota left this month.')
+                        default:
+                          return t('Failed to load license details')
+                      }
+                    })()}
                   </Text>
                   <Button size="xs" variant="outline" onClick={() => window.location.reload()}>
                     {t('Retry')}

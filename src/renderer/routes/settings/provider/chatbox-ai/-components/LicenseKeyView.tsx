@@ -30,6 +30,7 @@ export const LicenseKeyView = forwardRef<HTMLDivElement, LicenseKeyViewProps>(({
     memorizedManualLicenseKey,
     setMemorizedManualLicenseKey,
     licenseDetail,
+    licenseDetailError,
     activated,
     activating,
     activateError,
@@ -149,18 +150,27 @@ export const LicenseKeyView = forwardRef<HTMLDivElement, LicenseKeyViewProps>(({
           )}
         </Stack>
 
-        {activateError && (
+        {(activateError || licenseDetailError) && (
           <Alert variant="light" color="red" p="sm">
             <Flex gap="xs" align="center" c="chatbox-primary">
               <ScalableIcon icon={IconExclamationCircle} className="flex-shrink-0" />
               <Text>
-                {activateError === 'not_found'
-                  ? t('License not found, please check your license key')
-                  : activateError === 'expired'
-                    ? t('License expired, please check your license key')
-                    : activateError === 'reached_activation_limit'
-                      ? t('This license key has reached the activation limit.')
-                      : t('Failed to activate license, please check your license key and network connection')}
+                {(() => {
+                  const errorCode = licenseDetailError?.code || activateError
+                  switch (errorCode) {
+                    case 'not_found':
+                      return t('License not found, please check your license key')
+                    case 'expired':
+                    case 'expired_license':
+                      return t('License expired, please check your license key')
+                    case 'reached_activation_limit':
+                      return t('This license key has reached the activation limit.')
+                    case 'quota_exceeded':
+                      return t('You have no more Chatbox AI quota left this month.')
+                    default:
+                      return t('Failed to activate license, please check your license key and network connection')
+                  }
+                })()}
               </Text>
 
               <a

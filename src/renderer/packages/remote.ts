@@ -237,18 +237,49 @@ export async function getLicenseDetail(params: { licenseKey: string }) {
   return res['data'] || null
 }
 
-export async function getLicenseDetailRealtime(params: { licenseKey: string }) {
+export interface LicenseDetailError {
+  code: string
+  detail: string
+  status: number
+  title: string
+}
+
+export interface LicenseDetailResponse {
+  data: ChatboxAILicenseDetail | null
+  error?: LicenseDetailError
+}
+
+export async function getLicenseDetailRealtime(params: { licenseKey: string }): Promise<LicenseDetailResponse> {
   type Response = {
     data: ChatboxAILicenseDetail | null
+    error?: LicenseDetailError
   }
-  const res = await ofetch<Response>(`${getAPIOrigin()}/api/license/detail/realtime`, {
-    retry: 5,
-    headers: {
-      Authorization: params.licenseKey,
-      ...(await getChatboxHeaders()),
-    },
-  })
-  return res['data'] || null
+  // 用于捕获错误响应体
+  let capturedError: LicenseDetailError | undefined
+  try {
+    const res = await ofetch<Response>(`${getAPIOrigin()}/api/license/detail/realtime`, {
+      retry: 5,
+      headers: {
+        Authorization: params.licenseKey,
+        ...(await getChatboxHeaders()),
+      },
+      onResponseError({ response }) {
+        // 在错误响应时捕获 error 对象
+        const body = response._data as { error?: LicenseDetailError } | undefined
+        if (body?.error) {
+          capturedError = body.error
+        }
+      },
+    })
+    return { data: res.data || null, error: res.error }
+  } catch (e: any) {
+    // 如果捕获到了错误响应体，返回它
+    if (capturedError) {
+      return { data: null, error: capturedError }
+    }
+    // 重新抛出原始错误
+    throw e
+  }
 }
 
 export async function generateUploadUrl(params: { licenseKey: string; filename: string }) {

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getLicenseDetailRealtime } from '@/packages/remote'
+import { type LicenseDetailError, getLicenseDetailRealtime } from '@/packages/remote'
 import * as premiumActions from '@/stores/premiumActions'
 import { settingsStore } from '@/stores/settingsStore'
 
@@ -40,7 +40,7 @@ export function useLicenseActivation({ settings, onActivationSuccess }: UseLicen
     ((settings as any).licenseActivationMethod === 'manual' ||
       (!(settings as any).licenseActivationMethod && !!(settings as any).licenseKey))
 
-  const { data: licenseDetail } = useQuery({
+  const { data: licenseDetailResponse, error: queryError } = useQuery({
     queryKey: ['license-detail', memorizedManualLicenseKey],
     queryFn: async () => {
       const res = await getLicenseDetailRealtime({ licenseKey: memorizedManualLicenseKey })
@@ -48,6 +48,11 @@ export function useLicenseActivation({ settings, onActivationSuccess }: UseLicen
     },
     enabled: !!memorizedManualLicenseKey && activated,
   })
+
+  const licenseDetail = licenseDetailResponse?.data
+  // 合并两种错误来源：1) API 返回 200 但带有 error 字段  2) API 返回 4xx/5xx 被 ofetch 抛出
+  const licenseDetailError: LicenseDetailError | undefined =
+    licenseDetailResponse?.error || (queryError as any)?.data?.error || (queryError as any)?.error
 
   const activate = useCallback(async () => {
     try {
@@ -60,7 +65,15 @@ export function useLicenseActivation({ settings, onActivationSuccess }: UseLicen
         onActivationSuccess?.()
       }
     } catch (e: any) {
-      setActivateError(e?.message || 'unknow error')
+      // 提取具体的错误信息：API 返回的 error 对象或通用错误消息
+      const errorDetail =
+        e?.data?.error?.detail ||
+        e?.data?.error?.title ||
+        e?.error?.detail ||
+        e?.error?.title ||
+        e?.message ||
+        'Unknown error'
+      setActivateError(errorDetail)
     } finally {
       setActivating(false)
     }
@@ -93,6 +106,7 @@ export function useLicenseActivation({ settings, onActivationSuccess }: UseLicen
     memorizedManualLicenseKey,
     setMemorizedManualLicenseKey,
     licenseDetail,
+    licenseDetailError,
     activated,
     activating,
     activateError,

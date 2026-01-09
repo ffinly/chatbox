@@ -133,7 +133,14 @@ export async function activate(licenseKey: string, method: 'login' | 'manual' = 
     return result
   }
   // 获取 license 详情
-  const licenseDetail = await remote.getLicenseDetailRealtime({ licenseKey })
+  const licenseDetailResponse = await remote.getLicenseDetailRealtime({ licenseKey })
+  // 如果获取详情返回错误（如过期、额度用尽），返回错误码
+  if (licenseDetailResponse.error) {
+    return {
+      valid: false,
+      error: licenseDetailResponse.error.code || 'license_error',
+    }
+  }
   // 设置本地的 license 数据
   settingsStore.setState((settings) => ({
     licenseKey,
@@ -142,7 +149,7 @@ export async function activate(licenseKey: string, method: 'login' | 'manual' = 
       ...(settings.licenseInstances || {}),
       [licenseKey]: result.instanceId,
     },
-    licenseDetail: licenseDetail || undefined,
+    licenseDetail: licenseDetailResponse.data || undefined,
   }))
   log.info(`✅ Activated license key: ${licenseKey.slice(0, 8)}****`)
   return result
