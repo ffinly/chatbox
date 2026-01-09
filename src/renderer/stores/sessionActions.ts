@@ -1220,6 +1220,10 @@ export async function genMessageContext(
     }
 
     // 如果消息中包含本地文件（消息中携带有本地文件的storageKey），则将文件内容也作为 prompt 的一部分
+    // 对于小文件（≤500行），即使模型支持工具调用，也直接包含文件内容，提高兼容性和响应质量
+    // 对于大文件，展示前 PREVIEW_LINES 行作为预览，剩余内容需要通过工具读取
+    const MAX_INLINE_FILE_LINES = 500
+    const PREVIEW_LINES = 100
     let attachmentIndex = 1
     if (msg.files && msg.files.length > 0) {
       for (const file of msg.files) {
@@ -1227,14 +1231,24 @@ export async function genMessageContext(
           msg = cloneMessage(msg) // 复制一份消息，避免修改原始消息
           const content = blobContents.get(file.storageKey) ?? ''
           if (content) {
+            const fileLines = content.split('\n').length
+            // 只有大文件且模型支持工具调用时，才使用工具读取；小文件直接包含内容
+            const shouldUseToolForThisFile = modelSupportToolUseForFile && fileLines > MAX_INLINE_FILE_LINES
             let attachment = `\n\n<ATTACHMENT_FILE>\n`
             attachment += `<FILE_INDEX>${attachmentIndex++}</FILE_INDEX>\n`
             attachment += `<FILE_NAME>${file.name}</FILE_NAME>\n`
             attachment += `<FILE_KEY>${file.storageKey}</FILE_KEY>\n`
-            attachment += `<FILE_LINES>${content.split('\n').length}</FILE_LINES>\n`
+            attachment += `<FILE_LINES>${fileLines}</FILE_LINES>\n`
             attachment += `<FILE_SIZE>${content.length} bytes</FILE_SIZE>\n`
-            if (!modelSupportToolUseForFile) {
-              attachment += '<FILE_CONTENT>\n'
+            attachment += '<FILE_CONTENT>\n'
+            if (shouldUseToolForThisFile) {
+              // 大文件：只展示前 PREVIEW_LINES 行作为预览
+              const lines = content.split('\n')
+              const previewContent = lines.slice(0, PREVIEW_LINES).join('\n')
+              attachment += `${previewContent}\n`
+              attachment += `</FILE_CONTENT>\n`
+              attachment += `<TRUNCATED>Content truncated. Showing first ${PREVIEW_LINES} of ${fileLines} lines. Use read_file or search_file_content tool with FILE_KEY="${file.storageKey}" to read more content.</TRUNCATED>\n`
+            } else {
               attachment += `${content}\n`
               attachment += '</FILE_CONTENT>\n'
             }
@@ -1251,14 +1265,24 @@ export async function genMessageContext(
           msg = cloneMessage(msg) // 复制一份消息，避免修改原始消息
           const content = blobContents.get(link.storageKey) ?? ''
           if (content) {
+            const linkLines = content.split('\n').length
+            // 只有大文件且模型支持工具调用时，才使用工具读取；小文件直接包含内容
+            const shouldUseToolForThisLink = modelSupportToolUseForFile && linkLines > MAX_INLINE_FILE_LINES
             let attachment = `\n\n<ATTACHMENT_FILE>\n`
             attachment += `<FILE_INDEX>${attachmentIndex++}</FILE_INDEX>\n`
             attachment += `<FILE_NAME>${link.title}</FILE_NAME>\n`
             attachment += `<FILE_KEY>${link.storageKey}</FILE_KEY>\n`
-            attachment += `<FILE_LINES>${content.split('\n').length}</FILE_LINES>\n`
+            attachment += `<FILE_LINES>${linkLines}</FILE_LINES>\n`
             attachment += `<FILE_SIZE>${content.length} bytes</FILE_SIZE>\n`
-            if (!modelSupportToolUseForFile) {
-              attachment += `<FILE_CONTENT>\n`
+            attachment += '<FILE_CONTENT>\n'
+            if (shouldUseToolForThisLink) {
+              // 大文件：只展示前 PREVIEW_LINES 行作为预览
+              const lines = content.split('\n')
+              const previewContent = lines.slice(0, PREVIEW_LINES).join('\n')
+              attachment += `${previewContent}\n`
+              attachment += `</FILE_CONTENT>\n`
+              attachment += `<TRUNCATED>Content truncated. Showing first ${PREVIEW_LINES} of ${linkLines} lines. Use read_file or search_file_content tool with FILE_KEY="${link.storageKey}" to read more content.</TRUNCATED>\n`
+            } else {
               attachment += `${content}\n`
               attachment += '</FILE_CONTENT>\n'
             }

@@ -25,8 +25,14 @@ const formatLineWithNumber = (line: string, lineNumber: number) => {
 
 const GREP_MAX_RESULTS = 100
 
+const PREVIEW_LINES = 100
+
 const toolSetDescription = `
-Use these tools to read and search user-uploaded files (marked with <ATTACHMENT_FILE></ATTACHMENT_FILE>).
+Use these tools to read and search large user-uploaded files (marked with <ATTACHMENT_FILE></ATTACHMENT_FILE>).
+
+IMPORTANT:
+- Files with ≤${MAX_LINES} lines have their FULL content in <FILE_CONTENT> tags - read them directly without tools.
+- Files with >${MAX_LINES} lines only show the first ${PREVIEW_LINES} lines as preview in <FILE_CONTENT>, with a <TRUNCATED> tag indicating more content is available. Use these tools to read additional content beyond the preview.
 
 ## read_file
 Reads file content with line numbers (like \`cat -n\`).
