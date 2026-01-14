@@ -13,9 +13,14 @@ import packageJson from './release/app/package.json'
 export function injectBaseTag(): Plugin {
   return {
     name: 'inject-base-tag',
-    transformIndexHtml(html) {
-      // Insert <base href="/"> after <meta charset="utf-8" />
-      return html.replace('<meta charset="utf-8" />', '<meta charset="utf-8" />\n    <base href="/" />')
+    transformIndexHtml() {
+      return [
+        {
+          tag: 'base',
+          attrs: { href: '/' },
+          injectTo: 'head-prepend', // Inject at the beginning of <head>
+        },
+      ]
     },
   }
 }
