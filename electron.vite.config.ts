@@ -7,6 +7,20 @@ import type { Plugin } from 'vite'
 import { sentryVitePlugin } from '@sentry/vite-plugin'
 import packageJson from './release/app/package.json'
 /**
+ * Vite plugin to inject <base href="/"> for web builds
+ * This ensures relative paths resolve correctly for SPA routes like /session/xxx
+ */
+export function injectBaseTag(): Plugin {
+  return {
+    name: 'inject-base-tag',
+    transformIndexHtml(html) {
+      // Insert <base href="/"> after <meta charset="utf-8" />
+      return html.replace('<meta charset="utf-8" />', '<meta charset="utf-8" />\n    <base href="/" />')
+    },
+  }
+}
+
+/**
  * Vite plugin to replace dvh units with vh units
  * This replaces the webpack string-replace-loader functionality
  */
@@ -135,6 +149,7 @@ export default defineConfig(({ mode }) => {
         }),
         react({}),
         dvhToVh(),
+        isWeb ? injectBaseTag() : undefined,
         visualizer({
           filename: 'release/app/dist/renderer/stats.html',
           open: false,
