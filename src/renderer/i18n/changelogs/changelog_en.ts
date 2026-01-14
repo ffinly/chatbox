@@ -1,4 +1,30 @@
 const changelog = `
+## v1.18.3 - 2026.01.13
+1. Added model icon display in model selector
+2. Added search functionality for conversation list
+3. Auto-enable web search when using Chatbox AI
+4. Knowledge base file parsing now supports backend parsing as fallback
+5. Auto-focus message input when window gains focus
+6. Improved mobile UI experience in multiple areas
+7. Added visual indicator for expired License status
+8. Added automatic retry mechanism for API 5xx errors
+9. Fixed code block visibility issue in light mode
+10. Fixed global search navigation to target location
+11. Fixed adaptive modal height issue
+12. Fixed message edit modal close issue
+13. Fixed an issue where assistant messages would sometimes get a > prefix added
+
+## v1.18.2 - 2025.12.15
+1. Added support for tool calling with the new deepseek-reasoner model
+2. When file parsing fails, you can click on the file to view the error reason
+3. Prevented selection of unsupported file types when uploading files
+4. Fixed an issue where messages could be sent even when file parsing was incomplete or failed
+5. You can now view the parsed content of uploaded files in conversations
+6. Added diagnostic log export feature in settings, making it easier for users to send logs for investigating hard-to-reproduce issues
+7. Fixed an issue where conversation name and system prompt couldn't be set when the sidebar was open on mobile
+8. Fixed an issue where Gemini provider was not sending temperature and topP parameters
+9. Fixed image generation support for gemini-3-pro-image-preview and gemini-2.5-flash-image in Gemini provider
+
 ## v1.18.1 - 2025.11.28
 1. Added email login support, allowing users to use licenses bound to their email after logging in
 2. Added support for OpenAI Responses API
