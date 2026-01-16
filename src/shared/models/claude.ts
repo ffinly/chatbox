@@ -48,12 +48,22 @@ export default class Claude extends AbstractAISDKModel {
         },
       }
     }
-    return {
+
+    // Anthropic API requires only one of temperature or topP to be specified
+    // Prefer temperature as recommended by Anthropic
+    const callSettings: CallSettings = {
       providerOptions,
-      temperature: this.options.temperature,
-      topP: this.options.topP,
       maxOutputTokens: this.options.maxOutputTokens,
     }
+
+    // Only include temperature or topP if defined, and only one of them
+    if (this.options.temperature !== undefined) {
+      callSettings.temperature = this.options.temperature
+    } else if (this.options.topP !== undefined) {
+      callSettings.topP = this.options.topP
+    }
+
+    return callSettings
   }
 
   // https://docs.anthropic.com/en/docs/api/models
