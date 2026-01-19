@@ -1,5 +1,10 @@
-import { createGoogleGenerativeAI, type GoogleGenerativeAIProvider } from '@ai-sdk/google'
+import {
+  createGoogleGenerativeAI,
+  type GoogleGenerativeAIProvider,
+  type GoogleGenerativeAIProviderOptions,
+} from '@ai-sdk/google'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
+import { streamText } from 'ai'
 import { getChatboxAPIOrigin } from '../request/chatboxai_pool'
 import type { ChatboxAILicenseDetail, ProviderModelInfo } from '../types'
 import type { ModelDependencies } from '../types/adapters'
@@ -95,15 +100,99 @@ export default class ChatboxAI extends AbstractAISDKModel implements ModelInterf
   }
 
   public async paint(
-    prompt: string,
-    num: number,
-    callback?: (picBase64: string) => any,
-    signal?: AbortSignal
+    params: {
+      prompt: string
+      images?: { imageUrl: string }[]
+      num: number
+      aspectRatio?: string
+    },
+    signal?: AbortSignal,
+    callback?: (picBase64: string) => void
+  ): Promise<string[]> {
+    if (this.options.model.apiStyle === 'google') {
+      return this.paintWithGemini(params, signal, callback)
+    }
+    return this.paintWithChatboxAPI(params, signal, callback)
+  }
+
+  private async paintWithGemini(
+    params: {
+      prompt: string
+      images?: { imageUrl: string }[]
+      num: number
+      aspectRatio?: string
+    },
+    signal?: AbortSignal,
+    callback?: (picBase64: string) => void
+  ): Promise<string[]> {
+    const provider = this.getGoogleProvider()
+    const model = provider.chat(this.options.model.modelId)
+
+    const messageContent: Array<{ type: 'text'; text: string } | { type: 'image'; image: string }> = []
+    if (params.images && params.images.length > 0) {
+      for (const img of params.images) {
+        messageContent.push({ type: 'image', image: img.imageUrl })
+      }
+    }
+    messageContent.push({ type: 'text', text: params.prompt })
+
+    const results: string[] = []
+    for (let i = 0; i < params.num; i++) {
+      const providerOptions: GoogleGenerativeAIProviderOptions = {
+        responseModalities: ['TEXT', 'IMAGE'],
+      }
+      if (params.aspectRatio && params.aspectRatio !== 'auto') {
+        providerOptions.imageConfig = { aspectRatio: params.aspectRatio }
+      }
+
+      const result = streamText({
+        model,
+        messages: [{ role: 'user', content: messageContent }],
+        abortSignal: signal,
+        providerOptions: {
+          google: providerOptions,
+        },
+      })
+
+      for await (const chunk of result.fullStream) {
+        if (chunk.type === 'file' && chunk.file.mediaType?.startsWith('image/') && chunk.file.base64) {
+          const dataUrl = `data:${chunk.file.mediaType};base64,${chunk.file.base64}`
+          results.push(dataUrl)
+          callback?.(dataUrl)
+        }
+      }
+    }
+    return results
+  }
+
+  private getGoogleProvider(): GoogleGenerativeAIProvider {
+    const license = this.options.licenseKey || ''
+    const instanceId = (this.options.licenseInstances ? this.options.licenseInstances[license] : '') || ''
+    return createGoogleGenerativeAI({
+      apiKey: this.options.licenseKey || '',
+      baseURL: `${getChatboxAPIOrigin()}/gateway/google-ai-studio/v1beta`,
+      headers: {
+        'Instance-Id': instanceId,
+        Authorization: `Bearer ${this.options.licenseKey || ''}`,
+      },
+      fetch: this.chatboxAIFetch.bind(this),
+    })
+  }
+
+  private async paintWithChatboxAPI(
+    params: {
+      prompt: string
+      images?: { imageUrl: string }[]
+      num: number
+      aspectRatio?: string
+    },
+    signal?: AbortSignal,
+    callback?: (picBase64: string) => void
   ): Promise<string[]> {
     const concurrence: Promise<string>[] = []
-    for (let i = 0; i < num; i++) {
+    for (let i = 0; i < params.num; i++) {
       concurrence.push(
-        this.callImageGeneration(prompt, signal).then((picBase64) => {
+        this.callImageGeneration(params.prompt, params.images, params.aspectRatio, signal).then((picBase64) => {
           if (callback) {
             callback(picBase64)
           }
@@ -114,9 +203,15 @@ export default class ChatboxAI extends AbstractAISDKModel implements ModelInterf
     return await Promise.all(concurrence)
   }
 
-  private async callImageGeneration(prompt: string, signal?: AbortSignal): Promise<string> {
+  private async callImageGeneration(
+    prompt: string,
+    images?: { imageUrl: string }[],
+    aspectRatio?: string,
+    signal?: AbortSignal
+  ): Promise<string> {
     const license = this.options.licenseKey || ''
     const instanceId = (this.options.licenseInstances ? this.options.licenseInstances[license] : '') || ''
+    const modelId = this.options.model.modelId
     const res = await this.chatboxAIFetch(`${getChatboxAPIOrigin()}/api/ai/paint`, {
       headers: {
         Authorization: `Bearer ${license}`,
@@ -126,8 +221,11 @@ export default class ChatboxAI extends AbstractAISDKModel implements ModelInterf
       method: 'POST',
       body: JSON.stringify({
         prompt,
+        ...(modelId ? { model: modelId } : {}),
+        images: images?.map((i) => ({ image_url: i.imageUrl })),
         response_format: 'b64_json',
         style: this.options.dalleStyle,
+        aspect_ratio: aspectRatio,
         uuid: this.config.uuid,
         language: this.options.language,
       }),

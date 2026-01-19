@@ -6,6 +6,7 @@ import { cache } from '@shared/utils/cache'
 import localforage from 'localforage'
 import { v4 as uuidv4 } from 'uuid'
 import { parseLocale } from '@/i18n/parser'
+import { type ImageGenerationStorage, IndexedDBImageGenerationStorage } from '@/storage/ImageGenerationStorage'
 import { getOS } from '../packages/navigator'
 import type { Platform, PlatformType } from './interfaces'
 import DesktopKnowledgeBaseController from './knowledge-base/desktop-controller'
@@ -20,6 +21,7 @@ export default class DesktopPlatform implements Platform {
   public exporter = new WebExporter()
 
   private _kbController?: DesktopKnowledgeBaseController
+  private _imageGenerationStorage: ImageGenerationStorage | null = null
 
   public ipc: ElectronIPC
   constructor(ipc: ElectronIPC) {
@@ -265,6 +267,13 @@ export default class DesktopPlatform implements Platform {
       this._kbController = new DesktopKnowledgeBaseController(this.ipc)
     }
     return this._kbController
+  }
+
+  public getImageGenerationStorage(): ImageGenerationStorage {
+    if (!this._imageGenerationStorage) {
+      this._imageGenerationStorage = new IndexedDBImageGenerationStorage()
+    }
+    return this._imageGenerationStorage
   }
 
   public minimize() {

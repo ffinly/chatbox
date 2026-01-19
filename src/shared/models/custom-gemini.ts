@@ -1,11 +1,14 @@
 import { createGoogleGenerativeAI, type GoogleGenerativeAIProviderOptions } from '@ai-sdk/google'
 import type { LanguageModelV2 } from '@ai-sdk/provider'
+import { generateText } from 'ai'
 import type { ProviderModelInfo } from '../types'
 import type { ModelDependencies } from '../types/adapters'
 import { normalizeGeminiHost } from '../utils/llm_utils'
 import AbstractAISDKModel, { type CallSettings } from './abstract-ai-sdk'
 import { ApiError } from './errors'
 import type { CallChatCompletionOptions } from './types'
+
+const GEMINI_IMAGE_MODELS = ['gemini-2.5-flash-image', 'gemini-3-pro-image-preview']
 
 interface Options {
   apiKey: string
@@ -99,9 +102,53 @@ export default class CustomGemini extends AbstractAISDKModel {
     return settings
   }
 
+  public async paint(
+    params: {
+      prompt: string
+      images?: { imageUrl: string }[]
+      num: number
+      aspectRatio?: string
+    },
+    signal?: AbortSignal,
+    callback?: (picBase64: string) => void
+  ): Promise<string[]> {
+    if (!GEMINI_IMAGE_MODELS.includes(this.options.model.modelId)) {
+      throw new ApiError('This Gemini model does not support image generation')
+    }
+
+    const provider = this.getProvider()
+    const model = provider.chat(this.options.model.modelId)
+
+    const results: string[] = []
+    for (let i = 0; i < params.num; i++) {
+      const providerOptions: GoogleGenerativeAIProviderOptions = {
+        responseModalities: ['TEXT', 'IMAGE'],
+      }
+      if (params.aspectRatio && params.aspectRatio !== 'auto') {
+        providerOptions.imageConfig = { aspectRatio: params.aspectRatio }
+      }
+
+      const result = await generateText({
+        model,
+        messages: [{ role: 'user', content: params.prompt }],
+        abortSignal: signal,
+        providerOptions: {
+          google: providerOptions,
+        },
+      })
+
+      for (const file of result.files) {
+        if (file.mediaType?.startsWith('image/') && file.base64) {
+          const dataUrl = `data:${file.mediaType};base64,${file.base64}`
+          results.push(dataUrl)
+          callback?.(dataUrl)
+        }
+      }
+    }
+    return results
+  }
+
   async listModels(): Promise<ProviderModelInfo[]> {
-    // Fetch available models from Gemini API
-    // https://ai.google.dev/api/models#method:-models.list
     type Response = {
       models: {
         name: string
@@ -142,7 +189,6 @@ export default class CustomGemini extends AbstractAISDKModel {
         }))
         .sort((a, b) => a.modelId.localeCompare(b.modelId))
     } catch (error) {
-      // If fetching fails, return empty array instead of throwing
       console.error('Failed to fetch Gemini models:', error)
       return []
     }

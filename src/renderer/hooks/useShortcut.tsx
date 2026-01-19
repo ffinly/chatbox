@@ -6,7 +6,7 @@ import { uiStore } from '@/stores/uiStore'
 import { getOS } from '../packages/navigator'
 import platform from '../platform'
 import { currentSessionIdAtom } from '../stores/atoms'
-import { createEmpty, startNewThread, switchToIndex, switchToNext } from '../stores/sessionActions'
+import { startNewThread, switchToIndex, switchToNext } from '../stores/sessionActions'
 import * as dom from './dom'
 import { useIsSmallScreen } from './useScreenChange'
 
@@ -62,7 +62,9 @@ export default function useShortcut() {
     }
     // 创建新图片会话 CmdOrCtrl + Shift + N
     if (e.key === 'n' && ctrlKey && shift) {
-      createEmpty('picture')
+      router.navigate({
+        to: '/image-creator',
+      })
       return
     }
     // 归档当前会话的上下文。

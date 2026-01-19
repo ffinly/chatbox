@@ -21,6 +21,7 @@ export interface ModelInterface {
       prompt: string
       images?: { imageUrl: string }[]
       num: number
+      aspectRatio?: string
     },
     signal?: AbortSignal,
     callback?: (picBase64: string) => void

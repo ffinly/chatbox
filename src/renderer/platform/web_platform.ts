@@ -3,6 +3,7 @@ import type { Config, Settings, ShortcutSetting } from '@shared/types'
 import localforage from 'localforage'
 import { v4 as uuidv4 } from 'uuid'
 import { parseLocale } from '@/i18n/parser'
+import { type ImageGenerationStorage, IndexedDBImageGenerationStorage } from '@/storage/ImageGenerationStorage'
 import { getBrowser, getOS } from '../packages/navigator'
 import type { Platform, PlatformType } from './interfaces'
 import type { KnowledgeBaseController } from './knowledge-base/interface'
@@ -16,9 +17,10 @@ export default class WebPlatform extends IndexedDBStorage implements Platform {
 
   public exporter = new WebExporter()
 
+  private imageGenerationStorage: ImageGenerationStorage | null = null
+
   constructor() {
     super()
-    // 初始化日志系统
     webLogger.init().catch((e) => console.error('Failed to init web logger:', e))
   }
 
@@ -175,6 +177,13 @@ export default class WebPlatform extends IndexedDBStorage implements Platform {
 
   public getKnowledgeBaseController(): KnowledgeBaseController {
     throw new Error('Method not implemented.')
+  }
+
+  public getImageGenerationStorage(): ImageGenerationStorage {
+    if (!this.imageGenerationStorage) {
+      this.imageGenerationStorage = new IndexedDBImageGenerationStorage()
+    }
+    return this.imageGenerationStorage
   }
 
   public minimize() {

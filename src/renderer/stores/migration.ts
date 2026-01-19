@@ -1,5 +1,6 @@
 import * as Sentry from '@sentry/react'
 import {
+  type ImageGeneration,
   type ModelProvider,
   ModelProviderEnum,
   ModelProviderType,
@@ -50,13 +51,13 @@ export async function migrate() {
 }
 
 type MigrateStore = {
-  getData: <T>(key: StorageKey, defaultValue: T) => Promise<T>
+  getData: <T>(key: StorageKey | string, defaultValue: T) => Promise<T>
   setData: <T>(key: StorageKey | string, value: T) => Promise<void>
   setAll: (data: { [key: string]: unknown }) => Promise<void>
   setBlob?: (key: string, value: string) => Promise<void>
 }
 
-export const CurrentVersion = 13
+export const CurrentVersion = 14
 
 async function doMigrateStorage(oldStorage: Storage) {
   // 找到老版本的数据，说明是升级，执行数据迁移操作
@@ -201,6 +202,7 @@ export async function migrateOnData(dataStore: MigrateStore, canRelaunch = true)
     migrate_10_to_11,
     migrate_11_to_12,
     migrate_12_to_13,
+    migrate_13_to_14,
   ]
 
   for (; configVersion < CurrentVersion; configVersion++) {
@@ -718,4 +720,86 @@ async function migrate_11_to_12(dataStore: MigrateStore) {
 // 为移动端从indexedDB迁移到Sqlite占位，防止后面重复使用该版本号
 async function migrate_12_to_13(dataStore: MigrateStore) {
   return true
+}
+
+async function migrate_13_to_14(dataStore: MigrateStore) {
+  const chatSessionList = await dataStore.getData<SessionMeta[]>(StorageKey.ChatSessionsList, [])
+  log.info(`migrate_13_to_14, total sessions: ${chatSessionList.length}`)
+
+  const pictureSessions = chatSessionList.filter((s) => s.type === 'picture')
+  log.info(`migrate_13_to_14, picture sessions: ${pictureSessions.length}`)
+
+  if (pictureSessions.length === 0) {
+    return false
+  }
+
+  const imageGenerationStorage = platform.getImageGenerationStorage()
+  await imageGenerationStorage.initialize()
+
+  let migratedCount = 0
+
+  for (const sessionMeta of pictureSessions) {
+    try {
+      const sessionKey = StorageKeyGenerator.session(sessionMeta.id)
+      const session = (await dataStore.getData(sessionKey, null)) as Session | null
+
+      if (!session || !session.messages) {
+        continue
+      }
+
+      let parentId: string | undefined
+      for (let i = 0; i < session.messages.length; i++) {
+        const msg = session.messages[i]
+        if (msg.role !== 'user') continue
+
+        const assistantMsg = session.messages.slice(i + 1).find((m) => m.role === 'assistant')
+        if (!assistantMsg) continue
+
+        const prompt = msg.contentParts?.find((p) => p.type === 'text')?.text || ''
+        if (!prompt) continue
+
+        const referenceImages = (msg.contentParts || [])
+          .filter(
+            (p): p is { type: 'image'; storageKey: string } =>
+              p.type === 'image' && !!p.storageKey && p.storageKey.length > 0
+          )
+          .map((p) => p.storageKey)
+
+        const generatedImages = (assistantMsg.contentParts || [])
+          .filter(
+            (p): p is { type: 'image'; storageKey: string } =>
+              p.type === 'image' && !!p.storageKey && p.storageKey.length > 0
+          )
+          .map((p) => p.storageKey)
+
+        if (generatedImages.length === 0) continue
+
+        const recordId = uuidv4()
+        const record: ImageGeneration = {
+          id: recordId,
+          prompt,
+          referenceImages,
+          generatedImages,
+          createdAt: assistantMsg.timestamp || Date.now(),
+          model: {
+            provider: session.settings?.provider || ModelProviderEnum.ChatboxAI,
+            modelId: session.settings?.modelId || 'DALL-E-3',
+          },
+          dalleStyle: session.settings?.dalleStyle,
+          imageGenerateNum: session.settings?.imageGenerateNum,
+          status: 'done',
+          parentIds: parentId ? [parentId] : undefined,
+        }
+
+        await imageGenerationStorage.create(record)
+        migratedCount++
+        parentId = recordId
+      }
+    } catch (e) {
+      log.info(`migrate_13_to_14, failed to migrate session: ${sessionMeta.id}`, e)
+    }
+  }
+
+  log.info(`migrate_13_to_14, migrated ${migratedCount} image generation records`)
+  return false
 }

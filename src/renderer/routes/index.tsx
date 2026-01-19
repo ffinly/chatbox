@@ -210,7 +210,7 @@ function Index() {
                     flex="0 1 auto"
                     onClick={() => {
                       router.navigate({
-                        to: isSmallScreen ? '/settings/provider' : '/settings/provider/chatbox-ai',
+                        to: isSmallScreen ? '/settings/provider' : '/settings/chatbox-ai',
                       })
                     }}
                   >

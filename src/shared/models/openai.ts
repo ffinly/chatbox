@@ -57,9 +57,10 @@ export default class OpenAI extends AbstractAISDKModel {
     })
   }
 
-  protected getImageModel() {
+  protected getImageModel(modelId?: string) {
     const provider = this.getProvider()
-    return provider.image('dall-e-3')
+    const imageModelId = modelId || this.options.model.modelId || 'gpt-image-1'
+    return provider.image(imageModelId)
   }
 
   protected getCallSettings(options: CallChatCompletionOptions) {

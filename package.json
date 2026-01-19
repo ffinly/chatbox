@@ -28,6 +28,7 @@
     "electron:publish-win": "npm install && npm run postinstall && npm run build && electron-builder build --publish always --win",
     "rebuild": "electron-rebuild --parallel --types prod,dev,optional --module-dir release/app",
     "dev": "npm start",
+    "dev:local": "cross-env USE_LOCAL_API=true npm start",
     "dev:web": "cross-env DEV_WEB_ONLY=true CHATBOX_BUILD_PLATFORM=web npm start",
     "dev:debug": "cross-env MAIN_ARGS=\"--inspect=5858\" npm start",
     "start": "electron-vite dev",

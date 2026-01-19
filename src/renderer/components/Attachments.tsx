@@ -33,8 +33,8 @@ export function ImageMiniCard(props: { storageKey: string; onDelete: () => void 
       <ImageInStorage storageKey={storageKey} />
       {onDelete && (
         <MiniButton
-          className="hidden group-hover/image-mini-card:inline-block 
-                    absolute top-0 right-0 m-1 p-1 rounded-full shadow-lg text-red-500"
+          className="hidden group-hover/image-mini-card:inline-block
+                    absolute top-0 right-0 m-1 p-1 rounded-full shadow-lg bg-white/90 dark:bg-gray-800/90 text-red-500 hover:bg-white dark:hover:bg-gray-800"
           onClick={onDelete}
         >
           <Trash2 size="22" strokeWidth={2} />

@@ -30,6 +30,10 @@ export function sortSessions(sessions: SessionMeta[]): SessionMeta[] {
   const reversed: SessionMeta[] = []
   const pinned: SessionMeta[] = []
   for (const sess of sessions) {
+    // Skip hidden sessions (e.g., migrated picture sessions)
+    if (sess.hidden) {
+      continue
+    }
     if (sess.starred) {
       pinned.push(sess)
       continue

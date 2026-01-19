@@ -13,8 +13,10 @@ The following contents are not translated for you to better understand the conte
 
 You are now translating the following text from English to ${target}.
 `
+
+  const system = instruction ? `${baseSystem}\n\nAdditional instruction: ${instruction}` : baseSystem
   const { text } = await generateText({
-    model: google('gemini-2.5-flash-preview-05-20'),
+    model: google('gemini-3-flash-preview'),
     system,
     prompt: message,
   })
@@ -41,7 +43,7 @@ async function translateFile(locale, instruction) {
       if (locale === 'en') {
         json[key] = key
       } else {
-        const translated = await translateMessage(key, targetLanguage, keysToTrans)
+        const translated = await translateMessage(key, targetLanguage, keysToTrans, instruction)
         json[key] = translated
         console.debug(`Translate to ${targetLanguage}: ${key} => ${translated}`)
       }

@@ -1,0 +1,668 @@
+import {
+  ActionIcon,
+  Box,
+  Flex,
+  Loader,
+  Menu,
+  ScrollArea,
+  Stack,
+  Text,
+  Textarea,
+  Tooltip,
+  UnstyledButton,
+} from '@mantine/core'
+import type { ImageGeneration } from '@shared/types'
+import { ModelProviderEnum, ModelProviderType } from '@shared/types'
+import {
+  IconAspectRatio,
+  IconChevronRight,
+  IconHistory,
+  IconHistoryOff,
+  IconPhoto,
+  IconPlus,
+  IconSend2,
+  IconSparkles,
+} from '@tabler/icons-react'
+import { createFileRoute } from '@tanstack/react-router'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { CHATBOXAI_DEFAULT_IMAGE_MODEL, ImageModelSelect } from '@/components/ImageModelSelect'
+import Page from '@/components/Page'
+import { useProviders } from '@/hooks/useProviders'
+import { useIsSmallScreen } from '@/hooks/useScreenChange'
+import { getLogger } from '@/lib/utils'
+import storage from '@/storage'
+import { StorageKeyGenerator } from '@/storage/StoreStorage'
+import { createAndGenerate, retryGeneration } from '@/stores/imageGenerationActions'
+import {
+  deleteRecord,
+  imageGenerationStore,
+  IMAGE_GEN_LIST_QUERY_KEY,
+  useCurrentGeneratingId,
+  useCurrentRecordId,
+  useImageGenerationHistory,
+  useImageGenerationRecord,
+} from '@/stores/imageGenerationStore'
+import { queryClient } from '@/stores/queryClient'
+import { lastUsedModelStore } from '@/stores/lastUsedModelStore'
+import {
+  blobToDataUrl,
+  CHATBOXAI_IMAGE_MODEL_IDS,
+  GEMINI_IMAGE_MODEL_IDS,
+  getRatioOptionsForModel,
+  HISTORY_PANEL_WIDTH,
+  IMAGE_MODEL_FALLBACK_NAMES,
+  MAX_REFERENCE_IMAGES,
+  OPENAI_IMAGE_MODEL_IDS,
+} from './-components/constants'
+import { EmptyState } from './-components/EmptyState'
+import { GeneratedImagesGallery } from './-components/GeneratedImagesGallery'
+import { HistoryPanel } from './-components/HistoryPanel'
+import { ImageGenerationErrorTips } from './-components/ImageGenerationErrorTips'
+import { MobileHistoryDrawer, MobileModelDrawer, MobileRatioDrawer } from './-components/MobileDrawers'
+import { PromptDisplay } from './-components/PromptDisplay'
+import { ReferenceImagesPreview } from './-components/ReferenceImagesPreview'
+import { LoadingShimmer } from './-components/Shimmer'
+
+const log = getLogger('image-creator')
+
+export const Route = createFileRoute('/image-creator/')({
+  component: ImageCreatorPage,
+})
+
+/* ============================================
+   Input Toolbar (Model/Ratio/Reference buttons)
+   ============================================ */
+
+interface InputToolbarProps {
+  isSmallScreen: boolean
+  modelDisplayName: string
+  selectedRatio: string
+  ratioOptions: string[]
+  showHistory: boolean
+  onModelDrawerOpen: () => void
+  onRatioDrawerOpen: () => void
+  onRatioSelect: (ratio: string) => void
+  onModelSelect: (provider: string, model: string) => void
+  onAddReference: () => void
+  onHistoryOpen: () => void
+  onNewCreation: () => void
+  onHistoryToggle: () => void
+}
+
+function InputToolbar({
+  isSmallScreen,
+  modelDisplayName,
+  selectedRatio,
+  ratioOptions,
+  showHistory,
+  onModelDrawerOpen,
+  onRatioDrawerOpen,
+  onRatioSelect,
+  onModelSelect,
+  onAddReference,
+  onHistoryOpen,
+  onNewCreation,
+  onHistoryToggle,
+}: InputToolbarProps) {
+  const { t } = useTranslation()
+
+  return (
+    <Flex align="center" gap={0} className="shrink-0 w-full" justify="space-between">
+      {/* Left Group: Model, Ratio, Reference */}
+      <Flex align="center" gap={0}>
+        {/* Model Select */}
+        {isSmallScreen ? (
+          <UnstyledButton
+            onClick={onModelDrawerOpen}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors"
+          >
+            <IconSparkles size={16} className="text-[var(--chatbox-tint-secondary)]" />
+            <Text size="sm" className="text-[var(--chatbox-tint-secondary)] max-w-[120px] truncate">
+              {modelDisplayName}
+            </Text>
+            <IconChevronRight size={14} className="text-[var(--chatbox-tint-tertiary)] rotate-90" />
+          </UnstyledButton>
+        ) : (
+          <ImageModelSelect onSelect={onModelSelect}>
+            <UnstyledButton className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors">
+              <IconSparkles size={16} className="text-[var(--chatbox-tint-secondary)]" />
+              <Text size="sm" className="text-[var(--chatbox-tint-secondary)] max-w-[120px] truncate">
+                {modelDisplayName}
+              </Text>
+              <IconChevronRight size={14} className="text-[var(--chatbox-tint-tertiary)] rotate-90" />
+            </UnstyledButton>
+          </ImageModelSelect>
+        )}
+
+        {/* Ratio Select */}
+        {isSmallScreen ? (
+          <UnstyledButton
+            onClick={onRatioDrawerOpen}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors"
+          >
+            <IconAspectRatio size={16} className="text-[var(--chatbox-tint-secondary)]" />
+            <Text size="sm" className="text-[var(--chatbox-tint-secondary)]">
+              {selectedRatio}
+            </Text>
+            <IconChevronRight size={14} className="text-[var(--chatbox-tint-tertiary)] rotate-90" />
+          </UnstyledButton>
+        ) : (
+          <Menu position="top" withinPortal shadow="md" radius="lg">
+            <Menu.Target>
+              <UnstyledButton className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors">
+                <IconAspectRatio size={16} className="text-[var(--chatbox-tint-secondary)]" />
+                <Text size="sm" className="text-[var(--chatbox-tint-secondary)]">
+                  {selectedRatio}
+                </Text>
+                <IconChevronRight size={14} className="text-[var(--chatbox-tint-tertiary)] rotate-90" />
+              </UnstyledButton>
+            </Menu.Target>
+            <Menu.Dropdown className="!rounded-2xl" style={{ minWidth: 100 }}>
+              {ratioOptions.map((ratio) => (
+                <Menu.Item key={ratio} onClick={() => onRatioSelect(ratio)} className="!rounded-lg">
+                  <Text size="sm" fw={500} ta="center">
+                    {ratio}
+                  </Text>
+                </Menu.Item>
+              ))}
+            </Menu.Dropdown>
+          </Menu>
+        )}
+
+        {/* Reference Image Button */}
+        <Tooltip label={t('Add Reference Image')} position="top">
+          <ActionIcon variant="subtle" color="gray" size="md" radius="lg" onClick={onAddReference}>
+            <IconPhoto size={18} />
+          </ActionIcon>
+        </Tooltip>
+      </Flex>
+
+      {/* Right Group: New Creation, History Toggle */}
+      <Flex align="center" gap={4}>
+        {/* New Creation Button */}
+        <Tooltip label={t('New Creation')} position="top">
+          <ActionIcon variant="subtle" color="gray" size="md" radius="lg" onClick={onNewCreation}>
+            <IconPlus size={18} />
+          </ActionIcon>
+        </Tooltip>
+
+        {/* History Toggle Button */}
+        {isSmallScreen ? (
+          <ActionIcon variant="subtle" color="gray" size="md" radius="lg" onClick={onHistoryOpen}>
+            <IconHistory size={18} />
+          </ActionIcon>
+        ) : (
+          <Tooltip label={showHistory ? t('Hide History') : t('Show History')} position="top">
+            <ActionIcon variant="subtle" color="gray" size="md" radius="lg" onClick={onHistoryToggle}>
+              {showHistory ? <IconHistoryOff size={18} /> : <IconHistory size={18} />}
+            </ActionIcon>
+          </Tooltip>
+        )}
+      </Flex>
+    </Flex>
+  )
+}
+
+/* ============================================
+   Main Page Component
+   ============================================ */
+
+function ImageCreatorPage() {
+  const { t } = useTranslation()
+  const isSmallScreen = useIsSmallScreen()
+  const { providers } = useProviders()
+
+  const [prompt, setPrompt] = useState('')
+  const [referenceImages, setReferenceImages] = useState<
+    { storageKey: string; dataUrl: string; sourceRecordId?: string }[]
+  >([])
+  const [showHistory, setShowHistory] = useState(true)
+  const [showMobileHistory, setShowMobileHistory] = useState(false)
+  const [selectedProvider, setSelectedProvider] = useState<string>(ModelProviderEnum.ChatboxAI)
+  const [selectedModel, setSelectedModel] = useState<string>('')
+  const [selectedRatio, setSelectedRatio] = useState<string>('auto')
+  const [showModelDrawer, setShowModelDrawer] = useState(false)
+  const [showRatioDrawer, setShowRatioDrawer] = useState(false)
+
+  // Get ratio options based on selected model
+  const ratioOptions = getRatioOptionsForModel(selectedModel)
+
+  const currentGeneratingId = useCurrentGeneratingId()
+  const currentRecordId = useCurrentRecordId()
+  const { data: currentRecord } = useImageGenerationRecord(currentRecordId)
+
+  const {
+    data: historyData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: historyLoading,
+  } = useImageGenerationHistory()
+
+  const historyCache = useMemo(() => {
+    return historyData?.pages.flatMap((page) => page.items) ?? []
+  }, [historyData])
+
+  const isCurrentlyGenerating = currentGeneratingId !== null
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Restore last used model on mount
+  useEffect(() => {
+    const lastUsed = lastUsedModelStore.getState().picture
+    if (lastUsed) {
+      setSelectedProvider(lastUsed.provider)
+      setSelectedModel(lastUsed.modelId)
+    }
+  }, [])
+
+  const handleModelSelect = useCallback((provider: string, model: string) => {
+    setSelectedProvider(provider)
+    setSelectedModel(model)
+
+    // Reset ratio to 'auto' if current ratio is not supported by the new model
+    const newRatioOptions = getRatioOptionsForModel(model)
+    setSelectedRatio((prev) => (newRatioOptions.includes(prev) ? prev : 'auto'))
+  }, [])
+
+  const handleImageUpload = useCallback((files: FileList | null) => {
+    if (!files || files.length === 0) return
+
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith('image/')) continue
+
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        const dataUrl = e.target?.result as string
+        const storageKey = StorageKeyGenerator.picture('image-creator-ref')
+        await storage.setBlob(storageKey, dataUrl)
+        setReferenceImages((prev) => {
+          if (prev.length >= MAX_REFERENCE_IMAGES) return prev
+          return [...prev, { storageKey, dataUrl }]
+        })
+      }
+      reader.onerror = () => {
+        log.error('Failed to read image file:', file.name)
+      }
+      reader.readAsDataURL(file)
+    }
+  }, [])
+
+  const handleRemoveReferenceImage = useCallback((storageKey: string) => {
+    setReferenceImages((prev) => prev.filter((img) => img.storageKey !== storageKey))
+  }, [])
+
+  const handleSubmit = useCallback(async () => {
+    if (!prompt.trim() || isCurrentlyGenerating) return
+
+    try {
+      // Collect all unique source record IDs from reference images (DAG support)
+      const parentIds = [
+        ...new Set(referenceImages.map((img) => img.sourceRecordId).filter((id): id is string => !!id)),
+      ]
+
+      await createAndGenerate({
+        prompt: prompt.trim(),
+        referenceImages: referenceImages.map((img) => img.storageKey),
+        model: {
+          provider: selectedProvider,
+          modelId: selectedModel,
+        },
+        imageGenerateNum: 1,
+        aspectRatio: selectedRatio,
+        parentIds: parentIds.length > 0 ? parentIds : undefined,
+      })
+
+      setPrompt('')
+      setReferenceImages([])
+    } catch (error) {
+      log.error('Failed to generate image:', error)
+    }
+  }, [prompt, referenceImages, selectedProvider, selectedModel, selectedRatio, isCurrentlyGenerating])
+
+  const handleQuickPromptSubmit = useCallback(
+    async (quickPrompt: string) => {
+      if (isCurrentlyGenerating) return
+
+      try {
+        await createAndGenerate({
+          prompt: quickPrompt,
+          referenceImages: [],
+          model: {
+            provider: selectedProvider,
+            modelId: selectedModel,
+          },
+          imageGenerateNum: 1,
+          aspectRatio: 'auto',
+        })
+      } catch (error) {
+        log.error('Failed to generate image:', error)
+      }
+    },
+    [selectedProvider, selectedModel, selectedRatio, isCurrentlyGenerating]
+  )
+
+  const handleUseAsReference = useCallback(async (storageKey: string, sourceRecordId?: string) => {
+    const blob = await storage.getBlob(storageKey)
+    if (blob) {
+      setReferenceImages((prev) => {
+        if (prev.length >= MAX_REFERENCE_IMAGES) return prev
+        return [...prev, { storageKey, dataUrl: blobToDataUrl(blob), sourceRecordId }]
+      })
+    }
+  }, [])
+
+  const handleHistoryClick = useCallback(async (record: ImageGeneration) => {
+    imageGenerationStore.getState().setCurrentRecordId(record.id)
+    setPrompt(record.prompt)
+
+    const refs = await Promise.all(
+      record.referenceImages.map(async (key) => {
+        const blob = await storage.getBlob(key)
+        if (!blob) return null
+        return { storageKey: key, dataUrl: blobToDataUrl(blob) }
+      })
+    )
+    setReferenceImages(
+      refs.filter((r): r is { storageKey: string; dataUrl: string; sourceRecordId?: string } => r !== null)
+    )
+  }, [])
+
+  const handleNewCreation = useCallback(() => {
+    imageGenerationStore.getState().setCurrentRecordId(null)
+    setPrompt('')
+    setReferenceImages([])
+    textareaRef.current?.focus()
+  }, [])
+
+  const handleLoadMoreHistory = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      void fetchNextPage()
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
+
+  const handleDelete = useCallback(async (id: string) => {
+    try {
+      await deleteRecord(id)
+      queryClient.invalidateQueries({ queryKey: [IMAGE_GEN_LIST_QUERY_KEY] })
+    } catch (error) {
+      log.error('Failed to delete record:', error)
+    }
+  }, [])
+
+  const getAvailableImageModels = (
+    providerModels: { modelId: string; nickname?: string }[],
+    imageModelIds: string[]
+  ) => {
+    return imageModelIds
+      .map((modelId) => {
+        const model = providerModels.find((m) => m.modelId === modelId)
+        if (!model) return null
+        return {
+          modelId,
+          displayName: model.nickname || IMAGE_MODEL_FALLBACK_NAMES[modelId] || modelId,
+        }
+      })
+      .filter((m): m is { modelId: string; displayName: string } => m !== null)
+  }
+
+  const imageModelGroups = useMemo(() => {
+    const groups: { label: string; providerId: string; models: { modelId: string; displayName: string }[] }[] = []
+
+    const chatboxProvider = providers.find((p) => p.id === ModelProviderEnum.ChatboxAI)
+    if (chatboxProvider) {
+      const providerModels = chatboxProvider.models || chatboxProvider.defaultSettings?.models || []
+      const models = getAvailableImageModels(providerModels, CHATBOXAI_IMAGE_MODEL_IDS)
+      groups.push({
+        label: 'Chatbox AI',
+        providerId: ModelProviderEnum.ChatboxAI,
+        models: [CHATBOXAI_DEFAULT_IMAGE_MODEL, ...models],
+      })
+    }
+
+    const geminiProvider = providers.find((p) => p.id === ModelProviderEnum.Gemini)
+    if (geminiProvider) {
+      const providerModels = geminiProvider.models || geminiProvider.defaultSettings?.models || []
+      const models = getAvailableImageModels(providerModels, GEMINI_IMAGE_MODEL_IDS)
+      if (models.length > 0) {
+        groups.push({ label: 'Google Gemini', providerId: ModelProviderEnum.Gemini, models })
+      }
+    }
+
+    providers
+      .filter((p) => p.isCustom && p.type === ModelProviderType.Gemini)
+      .forEach((provider) => {
+        const providerModels = provider.models || provider.defaultSettings?.models || []
+        const models = getAvailableImageModels(providerModels, GEMINI_IMAGE_MODEL_IDS)
+        if (models.length > 0) {
+          groups.push({ label: provider.name, providerId: provider.id, models })
+        }
+      })
+
+    providers
+      .filter((p) => [ModelProviderEnum.OpenAI, ModelProviderEnum.Azure].includes(p.id as ModelProviderEnum))
+      .forEach((provider) => {
+        const providerModels = provider.models || provider.defaultSettings?.models || []
+        const models = getAvailableImageModels(providerModels, OPENAI_IMAGE_MODEL_IDS)
+        if (models.length > 0) {
+          groups.push({ label: provider.name, providerId: provider.id, models })
+        }
+      })
+
+    return groups
+  }, [providers])
+
+  // Workaround: DALL-E-3 was removed in new version, fallback to GPT Image
+  useEffect(() => {
+    if (selectedModel === 'DALL-E-3') {
+      setSelectedModel('')
+    }
+  }, [selectedModel])
+
+  const modelDisplayName = useMemo(() => {
+    const provider = providers.find((p) => p.id === selectedProvider)
+    const providerModels = provider?.models || provider?.defaultSettings?.models || []
+    const model = providerModels.find((m) => m.modelId === selectedModel)
+    const modelName = model?.nickname || IMAGE_MODEL_FALLBACK_NAMES[selectedModel] || selectedModel
+
+    if (selectedProvider === ModelProviderEnum.ChatboxAI) {
+      return modelName
+    }
+    const providerName = provider?.name || selectedProvider
+    return `${providerName} - ${modelName}`
+  }, [selectedProvider, selectedModel, providers])
+
+  return (
+    <Page title={t('Image Creator')}>
+      <Flex flex={1} h="100%" className="overflow-hidden relative">
+        {/* Main Content Area */}
+        <Flex direction="column" flex={1} h="100%" className="overflow-hidden relative">
+          {/* Results Area */}
+          <ScrollArea flex={1} type="auto" offsetScrollbars={!isSmallScreen}>
+            <Box maw={900} mx="auto" py="xl" px="md" className="min-h-full">
+              {!currentRecord && <EmptyState onPromptSelect={handleQuickPromptSubmit} />}
+
+              {currentRecord && (
+                <Stack gap="lg" className="animate-in fade-in duration-300">
+                  {currentRecord.status === 'generating' && currentRecord.generatedImages.length === 0 && (
+                    <LoadingShimmer />
+                  )}
+
+                  {currentRecord.generatedImages.length > 0 && (
+                    <Flex justify="center" w="100%">
+                      <GeneratedImagesGallery
+                        storageKeys={currentRecord.generatedImages}
+                        onUseAsReference={(storageKey) => handleUseAsReference(storageKey, currentRecord.id)}
+                      />
+                    </Flex>
+                  )}
+
+                  <PromptDisplay
+                    prompt={currentRecord.prompt}
+                    modelDisplayName={modelDisplayName}
+                    referenceImageCount={currentRecord.referenceImages.length}
+                  />
+
+                  {currentRecord.status === 'error' && (
+                    <ImageGenerationErrorTips
+                      record={currentRecord}
+                      onRetry={() => void retryGeneration(currentRecord.id)}
+                      isRetrying={isCurrentlyGenerating}
+                    />
+                  )}
+                </Stack>
+              )}
+            </Box>
+          </ScrollArea>
+
+          {/* Input Area */}
+          <Box className="py-4 px-4">
+            <Stack gap="xs" maw={800} mx="auto">
+              <ReferenceImagesPreview
+                images={referenceImages}
+                onRemove={handleRemoveReferenceImage}
+                onAddClick={() => fileInputRef.current?.click()}
+              />
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                style={{ display: 'none' }}
+                onChange={(e) => handleImageUpload(e.target.files)}
+              />
+
+              <Box className="rounded-2xl bg-[var(--chatbox-background-secondary)] px-3 py-2">
+                <Stack gap="xs">
+                  {/* Input Row */}
+                  <Flex align="flex-end" gap={4}>
+                    <Textarea
+                      ref={textareaRef}
+                      placeholder={t('Describe the image you want to create...') || ''}
+                      value={prompt}
+                      onChange={(e) => setPrompt(e.target.value)}
+                      minRows={2}
+                      maxRows={6}
+                      autosize
+                      size="sm"
+                      className="flex-1"
+                      styles={{
+                        root: { flex: 1 },
+                        wrapper: { flex: 1 },
+                        input: {
+                          border: 'none',
+                          backgroundColor: 'transparent',
+                          paddingLeft: 8,
+                          paddingRight: 8,
+                          '&:focus': { border: 'none', boxShadow: 'none' },
+                        },
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault()
+                          void handleSubmit()
+                        }
+                      }}
+                    />
+
+                    {/* Send Button */}
+                    <ActionIcon
+                      size={36}
+                      variant="filled"
+                      color="dark"
+                      radius="xl"
+                      onClick={isCurrentlyGenerating ? undefined : handleSubmit}
+                      disabled={!prompt.trim() && !isCurrentlyGenerating}
+                      className="shrink-0 mb-1 hover:!bg-[var(--mantine-color-dark-filled)]"
+                      style={{ cursor: isCurrentlyGenerating ? 'default' : undefined }}
+                    >
+                      {isCurrentlyGenerating ? <Loader size={18} color="white" /> : <IconSend2 size={18} />}
+                    </ActionIcon>
+                  </Flex>
+
+                  {/* Toolbar Row */}
+                  <InputToolbar
+                    isSmallScreen={isSmallScreen}
+                    modelDisplayName={modelDisplayName}
+                    selectedRatio={selectedRatio}
+                    ratioOptions={ratioOptions}
+                    showHistory={showHistory}
+                    onModelDrawerOpen={() => setShowModelDrawer(true)}
+                    onRatioDrawerOpen={() => setShowRatioDrawer(true)}
+                    onRatioSelect={setSelectedRatio}
+                    onModelSelect={handleModelSelect}
+                    onAddReference={() => fileInputRef.current?.click()}
+                    onHistoryOpen={() => setShowMobileHistory(true)}
+                    onNewCreation={handleNewCreation}
+                    onHistoryToggle={() => setShowHistory(!showHistory)}
+                  />
+                </Stack>
+              </Box>
+
+              <Text size="xs" c="dimmed" ta="center">
+                {t('AI-generated images may not be accurate. Review output carefully.')}
+              </Text>
+            </Stack>
+          </Box>
+        </Flex>
+
+        {/* Desktop History Panel */}
+        {!isSmallScreen && (
+          <HistoryPanel
+            show={showHistory}
+            width={HISTORY_PANEL_WIDTH}
+            historyCache={historyCache}
+            historyLoading={historyLoading}
+            currentRecordId={currentRecord?.id ?? null}
+            hasNextPage={hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            onItemClick={handleHistoryClick}
+            onLoadMore={handleLoadMoreHistory}
+            onNewCreation={handleNewCreation}
+            onClose={() => setShowHistory(false)}
+            onDelete={handleDelete}
+          />
+        )}
+
+        {/* Mobile Drawers */}
+        {isSmallScreen && (
+          <>
+            <MobileHistoryDrawer
+              open={showMobileHistory}
+              onOpenChange={setShowMobileHistory}
+              historyCache={historyCache}
+              historyLoading={historyLoading}
+              currentRecordId={currentRecord?.id ?? null}
+              hasNextPage={hasNextPage}
+              isFetchingNextPage={isFetchingNextPage}
+              onItemClick={handleHistoryClick}
+              onLoadMore={handleLoadMoreHistory}
+              onNewCreation={handleNewCreation}
+              onDelete={handleDelete}
+            />
+
+            <MobileModelDrawer
+              open={showModelDrawer}
+              onOpenChange={setShowModelDrawer}
+              modelGroups={imageModelGroups}
+              selectedProvider={selectedProvider}
+              selectedModel={selectedModel}
+              onSelect={handleModelSelect}
+            />
+
+            <MobileRatioDrawer
+              open={showRatioDrawer}
+              onOpenChange={setShowRatioDrawer}
+              options={ratioOptions}
+              selectedRatio={selectedRatio}
+              onSelect={setSelectedRatio}
+            />
+          </>
+        )}
+      </Flex>
+    </Page>
+  )
+}

@@ -10,6 +10,7 @@
 import * as defaults from '@shared/defaults'
 import type { Config, Language, Settings, ShortcutSetting } from '@shared/types'
 import { v4 as uuidv4 } from 'uuid'
+import { type ImageGenerationStorage, IndexedDBImageGenerationStorage } from '@/storage/ImageGenerationStorage'
 import type { Exporter, Platform, PlatformType, Storage } from './interfaces'
 import type { KnowledgeBaseController } from './knowledge-base/interface'
 
@@ -308,6 +309,10 @@ export default class TestPlatform implements Platform {
 
   public getKnowledgeBaseController(): KnowledgeBaseController {
     throw new Error('Knowledge base not implemented in test platform.')
+  }
+
+  public getImageGenerationStorage(): ImageGenerationStorage {
+    return new IndexedDBImageGenerationStorage()
   }
 
   public async minimize(): Promise<void> {

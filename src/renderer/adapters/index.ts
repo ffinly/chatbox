@@ -28,7 +28,8 @@ export async function createModelDependencies(): Promise<ModelDependencies> {
       },
       async getImage(storageKey: string): Promise<string> {
         const blob = await storage.getBlob(storageKey)
-        return blob || ''
+        if (!blob) return ''
+        return blob.startsWith('data:') ? blob : `data:image/png;base64,${blob}`
       },
     },
     request: {

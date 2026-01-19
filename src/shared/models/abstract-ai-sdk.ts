@@ -156,10 +156,14 @@ export default abstract class AbstractAISDKModel implements ModelInterface {
   }
 
   public async paint(
-    prompt: string,
-    num: number,
-    callback?: (picBase64: string) => void,
-    signal?: AbortSignal
+    params: {
+      prompt: string
+      images?: { imageUrl: string }[]
+      num: number
+      aspectRatio?: string
+    },
+    signal?: AbortSignal,
+    callback?: (picBase64: string) => void
   ): Promise<string[]> {
     const imageModel = this.getImageModel()
     if (!imageModel) {
@@ -167,8 +171,9 @@ export default abstract class AbstractAISDKModel implements ModelInterface {
     }
     const result = await generateImage({
       model: imageModel,
-      prompt,
-      n: num,
+      prompt: params.prompt,
+      // images 暂时不支持
+      n: params.num,
       abortSignal: signal,
     })
     const dataUrls = result.images.map((image) => `data:${image.mediaType};base64,${image.base64}`)

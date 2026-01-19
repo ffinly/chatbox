@@ -275,6 +275,7 @@
 
 .pswp__top-bar {
   margin-top: var(--mobile-safe-area-inset-top);
+  -webkit-app-region: no-drag;
 }
 html[data-need-room-for-mac-controls="true"] .pswp__counter {
   padding-top: 1rem;

@@ -656,3 +656,4 @@ export type FileMeta = {
 
 export * from './types/session'
 export * from './types/settings'
+export * from './types/image-generation'

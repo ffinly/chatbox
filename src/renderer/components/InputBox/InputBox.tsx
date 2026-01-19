@@ -1,5 +1,5 @@
 import NiceModal from '@ebay/nice-modal-react'
-import { ActionIcon, Box, Button, Flex, Menu, Stack, Text, Textarea, Tooltip } from '@mantine/core'
+import { ActionIcon, Box, Button, Flex, Menu, Stack, Text, Textarea, Tooltip, UnstyledButton } from '@mantine/core'
 import { useViewportSize } from '@mantine/hooks'
 import {
   getFileAcceptConfig,
@@ -13,6 +13,7 @@ import {
   IconAlertCircle,
   IconArrowBackUp,
   IconArrowUp,
+  IconChevronRight,
   IconCirclePlus,
   IconFilePencil,
   IconFolder,
@@ -21,15 +22,17 @@ import {
   IconPhoto,
   IconPlayerStopFilled,
   IconPlus,
-  IconSelector,
+  IconSend2,
   IconSettings,
   IconVocabulary,
+  IconWorldWww,
 } from '@tabler/icons-react'
 import { useAtom } from 'jotai'
 import _, { pick } from 'lodash'
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from '@tanstack/react-router'
 import useInputBoxHistory from '@/hooks/useInputBoxHistory'
 import { useKnowledgeBase } from '@/hooks/useKnowledgeBase'
 import { useMessageInput } from '@/hooks/useMessageInput'
@@ -61,14 +64,11 @@ import * as sessionHelpers from '../../stores/sessionHelpers'
 import * as toastActions from '../../stores/toastActions'
 import { FileMiniCard, ImageMiniCard, LinkMiniCard } from '../Attachments'
 import { CompressionModal } from '../CompressionModal'
-import ImageModelSelect from '../ImageModelSelect'
 import ProviderImageIcon from '../icons/ProviderImageIcon'
 import KnowledgeBaseMenu from '../knowledge-base/KnowledgeBaseMenu'
 import ModelSelector from '../ModelSelector'
 import MCPMenu from '../mcp/MCPMenu'
 import { ScalableIcon } from '../ScalableIcon'
-import { Keys } from '../Shortcut'
-import { ImageUploadButton } from './ImageUploadButton'
 import { ImageUploadInput } from './ImageUploadInput'
 import {
   cleanupFile,
@@ -80,9 +80,7 @@ import {
   storeFilePromise,
   storeLinkPromise,
 } from './preprocessState'
-import { SessionSettingsButton } from './SessionSettingsButton'
 import TokenCountMenu from './TokenCountMenu'
-import { WebBrowsingButton } from './WebBrowsingButton'
 
 export type InputBoxPayload = {
   constructedMessage: Message
@@ -128,6 +126,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
     ref
   ) => {
     const { t } = useTranslation()
+    const navigate = useNavigate()
     const isSmallScreen = useIsSmallScreen()
     const { height: viewportHeight } = useViewportSize()
     const pasteLongTextAsAFile = useSettingsStore((state) => state.pasteLongTextAsAFile)
@@ -735,6 +734,27 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
       [knowledgeBase, setKnowledgeBase]
     )
 
+    // Show deprecated notice for legacy picture sessions
+    if (sessionType === 'picture') {
+      return (
+        <Box pt={0} pb={isSmallScreen ? 'md' : 'sm'} px={isSmallScreen ? '0.3rem' : '1rem'} id={dom.InputBoxID}>
+          <Stack
+            className={cn('rounded-2xl bg-chatbox-background-secondary', widthFull ? 'w-full' : 'max-w-4xl mx-auto')}
+            gap="xs"
+            p="md"
+            align="center"
+          >
+            <Text size="sm" c="chatbox-tertiary" ta="center">
+              {t('This image session is no longer active. Please use the new Image Creator for image generation.')}
+            </Text>
+            <Button variant="light" size="xs" onClick={() => navigate({ to: '/image-creator' })}>
+              {t('Go to Image Creator')}
+            </Button>
+          </Stack>
+        </Box>
+      )
+    }
+
     return (
       <Box
         pt={0}
@@ -746,35 +766,57 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
         <input className="hidden" {...getInputProps()} />
         <Stack
           className={cn(
-            'rounded-lg sm:rounded-md bg-chatbox-background-secondary border border-solid border-chatbox-border-primary justify-between',
+            'rounded-2xl bg-chatbox-background-secondary justify-between px-3 py-2',
             widthFull ? 'w-full' : 'max-w-4xl mx-auto',
             !isSmallScreen && 'min-h-[92px]'
           )}
-          gap={0}
+          gap="xs"
         >
-          <Textarea
-            unstyled={true}
-            classNames={{
-              input:
-                'block w-full outline-none border-none px-sm pt-sm pb-sm resize-none bg-transparent text-chatbox-tint-primary',
-            }}
-            size="sm"
-            id={dom.messageInputID}
-            ref={inputRef}
-            placeholder={t('Type your question here...') || ''}
-            bg="transparent"
-            autosize={true}
-            minRows={1}
-            maxRows={Math.max(3, Math.floor(viewportHeight / 100))}
-            value={messageInput}
-            autoFocus={!isSmallScreen}
-            onChange={onMessageInput}
-            onKeyDown={onKeyDown}
-            onPaste={onPaste}
-          />
+          {/* Input Row */}
+          <Flex align="flex-end" gap={4}>
+            <Textarea
+              unstyled={true}
+              classNames={{
+                root: 'flex-1',
+                wrapper: 'flex-1',
+                input:
+                  'block w-full outline-none border-none px-2 py-1 resize-none bg-transparent text-chatbox-tint-primary',
+              }}
+              size="sm"
+              id={dom.messageInputID}
+              ref={inputRef}
+              placeholder={t('Type your question here...') || ''}
+              bg="transparent"
+              autosize={true}
+              minRows={2}
+              maxRows={Math.max(4, Math.floor(viewportHeight / 100))}
+              value={messageInput}
+              autoFocus={!isSmallScreen}
+              onChange={onMessageInput}
+              onKeyDown={onKeyDown}
+              onPaste={onPaste}
+            />
+
+            {/* Send Button */}
+            <ActionIcon
+              disabled={(disableSubmit || isPreprocessing || isSubmitting) && !generating}
+              size={36}
+              variant="filled"
+              color="dark"
+              radius="xl"
+              onClick={generating ? onStopGenerating : () => handleSubmit()}
+              className="shrink-0 mb-1 !hover:bg-[var(--mantine-color-dark-filled)]"
+            >
+              {generating ? (
+                <ScalableIcon icon={IconPlayerStopFilled} size={18} />
+              ) : (
+                <ScalableIcon icon={IconSend2} size={18} />
+              )}
+            </ActionIcon>
+          </Flex>
 
           {(!!pictureKeys.length || !!attachments.length || !!links.length) && (
-            <Flex px="sm" pb="xs" align="center" wrap="wrap" onClick={() => dom.focusMessageInput()}>
+            <Flex align="center" wrap="wrap" onClick={() => dom.focusMessageInput()}>
               {pictureKeys?.map((picKey) => (
                 <ImageMiniCard key={picKey} storageKey={picKey} onDelete={() => onImageDeleteClick(picKey)} />
               ))}
@@ -846,291 +888,208 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
             </Flex>
           )}
 
-          <Flex px="sm" pb="sm" align="flex-end" justify="space-between" gap="0" wrap="wrap">
-            <Flex gap="md" flex="0 1 auto" className="!hidden sm:!flex">
-              {sessionType !== 'picture' && (
-                <>
-                  <ImageUploadInput ref={pictureInputRef} onChange={onFileInputChange} />
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    className="hidden"
-                    onChange={onFileInputChange}
-                    multiple
-                    accept={getFileAcceptString()}
-                  />
+          {/* Toolbar Row */}
+          <Flex align="center" gap={0} className="shrink-0 w-full" justify="space-between">
+            {/* Hidden file inputs */}
+            <ImageUploadInput ref={pictureInputRef} onChange={onFileInputChange} />
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              onChange={onFileInputChange}
+              multiple
+              accept={getFileAcceptString()}
+            />
 
-                  <AttachmentMenu
-                    onImageUploadClick={onImageUploadClick}
-                    onFileUploadClick={onFileUploadClick}
-                    handleAttachLink={handleAttachLink}
-                    t={t}
-                  />
-
-                  {featureFlags.mcp && (
-                    <MCPMenu>
-                      {(enabledTools) =>
-                        enabledTools > 0 ? (
-                          <Button radius="md" variant="light" h="auto" w="auto" px="xs" py={0}>
-                            <Flex gap="3xs" align="center">
-                              <ScalableIcon icon={IconHammer} strokeWidth={1.8} size={22} />
-                              <span>{enabledTools}</span>
-                            </Flex>
-                          </Button>
-                        ) : (
-                          <ActionIcon size={24} variant="subtle" color="chatbox-secondary">
-                            <ScalableIcon icon={IconHammer} size={22} strokeWidth={1.8} />
-                          </ActionIcon>
-                        )
-                      }
-                    </MCPMenu>
-                  )}
-                  {featureFlags.knowledgeBase && (
-                    <KnowledgeBaseMenu currentKnowledgeBaseId={knowledgeBase?.id} onSelect={handleKnowledgeBaseSelect}>
-                      <ActionIcon
-                        size={24}
-                        variant="subtle"
-                        color={knowledgeBase ? 'chatbox-brand' : 'chatbox-secondary'}
-                      >
-                        <ScalableIcon icon={IconVocabulary} size={22} strokeWidth={1.8} />
-                      </ActionIcon>
-                    </KnowledgeBaseMenu>
-                  )}
-
-                  <Tooltip
-                    label={
-                      <Stack align="center" gap="xxs" pb="xxs">
-                        <div className="whitespace-nowrap">{t('Web Browsing')}</div>
-                        <Flex align="center">
-                          <Keys keys={shortcuts.inputBoxWebBrowsingMode.split('+')} size="small" opacity={0.7} />
-                        </Flex>
-                      </Stack>
-                    }
-                    withArrow
-                    position="top"
-                  >
-                    <WebBrowsingButton
-                      active={webBrowsingMode}
-                      onClick={() => {
-                        setWebBrowsingMode(!webBrowsingMode)
-                        dom.focusMessageInput()
-                      }}
-                    />
-                  </Tooltip>
-
-                  {showRollbackThreadButton ? (
-                    <Tooltip label={t('Back to Previous')} withArrow position="top-start">
-                      <ActionIcon size={24} variant="subtle" color="chatbox-secondary" onClick={rollbackThread}>
-                        <ScalableIcon icon={IconArrowBackUp} size={22} strokeWidth={1.8} />
-                      </ActionIcon>
-                    </Tooltip>
-                  ) : (
-                    <Tooltip
-                      label={
-                        <Stack align="center" gap="xxs" pb="xxs">
-                          <div className="whitespace-nowrap">{t('Start a New Thread')}</div>
-                          <Flex align="center">
-                            <Keys keys={shortcuts.messageListRefreshContext.split('+')} size="small" opacity={0.7} />
-                          </Flex>
-                        </Stack>
-                      }
-                      withArrow
-                      position="top-start"
-                    >
-                      <ActionIcon
-                        size={24}
-                        variant="subtle"
-                        color="chatbox-secondary"
-                        disabled={!onStartNewThread}
-                        onClick={startNewThread}
-                      >
-                        <ScalableIcon icon={IconFilePencil} size={22} strokeWidth={1.8} />
-                      </ActionIcon>
-                    </Tooltip>
-                  )}
-                </>
-              )}
-              {model?.provider === ModelProviderEnum.ChatboxAI && sessionType === 'picture' && (
-                <>
-                  <ImageUploadInput ref={pictureInputRef} onChange={onFileInputChange} />
-                  <ImageUploadButton onClick={onImageUploadClick} tooltipLabel={t('Attach Image')} />
-                </>
-              )}
-              <SessionSettingsButton
-                onClick={onClickSessionSettings}
-                tooltipLabel={t('Customize settings for the current conversation')}
-                disabled={!onClickSessionSettings}
+            {/* Left Group: Tool Buttons */}
+            <Flex align="center" gap={0}>
+              <AttachmentMenu
+                onImageUploadClick={onImageUploadClick}
+                onFileUploadClick={onFileUploadClick}
+                handleAttachLink={handleAttachLink}
+                t={t}
               />
-            </Flex>
 
-            <Flex className="sm:!hidden" gap="xs">
-              {sessionType !== 'picture' ? (
-                <>
-                  <AttachmentMenu
-                    onImageUploadClick={onImageUploadClick}
-                    onFileUploadClick={onFileUploadClick}
-                    handleAttachLink={handleAttachLink}
-                    t={t}
-                    size={20}
-                    iconSize={undefined}
-                  />
-
-                  <WebBrowsingButton
-                    active={webBrowsingMode}
-                    onClick={() => {
-                      setWebBrowsingMode(!webBrowsingMode)
-                      dom.focusMessageInput()
-                    }}
-                    isMobile
-                  />
-
-                  <Menu
-                    trigger={isSmallScreen ? 'click' : 'hover'}
-                    openDelay={100}
-                    closeDelay={100}
-                    keepMounted
-                    transitionProps={{
-                      transition: 'pop',
-                      duration: 200,
-                    }}
-                  >
-                    <Menu.Target>
-                      <ActionIcon
-                        variant="transparent"
-                        w={20}
-                        h={20}
-                        miw={20}
-                        mih={20}
-                        bd="none"
-                        color="chatbox-secondary"
-                      >
-                        <ScalableIcon icon={IconSettings} size={20} strokeWidth={1.8} />
-                      </ActionIcon>
-                    </Menu.Target>
-                    <Menu.Dropdown>
-                      <Menu.Item leftSection={<ScalableIcon icon={IconPlus} size={16} />} onClick={startNewThread}>
-                        {t('New Thread')}
-                      </Menu.Item>
-                      <Menu.Item
-                        leftSection={<ScalableIcon icon={IconAdjustmentsHorizontal} size={16} />}
-                        onClick={onClickSessionSettings}
-                      >
-                        {t('Conversation Settings')}
-                      </Menu.Item>
-                    </Menu.Dropdown>
-                  </Menu>
-                </>
-              ) : (
-                <>
-                  {model?.provider === ModelProviderEnum.ChatboxAI && (
-                    <>
-                      <ImageUploadInput ref={pictureInputRef} onChange={onFileInputChange} />
-                      <ImageUploadButton onClick={onImageUploadClick} tooltipLabel={t('Add images')} isMobile />
-                    </>
+              {featureFlags.mcp && (
+                <MCPMenu>
+                  {(enabledTools) => (
+                    <UnstyledButton className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors">
+                      <IconHammer
+                        size={18}
+                        strokeWidth={1.8}
+                        className={
+                          enabledTools > 0 ? 'text-[var(--chatbox-tint-brand)]' : 'text-[var(--chatbox-tint-secondary)]'
+                        }
+                      />
+                      {enabledTools > 0 && (
+                        <Text size="xs" className="text-[var(--chatbox-tint-brand)]">
+                          {enabledTools}
+                        </Text>
+                      )}
+                    </UnstyledButton>
                   )}
-                  <SessionSettingsButton
-                    onClick={onClickSessionSettings}
-                    tooltipLabel={t('Customize settings for the current conversation')}
-                    disabled={!onClickSessionSettings}
-                    isMobile
+                </MCPMenu>
+              )}
+
+              {featureFlags.knowledgeBase && !isSmallScreen && (
+                <KnowledgeBaseMenu currentKnowledgeBaseId={knowledgeBase?.id} onSelect={handleKnowledgeBaseSelect}>
+                  <UnstyledButton className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors">
+                    <IconVocabulary
+                      size={18}
+                      strokeWidth={1.8}
+                      className={
+                        knowledgeBase ? 'text-[var(--chatbox-tint-brand)]' : 'text-[var(--chatbox-tint-secondary)]'
+                      }
+                    />
+                  </UnstyledButton>
+                </KnowledgeBaseMenu>
+              )}
+
+              <UnstyledButton
+                onClick={() => {
+                  setWebBrowsingMode(!webBrowsingMode)
+                  dom.focusMessageInput()
+                }}
+                className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors"
+              >
+                <IconWorldWww
+                  size={18}
+                  strokeWidth={1.8}
+                  className={
+                    webBrowsingMode ? 'text-[var(--chatbox-tint-brand)]' : 'text-[var(--chatbox-tint-secondary)]'
+                  }
+                />
+              </UnstyledButton>
+
+              {!isSmallScreen &&
+                (showRollbackThreadButton ? (
+                  <UnstyledButton
+                    onClick={rollbackThread}
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors"
+                  >
+                    <IconArrowBackUp size={18} strokeWidth={1.8} className="text-[var(--chatbox-tint-secondary)]" />
+                  </UnstyledButton>
+                ) : (
+                  <UnstyledButton
+                    onClick={startNewThread}
+                    disabled={!onStartNewThread}
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors disabled:opacity-50"
+                  >
+                    <IconFilePencil size={18} strokeWidth={1.8} className="text-[var(--chatbox-tint-secondary)]" />
+                  </UnstyledButton>
+                ))}
+
+              {!isSmallScreen && (
+                <UnstyledButton
+                  onClick={onClickSessionSettings}
+                  disabled={!onClickSessionSettings}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors disabled:opacity-50"
+                >
+                  <IconAdjustmentsHorizontal
+                    size={18}
+                    strokeWidth={1.8}
+                    className="text-[var(--chatbox-tint-secondary)]"
                   />
-                </>
+                </UnstyledButton>
+              )}
+
+              {/* Mobile: Settings menu */}
+              {isSmallScreen && (
+                <Menu
+                  trigger="click"
+                  openDelay={100}
+                  closeDelay={100}
+                  keepMounted
+                  transitionProps={{
+                    transition: 'pop',
+                    duration: 200,
+                  }}
+                >
+                  <Menu.Target>
+                    <UnstyledButton className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors">
+                      <IconSettings size={18} strokeWidth={1.8} className="text-[var(--chatbox-tint-secondary)]" />
+                    </UnstyledButton>
+                  </Menu.Target>
+                  <Menu.Dropdown>
+                    <Menu.Item leftSection={<ScalableIcon icon={IconPlus} size={16} />} onClick={startNewThread}>
+                      {t('New Thread')}
+                    </Menu.Item>
+                    <Menu.Item
+                      leftSection={<ScalableIcon icon={IconAdjustmentsHorizontal} size={16} />}
+                      onClick={onClickSessionSettings}
+                    >
+                      {t('Conversation Settings')}
+                    </Menu.Item>
+                  </Menu.Dropdown>
+                </Menu>
               )}
             </Flex>
 
-            <Flex gap={isSmallScreen ? 'xxs' : 'sm'} align="flex-end" justify="flex-end" flex="1 1 auto ">
-              {/* Wrap TokenCountMenu and ModelSelector in a Flex with center alignment */}
-              <Flex gap={isSmallScreen ? 'xxs' : 'sm'} align="center">
-                {/* Token count display */}
-                {sessionType !== 'picture' && (
-                  <TokenCountMenu
-                    currentInputTokens={currentInputTokens}
-                    contextTokens={contextTokens}
-                    totalTokens={totalTokens}
-                    contextWindow={modelInfo?.contextWindow}
-                    currentMessageCount={currentContextMessageIds?.length ?? 0}
-                    maxContextMessageCount={currentSessionMergedSettings?.maxContextMessageCount}
-                    onCompressClick={sessionId && !isNewSession ? () => setShowCompressionModal(true) : undefined}
-                  >
-                    <Flex
-                      align="center"
-                      gap="2"
-                      className="text-xs text-chatbox-tint-secondary cursor-pointer hover:text-chatbox-tint-primary transition-colors"
-                    >
-                      <ScalableIcon icon={IconArrowUp} size={14} />
-                      <Text span size="xs" className="whitespace-nowrap">
-                        {formatNumber(totalTokens)}
-                        {!isSmallScreen && modelInfo?.contextWindow && ` / ${formatNumber(modelInfo.contextWindow)}`}
-                      </Text>
-                    </Flex>
-                  </TokenCountMenu>
-                )}
-
-                <Tooltip
-                  label={
-                    <Flex align="center" c="white" gap="xxs">
-                      <ScalableIcon icon={IconAlertCircle} size={12} className="text-inherit" />
-                      <Text span size="xxs" c="white">
-                        {t('Please select a model')}
-                      </Text>
-                    </Flex>
-                  }
-                  color="dark"
-                  opened={showSelectModelErrorTip}
-                  withArrow
-                >
-                  {sessionType === 'picture' ? (
-                    <ImageModelSelect onSelect={onSelectModel}>
-                      <span className="flex items-center text-sm cursor-pointer bg-transparent h-6">
-                        {providers.find((p) => p.id === model?.provider)?.name || model?.provider || t('Select Model')}
-                        <ScalableIcon icon={IconSelector} size={16} className="opacity-50" />
-                      </span>
-                    </ImageModelSelect>
-                  ) : (
-                    <ModelSelector
-                      onSelect={onSelectModel}
-                      selectedProviderId={model?.provider}
-                      selectedModelId={model?.modelId}
-                      position="top-end"
-                      transitionProps={{
-                        transition: 'fade-up',
-                        duration: 200,
-                      }}
-                    >
-                      <Flex gap="xxs" px={isSmallScreen ? 0 : 'xs'} align="center" className={cn('cursor-pointer')}>
-                        {!!model && <ProviderImageIcon size={isSmallScreen ? 20 : 24} provider={model.provider} />}
-                        <Text size={isSmallScreen ? 'xs' : 'sm'} className="line-clamp-1">
-                          {modelSelectorDisplayText}
-                        </Text>
-                        <ScalableIcon
-                          icon={IconSelector}
-                          size={20}
-                          className="flex-[0_0_auto] text-chatbox-tint-tertiary"
-                        />
-                      </Flex>
-                    </ModelSelector>
-                  )}
-                </Tooltip>
-              </Flex>
-
-              <ActionIcon
-                disabled={(disableSubmit || isPreprocessing || isSubmitting) && !generating}
-                radius={18}
-                size={isSmallScreen ? 28 : 36}
-                onClick={generating ? onStopGenerating : () => handleSubmit()}
-                className={cn(
-                  // 'mt-[-6px] mb-[2px]',
-                  (disableSubmit || isPreprocessing || isSubmitting) &&
-                    !generating &&
-                    '!text-white !bg-chatbox-background-tertiary'
-                )}
+            {/* Right Group: Token Count + Model Selector */}
+            <Flex align="center" gap={0}>
+              <TokenCountMenu
+                currentInputTokens={currentInputTokens}
+                contextTokens={contextTokens}
+                totalTokens={totalTokens}
+                contextWindow={modelInfo?.contextWindow}
+                currentMessageCount={currentContextMessageIds?.length ?? 0}
+                maxContextMessageCount={currentSessionMergedSettings?.maxContextMessageCount}
+                onCompressClick={sessionId && !isNewSession ? () => setShowCompressionModal(true) : undefined}
               >
-                {generating ? (
-                  <ScalableIcon icon={IconPlayerStopFilled} size={20} />
-                ) : (
-                  <ScalableIcon icon={IconArrowUp} size={20} />
-                )}
-              </ActionIcon>
+                <Flex
+                  align="center"
+                  gap="2"
+                  className="text-xs text-chatbox-tint-tertiary cursor-pointer hover:text-chatbox-tint-secondary transition-colors px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)]"
+                >
+                  <ScalableIcon icon={IconArrowUp} size={14} />
+                  <Text span size="xs" className="whitespace-nowrap" c="inherit">
+                    {formatNumber(totalTokens)}
+                  </Text>
+                </Flex>
+              </TokenCountMenu>
+
+              {/* Model Selector */}
+              <Tooltip
+                label={
+                  <Flex align="center" c="white" gap="xxs">
+                    <ScalableIcon icon={IconAlertCircle} size={12} className="text-inherit" />
+                    <Text span size="xxs" c="white">
+                      {t('Please select a model')}
+                    </Text>
+                  </Flex>
+                }
+                color="dark"
+                opened={showSelectModelErrorTip}
+                withArrow
+              >
+                <ModelSelector
+                  onSelect={onSelectModel}
+                  selectedProviderId={model?.provider}
+                  selectedModelId={model?.modelId}
+                  position="top-end"
+                  transitionProps={{
+                    transition: 'fade-up',
+                    duration: 200,
+                  }}
+                >
+                  <UnstyledButton className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors">
+                    {!!model && <ProviderImageIcon size={18} provider={model.provider} />}
+                    <Text
+                      size="sm"
+                      className={cn(
+                        'text-[var(--chatbox-tint-secondary)] truncate',
+                        isSmallScreen ? 'max-w-[100px]' : 'max-w-[160px]'
+                      )}
+                    >
+                      {modelSelectorDisplayText}
+                    </Text>
+                    <IconChevronRight
+                      size={14}
+                      className="text-[var(--chatbox-tint-tertiary)] rotate-90 flex-shrink-0"
+                    />
+                  </UnstyledButton>
+                </ModelSelector>
+              </Tooltip>
             </Flex>
           </Flex>
         </Stack>
@@ -1146,15 +1105,13 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
   }
 )
 
-// Reusable attachment menu component
+// Reusable attachment menu component with lightweight style
 const AttachmentMenu: React.FC<{
   onImageUploadClick: () => void
   onFileUploadClick: () => void
   handleAttachLink: () => void
   t: (key: string) => string
-  size?: number
-  iconSize?: number
-}> = ({ onImageUploadClick, onFileUploadClick, handleAttachLink, t, size = 24, iconSize = 20 }) => {
+}> = ({ onImageUploadClick, onFileUploadClick, handleAttachLink, t }) => {
   const isSmallScreen = useIsSmallScreen()
   return (
     <Menu
@@ -1170,23 +1127,18 @@ const AttachmentMenu: React.FC<{
       }}
     >
       <Menu.Target>
-        <ActionIcon
-          size={size === 20 ? undefined : `${size}px`}
-          variant={size === 20 ? 'transparent' : 'subtle'}
-          color="chatbox-secondary"
-          {...(size === 20 ? { w: 20, h: 20, miw: 20, mih: 20, bd: 'none' } : {})}
-        >
-          <ScalableIcon icon={IconCirclePlus} strokeWidth={1.8} size={iconSize} />
-        </ActionIcon>
+        <UnstyledButton className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors">
+          <IconCirclePlus size={18} strokeWidth={1.8} className="text-[var(--chatbox-tint-secondary)]" />
+        </UnstyledButton>
       </Menu.Target>
       <Menu.Dropdown>
-        <Menu.Item leftSection={<ScalableIcon icon={IconPhoto} size={16} />} onClick={onImageUploadClick}>
+        <Menu.Item leftSection={<IconPhoto size={16} />} onClick={onImageUploadClick}>
           {t('Attach Image')}
         </Menu.Item>
-        <Menu.Item leftSection={<ScalableIcon icon={IconFolder} size={16} />} onClick={onFileUploadClick}>
+        <Menu.Item leftSection={<IconFolder size={16} />} onClick={onFileUploadClick}>
           {t('Select File')}
         </Menu.Item>
-        <Menu.Item leftSection={<ScalableIcon icon={IconLink} size={16} />} onClick={handleAttachLink}>
+        <Menu.Item leftSection={<IconLink size={16} />} onClick={handleAttachLink}>
           {t('Attach Link')}
         </Menu.Item>
       </Menu.Dropdown>

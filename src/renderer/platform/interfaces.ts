@@ -1,5 +1,6 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: <any> */
 import type { Config, Language, Settings, ShortcutSetting } from '@shared/types'
+import type { ImageGenerationStorage } from '@/storage/ImageGenerationStorage'
 import type { KnowledgeBaseController } from './knowledge-base/interface'
 
 export type PlatformType = 'web' | 'desktop' | 'mobile'
@@ -84,6 +85,8 @@ export interface Platform extends Storage {
   installUpdate(): Promise<void>
 
   getKnowledgeBaseController(): KnowledgeBaseController
+
+  getImageGenerationStorage(): ImageGenerationStorage
 
   // window controls
   minimize(): Promise<void>

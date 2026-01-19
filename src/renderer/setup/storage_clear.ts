@@ -75,7 +75,11 @@ export async function tickStorageTask() {
     needDeletedSet.delete(settings.defaultAssistantAvatarKey)
   }
 
+  // Image Creator 的图片存储在独立的 ImageGenerationStorage 中，不在 chat sessions 里，不应被清理
   for (const key of needDeletedSet) {
+    if (key.startsWith('picture:image-gen:')) {
+      continue
+    }
     await storage.delBlob(key)
   }
 }
