@@ -39,7 +39,11 @@ export function RouteComponent() {
   const providers = useMemo<ProviderInfo[]>(
     () =>
       [
-        ...SystemProviders.filter((p) => !(isExceeded && p.name.toLocaleLowerCase().match(/openai|claude|gemini/i))),
+        ...SystemProviders.filter(
+          (p) =>
+            p.id !== 'chatbox-ai' && // Chatbox AI is now a top-level menu item
+            !(isExceeded && p.name.toLocaleLowerCase().match(/openai|claude|gemini/i))
+        ),
         ...(customProviders || []),
       ].map((p) => ({
         ...p,

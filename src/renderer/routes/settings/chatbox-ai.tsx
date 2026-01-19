@@ -1,23 +1,19 @@
-/**
- * 该文件已废弃（采用了新的配置入口），请使用 `src/renderer/routes/settings/chatbox-ai.tsx` 文件代替
- */
-
 import { Stack, Transition } from '@mantine/core'
 import { type ModelProvider, ModelProviderEnum } from '@shared/types'
 import { createFileRoute } from '@tanstack/react-router'
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import useChatboxAIModels from '@/hooks/useChatboxAIModels'
 import { useLanguage, useProviderSettings, useSettingsStore } from '@/stores/settingsStore'
-import { VIEW_TRANSITION_DURATION, VIEW_TRANSITION_TIMING } from './-components/constants'
-import { LicenseKeyView } from './-components/LicenseKeyView'
-import { LicenseSelectionModal } from './-components/LicenseSelectionModal'
-import { LoggedInView } from './-components/LoggedInView'
-import { LoginView } from './-components/LoginView'
-import { ModelManagement } from './-components/ModelManagement'
-import type { ViewMode } from './-components/types'
-import { useAuthTokens } from './-components/useAuthTokens'
+import { VIEW_TRANSITION_DURATION, VIEW_TRANSITION_TIMING } from './provider/chatbox-ai/-components/constants'
+import { LicenseKeyView } from './provider/chatbox-ai/-components/LicenseKeyView'
+import { LicenseSelectionModal } from './provider/chatbox-ai/-components/LicenseSelectionModal'
+import { LoggedInView } from './provider/chatbox-ai/-components/LoggedInView'
+import { LoginView } from './provider/chatbox-ai/-components/LoginView'
+import { ModelManagement } from './provider/chatbox-ai/-components/ModelManagement'
+import type { ViewMode } from './provider/chatbox-ai/-components/types'
+import { useAuthTokens } from './provider/chatbox-ai/-components/useAuthTokens'
 
-export const Route = createFileRoute('/settings/provider/chatbox-ai/')({
+export const Route = createFileRoute('/settings/chatbox-ai')({
   component: RouteComponent,
 })
 
@@ -139,7 +135,7 @@ export function RouteComponent() {
   }, [viewMode, isLoggedIn, licenseKey])
 
   return (
-    <Stack gap="xxl">
+    <Stack gap="xxl" p="md">
       {/* License Selection Modal */}
       <LicenseSelectionModal
         opened={licenseModalState.show}

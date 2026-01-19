@@ -22,6 +22,7 @@ import { RouteComponent as SettingsChatRouteComponent } from '@/routes/settings/
 import { RouteComponent as SettingsDefaultModelsRouteComponent } from '@/routes/settings/default-models'
 import { RouteComponent as SettingsGeneralRouteComponent } from '@/routes/settings/general'
 import { RouteComponent as SettingsHotkeysRouteComponent } from '@/routes/settings/hotkeys'
+import { RouteComponent as SettingsChatboxAiRouteComponent } from '@/routes/settings/chatbox-ai'
 import { RouteComponent as SettingsIndexRouteComponent } from '@/routes/settings/index'
 import { RouteComponent as SettingsMcpRouteComponent } from '@/routes/settings/mcp'
 import { RouteComponent as SettingsProviderProviderIdRouteComponent } from '@/routes/settings/provider/$providerId'
@@ -134,6 +135,12 @@ const SettingsIndexRoute = createRoute({
   getParentRoute: () => RootRoute,
 })
 
+const SettingsChatboxAiRoute = createRoute({
+  component: SettingsChatboxAiRouteComponent,
+  path: '/settings/chatbox-ai',
+  getParentRoute: () => RootRoute,
+})
+
 const SettingsGeneralRoute = createRoute({
   component: SettingsGeneralRouteComponent,
   path: '/settings/general',
@@ -214,6 +221,7 @@ SettingsProviderRouteRoute.addChildren([
 
 const routeTree = RootRoute.addChildren([
   SettingsIndexRoute,
+  SettingsChatboxAiRoute,
   SettingsGeneralRoute,
   SettingsChatRoute,
   SettingsWebSearchRoute,
