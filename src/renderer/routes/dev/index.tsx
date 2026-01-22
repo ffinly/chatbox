@@ -26,7 +26,12 @@ const devPages = [
     description: 'CSS Variables Preview',
     tags: ['UI'],
   },
-  // Add more dev pages here as they are created
+  {
+    path: '/dev/context-generator',
+    name: 'Context Generator',
+    description: 'Generate fake conversation context for testing context management and token estimation',
+    tags: ['Tool', 'Testing'],
+  },
 ]
 
 function DevIndexPage() {

@@ -102,6 +102,9 @@ export function settings(): Settings {
 
     autoGenerateTitle: true,
 
+    autoCompaction: true,
+    compactionThreshold: 0.6,
+
     autoLaunch: false,
     autoUpdate: true,
     betaUpdate: false,

@@ -100,9 +100,11 @@ function RouteComponent() {
     async ({
       constructedMessage,
       needGenerating = true,
+      onUserMessageReady,
     }: {
       constructedMessage: Message
       needGenerating?: boolean
+      onUserMessageReady?: () => void
     }) => {
       if (!currentSession) {
         return
@@ -111,6 +113,7 @@ function RouteComponent() {
       await submitNewUserMessage(currentSession.id, {
         newUserMsg: constructedMessage,
         needGenerating,
+        onUserMessageReady,
       })
     },
     [currentSession]

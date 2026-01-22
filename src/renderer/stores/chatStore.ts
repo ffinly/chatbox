@@ -440,11 +440,21 @@ export async function removeMessage(sessionId: string, messageId: string) {
       throw new Error(`session ${sessionId} not found`)
     }
 
+    const messageToDelete = session.messages.find((m) => m.id === messageId)
+    const isSummaryMessage = messageToDelete?.isSummary === true
+
     const newMessages = session.messages.filter((m) => m.id !== messageId)
     const newThreads = session.threads?.map((thread) => ({
       ...thread,
       messages: thread.messages.filter((m) => m.id !== messageId),
+      compactionPoints: isSummaryMessage
+        ? thread.compactionPoints?.filter((cp) => cp.summaryMessageId !== messageId)
+        : thread.compactionPoints,
     }))
+
+    const newCompactionPoints = isSummaryMessage
+      ? session.compactionPoints?.filter((cp) => cp.summaryMessageId !== messageId)
+      : session.compactionPoints
 
     // Clean up empty fork branches after message removal and auto-switch if needed
     const { messages: finalMessages, messageForksHash: newMessageForksHash } = cleanupEmptyForkBranches(
@@ -458,6 +468,7 @@ export async function removeMessage(sessionId: string, messageId: string) {
       messages: finalMessages,
       threads: newThreads,
       messageForksHash: newMessageForksHash,
+      compactionPoints: newCompactionPoints,
     }
   })
 }

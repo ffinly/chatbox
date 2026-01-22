@@ -127,6 +127,7 @@ export const SessionSettingsSchema = GlobalSessionSettingsSchema.extend({
   dalleStyle: z.enum(['vivid', 'natural']).optional().catch('vivid'),
   imageGenerateNum: z.number().optional().catch(1),
   providerOptions: ProviderOptionsSchema.optional().catch(undefined),
+  autoCompaction: z.boolean().optional().catch(undefined),
 })
 
 const UnifiedTokenUsageDetailSchema = z.object({
@@ -364,6 +365,9 @@ export const SettingsSchema = GlobalSessionSettingsSchema.extend({
   pasteLongTextAsAFile: z.boolean().default(true), // 是否将长文本粘贴为文件
 
   autoGenerateTitle: z.boolean().default(true),
+
+  autoCompaction: z.boolean().default(true),
+  compactionThreshold: z.number().min(0.4).max(0.9).default(0.6),
 
   autoLaunch: z.boolean().default(false),
   autoUpdate: z.boolean().default(true), // 是否自动检查更新

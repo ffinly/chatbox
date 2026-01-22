@@ -38,6 +38,7 @@ import {
   deleteFork,
   expandFork,
   moveThreadToConversations,
+  removeMessage,
   removeThread,
   switchFork,
   switchThread,
@@ -46,11 +47,13 @@ import { getAllMessageList, getCurrentThreadHistoryHash } from '@/stores/session
 import { settingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
 import ActionMenu from './ActionMenu'
+
 import { ErrorBoundary } from './ErrorBoundary'
 import { BlockCodeCollapsedStateProvider } from './Markdown'
 import Message from './Message'
 import MessageNavigation, { ScrollToBottomButton } from './MessageNavigation'
 import { ScalableIcon } from './ScalableIcon'
+import SummaryMessage from './SummaryMessage'
 
 // LRU-like cache with max size to prevent unbounded memory growth
 const MAX_SCROLL_CACHE_SIZE = 100
@@ -91,11 +94,21 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
   const widthFull = useUIStore((s) => s.widthFull)
 
   const { currentSession } = props
+
   const currentThreadHash = useMemo(
     () => currentSession && getCurrentThreadHistoryHash(currentSession),
     [currentSession]
   )
   const currentMessageList = useMemo(() => getAllMessageList(currentSession), [currentSession])
+
+  const latestSummaryMessageId = useMemo(() => {
+    for (let i = currentMessageList.length - 1; i >= 0; i--) {
+      if (currentMessageList[i].isSummary) {
+        return currentMessageList[i].id
+      }
+    }
+    return null
+  }, [currentMessageList])
 
   const virtuoso = useRef<VirtuosoHandle>(null)
   const messageListRef = useRef<HTMLDivElement>(null)
@@ -283,19 +296,28 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
                     <ThreadLabel thread={currentThreadHash[msg.id]} sessionId={currentSession.id} />
                   )}
                   <ErrorBoundary name={`message-item`}>
-                    <Message
-                      id={msg.id}
-                      msg={msg}
-                      sessionId={currentSession.id}
-                      sessionType={currentSession.type || 'chat'}
-                      className={index === 0 ? 'pt-4' : index === currentMessageList.length - 1 ? '!pb-4' : ''}
-                      collapseThreshold={msg.role === 'system' ? 150 : undefined}
-                      buttonGroup={
-                        index === currentMessageList.length - 1 && msg.role === 'assistant' ? 'always' : 'auto'
-                      }
-                      assistantAvatarKey={currentSession.assistantAvatarKey}
-                      sessionPicUrl={currentSession.picUrl}
-                    />
+                    {msg.isSummary ? (
+                      <SummaryMessage
+                        msg={msg}
+                        className={index === 0 ? 'pt-4' : index === currentMessageList.length - 1 ? '!pb-4' : ''}
+                        isLatestSummary={msg.id === latestSummaryMessageId}
+                        onDelete={() => removeMessage(currentSession.id, msg.id)}
+                      />
+                    ) : (
+                      <Message
+                        id={msg.id}
+                        msg={msg}
+                        sessionId={currentSession.id}
+                        sessionType={currentSession.type || 'chat'}
+                        className={index === 0 ? 'pt-4' : index === currentMessageList.length - 1 ? '!pb-4' : ''}
+                        collapseThreshold={msg.role === 'system' ? 150 : undefined}
+                        buttonGroup={
+                          index === currentMessageList.length - 1 && msg.role === 'assistant' ? 'always' : 'auto'
+                        }
+                        assistantAvatarKey={currentSession.assistantAvatarKey}
+                        sessionPicUrl={currentSession.picUrl}
+                      />
+                    )}
                   </ErrorBoundary>
                   {currentSession.messageForksHash?.[msg.id] &&
                     currentSession.messageForksHash[msg.id].lists.length > 1 && (

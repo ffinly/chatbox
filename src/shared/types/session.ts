@@ -194,6 +194,14 @@ export const MessageSchema = z.object({
   firstTokenLatency: z.number().optional(),
   finishReason: z.string().optional(),
   tokenCountMap: TokenCountMapSchema.optional(), // estimate token count as input
+  isSummary: z.boolean().optional(), // Marks message as a compaction summary
+})
+
+// Compaction point schema (for context management)
+export const CompactionPointSchema = z.object({
+  summaryMessageId: z.string(),
+  boundaryMessageId: z.string(),
+  createdAt: z.number(),
 })
 
 // Session schemas
@@ -215,6 +223,7 @@ export const SessionThreadSchema = z.object({
   name: z.string(),
   messages: z.array(MessageSchema),
   createdAt: z.number(),
+  compactionPoints: z.array(CompactionPointSchema).optional(),
 })
 
 export const SessionSchema = z.object({
@@ -231,6 +240,7 @@ export const SessionSchema = z.object({
   threads: z.array(SessionThreadSchema).optional(),
   threadName: z.string().optional(),
   messageForksHash: z.record(z.string(), MessageForkSchema).optional(),
+  compactionPoints: z.array(CompactionPointSchema).optional(),
 })
 
 export const SessionMetaSchema = SessionSchema.pick({
@@ -273,6 +283,7 @@ export type ModelProvider = z.infer<typeof ModelProviderSchema>
 export type MessageStatus = z.infer<typeof MessageStatusSchema>
 export type Message = z.infer<typeof MessageSchema>
 export type SessionType = z.infer<typeof SessionTypeSchema>
+export type CompactionPoint = z.infer<typeof CompactionPointSchema>
 export type Session = z.infer<typeof SessionSchema>
 export type SessionMeta = z.infer<typeof SessionMetaSchema>
 export type SessionThread = z.infer<typeof SessionThreadSchema>

@@ -81,5 +81,5 @@ export function getTestPlatform(): TestPlatform {
 }
 
 export function resetTestPlatform(): void {
-  (platform as TestPlatform).clear()
+  ;(platform as TestPlatform).clear()
 }

@@ -1,4 +1,4 @@
-import { Flex, Menu, Text } from '@mantine/core'
+import { Flex, Loader, Menu, Switch, Text, Tooltip } from '@mantine/core'
 import { formatNumber } from '@shared/utils'
 import { IconFileZip } from '@tabler/icons-react'
 import type { FC } from 'react'
@@ -15,6 +15,11 @@ type Props = {
   maxContextMessageCount?: number
   children?: React.ReactNode
   onCompressClick?: () => void
+  // Auto-compaction props
+  autoCompactionEnabled?: boolean
+  isCompacting?: boolean
+  contextWindowKnown?: boolean
+  onAutoCompactionChange?: (enabled: boolean) => void
 }
 
 const TokenCountMenu: FC<Props> = ({
@@ -26,9 +31,48 @@ const TokenCountMenu: FC<Props> = ({
   maxContextMessageCount,
   children,
   onCompressClick,
+  autoCompactionEnabled,
+  isCompacting,
+  contextWindowKnown = true,
+  onAutoCompactionChange,
 }) => {
   const { t } = useTranslation()
   const isSmallScreen = useIsSmallScreen()
+
+  const autoCompactionToggle = onAutoCompactionChange !== undefined && (
+    <Menu.Item closeMenuOnClick={false} style={{ cursor: 'default' }}>
+      <Flex justify="space-between" align="center" gap="xs">
+        <Flex align="center" gap="xs">
+          <Text size="sm">{t('Auto Compaction')}</Text>
+          <Text size="xs" c="dimmed">
+            ({t('This session')})
+          </Text>
+        </Flex>
+        {isCompacting ? (
+          <Flex align="center" gap="xs">
+            <Loader size="xs" />
+            <Text size="xs" c="dimmed">
+              {t('Compacting...')}
+            </Text>
+          </Flex>
+        ) : (
+          <Tooltip
+            label={t('Context window unknown for this model')}
+            disabled={contextWindowKnown}
+            withArrow
+            position="top"
+          >
+            <Switch
+              size="xs"
+              checked={autoCompactionEnabled}
+              disabled={!contextWindowKnown || isCompacting}
+              onChange={(e) => onAutoCompactionChange(e.currentTarget.checked)}
+            />
+          </Tooltip>
+        )}
+      </Flex>
+    </Menu.Item>
+  )
 
   return (
     <Menu
@@ -100,6 +144,13 @@ const TokenCountMenu: FC<Props> = ({
               </Text>
             </Flex>
           </Menu.Item>
+        )}
+
+        {autoCompactionToggle && (
+          <>
+            <Menu.Divider />
+            {autoCompactionToggle}
+          </>
         )}
 
         {onCompressClick && contextTokens > 0 && (

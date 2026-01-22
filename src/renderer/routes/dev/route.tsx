@@ -31,7 +31,7 @@ function DevLayout() {
     const path = location.pathname
     if (path === '/dev' || path === '/dev/') return 'Dev Tools'
     if (path.includes('model-selector')) return 'ModelSelector Preview'
-    // Add more titles as needed
+    if (path.includes('context-generator')) return 'Context Generator'
     return 'Dev Tools'
   }
 

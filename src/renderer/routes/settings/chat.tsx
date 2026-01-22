@@ -1,9 +1,11 @@
-import { Button, Divider, FileButton, Flex, Stack, Switch, Text, Textarea, Title, Tooltip } from '@mantine/core'
+import { Button, FileButton, Flex, Slider, Stack, Switch, Text, Textarea, Title, Tooltip } from '@mantine/core'
 import { chatSessionSettings, getDefaultPrompt } from '@shared/defaults'
 import { IconInfoCircle } from '@tabler/icons-react'
 import { createFileRoute } from '@tanstack/react-router'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AssistantAvatar, UserAvatar } from '@/components/Avatar'
+import { Divider } from '@/components/Divider'
 import { handleImageInputAndSave } from '@/components/Image'
 import MaxContextMessageCountSlider from '@/components/MaxContextMessageCountSlider'
 import { ScalableIcon } from '@/components/ScalableIcon'
@@ -370,6 +372,109 @@ export function RouteComponent() {
             }
           />
         </Stack>
+      </Stack>
+
+      <Divider />
+
+      {/* Context Management */}
+      <ContextManagementSection />
+    </Stack>
+  )
+}
+
+function ContextManagementSection() {
+  const { t } = useTranslation()
+  const { setSettings, ...settings } = useSettingsStore((state) => state)
+
+  // Get strategy hint based on threshold value
+  const strategyHint = useMemo(() => {
+    const threshold = settings.compactionThreshold ?? 0.6
+    if (threshold <= 0.5) {
+      return t('Cost Priority: Compacts early to save tokens, may lose some context')
+    }
+    if (threshold >= 0.8) {
+      return t('Context Priority: Preserves more context, uses more tokens')
+    }
+    return t('Balanced: Good balance between cost and context preservation')
+  }, [settings.compactionThreshold, t])
+
+  return (
+    <Stack gap="xl">
+      <Text fw="600">{t('Context Management')}</Text>
+
+      {/* Auto Compaction Toggle */}
+      <Stack gap="sm">
+        <Flex align="center" gap="xs" justify="space-between">
+          <Flex align="center" gap="xs">
+            <Text size="sm">{t('Auto Compaction')}</Text>
+            <Tooltip
+              label={t(
+                'Automatically summarize and compact conversation history when context size exceeds the threshold, preserving key information while reducing token usage.'
+              )}
+              withArrow={true}
+              maw={320}
+              className="!whitespace-normal"
+              zIndex={3000}
+              events={{ hover: true, focus: true, touch: true }}
+            >
+              <ScalableIcon icon={IconInfoCircle} size={20} className="text-chatbox-tint-tertiary" />
+            </Tooltip>
+          </Flex>
+          <Switch
+            checked={settings.autoCompaction ?? true}
+            onChange={() =>
+              setSettings({
+                autoCompaction: !(settings.autoCompaction ?? true),
+              })
+            }
+          />
+        </Flex>
+        <Text c="chatbox-tertiary" size="xs">
+          {t('When enabled, conversations will be automatically summarized to manage context window usage.')}
+        </Text>
+      </Stack>
+
+      {/* Compaction Threshold Slider */}
+      <Stack gap="sm">
+        <Flex align="center" gap="xs">
+          <Text size="sm">{t('Compaction Threshold')}</Text>
+          <Tooltip
+            label={t(
+              'The percentage of context window usage that triggers automatic compaction. Lower values save tokens but may lose context earlier.'
+            )}
+            withArrow={true}
+            maw={320}
+            className="!whitespace-normal"
+            zIndex={3000}
+            events={{ hover: true, focus: true, touch: true }}
+          >
+            <ScalableIcon icon={IconInfoCircle} size={20} className="text-chatbox-tint-tertiary" />
+          </Tooltip>
+        </Flex>
+
+        <Stack gap="xs" mt="xs">
+          <Slider
+            min={0.4}
+            max={0.9}
+            step={0.05}
+            value={settings.compactionThreshold ?? 0.6}
+            onChange={(v) => setSettings({ compactionThreshold: v })}
+            label={(v) => `${Math.round(v * 100)}%`}
+            disabled={!(settings.autoCompaction ?? true)}
+          />
+          <Flex justify="space-between" px={2}>
+            <Text size="xs" c="chatbox-tertiary">
+              {t('Cost')}
+            </Text>
+            <Text size="xs" c="chatbox-tertiary">
+              {t('Context')}
+            </Text>
+          </Flex>
+        </Stack>
+
+        <Text c="chatbox-tertiary" size="xs">
+          {strategyHint}
+        </Text>
       </Stack>
     </Stack>
   )

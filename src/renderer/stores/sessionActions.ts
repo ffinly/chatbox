@@ -10,6 +10,7 @@ import { createModelDependencies } from '@/adapters'
 import * as dom from '@/hooks/dom'
 import { languageNameMap } from '@/i18n/locales'
 import * as appleAppStore from '@/packages/apple_app_store'
+import { buildContextForAI, runCompactionWithUIState } from '@/packages/context-management'
 import { generateImage, generateText, streamText } from '@/packages/model-calls'
 import { getModelDisplayName } from '@/packages/model-setting-utils'
 import { estimateTokensFromMessages } from '@/packages/token'
@@ -25,6 +26,7 @@ import {
   NetworkError,
 } from '../../shared/models/errors'
 import {
+  type CompactionPoint,
   copyMessage,
   copyThreads,
   createMessage,
@@ -602,13 +604,27 @@ export async function removeMessage(sessionId: string, messageId: string) {
  */
 export async function submitNewUserMessage(
   sessionId: string,
-  params: { newUserMsg: Message; needGenerating: boolean }
+  params: { newUserMsg: Message; needGenerating: boolean; onUserMessageReady?: () => void }
 ) {
   const session = await chatStore.getSession(sessionId)
   const settings = await chatStore.getSessionSettings(sessionId)
   if (!session || !settings) {
     return
   }
+
+  // Run compaction check before sending message (blocking)
+  // Only for chat sessions with auto-compaction enabled
+  if (session.type === 'chat' || session.type === undefined) {
+    const compactionResult = await runCompactionWithUIState(sessionId)
+    if (!compactionResult.success) {
+      throw compactionResult.error ?? new Error('Compaction failed')
+    }
+  }
+
+  // Invoke callback after compaction succeeds, before user message is inserted
+  // This allows caller to clear draft at the right time
+  params.onUserMessageReady?.()
+
   const { newUserMsg, needGenerating } = params
   const webBrowsing = getSessionWebBrowsing(sessionId, settings.provider)
 
@@ -797,7 +813,8 @@ async function generate(
         const promptMsgs = await genMessageContext(
           settings,
           messages.slice(0, targetMsgIx),
-          model.isSupportToolUse('read-file')
+          model.isSupportToolUse('read-file'),
+          { compactionPoints: session.compactionPoints }
         )
         const modifyMessageCache: OnResultChangeWithCancel = async (updated) => {
           const textLength = getMessageText(targetMsg, true, true).length
@@ -1138,6 +1155,7 @@ export async function clearConversationList(keepNum: number) {
 /**
  * 构造消息上下文
  * 处理消息列表，包括：
+ * - 使用 buildContextForAI 根据 compaction points 构建上下文（如果提供）
  * - 根据 maxContextMessageCount 限制上下文消息数量
  * - 为文件附件添加 ATTACHMENT_FILE 标记
  * - 为链接附件添加 ATTACHMENT_FILE 标记
@@ -1145,15 +1163,22 @@ export async function clearConversationList(keepNum: number) {
  * @param settings 会话设置
  * @param msgs 原始消息列表
  * @param modelSupportToolUseForFile 模型是否支持文件读取工具（如果支持，则不直接包含文件内容）
- * @param storageAdapter 可选的存储适配器，用于读取文件内容（默认使用 storage.getBlob）
+ * @param options 可选配置
+ * @param options.storageAdapter 可选的存储适配器，用于读取文件内容（默认使用 storage.getBlob）
+ * @param options.compactionPoints 可选的 compaction points，用于从压缩点开始构建上下文
  * @returns 处理后的消息列表
  */
 export async function genMessageContext(
   settings: SessionSettings,
   msgs: Message[],
   modelSupportToolUseForFile: boolean,
-  storageAdapter?: { getBlob: (key: string) => Promise<string> }
+  options?: {
+    storageAdapter?: { getBlob: (key: string) => Promise<string> }
+    compactionPoints?: CompactionPoint[]
+  }
 ) {
+  const storageAdapter = options?.storageAdapter
+  const compactionPoints = options?.compactionPoints
   const storageGetBlob = storageAdapter?.getBlob ?? ((key: string) => storage.getBlob(key).catch(() => ''))
   const {
     // openaiMaxContextTokens,
@@ -1166,9 +1191,22 @@ export async function genMessageContext(
     throw new Error('maxContextMessageCount is not set')
   }
 
+  // Step 1: Apply compaction-based context building if compactionPoints are provided
+  // This will return messages starting from the latest compaction point (with summary prepended)
+  // and apply tool-call cleanup for older messages
+  let contextMessages = msgs
+  if (compactionPoints && compactionPoints.length > 0) {
+    contextMessages = buildContextForAI({
+      messages: msgs,
+      compactionPoints,
+      keepToolCallRounds: 2,
+      sessionSettings: settings,
+    })
+  }
+
   // Pre-fetch all blob contents in parallel to avoid N+1 sequential fetches
   const allStorageKeys = new Set<string>()
-  for (const msg of msgs) {
+  for (const msg of contextMessages) {
     if (msg.files) {
       for (const file of msg.files) {
         if (file.storageKey) {
@@ -1193,14 +1231,13 @@ export async function genMessageContext(
     })
   }
 
-  const head = msgs[0].role === 'system' ? msgs[0] : undefined
-  if (head) {
-    msgs = msgs.slice(1)
-  }
+  const head = contextMessages[0]?.role === 'system' ? contextMessages[0] : undefined
+  const workingMsgs = head ? contextMessages.slice(1) : contextMessages
+
   let _totalLen = head ? estimateTokensFromMessages([head]) : 0
   let prompts: Message[] = []
-  for (let i = msgs.length - 1; i >= 0; i--) {
-    let msg = msgs[i]
+  for (let i = workingMsgs.length - 1; i >= 0; i--) {
+    let msg = workingMsgs[i]
     // 跳过错误消息
     if (msg.error || msg.errorCode) {
       continue

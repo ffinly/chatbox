@@ -1,0 +1,482 @@
+import { describe, expect, it } from 'vitest'
+import type { Message } from '../../shared/types'
+import { MessageRoleEnum } from '../../shared/types/session'
+import {
+  estimateTokens,
+  estimateTokensFromMessages,
+  getTokenCacheKey,
+  getTokenCountForModel,
+  isDeepSeekModel,
+  sliceTextByTokenLimit,
+} from './token'
+
+// Helper to create test messages
+function createMessage(overrides: Partial<Message> & { text?: string } = {}): Message {
+  const { text, ...rest } = overrides
+  return {
+    id: `msg-${Math.random().toString(36).substr(2, 9)}`,
+    role: MessageRoleEnum.User,
+    contentParts: text ? [{ type: 'text', text }] : [],
+    ...rest,
+  }
+}
+
+// Model fixtures for testing
+const deepSeekModel = { provider: 'deepseek', modelId: 'deepseek-chat' }
+const openAIModel = { provider: 'openai', modelId: 'gpt-4o' }
+const claudeModel = { provider: 'anthropic', modelId: 'claude-3-5-sonnet-20241022' }
+
+describe('isDeepSeekModel', () => {
+  it('should return true for DeepSeek models', () => {
+    expect(isDeepSeekModel(deepSeekModel)).toBe(true)
+    expect(isDeepSeekModel({ provider: 'custom', modelId: 'deepseek-coder' })).toBe(true)
+    expect(isDeepSeekModel({ provider: 'any', modelId: 'DEEPSEEK-V3' })).toBe(true)
+  })
+
+  it('should return false for non-DeepSeek models', () => {
+    expect(isDeepSeekModel(openAIModel)).toBe(false)
+    expect(isDeepSeekModel(claudeModel)).toBe(false)
+    expect(isDeepSeekModel({ provider: 'mistral', modelId: 'mistral-large' })).toBe(false)
+  })
+
+  it('should return false for undefined or null', () => {
+    expect(isDeepSeekModel(undefined)).toBe(false)
+    expect(isDeepSeekModel(null)).toBe(false)
+  })
+
+  it('should return false for models with undefined modelId', () => {
+    expect(isDeepSeekModel({ provider: 'test', modelId: '' })).toBe(false)
+  })
+})
+
+describe('getTokenCacheKey', () => {
+  it('should return deepseek for DeepSeek models', () => {
+    expect(getTokenCacheKey(deepSeekModel)).toBe('deepseek')
+    expect(getTokenCacheKey({ provider: 'custom', modelId: 'deepseek-coder' })).toBe('deepseek')
+  })
+
+  it('should return default for non-DeepSeek models', () => {
+    expect(getTokenCacheKey(openAIModel)).toBe('default')
+    expect(getTokenCacheKey(claudeModel)).toBe('default')
+    expect(getTokenCacheKey(undefined)).toBe('default')
+    expect(getTokenCacheKey(null)).toBe('default')
+  })
+})
+
+describe('getTokenCountForModel', () => {
+  it('should return correct token count for DeepSeek models', () => {
+    const item = {
+      tokenCountMap: {
+        default: 100,
+        deepseek: 80,
+      },
+    }
+    expect(getTokenCountForModel(item, deepSeekModel)).toBe(80)
+  })
+
+  it('should return correct token count for non-DeepSeek models', () => {
+    const item = {
+      tokenCountMap: {
+        default: 100,
+        deepseek: 80,
+      },
+    }
+    expect(getTokenCountForModel(item, openAIModel)).toBe(100)
+  })
+
+  it('should return 0 when tokenCountMap is undefined', () => {
+    expect(getTokenCountForModel({}, openAIModel)).toBe(0)
+    expect(getTokenCountForModel({}, deepSeekModel)).toBe(0)
+  })
+
+  it('should return 0 when specific cache key is missing', () => {
+    const item = {
+      tokenCountMap: {
+        default: 100,
+      },
+    }
+    expect(getTokenCountForModel(item, deepSeekModel)).toBe(0)
+  })
+})
+
+describe('estimateTokens', () => {
+  describe('default tokenizer (cl100k_base)', () => {
+    it('should estimate tokens for English text', () => {
+      const text = 'Hello, world!'
+      const tokens = estimateTokens(text)
+      expect(tokens).toBeGreaterThan(0)
+      // "Hello, world!" is typically 4 tokens with cl100k_base
+      expect(tokens).toBeLessThan(10)
+    })
+
+    it('should estimate tokens for longer English text', () => {
+      const text = 'The quick brown fox jumps over the lazy dog.'
+      const tokens = estimateTokens(text)
+      // This sentence is typically around 10 tokens
+      expect(tokens).toBeGreaterThan(5)
+      expect(tokens).toBeLessThan(20)
+    })
+
+    it('should estimate tokens for Chinese text', () => {
+      const text = '你好世界'
+      const tokens = estimateTokens(text)
+      expect(tokens).toBeGreaterThan(0)
+      // Chinese characters typically use more tokens per character
+      expect(tokens).toBeLessThan(20)
+    })
+
+    it('should estimate tokens for mixed English and Chinese text', () => {
+      const text = 'Hello 你好 World 世界'
+      const tokens = estimateTokens(text)
+      expect(tokens).toBeGreaterThan(0)
+      expect(tokens).toBeLessThan(30)
+    })
+
+    it('should handle empty string', () => {
+      const tokens = estimateTokens('')
+      expect(tokens).toBe(0)
+    })
+
+    it('should handle special characters', () => {
+      const text = '!@#$%^&*()_+-={}[]|:;<>?,./'
+      const tokens = estimateTokens(text)
+      expect(tokens).toBeGreaterThan(0)
+    })
+
+    it('should handle newlines and whitespace', () => {
+      const text = 'Line 1\nLine 2\n\nLine 4'
+      const tokens = estimateTokens(text)
+      expect(tokens).toBeGreaterThan(0)
+    })
+
+    it('should handle unicode emojis', () => {
+      const text = 'Hello! 😀🎉🚀'
+      const tokens = estimateTokens(text)
+      expect(tokens).toBeGreaterThan(0)
+    })
+
+    it('should handle large content', () => {
+      const text = 'The quick brown fox jumps over the lazy dog. '.repeat(100)
+      const tokens = estimateTokens(text)
+      expect(tokens).toBeGreaterThan(500)
+    })
+
+    it('should handle non-string input by converting to JSON', () => {
+      const obj = { key: 'value', number: 123 }
+      // @ts-expect-error - Testing runtime behavior with non-string input
+      const tokens = estimateTokens(obj)
+      expect(tokens).toBeGreaterThan(0)
+    })
+  })
+
+  describe('DeepSeek tokenizer', () => {
+    it('should use DeepSeek tokenizer for DeepSeek models', () => {
+      const text = 'Hello, world!'
+      const tokensDeepSeek = estimateTokens(text, deepSeekModel)
+      expect(tokensDeepSeek).toBeGreaterThan(0)
+      expect(typeof tokensDeepSeek).toBe('number')
+    })
+
+    it('should handle Chinese text with DeepSeek tokenizer', () => {
+      const text = '你好世界'
+      const tokens = estimateTokens(text, deepSeekModel)
+      // Chinese chars are ~0.6 tokens each in DeepSeek
+      // 4 chars * 0.6 = 2.4, ceil = 3
+      expect(tokens).toBe(3)
+    })
+
+    it('should handle English text with DeepSeek tokenizer', () => {
+      const text = 'Hello'
+      const tokens = estimateTokens(text, deepSeekModel)
+      expect(tokens).toBeGreaterThan(0)
+      expect(typeof tokens).toBe('number')
+    })
+
+    it('should handle spaces correctly in DeepSeek tokenizer', () => {
+      const text = 'a b c'
+      const tokens = estimateTokens(text, deepSeekModel)
+      expect(tokens).toBeGreaterThan(0)
+    })
+
+    it('should collapse consecutive spaces in DeepSeek tokenizer', () => {
+      const textWithConsecutiveSpaces = 'a  b'
+      const textWithSingleSpaces = 'a b'
+      const tokensConsecutive = estimateTokens(textWithConsecutiveSpaces, deepSeekModel)
+      const tokensSingle = estimateTokens(textWithSingleSpaces, deepSeekModel)
+      expect(tokensConsecutive).toBeLessThanOrEqual(tokensSingle + 1)
+    })
+
+    it('should handle mixed content in DeepSeek tokenizer', () => {
+      const text = 'Hello 你好 123'
+      const tokens = estimateTokens(text, deepSeekModel)
+      expect(tokens).toBeGreaterThan(0)
+    })
+
+    it('should handle special characters in DeepSeek tokenizer', () => {
+      const text = '!@#$%'
+      const tokens = estimateTokens(text, deepSeekModel)
+      // Each symbol is 0.3 tokens: 5 * 0.3 = 1.5, ceil = 2
+      expect(tokens).toBe(2)
+    })
+
+    it('should return minimum of 1 for empty input in DeepSeek tokenizer', () => {
+      // Empty string still returns 1 (minimum)
+      const tokens = estimateTokens('', deepSeekModel)
+      expect(tokens).toBe(1)
+    })
+  })
+})
+
+describe('estimateTokensFromMessages', () => {
+  it('should return 0 for empty message array', () => {
+    expect(estimateTokensFromMessages([])).toBe(0)
+  })
+
+  it('should estimate tokens for single text message', () => {
+    const messages = [createMessage({ text: 'Hello, how are you?' })]
+    const tokens = estimateTokensFromMessages(messages)
+    expect(tokens).toBeGreaterThan(0)
+  })
+
+  it('should estimate tokens for multiple messages', () => {
+    const messages = [
+      createMessage({ text: 'Hello!', role: MessageRoleEnum.User }),
+      createMessage({ text: 'Hi there! How can I help you today?', role: MessageRoleEnum.Assistant }),
+    ]
+    const tokens = estimateTokensFromMessages(messages)
+    expect(tokens).toBeGreaterThan(0)
+  })
+
+  it('should include tokensPerMessage overhead (3 tokens per message)', () => {
+    const singleMessage = [createMessage({ text: 'Hi' })]
+    const twoMessages = [createMessage({ text: 'Hi' }), createMessage({ text: 'Hi' })]
+
+    const tokensSingle = estimateTokensFromMessages(singleMessage)
+    const tokensDouble = estimateTokensFromMessages(twoMessages)
+
+    // Each message adds 3 tokens overhead, so double should add ~3 more
+    expect(tokensDouble - tokensSingle).toBeGreaterThanOrEqual(3)
+  })
+
+  it('should add tokens for message name if present', () => {
+    const withoutName = [createMessage({ text: 'Hello' })]
+    const withName = [createMessage({ text: 'Hello', name: 'user123' })]
+
+    const tokensWithoutName = estimateTokensFromMessages(withoutName)
+    const tokensWithName = estimateTokensFromMessages(withName)
+
+    // Name adds token count + 1 extra token
+    expect(tokensWithName).toBeGreaterThan(tokensWithoutName)
+  })
+
+  it('should skip empty messages', () => {
+    const emptyMessage = createMessage({ text: '' })
+    const nonEmptyMessage = createMessage({ text: 'Hello' })
+
+    const tokensWithEmpty = estimateTokensFromMessages([emptyMessage, nonEmptyMessage])
+    const tokensOnlyNonEmpty = estimateTokensFromMessages([nonEmptyMessage])
+
+    // Empty message should be skipped, so token counts should be equal
+    expect(tokensWithEmpty).toBe(tokensOnlyNonEmpty)
+  })
+
+  it('should include tokens from files', () => {
+    const messageWithFile = createMessage({
+      text: 'Check this file',
+      files: [
+        {
+          id: 'file1',
+          name: 'document.txt',
+          fileType: 'text/plain',
+          tokenCountMap: { default: 500, deepseek: 400 },
+        },
+      ],
+    })
+    const messageWithoutFile = createMessage({ text: 'Check this file' })
+
+    const tokensWithFile = estimateTokensFromMessages([messageWithFile])
+    const tokensWithoutFile = estimateTokensFromMessages([messageWithoutFile])
+
+    expect(tokensWithFile).toBe(tokensWithoutFile + 500)
+  })
+
+  it('should include tokens from links', () => {
+    const messageWithLink = createMessage({
+      text: 'Check this link',
+      links: [
+        {
+          id: 'link1',
+          url: 'https://example.com',
+          title: 'Example',
+          tokenCountMap: { default: 300, deepseek: 250 },
+        },
+      ],
+    })
+    const messageWithoutLink = createMessage({ text: 'Check this link' })
+
+    const tokensWithLink = estimateTokensFromMessages([messageWithLink])
+    const tokensWithoutLink = estimateTokensFromMessages([messageWithoutLink])
+
+    expect(tokensWithLink).toBe(tokensWithoutLink + 300)
+  })
+
+  it('should use DeepSeek token counts for files when model is DeepSeek', () => {
+    const messageWithFile = createMessage({
+      text: 'Check this',
+      files: [
+        {
+          id: 'file1',
+          name: 'doc.txt',
+          fileType: 'text/plain',
+          tokenCountMap: { default: 500, deepseek: 400 },
+        },
+      ],
+    })
+
+    const tokensDefault = estimateTokensFromMessages([messageWithFile], 'input')
+    const tokensDeepSeek = estimateTokensFromMessages([messageWithFile], 'input', deepSeekModel)
+
+    // DeepSeek should use 400 instead of 500
+    expect(tokensDefault).toBeGreaterThan(tokensDeepSeek)
+  })
+
+  it('should handle messages with multiple files and links', () => {
+    const message = createMessage({
+      text: 'Multiple attachments',
+      files: [
+        { id: 'f1', name: 'a.txt', fileType: 'text/plain', tokenCountMap: { default: 100, deepseek: 80 } },
+        { id: 'f2', name: 'b.txt', fileType: 'text/plain', tokenCountMap: { default: 150, deepseek: 120 } },
+      ],
+      links: [{ id: 'l1', url: 'https://a.com', title: 'A', tokenCountMap: { default: 200, deepseek: 160 } }],
+    })
+
+    const baseMessage = createMessage({ text: 'Multiple attachments' })
+    const baseTokens = estimateTokensFromMessages([baseMessage])
+    const withAttachments = estimateTokensFromMessages([message])
+
+    // Should add 100 + 150 + 200 = 450 tokens for attachments
+    expect(withAttachments).toBe(baseTokens + 450)
+  })
+
+  it('should handle system messages', () => {
+    const systemMessage = createMessage({
+      text: 'You are a helpful assistant.',
+      role: MessageRoleEnum.System,
+    })
+    const tokens = estimateTokensFromMessages([systemMessage])
+    expect(tokens).toBeGreaterThan(0)
+  })
+
+  it('should handle assistant messages', () => {
+    const assistantMessage = createMessage({
+      text: 'I am here to help you.',
+      role: MessageRoleEnum.Assistant,
+    })
+    const tokens = estimateTokensFromMessages([assistantMessage])
+    expect(tokens).toBeGreaterThan(0)
+  })
+
+  it('should handle reasoning content in output mode', () => {
+    const messageWithReasoning = createMessage({
+      contentParts: [
+        { type: 'reasoning', text: 'Let me think about this...' },
+        { type: 'text', text: 'The answer is 42.' },
+      ],
+    })
+
+    const tokensOutput = estimateTokensFromMessages([messageWithReasoning], 'output')
+    const tokensInput = estimateTokensFromMessages([messageWithReasoning], 'input')
+
+    // Output mode includes reasoning, input mode does not
+    expect(tokensOutput).toBeGreaterThan(tokensInput)
+  })
+
+  it('should handle messages with image parts', () => {
+    const messageWithImage = createMessage({
+      contentParts: [
+        { type: 'text', text: 'Look at this:' },
+        { type: 'image', storageKey: 'image123' },
+      ],
+    })
+    const tokens = estimateTokensFromMessages([messageWithImage])
+    expect(tokens).toBeGreaterThan(0)
+  })
+
+  it('should handle messages with tool-call parts', () => {
+    const messageWithToolCall = createMessage({
+      contentParts: [
+        { type: 'text', text: 'Searching...' },
+        {
+          type: 'tool-call',
+          state: 'result',
+          toolCallId: 'tc1',
+          toolName: 'web_search',
+          args: { query: 'test' },
+          result: { items: [] },
+        },
+      ],
+    })
+    const tokens = estimateTokensFromMessages([messageWithToolCall])
+    expect(tokens).toBeGreaterThan(0)
+  })
+})
+
+describe('sliceTextByTokenLimit', () => {
+  it('should return empty string for empty input', () => {
+    expect(sliceTextByTokenLimit('', 100)).toBe('')
+  })
+
+  it('should return full text when under limit', () => {
+    const text = 'Hello'
+    const result = sliceTextByTokenLimit(text, 100)
+    expect(result).toBe(text)
+  })
+
+  it('should slice text when over limit', () => {
+    const text = 'The quick brown fox jumps over the lazy dog. '.repeat(50)
+    const result = sliceTextByTokenLimit(text, 50)
+    expect(result.length).toBeLessThan(text.length)
+    expect(estimateTokens(result)).toBeLessThanOrEqual(50)
+  })
+
+  it('should respect token limit boundary', () => {
+    const text = 'a'.repeat(1000)
+    const limit = 10
+    const result = sliceTextByTokenLimit(text, limit)
+    expect(estimateTokens(result)).toBeLessThanOrEqual(limit)
+  })
+
+  it('should use DeepSeek tokenizer when model is DeepSeek', () => {
+    const text = 'Hello 你好 '.repeat(100)
+    const resultDefault = sliceTextByTokenLimit(text, 50)
+    const resultDeepSeek = sliceTextByTokenLimit(text, 50, deepSeekModel)
+
+    expect(resultDefault.length).toBeLessThanOrEqual(text.length)
+    expect(resultDeepSeek.length).toBeLessThanOrEqual(text.length)
+  })
+
+  it('should handle Chinese text', () => {
+    const text = '这是一段很长的中文文本用于测试分词功能'.repeat(20)
+    const result = sliceTextByTokenLimit(text, 100)
+    expect(result.length).toBeLessThanOrEqual(text.length)
+  })
+
+  it('should handle mixed content', () => {
+    const text = 'Hello World '.repeat(50)
+    const result = sliceTextByTokenLimit(text, 100)
+    expect(result.length).toBeLessThanOrEqual(text.length)
+  })
+
+  it('should handle limit of 0', () => {
+    const text = 'Hello'
+    const result = sliceTextByTokenLimit(text, 0)
+    expect(result).toBe('')
+  })
+
+  it('should handle very small limits', () => {
+    const text = 'Hello world!'
+    const result = sliceTextByTokenLimit(text, 1)
+    // Should return as much as fits within 1 token
+    expect(result.length).toBeLessThanOrEqual(text.length)
+  })
+})
