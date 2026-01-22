@@ -306,6 +306,12 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
       return null
     }, [modelInfo?.contextWindow, model?.modelId])
 
+    // Calculate token usage percentage
+    const tokenPercentage = useMemo(() => {
+      if (!effectiveContextWindow || effectiveContextWindow <= 0) return null
+      return Math.round((totalTokens / effectiveContextWindow) * 100)
+    }, [totalTokens, effectiveContextWindow])
+
     useEffect(() => {
       if (!currentSessionId || isNewSession) {
         setIsCompacting(false)
@@ -1104,11 +1110,14 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                   <Flex
                     align="center"
                     gap="2"
-                    className="text-xs text-chatbox-tint-tertiary cursor-pointer hover:text-chatbox-tint-secondary transition-colors px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)]"
+                    className={`text-xs cursor-pointer hover:text-chatbox-tint-secondary transition-colors px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] ${
+                      tokenPercentage && tokenPercentage > 80 ? 'text-red-500' : 'text-chatbox-tint-tertiary'
+                    }`}
                   >
                     <ScalableIcon icon={IconArrowUp} size={14} />
                     <Text span size="xs" className="whitespace-nowrap" c="inherit">
                       {formatNumber(totalTokens)}
+                      {tokenPercentage !== null && tokenPercentage > 10 && ` (${tokenPercentage}%)`}
                     </Text>
                   </Flex>
                 </TokenCountMenu>

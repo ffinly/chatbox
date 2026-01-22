@@ -11,6 +11,23 @@ import type { Message } from '../../shared/types'
 import * as settingActions from '../stores/settingActions'
 import LinkTargetBlank from './Link'
 
+/**
+ * Detects if an error message indicates a context length exceeded error from various AI providers.
+ */
+export function isContextLengthError(errorText: string | null | undefined): boolean {
+  if (!errorText) return false
+  const text = errorText.toLowerCase()
+
+  if (text.includes('context_length_exceeded')) return true
+  if (text.includes('prompt is too long')) return true
+  if (text.includes('maximum context length')) return true
+  if (text.includes('input token limit')) return true
+  if (text.includes('token') && text.includes('exceed') && text.includes('limit')) return true
+  if (text.includes('exceed') && text.includes('max_prompt_tokens')) return true
+
+  return false
+}
+
 export default function MessageErrTips(props: { msg: Message }) {
   const { msg } = props
   if (!msg.error) {
@@ -29,7 +46,12 @@ export default function MessageErrTips(props: { msg: Message }) {
 
   const tips: React.ReactNode[] = []
   let onlyShowTips = false // 是否只显示提示，不显示错误信息详情
-  if (msg.error.startsWith('API Error')) {
+
+  if (isContextLengthError(msg.error) || isContextLengthError(errorMessage)) {
+    tips.push(
+      <Trans i18nKey="Your conversation has exceeded the model's context limit. Try compressing the conversation, starting a new chat, or reducing the number of context messages in settings." />
+    )
+  } else if (msg.error.startsWith('API Error')) {
     tips.push(
       <Trans
         i18nKey="Connection to {{aiProvider}} failed. This typically occurs due to incorrect configuration or {{aiProvider}} account issues. Please <buttonOpenSettings>check your settings</buttonOpenSettings> and verify your {{aiProvider}} account status, or purchase a <LinkToLicensePricing>Chatbox AI License</LinkToLicensePricing> to unlock all advanced models instantly without any configuration."
