@@ -1,5 +1,5 @@
 import { type AnthropicProviderOptions, createAnthropic } from '@ai-sdk/anthropic'
-import type { LanguageModelV2 } from '@ai-sdk/provider'
+import type { LanguageModelV3 } from '@ai-sdk/provider'
 import type { ProviderModelInfo } from '../types'
 import type { ModelDependencies } from '../types/adapters'
 import { normalizeClaudeHost } from '../utils/llm_utils'
@@ -40,7 +40,7 @@ export default class CustomClaude extends AbstractAISDKModel {
     })
   }
 
-  protected getChatModel(_options: CallChatCompletionOptions): LanguageModelV2 {
+  protected getChatModel(_options: CallChatCompletionOptions): LanguageModelV3 {
     const provider = this.getProvider()
     return provider.languageModel(this.options.model.modelId)
   }

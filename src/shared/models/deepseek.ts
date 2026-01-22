@@ -1,5 +1,5 @@
 import { createDeepSeek, type DeepSeekChatOptions } from '@ai-sdk/deepseek'
-import type { LanguageModelV2 } from '@ai-sdk/provider'
+import type { LanguageModelV3 } from '@ai-sdk/provider'
 import type { ProviderModelInfo, ToolUseScope } from '../types'
 import type { ModelDependencies } from '../types/adapters'
 import AbstractAISDKModel, { type CallSettings } from './abstract-ai-sdk'
@@ -31,7 +31,7 @@ export default class DeepSeek extends AbstractAISDKModel {
     })
   }
 
-  protected getChatModel(_options: CallChatCompletionOptions): LanguageModelV2 {
+  protected getChatModel(_options: CallChatCompletionOptions): LanguageModelV3 {
     const provider = this.getProvider()
     return provider.chat(this.options.model.modelId)
   }

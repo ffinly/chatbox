@@ -50,7 +50,7 @@ export default class MistralAI extends AbstractAISDKModel {
 
     return {
       languageModel: mistral,
-      textEmbeddingModel: mistral.textEmbedding,
+      embeddingModel: mistral.embedding,
     }
   }
 

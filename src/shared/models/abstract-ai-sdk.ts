@@ -1,4 +1,4 @@
-import type { LanguageModelV2 } from '@ai-sdk/provider'
+import type { LanguageModelV3 } from '@ai-sdk/provider'
 import {
   APICallError,
   type EmbeddingModel,
@@ -99,18 +99,18 @@ export default abstract class AbstractAISDKModel implements ModelInterface {
 
   protected abstract getProvider(
     options: CallChatCompletionOptions
-  ): Pick<Provider, 'languageModel'> & Partial<Pick<Provider, 'textEmbeddingModel' | 'imageModel'>>
+  ): Pick<Provider, 'languageModel'> & Partial<Pick<Provider, 'embeddingModel' | 'imageModel'>>
 
-  protected abstract getChatModel(options: CallChatCompletionOptions): LanguageModelV2
+  protected abstract getChatModel(options: CallChatCompletionOptions): LanguageModelV3
 
   protected getImageModel(): ImageModel | null {
     return null
   }
 
-  protected getTextEmbeddingModel(options: CallChatCompletionOptions): EmbeddingModel<string> | null {
+  protected getTextEmbeddingModel(options: CallChatCompletionOptions): EmbeddingModel | null {
     const provider = this.getProvider(options)
-    if (provider.textEmbeddingModel) {
-      return provider.textEmbeddingModel(this.options.model.modelId)
+    if (provider.embeddingModel) {
+      return provider.embeddingModel(this.options.model.modelId)
     }
     return null
   }
@@ -480,7 +480,7 @@ export default abstract class AbstractAISDKModel implements ModelInterface {
   }
 
   private async handleStreamingCompletion<T extends ToolSet>(
-    model: LanguageModelV2,
+    model: LanguageModelV3,
     coreMessages: ModelMessage[],
     options: CallChatCompletionOptions<T>,
     callSettings: CallSettings
@@ -551,7 +551,7 @@ export default abstract class AbstractAISDKModel implements ModelInterface {
       })
     }
 
-    const retryable5xx = (context: RetryContext<LanguageModelV2>) => {
+    const retryable5xx = (context: RetryContext<LanguageModelV3>) => {
       if (isErrorAttempt(context.current)) {
         const { error } = context.current
         if (is5xxError(error)) {

@@ -1,5 +1,5 @@
 import { createGoogleGenerativeAI, type GoogleGenerativeAIProviderOptions } from '@ai-sdk/google'
-import type { LanguageModelV2 } from '@ai-sdk/provider'
+import type { LanguageModelV3 } from '@ai-sdk/provider'
 import { generateText } from 'ai'
 import type { ProviderModelInfo } from '../types'
 import type { ModelDependencies } from '../types/adapters'
@@ -48,7 +48,7 @@ export default class CustomGemini extends AbstractAISDKModel {
     })
   }
 
-  protected getChatModel(_options: CallChatCompletionOptions): LanguageModelV2 {
+  protected getChatModel(_options: CallChatCompletionOptions): LanguageModelV3 {
     const provider = this.getProvider()
     return provider.chat(this.options.model.modelId)
   }
