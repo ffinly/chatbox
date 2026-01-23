@@ -1,3 +1,4 @@
+import { isTextFilePath } from '@shared/file-extensions'
 import type {
   ExportChatFormat,
   ExportChatScope,
@@ -9,7 +10,6 @@ import type {
   Settings,
 } from '@shared/types'
 import type { DocumentParserConfig } from '@shared/types/settings'
-import { isTextFilePath } from '@shared/file-extensions'
 import { getMessageText, migrateMessage } from '@shared/utils/message'
 import { pick } from 'lodash'
 import i18n from '@/i18n'
@@ -533,7 +533,7 @@ export function initEmptyChatSession(): Omit<Session, 'id'> {
     type: 'chat',
     messages: [],
     settings: {
-      maxContextMessageCount: settings.maxContextMessageCount || 6,
+      maxContextMessageCount: settings.maxContextMessageCount ?? Number.MAX_SAFE_INTEGER,
       temperature: settings.temperature || undefined,
       topP: settings.topP || undefined,
       ...(settings.defaultChatModel
