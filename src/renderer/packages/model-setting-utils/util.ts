@@ -1,4 +1,4 @@
-import { SystemProviders } from '@shared/defaults'
+import { getSystemProviders } from '@shared/providers'
 import type { ProviderModelInfo } from '@shared/types'
 import { identity, omitBy } from 'lodash'
 import { settingsStore } from '@/stores/settingsStore'
@@ -36,7 +36,7 @@ function updateLocalModels(providerId: string, latestModels: ProviderModelInfo[]
 }
 
 export function updateAllLocalModels() {
-  SystemProviders.forEach((provider) => {
+  getSystemProviders().forEach((provider) => {
     updateLocalModels(provider.id, provider.defaultSettings?.models ?? [])
   })
 }

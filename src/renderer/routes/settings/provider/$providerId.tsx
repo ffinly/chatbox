@@ -97,7 +97,7 @@ function ProviderSettings({ providerId }: { providerId: string }) {
 
   const language = useLanguage()
 
-  const baseInfo = [...SystemProviders, ...(settings.customProviders || [])].find((p) => p.id === providerId)
+  const baseInfo = [...SystemProviders(), ...(settings.customProviders || [])].find((p) => p.id === providerId)
 
   const { providerSettings, setProviderSettings } = useProviderSettings(providerId)
 

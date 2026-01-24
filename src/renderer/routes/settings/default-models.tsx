@@ -181,11 +181,11 @@ const ModelSelectContent = forwardRef<
     () =>
       !provider || !model
         ? autoText || t('Auto')
-        : ([...SystemProviders, ...(customProviders || [])].find((p) => p.id === provider)?.name || provider) +
+        : ([...SystemProviders(), ...(customProviders || [])].find((p) => p.id === provider)?.name || provider) +
           '/' +
-          ((providers?.[provider]?.models || SystemProviders[provider as any]?.defaultSettings?.models)?.find(
-            (m) => m.modelId === model
-          )?.nickname || model),
+          ((
+            providers?.[provider]?.models || SystemProviders().find((p) => p.id === provider)?.defaultSettings?.models
+          )?.find((m) => m.modelId === model)?.nickname || model),
     [provider, model, autoText, t, customProviders, providers]
   )
   return (

@@ -492,7 +492,7 @@ async function migrate_9_to_10(dataStore: MigrateStore): Promise<boolean> {
             openaiCustomModel || openaiCustomModelOptions
               ? uniqBy(
                   [
-                    ...(defaults.SystemProviders.find((p) => p.id === ModelProviderEnum.OpenAI)?.defaultSettings
+                    ...(defaults.SystemProviders().find((p) => p.id === ModelProviderEnum.OpenAI)?.defaultSettings
                       ?.models || []),
                     ...(openaiCustomModel ? [{ modelId: openaiCustomModel }] : []),
                     ...(openaiCustomModelOptions || []).map((o: string) => ({

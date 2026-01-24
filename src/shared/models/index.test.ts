@@ -1,10 +1,10 @@
 import { settings as getDefaultSettings, newConfigs } from 'src/shared/defaults'
+import { getModel } from 'src/shared/providers'
+import OpenAIResponses from 'src/shared/providers/definitions/models/openai-responses'
 import { ModelProviderEnum, type SessionSettings, type Settings } from 'src/shared/types'
 import type { ModelDependencies } from 'src/shared/types/adapters'
 import type { SentryScope } from 'src/shared/utils/sentry_adapter'
 import { describe, expect, it, vi } from 'vitest'
-import CustomOpenAIResponses from './custom-openai-responses'
-import { getModel } from './index'
 
 const mockScope: SentryScope = {
   setTag: vi.fn(),
@@ -28,7 +28,7 @@ const mockDependencies: ModelDependencies = {
 }
 
 describe('getModel', () => {
-  it('returns CustomOpenAIResponses when provider is OpenAIResponses', () => {
+  it('returns OpenAIResponses when provider is OpenAIResponses', () => {
     const sessionSettings: SessionSettings = {
       provider: ModelProviderEnum.OpenAIResponses,
       modelId: 'gpt-5-pro',
@@ -53,6 +53,6 @@ describe('getModel', () => {
 
     const model = getModel(sessionSettings, globalSettings, newConfigs(), mockDependencies)
 
-    expect(model).toBeInstanceOf(CustomOpenAIResponses)
+    expect(model).toBeInstanceOf(OpenAIResponses)
   })
 })

@@ -10,7 +10,7 @@ export const useProviders = () => {
   const providerSettingsMap = settings.providers
 
   const allProviderBaseInfos = useMemo(
-    () => [...SystemProviders, ...(settings.customProviders || [])],
+    () => [...SystemProviders(), ...(settings.customProviders || [])],
     [settings.customProviders]
   )
   const providers = useMemo(

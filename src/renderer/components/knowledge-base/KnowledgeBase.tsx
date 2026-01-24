@@ -172,8 +172,12 @@ const KnowledgeBasePage: React.FC = () => {
 
   const getProviderName = useCallback(
     (providerId: string) => {
-      if (SystemProviders.map((it) => it.id).includes(providerId as ModelProvider)) {
-        return SystemProviders.find((it) => it.id === providerId)?.name
+      if (
+        SystemProviders()
+          .map((it) => it.id)
+          .includes(providerId as ModelProvider)
+      ) {
+        return SystemProviders().find((it) => it.id === providerId)?.name
       }
 
       const customProvider = customProviders?.find((it) => it.id === providerId)

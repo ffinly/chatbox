@@ -297,7 +297,7 @@ vi.mock('../platform/storages', () => ({
 
 vi.mock('../../shared/defaults', () => ({
   settings: vi.fn(() => ({})),
-  SystemProviders: [],
+  SystemProviders: vi.fn(() => []),
 }))
 
 vi.mock('../lib/utils', () => ({
