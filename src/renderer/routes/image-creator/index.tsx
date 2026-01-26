@@ -84,7 +84,6 @@ interface InputToolbarProps {
   onRatioSelect: (ratio: string) => void
   onModelSelect: (provider: string, model: string) => void
   onAddReference: () => void
-  onHistoryOpen: () => void
   onNewCreation: () => void
 }
 
@@ -98,7 +97,6 @@ function InputToolbar({
   onRatioSelect,
   onModelSelect,
   onAddReference,
-  onHistoryOpen,
   onNewCreation,
 }: InputToolbarProps) {
   const { t } = useTranslation()
@@ -178,25 +176,24 @@ function InputToolbar({
         </UnstyledButton>
       </Flex>
 
-      {/* Right Group: New Creation, History (mobile only) */}
+      {/* Right Group: New Creation */}
       <Flex align="center" gap={4}>
         {/* New Creation Button */}
-        <Button
-          variant="light"
-          size="compact-md"
-          radius="lg"
-          fz="sm"
-          leftSection={<IconPlus size={16} />}
-          onClick={onNewCreation}
-        >
-          {t('New Creation')}
-        </Button>
-
-        {/* History Button (mobile only) */}
-        {isSmallScreen && (
-          <ActionIcon variant="subtle" color="gray" size="md" radius="lg" onClick={onHistoryOpen}>
-            <IconHistory size={18} />
+        {isSmallScreen ? (
+          <ActionIcon variant="light" size="md" radius="lg" onClick={onNewCreation}>
+            <IconPlus size={18} />
           </ActionIcon>
+        ) : (
+          <Button
+            variant="light"
+            size="compact-md"
+            radius="lg"
+            fz="sm"
+            leftSection={<IconPlus size={16} />}
+            onClick={onNewCreation}
+          >
+            {t('New Creation')}
+          </Button>
         )}
       </Flex>
     </Flex>
@@ -473,7 +470,18 @@ function ImageCreatorPage() {
     return `${providerName} - ${modelName}`
   }, [selectedProvider, selectedModel, providers])
 
-  const headerRight = !isSmallScreen ? (
+  const headerRight = isSmallScreen ? (
+    <ActionIcon
+      variant="subtle"
+      color="gray"
+      size="md"
+      radius="lg"
+      onClick={() => setShowMobileHistory(true)}
+      className="controls"
+    >
+      <IconHistory size={20} />
+    </ActionIcon>
+  ) : (
     <UnstyledButton
       onClick={() => setShowHistory(!showHistory)}
       className={`controls flex items-center gap-1.5 px-3 py-1.5 rounded-sm ${showHistory ? 'bg-[var(--chatbox-background-tertiary)]' : 'bg-[var(--chatbox-background-secondary)]'}`}
@@ -483,7 +491,7 @@ function ImageCreatorPage() {
         {t('History')}
       </Text>
     </UnstyledButton>
-  ) : null
+  )
 
   return (
     <Page title={t('Image Creator')} right={headerRight}>
@@ -605,7 +613,6 @@ function ImageCreatorPage() {
                     onRatioSelect={setSelectedRatio}
                     onModelSelect={handleModelSelect}
                     onAddReference={() => fileInputRef.current?.click()}
-                    onHistoryOpen={() => setShowMobileHistory(true)}
                     onNewCreation={handleNewCreation}
                   />
                 </Stack>
