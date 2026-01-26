@@ -4,9 +4,8 @@ import { useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { v4 as uuidv4 } from 'uuid'
-import { AdaptiveModal } from '@/components/AdaptiveModal'
 import { AdaptiveSelect } from '@/components/AdaptiveSelect'
-import { Modal } from '@/components/Overlay'
+import { AdaptiveModal } from '@/components/common/AdaptiveModal'
 import { useSettingsStore } from '@/stores/settingsStore'
 
 interface AddProviderModalProps {

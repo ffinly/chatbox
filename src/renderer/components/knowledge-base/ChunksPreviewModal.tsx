@@ -3,7 +3,7 @@ import type { KnowledgeBaseFile } from '@shared/types'
 import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import platform from '@/platform'
-import { Modal } from '../Overlay'
+import { Modal } from '../layout/Overlay'
 
 interface FileChunk {
   fileId: number

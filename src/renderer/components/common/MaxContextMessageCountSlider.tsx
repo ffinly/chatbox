@@ -2,7 +2,7 @@ import { Flex, Slider, Stack, type StackProps, Text, TextInput, type TextProps, 
 import { IconInfoCircle } from '@tabler/icons-react'
 import { type ChangeEvent, type KeyboardEvent, useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ScalableIcon } from './ScalableIcon'
+import { ScalableIcon } from '../common/ScalableIcon'
 
 export function toBeRemoved_getContextMessageCount(
   openaiMaxContextMessageCount: number,

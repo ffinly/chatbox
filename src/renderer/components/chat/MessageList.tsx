@@ -46,13 +46,13 @@ import {
 import { getAllMessageList, getCurrentThreadHistoryHash } from '@/stores/sessionHelpers'
 import { settingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
-import ActionMenu from './ActionMenu'
+import ActionMenu from '../ActionMenu'
 
-import { ErrorBoundary } from './ErrorBoundary'
-import { BlockCodeCollapsedStateProvider } from './Markdown'
+import { ErrorBoundary } from '../common/ErrorBoundary'
+import { BlockCodeCollapsedStateProvider } from '../Markdown'
+import { ScalableIcon } from '../common/ScalableIcon'
 import Message from './Message'
 import MessageNavigation, { ScrollToBottomButton } from './MessageNavigation'
-import { ScalableIcon } from './ScalableIcon'
 import SummaryMessage from './SummaryMessage'
 
 // LRU-like cache with max size to prevent unbounded memory growth

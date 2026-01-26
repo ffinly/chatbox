@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
-import platform from '../platform'
 import { debounce } from 'lodash'
+import { useEffect, useState } from 'react'
+import platform from '@/platform'
 
 /**
  * 为 Windows 桌面用户准备的全屏退出按钮。一些用户会按 F11 强制进入全屏，但是却不知道怎么退出去。

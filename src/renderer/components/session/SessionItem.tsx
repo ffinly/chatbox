@@ -14,9 +14,9 @@ import {
 } from '@/stores/chatStore'
 import { copyAndSwitchSession, switchCurrentSession } from '@/stores/sessionActions'
 import { useUIStore } from '@/stores/uiStore'
-import ActionMenu, { type ActionMenuItemProps } from './ActionMenu'
-import { AssistantAvatar } from './Avatar'
-import { ScalableIcon } from './ScalableIcon'
+import ActionMenu, { type ActionMenuItemProps } from '../ActionMenu'
+import { AssistantAvatar } from '../common/Avatar'
+import { ScalableIcon } from '../common/ScalableIcon'
 
 export interface Props {
   session: SessionMeta

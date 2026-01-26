@@ -26,7 +26,7 @@ import { uiStore } from './uiStore'
 
 const log = getLogger('chat-store')
 
-import { clearScrollPositionCache } from '@/components/MessageList'
+import { clearScrollPositionCache } from '@/components/chat/MessageList'
 import { cleanupSessionAtomCache } from './atoms/throttleWriteSessionAtom'
 import { lastUsedModelStore } from './lastUsedModelStore'
 import queryClient from './queryClient'

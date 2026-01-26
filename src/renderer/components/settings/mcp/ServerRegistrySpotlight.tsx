@@ -3,7 +3,7 @@ import { Spotlight, type SpotlightActionData, type SpotlightActionGroupData } fr
 import { IconJson, IconSearch, IconSquareRoundedPlusFilled } from '@tabler/icons-react'
 import { type FC, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ScalableIcon } from '@/components/ScalableIcon'
+import { ScalableIcon } from '@/components/common/ScalableIcon'
 import { MCP_ENTRIES_COMMUNITY, MCP_ENTRIES_OFFICIAL, type MCPRegistryEntry } from './registries'
 
 const ServerRegistrySpotlight: FC<{

@@ -5,7 +5,7 @@ import clsx from 'clsx'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Artifact } from '@/components/Artifact'
-import { Modal } from '@/components/Overlay'
+import { Modal } from '@/components/layout/Overlay'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 
 export interface ArtifactPreviewProps {

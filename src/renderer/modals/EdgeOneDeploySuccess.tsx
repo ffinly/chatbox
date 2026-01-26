@@ -2,8 +2,8 @@ import NiceModal, { useModal } from '@ebay/nice-modal-react'
 import { ActionIcon, Button, CopyButton, Flex, Stack, Text, TextInput, Tooltip } from '@mantine/core'
 import { IconCheck, IconCopy, IconExternalLink } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
-import { AdaptiveModal } from '@/components/AdaptiveModal'
-import { ScalableIcon } from '@/components/ScalableIcon'
+import { AdaptiveModal } from '@/components/common/AdaptiveModal'
+import { ScalableIcon } from '@/components/common/ScalableIcon'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 
 export interface EdgeOneDeploySuccessProps {

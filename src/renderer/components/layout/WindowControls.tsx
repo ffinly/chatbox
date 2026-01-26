@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { platformTypeAtom } from '@/hooks/useNeedRoomForWinControls'
 import { useWindowMaximized } from '@/hooks/useWindowMaximized'
 import platform from '@/platform'
-import { ScalableIcon } from './ScalableIcon'
+import { ScalableIcon } from '../common/ScalableIcon'
 
 export const WindowControls: FC<FlexProps> = ({ className, ...otherProps }) => {
   const { t } = useTranslation()

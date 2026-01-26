@@ -9,7 +9,7 @@ import {
 } from '@tabler/icons-react'
 import { forwardRef } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { ScalableIcon } from '@/components/ScalableIcon'
+import { ScalableIcon } from '@/components/common/ScalableIcon'
 import { trackingEvent } from '@/packages/event'
 import platform from '@/platform'
 import { useSettingsStore } from '@/stores/settingsStore'

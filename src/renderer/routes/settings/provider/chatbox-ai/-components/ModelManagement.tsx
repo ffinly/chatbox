@@ -3,10 +3,9 @@ import type { ProviderModelInfo } from '@shared/types'
 import { IconRefresh, IconRestore } from '@tabler/icons-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AdaptiveModal } from '@/components/AdaptiveModal'
+import { AdaptiveModal } from '@/components/common/AdaptiveModal'
+import { ScalableIcon } from '@/components/common/ScalableIcon'
 import { ModelList } from '@/components/ModelList'
-import { Modal } from '@/components/Overlay'
-import { ScalableIcon } from '@/components/ScalableIcon'
 
 interface ModelManagementProps {
   chatboxAIModels: ProviderModelInfo[]

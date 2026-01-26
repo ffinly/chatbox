@@ -1,7 +1,7 @@
 import { ActionIcon } from '@mantine/core'
 import { IconWorld } from '@tabler/icons-react'
 import { forwardRef } from 'react'
-import { ScalableIcon } from '../ScalableIcon'
+import { ScalableIcon } from '../common/ScalableIcon'
 import { desktopActionIconProps, mobileActionIconProps } from './actionIconStyles'
 
 interface WebBrowsingButtonProps {

@@ -5,7 +5,7 @@ import type { FC } from 'react'
 import useNeedRoomForWinControls from '@/hooks/useNeedRoomForWinControls'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { useUIStore } from '@/stores/uiStore'
-import Divider from './Divider'
+import Divider from '../common/Divider'
 import WindowControls from './WindowControls'
 
 export type PageProps = {

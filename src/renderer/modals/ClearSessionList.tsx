@@ -2,7 +2,7 @@ import NiceModal, { useModal } from '@ebay/nice-modal-react'
 import { Button, Input } from '@mantine/core'
 import { type ChangeEvent, useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { AdaptiveModal } from '@/components/AdaptiveModal'
+import { AdaptiveModal } from '@/components/common/AdaptiveModal'
 import { trackingEvent } from '@/packages/event'
 import { clearConversationList } from '@/stores/sessionActions'
 

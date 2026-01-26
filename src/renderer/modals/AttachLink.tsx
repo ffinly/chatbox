@@ -2,7 +2,7 @@ import NiceModal, { useModal } from '@ebay/nice-modal-react'
 import { Button, Textarea } from '@mantine/core'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AdaptiveModal } from '@/components/AdaptiveModal'
+import { AdaptiveModal } from '@/components/common/AdaptiveModal'
 
 const AttachLink = NiceModal.create(() => {
   const modal = useModal()

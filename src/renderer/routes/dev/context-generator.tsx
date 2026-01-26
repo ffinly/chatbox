@@ -20,7 +20,7 @@ import { IconDeviceFloppy, IconPlayerPlay, IconRefresh, IconTrash } from '@table
 import { createFileRoute } from '@tanstack/react-router'
 import { useCallback, useMemo, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
-import { ScalableIcon } from '@/components/ScalableIcon'
+import { ScalableIcon } from '@/components/common/ScalableIcon'
 import { estimateTokensFromMessages } from '@/packages/token'
 import { createSession } from '@/stores/chatStore'
 import { switchCurrentSession } from '@/stores/sessionActions'

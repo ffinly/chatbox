@@ -2,7 +2,7 @@ import { Alert, Flex, Progress, Stack, Text } from '@mantine/core'
 import { IconAlertTriangle, IconArrowRight, IconExternalLink } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
 import type { ChatboxAILicenseDetail } from '@shared/types'
-import { ScalableIcon } from '@/components/ScalableIcon'
+import { ScalableIcon } from '@/components/common/ScalableIcon'
 import platform from '@/platform'
 import { formatUsage } from '@/utils/format'
 

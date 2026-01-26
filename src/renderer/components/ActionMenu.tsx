@@ -4,8 +4,8 @@ import { type FC, type MouseEventHandler, type ReactElement, useEffect, useRef, 
 import { useTranslation } from 'react-i18next'
 import { Drawer } from 'vaul'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
-import { Divider } from './Divider'
-import { ScalableIcon } from './ScalableIcon'
+import { Divider } from './common/Divider'
+import { ScalableIcon } from './common/ScalableIcon'
 
 export type ActionMenuItemProps =
   | {

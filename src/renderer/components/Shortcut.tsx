@@ -9,7 +9,7 @@ import {
 import { IconAlertHexagon } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
 import { getOS } from '@/packages/navigator'
-import { ScalableIcon } from './ScalableIcon'
+import { ScalableIcon } from './common/ScalableIcon'
 
 const os = getOS()
 

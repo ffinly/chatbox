@@ -7,8 +7,8 @@ import { useTranslation } from 'react-i18next'
 import Markdown from '@/components/Markdown'
 import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/settingsStore'
-import { Modal } from './Overlay'
-import { ScalableIcon } from './ScalableIcon'
+import { Modal } from '../layout/Overlay'
+import { ScalableIcon } from '../common/ScalableIcon'
 
 interface SummaryMessageProps {
   msg: Message

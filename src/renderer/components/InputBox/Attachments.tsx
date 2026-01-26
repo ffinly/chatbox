@@ -1,11 +1,11 @@
 import NiceModal from '@ebay/nice-modal-react'
 import { Tooltip, Typography } from '@mui/material'
+import { ChatboxAIAPIError } from '@shared/models/errors'
 import { AlertCircle, CheckCircle, Eye, Link, Link2, Loader2, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { ChatboxAIAPIError } from '@shared/models/errors'
-import FileIcon from './FileIcon'
-import { ImageInStorage } from './Image'
-import MiniButton from './MiniButton'
+import FileIcon from '../FileIcon'
+import { ImageInStorage } from '../Image'
+import MiniButton from '../common/MiniButton'
 
 // 根据错误码获取翻译后的错误消息
 function getTranslatedErrorMessage(errorCode: string | undefined, t: (key: string) => string): string | undefined {

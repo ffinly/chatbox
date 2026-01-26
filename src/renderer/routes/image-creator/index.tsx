@@ -27,7 +27,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CHATBOXAI_DEFAULT_IMAGE_MODEL, ImageModelSelect } from '@/components/ImageModelSelect'
-import Page from '@/components/Page'
+import Page from '@/components/layout/Page'
 import { useProviders } from '@/hooks/useProviders'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { getLogger } from '@/lib/utils'
@@ -36,15 +36,15 @@ import { StorageKeyGenerator } from '@/storage/StoreStorage'
 import { createAndGenerate, retryGeneration } from '@/stores/imageGenerationActions'
 import {
   deleteRecord,
-  imageGenerationStore,
   IMAGE_GEN_LIST_QUERY_KEY,
+  imageGenerationStore,
   useCurrentGeneratingId,
   useCurrentRecordId,
   useImageGenerationHistory,
   useImageGenerationRecord,
 } from '@/stores/imageGenerationStore'
-import { queryClient } from '@/stores/queryClient'
 import { lastUsedModelStore } from '@/stores/lastUsedModelStore'
+import { queryClient } from '@/stores/queryClient'
 import {
   blobToDataUrl,
   CHATBOXAI_IMAGE_MODEL_IDS,

@@ -3,8 +3,8 @@ import { Button, Text } from '@mantine/core'
 import { IconCheck, IconCopy } from '@tabler/icons-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AdaptiveModal } from '@/components/AdaptiveModal'
-import { ScalableIcon } from '@/components/ScalableIcon'
+import { AdaptiveModal } from '@/components/common/AdaptiveModal'
+import { ScalableIcon } from '@/components/common/ScalableIcon'
 import { useCopied } from '@/hooks/useCopied'
 
 interface JsonViewerProps {

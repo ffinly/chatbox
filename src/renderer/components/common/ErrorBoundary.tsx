@@ -1,7 +1,7 @@
 import * as Sentry from '@sentry/react'
 import React from 'react'
-import { getLogger } from '../lib/utils'
-import { router } from '../router'
+import { getLogger } from '../../lib/utils'
+import { router } from '../../router'
 
 const log = getLogger('ErrorBoundary')
 

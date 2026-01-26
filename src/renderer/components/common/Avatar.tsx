@@ -3,8 +3,8 @@ import { IconMessageCircle, IconPhoto, IconSettingsFilled, IconUser } from '@tab
 import clsx from 'clsx'
 import type { FC } from 'react'
 import { useSettingsStore } from '@/stores/settingsStore'
-import { ImageInStorage } from './Image'
-import Robot from './icons/Robot'
+import { ImageInStorage } from '../Image'
+import Robot from '../icons/Robot'
 import { ScalableIcon } from './ScalableIcon'
 
 export type SystemAvatarProps = {

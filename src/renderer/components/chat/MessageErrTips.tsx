@@ -1,15 +1,15 @@
 import { Link } from '@mui/material'
 import Alert from '@mui/material/Alert'
+import { aiProviderNameHash } from '@shared/models'
+import { ChatboxAIAPIError } from '@shared/models/errors'
+import type { Message } from '@shared/types'
 import type React from 'react'
 import { Trans } from 'react-i18next'
 import { navigateToSettings } from '@/modals/Settings'
 import { trackingEvent } from '@/packages/event'
 import platform from '@/platform'
-import { aiProviderNameHash } from '../../shared/models'
-import { ChatboxAIAPIError } from '../../shared/models/errors'
-import type { Message } from '../../shared/types'
-import * as settingActions from '../stores/settingActions'
-import LinkTargetBlank from './Link'
+import * as settingActions from '@/stores/settingActions'
+import LinkTargetBlank from '../common/Link'
 
 /**
  * Detects if an error message indicates a context length exceeded error from various AI providers.

@@ -67,14 +67,14 @@ import {
 import * as dom from '../../hooks/dom'
 import * as sessionHelpers from '../../stores/sessionHelpers'
 import * as toastActions from '../../stores/toastActions'
-import { FileMiniCard, ImageMiniCard, LinkMiniCard } from '../Attachments'
-import { CompactionStatus } from '../CompactionStatus'
-import { CompressionModal } from '../CompressionModal'
+import { CompactionStatus } from '../chat/CompactionStatus'
+import { CompressionModal } from '../common/CompressionModal'
 import ProviderImageIcon from '../icons/ProviderImageIcon'
 import KnowledgeBaseMenu from '../knowledge-base/KnowledgeBaseMenu'
 import ModelSelector from '../ModelSelector'
 import MCPMenu from '../mcp/MCPMenu'
-import { ScalableIcon } from '../ScalableIcon'
+import { ScalableIcon } from '../common/ScalableIcon'
+import { FileMiniCard, ImageMiniCard, LinkMiniCard } from './Attachments'
 import { ImageUploadInput } from './ImageUploadInput'
 import {
   cleanupFile,

@@ -6,7 +6,7 @@ import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import platform from '@/platform'
-import { ScalableIcon } from '../ScalableIcon'
+import { ScalableIcon } from '../common/ScalableIcon'
 
 interface ModelSelectorsProps {
   embeddingModelList: Array<{ label: string; value: string }>

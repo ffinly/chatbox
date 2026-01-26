@@ -14,7 +14,7 @@ import {
 import { IconArrowRight, IconCircleCheckFilled, IconX } from '@tabler/icons-react'
 import { forwardRef, useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ScalableIcon } from '@/components/ScalableIcon'
+import { ScalableIcon } from '@/components/common/ScalableIcon'
 import { trackingEvent } from '@/packages/event'
 import platform from '@/platform'
 import icon from '@/static/icon.png'

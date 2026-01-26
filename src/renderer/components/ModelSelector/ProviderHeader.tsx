@@ -1,9 +1,9 @@
 import { Flex, Text } from '@mantine/core'
 import { IconChevronDown, IconServer, IconStarFilled } from '@tabler/icons-react'
 import clsx from 'clsx'
-import Divider from '../Divider'
+import Divider from '../common/Divider'
 import ProviderIcon from '../icons/ProviderIcon'
-import { ScalableIcon } from '../ScalableIcon'
+import { ScalableIcon } from '../common/ScalableIcon'
 
 interface ProviderHeaderProps {
   provider: {

@@ -3,8 +3,8 @@ import { Button, Combobox, Input, InputBase, Stack, Text, Textarea, useCombobox 
 import { type Message, type MessageContentParts, type MessageRole, MessageRoleEnum } from '@shared/types'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AdaptiveModal } from '@/components/AdaptiveModal'
-import { AssistantAvatar, SystemAvatar, UserAvatar } from '@/components/Avatar'
+import { AssistantAvatar, SystemAvatar, UserAvatar } from '@/components/common/Avatar'
+import { AdaptiveModal } from '@/components/common/AdaptiveModal'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { generateMoreInNewFork, modifyMessage } from '@/stores/sessionActions'
 

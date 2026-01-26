@@ -1,7 +1,7 @@
 import { ActionIcon, Tooltip } from '@mantine/core'
 import { IconAdjustmentsHorizontal } from '@tabler/icons-react'
 import { forwardRef } from 'react'
-import { ScalableIcon } from '../ScalableIcon'
+import { ScalableIcon } from '../common/ScalableIcon'
 import { desktopActionIconProps, mobileActionIconProps } from './actionIconStyles'
 
 interface SessionSettingsButtonProps {

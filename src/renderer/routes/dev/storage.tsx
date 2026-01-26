@@ -20,7 +20,7 @@ import {
 import { IconDatabase, IconEye, IconFile, IconRefresh, IconSearch } from '@tabler/icons-react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AdaptiveModal } from '@/components/AdaptiveModal'
+import { AdaptiveModal } from '@/components/common/AdaptiveModal'
 import storage from '@/storage'
 
 export const Route = createFileRoute('/dev/storage')({

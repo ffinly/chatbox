@@ -4,7 +4,7 @@ import { IconBulb, IconEye, IconStar, IconStarFilled, IconTool } from '@tabler/i
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
 import { ModelIcon } from '../icons/ModelIcon'
-import { ScalableIcon } from '../ScalableIcon'
+import { ScalableIcon } from '../common/ScalableIcon'
 
 // Common styles
 export const SELECTED_BG_CLASS = '!bg-chatbox-background-brand-secondary'

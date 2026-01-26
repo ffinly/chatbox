@@ -9,7 +9,7 @@ import SwipeableViews from 'react-swipeable-views'
 import { Drawer } from 'vaul'
 import { useProviders } from '@/hooks/useProviders'
 import { collapsedProvidersAtom } from '@/stores/atoms/uiAtoms'
-import { ScalableIcon } from '../ScalableIcon'
+import { ScalableIcon } from '../common/ScalableIcon'
 import { ProviderHeader } from './ProviderHeader'
 import { groupFavoriteModels, ModelItemInDrawer, SELECTED_BG_CLASS } from './shared'
 

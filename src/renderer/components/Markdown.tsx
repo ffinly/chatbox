@@ -63,7 +63,7 @@ import * as toastActions from '../stores/toastActions'
 import IconDart from './icons/Dart'
 import IconJava from './icons/Java'
 import { MessageMermaid, SVGPreview } from './Mermaid'
-import { ScalableIcon } from './ScalableIcon'
+import { ScalableIcon } from './common/ScalableIcon'
 
 const CODE_BLOCK_COLLAPSE_LINE_THRESHOLD = 7
 

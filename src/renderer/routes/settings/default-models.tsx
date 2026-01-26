@@ -6,7 +6,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { forwardRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import ModelSelector from '@/components/ModelSelector'
-import { ScalableIcon } from '@/components/ScalableIcon'
+import { ScalableIcon } from '@/components/common/ScalableIcon'
 import { useSettingsStore } from '@/stores/settingsStore'
 
 export const Route = createFileRoute('/settings/default-models')({

@@ -1,12 +1,12 @@
 import { Alert, Button, Flex, Group, Pill, ScrollArea, Stack, Text, Tooltip } from '@mantine/core'
+import { ChatboxAIAPIError } from '@shared/models/errors'
+import type { KnowledgeBaseFile } from '@shared/types'
+import { formatFileSize } from '@shared/utils'
 import { IconAlertTriangle, IconFile, IconInfoCircle, IconRefresh } from '@tabler/icons-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ChatboxAIAPIError } from '@shared/models/errors'
-import type { KnowledgeBaseFile } from '@shared/types'
-import { formatFileSize } from '@shared/utils'
-import { Modal } from '@/components/Overlay'
+import { Modal } from '@/components/layout/Overlay'
 import platform from '@/platform'
 
 /**

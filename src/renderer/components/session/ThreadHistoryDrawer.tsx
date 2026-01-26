@@ -13,8 +13,8 @@ import { removeCurrentThread, removeThread, switchThread as switchThreadAction }
 import { getAllMessageList, getCurrentThreadHistoryHash } from '@/stores/sessionHelpers'
 import { useLanguage } from '@/stores/settingsStore'
 import { CHATBOX_BUILD_PLATFORM } from '@/variables'
-import ActionMenu from './ActionMenu'
-import { ScalableIcon } from './ScalableIcon'
+import ActionMenu from '../ActionMenu'
+import { ScalableIcon } from '../common/ScalableIcon'
 
 export default function ThreadHistoryDrawer({ session }: { session: Session }) {
   const { t } = useTranslation()

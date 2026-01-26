@@ -15,7 +15,7 @@ import {
 import { capitalize } from 'lodash'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ScalableIcon } from './ScalableIcon'
+import { ScalableIcon } from './common/ScalableIcon'
 
 interface ModelListProps {
   models: ProviderModelInfo[]

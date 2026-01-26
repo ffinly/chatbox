@@ -4,7 +4,7 @@ import type { HTMLAttributes, ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Drawer } from 'vaul'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
-import { Modal } from './Overlay'
+import { Modal } from '../layout/Overlay'
 
 export interface AdaptiveModalProps extends Omit<MantineModalProps, 'opened' | 'onClose'> {
   opened: boolean

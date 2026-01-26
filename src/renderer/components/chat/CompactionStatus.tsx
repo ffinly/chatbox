@@ -5,7 +5,7 @@ import { memo, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { runCompactionWithUIState } from '@/packages/context-management'
 import { compactionUIStateMapAtom, setCompactionUIState } from '@/stores/atoms'
-import { ScalableIcon } from './ScalableIcon'
+import { ScalableIcon } from '../common/ScalableIcon'
 
 interface CompactionStatusProps {
   sessionId: string

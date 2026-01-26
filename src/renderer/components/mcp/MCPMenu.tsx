@@ -8,7 +8,7 @@ import { navigateToSettings } from '@/modals/Settings'
 import { BUILTIN_MCP_SERVERS } from '@/packages/mcp/builtin'
 import { useAutoValidate } from '@/stores/premiumActions'
 import { useMcpSettings } from '@/stores/settingsStore'
-import { ScalableIcon } from '../ScalableIcon'
+import { ScalableIcon } from '../common/ScalableIcon'
 import MCPStatus from './MCPStatus'
 
 interface ServerItem {

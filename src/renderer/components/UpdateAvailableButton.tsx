@@ -2,7 +2,7 @@ import { Button } from '@mantine/core'
 import { IconRefresh } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
 import platform from '@/platform'
-import { ScalableIcon } from './ScalableIcon'
+import { ScalableIcon } from './common/ScalableIcon'
 
 const UpdateAvailableButton = () => {
   const { t } = useTranslation()

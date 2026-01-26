@@ -1,7 +1,7 @@
 import { ActionIcon, Group, Paper, Text, Tooltip } from '@mantine/core'
 import { IconArrowLeft, IconHome } from '@tabler/icons-react'
 import { useLocation, useNavigate } from '@tanstack/react-router'
-import { ScalableIcon } from '../ScalableIcon'
+import { ScalableIcon } from '../common/ScalableIcon'
 import ThemeSwitchButton from './ThemeSwitchButton'
 
 interface DevHeaderProps {

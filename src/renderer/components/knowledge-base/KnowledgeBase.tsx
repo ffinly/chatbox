@@ -15,8 +15,8 @@ import * as remote from '@/packages/remote'
 import platform from '@/platform'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { trackEvent } from '@/utils/track'
-import { Modal } from '../Overlay'
-import { ScalableIcon } from '../ScalableIcon'
+import { Modal } from '../layout/Overlay'
+import { ScalableIcon } from '../common/ScalableIcon'
 import KnowledgeBaseDocuments from './KnowledgeBaseDocuments'
 import {
   DocumentParserDisplay,

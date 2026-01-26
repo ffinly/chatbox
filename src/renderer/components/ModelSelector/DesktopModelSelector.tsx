@@ -19,7 +19,7 @@ import { useTranslation } from 'react-i18next'
 import { useProviders } from '@/hooks/useProviders'
 import { navigateToSettings } from '@/modals/Settings'
 import { collapsedProvidersAtom } from '@/stores/atoms/uiAtoms'
-import { ScalableIcon } from '../ScalableIcon'
+import { ScalableIcon } from '../common/ScalableIcon'
 import { ProviderHeader } from './ProviderHeader'
 import { groupFavoriteModels, ModelItem, SELECTED_BG_CLASS } from './shared'
 

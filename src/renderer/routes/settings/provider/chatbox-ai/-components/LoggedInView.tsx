@@ -3,7 +3,7 @@ import { IconArrowRight, IconDots, IconExclamationCircle, IconExternalLink, Icon
 import { useQuery } from '@tanstack/react-query'
 import { forwardRef, useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ScalableIcon } from '@/components/ScalableIcon'
+import { ScalableIcon } from '@/components/common/ScalableIcon'
 import { trackingEvent } from '@/packages/event'
 import { getLicenseDetailRealtime, getUserProfile, listLicensesByUser } from '@/packages/remote'
 import platform from '@/platform'

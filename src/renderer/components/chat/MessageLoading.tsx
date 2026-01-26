@@ -3,8 +3,8 @@ import type { Message } from '@shared/types'
 import { useAtomValue } from 'jotai'
 import { Loader } from 'lucide-react'
 import { Trans, useTranslation } from 'react-i18next'
-import * as atoms from '../stores/atoms'
-import LinkTargetBlank from './Link'
+import * as atoms from '@/stores/atoms'
+import LinkTargetBlank from '../common/Link'
 
 export default function MessageStatuses(props: { statuses: Message['status'] }) {
   const { statuses } = props

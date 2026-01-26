@@ -1,7 +1,7 @@
 import { ActionIcon, Button, Container, Flex } from '@mantine/core'
 import { Icon24Hours } from '@tabler/icons-react'
 import { createFileRoute } from '@tanstack/react-router'
-import { ScalableIcon } from '@/components/ScalableIcon'
+import { ScalableIcon } from '@/components/common/ScalableIcon'
 
 export const Route = createFileRoute('/dev/css-var')({
   component: RouteComponent,
