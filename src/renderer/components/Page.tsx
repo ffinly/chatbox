@@ -12,9 +12,10 @@ export type PageProps = {
   children?: React.ReactNode
   title: string | React.ReactNode
   left?: React.ReactNode
+  right?: React.ReactNode
 }
 
-export const Page: FC<PageProps> = ({ children, title, left }) => {
+export const Page: FC<PageProps> = ({ children, title, left, right }) => {
   const showSidebar = useUIStore((s) => s.showSidebar)
   const setShowSidebar = useUIStore((s) => s.setShowSidebar)
   const isSmallScreen = useIsSmallScreen()
@@ -47,6 +48,7 @@ export const Page: FC<PageProps> = ({ children, title, left }) => {
             title
           )}
         </Flex>
+        {right}
         <WindowControls className="-mr-3 ml-2" />
         {isSmallScreen && <Box w={28} />}
       </Flex>

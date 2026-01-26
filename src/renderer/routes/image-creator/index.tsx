@@ -1,6 +1,7 @@
 import {
   ActionIcon,
   Box,
+  Button,
   Flex,
   Loader,
   Menu,
@@ -17,7 +18,6 @@ import {
   IconAspectRatio,
   IconChevronRight,
   IconHistory,
-  IconHistoryOff,
   IconPhoto,
   IconPlus,
   IconSend2,
@@ -79,7 +79,6 @@ interface InputToolbarProps {
   modelDisplayName: string
   selectedRatio: string
   ratioOptions: string[]
-  showHistory: boolean
   onModelDrawerOpen: () => void
   onRatioDrawerOpen: () => void
   onRatioSelect: (ratio: string) => void
@@ -87,7 +86,6 @@ interface InputToolbarProps {
   onAddReference: () => void
   onHistoryOpen: () => void
   onNewCreation: () => void
-  onHistoryToggle: () => void
 }
 
 function InputToolbar({
@@ -95,7 +93,6 @@ function InputToolbar({
   modelDisplayName,
   selectedRatio,
   ratioOptions,
-  showHistory,
   onModelDrawerOpen,
   onRatioDrawerOpen,
   onRatioSelect,
@@ -103,7 +100,6 @@ function InputToolbar({
   onAddReference,
   onHistoryOpen,
   onNewCreation,
-  onHistoryToggle,
 }: InputToolbarProps) {
   const { t } = useTranslation()
 
@@ -171,33 +167,36 @@ function InputToolbar({
         )}
 
         {/* Reference Image Button */}
-        <Tooltip label={t('Add Reference Image')} position="top">
-          <ActionIcon variant="subtle" color="gray" size="md" radius="lg" onClick={onAddReference}>
-            <IconPhoto size={18} />
-          </ActionIcon>
-        </Tooltip>
+        <UnstyledButton
+          onClick={onAddReference}
+          className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors"
+        >
+          <IconPhoto size={16} className="text-[var(--chatbox-tint-secondary)]" />
+          <Text size="sm" className="text-[var(--chatbox-tint-secondary)]">
+            {t('Upload')}
+          </Text>
+        </UnstyledButton>
       </Flex>
 
-      {/* Right Group: New Creation, History Toggle */}
+      {/* Right Group: New Creation, History (mobile only) */}
       <Flex align="center" gap={4}>
         {/* New Creation Button */}
-        <Tooltip label={t('New Creation')} position="top">
-          <ActionIcon variant="subtle" color="gray" size="md" radius="lg" onClick={onNewCreation}>
-            <IconPlus size={18} />
-          </ActionIcon>
-        </Tooltip>
+        <Button
+          variant="light"
+          size="compact-md"
+          radius="lg"
+          fz="sm"
+          leftSection={<IconPlus size={16} />}
+          onClick={onNewCreation}
+        >
+          {t('New Creation')}
+        </Button>
 
-        {/* History Toggle Button */}
-        {isSmallScreen ? (
+        {/* History Button (mobile only) */}
+        {isSmallScreen && (
           <ActionIcon variant="subtle" color="gray" size="md" radius="lg" onClick={onHistoryOpen}>
             <IconHistory size={18} />
           </ActionIcon>
-        ) : (
-          <Tooltip label={showHistory ? t('Hide History') : t('Show History')} position="top">
-            <ActionIcon variant="subtle" color="gray" size="md" radius="lg" onClick={onHistoryToggle}>
-              {showHistory ? <IconHistoryOff size={18} /> : <IconHistory size={18} />}
-            </ActionIcon>
-          </Tooltip>
         )}
       </Flex>
     </Flex>
@@ -474,8 +473,20 @@ function ImageCreatorPage() {
     return `${providerName} - ${modelName}`
   }, [selectedProvider, selectedModel, providers])
 
+  const headerRight = !isSmallScreen ? (
+    <UnstyledButton
+      onClick={() => setShowHistory(!showHistory)}
+      className={`controls flex items-center gap-1.5 px-3 py-1.5 rounded-sm ${showHistory ? 'bg-[var(--chatbox-background-tertiary)]' : 'bg-[var(--chatbox-background-secondary)]'}`}
+    >
+      <IconHistory size={18} className="text-[var(--chatbox-tint-secondary)]" />
+      <Text size="sm" className="text-[var(--chatbox-tint-secondary)]">
+        {t('History')}
+      </Text>
+    </UnstyledButton>
+  ) : null
+
   return (
-    <Page title={t('Image Creator')}>
+    <Page title={t('Image Creator')} right={headerRight}>
       <Flex flex={1} h="100%" className="overflow-hidden relative">
         {/* Main Content Area */}
         <Flex direction="column" flex={1} h="100%" className="overflow-hidden relative">
@@ -589,7 +600,6 @@ function ImageCreatorPage() {
                     modelDisplayName={modelDisplayName}
                     selectedRatio={selectedRatio}
                     ratioOptions={ratioOptions}
-                    showHistory={showHistory}
                     onModelDrawerOpen={() => setShowModelDrawer(true)}
                     onRatioDrawerOpen={() => setShowRatioDrawer(true)}
                     onRatioSelect={setSelectedRatio}
@@ -597,7 +607,6 @@ function ImageCreatorPage() {
                     onAddReference={() => fileInputRef.current?.click()}
                     onHistoryOpen={() => setShowMobileHistory(true)}
                     onNewCreation={handleNewCreation}
-                    onHistoryToggle={() => setShowHistory(!showHistory)}
                   />
                 </Stack>
               </Box>
