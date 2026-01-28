@@ -99,14 +99,6 @@ const TokenCountMenu: FC<Props> = ({
           <Text size="sm" fw={600}>
             {t('Estimated Token Usage')}
           </Text>
-          {isCalculating && (
-            <Flex align="center" gap="xs">
-              <Loader size="xs" />
-              <Text size="xs" c="dimmed">
-                {t('Calculating...')}
-              </Text>
-            </Flex>
-          )}
         </Flex>
 
         <Menu.Item disabled style={{ cursor: 'default' }}>
