@@ -181,7 +181,7 @@ export default defineConfig(({ mode }) => {
         outDir: isProduction ? 'release/app/dist/renderer' : undefined,
         target: 'es2020', // Avoid static initialization blocks for browser compatibility
         sourcemap: isProduction ? 'hidden' : true,
-        minify: isProduction,
+        minify: isProduction ? 'esbuild' : false, // Use esbuild for faster, less memory-intensive minification
         rollupOptions: {
           output: {
             entryFileNames: 'js/[name].[hash].js',
@@ -197,6 +197,21 @@ export default defineConfig(({ mode }) => {
                 return 'images/[name].[hash][extname]'
               }
               return 'assets/[name].[hash][extname]'
+            },
+            // Optimize chunk splitting to reduce memory usage during build
+            manualChunks(id) {
+              if (id.includes('node_modules')) {
+                // Split large vendor chunks
+                if (id.includes('@ai-sdk') || id.includes('ai/')) {
+                  return 'vendor-ai'
+                }
+                if (id.includes('@mantine') || id.includes('@tabler')) {
+                  return 'vendor-ui'
+                }
+                if (id.includes('mermaid') || id.includes('d3')) {
+                  return 'vendor-charts'
+                }
+              }
             },
           },
         },
