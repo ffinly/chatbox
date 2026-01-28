@@ -10,10 +10,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { v4 as uuidv4 } from 'uuid'
 import { z } from 'zod'
-import InputBox, { type InputBoxPayload } from '@/components/InputBox'
+import { ScalableIcon } from '@/components/common/ScalableIcon'
+import InputBox, { type InputBoxPayload } from '@/components/InputBox/InputBox'
 import HomepageIcon from '@/components/icons/HomepageIcon'
 import Page from '@/components/layout/Page'
-import { ScalableIcon } from '@/components/common/ScalableIcon'
 import { useMyCopilots, useRemoteCopilots } from '@/hooks/useCopilots'
 import { useProviders } from '@/hooks/useProviders'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
@@ -98,7 +98,7 @@ function Index() {
   }, [routerState.location.search])
 
   const handleSubmit = useCallback(
-    async ({ constructedMessage, needGenerating = true }: InputBoxPayload) => {
+    async ({ constructedMessage, needGenerating = true, onUserMessageReady }: InputBoxPayload) => {
       const newSession = await createSessionStore({
         name: session.name,
         type: 'chat',
@@ -128,6 +128,7 @@ function Index() {
       void submitNewUserMessage(newSession.id, {
         newUserMsg: constructedMessage,
         needGenerating,
+        onUserMessageReady,
       })
     },
     [

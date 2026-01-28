@@ -1,5 +1,17 @@
 import NiceModal from '@ebay/nice-modal-react'
-import { ActionIcon, Box, Button, Flex, Menu, Stack, Text, Textarea, Tooltip, UnstyledButton } from '@mantine/core'
+import {
+  ActionIcon,
+  Box,
+  Button,
+  Flex,
+  Loader,
+  Menu,
+  Stack,
+  Text,
+  Textarea,
+  Tooltip,
+  UnstyledButton,
+} from '@mantine/core'
 import { useViewportSize } from '@mantine/hooks'
 import {
   getFileAcceptConfig,
@@ -7,6 +19,7 @@ import {
   getUnsupportedFileType,
   isSupportedFile,
 } from '@shared/file-extensions'
+import { getModel } from '@shared/providers'
 import { formatNumber } from '@shared/utils'
 import {
   IconAdjustmentsHorizontal,
@@ -27,6 +40,7 @@ import {
   IconVocabulary,
   IconWorldWww,
 } from '@tabler/icons-react'
+import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useAtom, useAtomValue } from 'jotai'
 import _, { pick } from 'lodash'
@@ -34,17 +48,24 @@ import type React from 'react'
 import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useTranslation } from 'react-i18next'
+import { createModelDependencies } from '@/adapters'
 import useInputBoxHistory from '@/hooks/useInputBoxHistory'
 import { useKnowledgeBase } from '@/hooks/useKnowledgeBase'
 import { useMessageInput } from '@/hooks/useMessageInput'
 import { useProviders } from '@/hooks/useProviders'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
-import { useTokenCount } from '@/hooks/useTokenCount'
 import { cn } from '@/lib/utils'
-import { getContextMessageIds, isAutoCompactionEnabled, isCompactionInProgress } from '@/packages/context-management'
+import {
+  buildContextForSession,
+  getContextMessageIds,
+  isAutoCompactionEnabled,
+  isCompactionInProgress,
+} from '@/packages/context-management'
+import { selectMessagesForSendContext } from '@/packages/context-management/attachment-payload'
 import { trackingEvent } from '@/packages/event'
 import { getModelContextWindowSync } from '@/packages/model-context'
 import * as picUtils from '@/packages/pic_utils'
+import { useTokenEstimation } from '@/packages/token-estimation/hooks/useTokenEstimation'
 import platform from '@/platform'
 import storage from '@/storage'
 import { StorageKeyGenerator } from '@/storage/StoreStorage'
@@ -52,7 +73,7 @@ import * as atoms from '@/stores/atoms'
 import { compactionUIStateMapAtom } from '@/stores/atoms/compactionAtoms'
 import * as chatStore from '@/stores/chatStore'
 import { useSession, useSessionSettings } from '@/stores/chatStore'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { settingsStore, useSettingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
 import { delay } from '@/utils'
 import { featureFlags } from '@/utils/feature-flags'
@@ -69,11 +90,11 @@ import * as sessionHelpers from '../../stores/sessionHelpers'
 import * as toastActions from '../../stores/toastActions'
 import { CompactionStatus } from '../chat/CompactionStatus'
 import { CompressionModal } from '../common/CompressionModal'
+import { ScalableIcon } from '../common/ScalableIcon'
 import ProviderImageIcon from '../icons/ProviderImageIcon'
 import KnowledgeBaseMenu from '../knowledge-base/KnowledgeBaseMenu'
 import ModelSelector from '../ModelSelector'
 import MCPMenu from '../mcp/MCPMenu'
-import { ScalableIcon } from '../common/ScalableIcon'
 import { FileMiniCard, ImageMiniCard, LinkMiniCard } from './Attachments'
 import { ImageUploadInput } from './ImageUploadInput'
 import {
@@ -190,6 +211,20 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
       return getContextMessageIds(currentSession, currentSessionMergedSettings?.maxContextMessageCount)
     }, [isNewSession, currentSessionMergedSettings?.maxContextMessageCount, currentSession])
 
+    const currentContextMessages = useMemo(() => {
+      if (isNewSession) return undefined
+      if (!currentSession?.messages.length) return undefined
+
+      const contextFromSession = buildContextForSession(currentSession)
+
+      return selectMessagesForSendContext({
+        settings: currentSessionMergedSettings || {},
+        msgs: contextFromSession,
+        compactionPoints: currentSession.compactionPoints,
+        preserveLastUserMessage: false,
+      })
+    }, [isNewSession, currentSession, currentSessionMergedSettings])
+
     const { knowledgeBase, setKnowledgeBase } = useKnowledgeBase({ isNewSession })
 
     const [showCompressionModal, setShowCompressionModal] = useState(false)
@@ -272,13 +307,45 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
       return (providerInfo?.models || providerInfo?.defaultSettings?.models)?.find((m) => m.modelId === model.modelId)
     }, [providers, model])
 
+    // Check if model supports tool use for files
+    const { data: modelSupportToolUseForFile = false } = useQuery({
+      queryKey: ['model-tool-capability', model?.provider, model?.modelId],
+      queryFn: async () => {
+        if (!model?.provider || !model?.modelId) {
+          return false
+        }
+
+        try {
+          const globalSettings = settingsStore.getState().getSettings()
+          const configs = await platform.getConfig()
+          const dependencies = await createModelDependencies()
+
+          const settings = {
+            provider: model.provider,
+            modelId: model.modelId,
+            ...currentSessionMergedSettings,
+          }
+
+          const modelInstance = getModel(settings, globalSettings, configs, dependencies)
+          return modelInstance.isSupportToolUse('read-file')
+        } catch (e) {
+          console.debug('useModelToolCapability: failed to check capability', e)
+          return false
+        }
+      },
+      enabled: !!(model?.provider && model?.modelId),
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+    })
+
     // Calculate token counts - use stable messages to avoid recalculation during streaming
-    const { currentInputTokens, contextTokens, totalTokens } = useTokenCount(
-      currentSessionId || null,
-      preConstructedMessage.message,
-      currentContextMessageIds,
-      model
-    )
+    const { currentInputTokens, contextTokens, totalTokens, isCalculating, pendingTasks } = useTokenEstimation({
+      sessionId: currentSessionId || null,
+      constructedMessage: preConstructedMessage.message,
+      contextMessages: currentContextMessages || [],
+      model,
+      modelSupportToolUseForFile,
+    })
 
     const globalSettings = useSettingsStore((state) => state)
     const [isCompacting, setIsCompacting] = useState(false)
@@ -1098,6 +1165,9 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                   currentInputTokens={currentInputTokens}
                   contextTokens={contextTokens}
                   totalTokens={totalTokens}
+                  isCalculating={isCalculating}
+                  pendingTasks={pendingTasks}
+                  totalContextMessages={currentContextMessages?.length ?? 0}
                   contextWindow={effectiveContextWindow ?? undefined}
                   currentMessageCount={currentContextMessageIds?.length ?? 0}
                   maxContextMessageCount={currentSessionMergedSettings?.maxContextMessageCount}
@@ -1115,7 +1185,9 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                     }`}
                   >
                     <ScalableIcon icon={IconArrowUp} size={14} />
+                    {isCalculating && <Loader size={10} />}
                     <Text span size="xs" className="whitespace-nowrap" c="inherit">
+                      {isCalculating ? '~' : ''}
                       {formatNumber(totalTokens)}
                       {tokenPercentage !== null && tokenPercentage > 10 && ` (${tokenPercentage}%)`}
                     </Text>

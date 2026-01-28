@@ -1,9 +1,10 @@
 import { tool } from 'ai'
 import z from 'zod'
+import { MAX_INLINE_FILE_LINES, PREVIEW_LINES } from '@/packages/context-management/attachment-payload'
 import platform from '@/platform'
 
 const DEFAULT_LINES = 200
-const MAX_LINES = 500
+const MAX_LINES = MAX_INLINE_FILE_LINES
 const MAX_LINE_LENGTH = 2000
 
 const truncateLine = (line: string) => {
@@ -24,8 +25,6 @@ const formatLineWithNumber = (line: string, lineNumber: number) => {
 }
 
 const GREP_MAX_RESULTS = 100
-
-const PREVIEW_LINES = 100
 
 const toolSetDescription = `
 Use these tools to read and search large user-uploaded files (marked with <ATTACHMENT_FILE></ATTACHMENT_FILE>).

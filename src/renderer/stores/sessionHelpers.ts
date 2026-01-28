@@ -15,9 +15,10 @@ import { pick } from 'lodash'
 import i18n from '@/i18n'
 import { formatChatAsHtml, formatChatAsMarkdown, formatChatAsTxt } from '@/lib/format-chat'
 import { getLogger } from '@/lib/utils'
+import { PREVIEW_LINES } from '@/packages/context-management/attachment-payload'
 import * as localParser from '@/packages/local-parser'
 import * as remote from '@/packages/remote'
-import { estimateTokens } from '@/packages/token'
+import { estimateTokens, getTokenizerType } from '@/packages/token'
 import platform from '@/platform'
 import storage from '@/storage'
 import { StorageKey, StorageKeyGenerator } from '@/storage/StoreStorage'
@@ -30,10 +31,51 @@ import { getPlatformDefaultDocumentParser, settingsStore } from './settingsStore
 
 const log = getLogger('session-helpers')
 
-/**
- * Get the effective document parser configuration
- * Uses global settings, falling back to platform default
- */
+function getCurrentTokenizerType(): 'default' | 'deepseek' {
+  const currentModel = lastUsedModelStore.getState().chat
+  return getTokenizerType(currentModel)
+}
+
+export function computePreviewMetadata(
+  content: string,
+  tokenizerType: 'default' | 'deepseek',
+  existingTokenMap: Record<string, number> = {}
+): {
+  lineCount: number
+  byteLength: number
+  tokenCountMap: Record<string, number>
+  tokenCalculatedAt: Record<string, number>
+} {
+  const lineCount = content.split('\n').length
+  const byteLength = new TextEncoder().encode(content).length
+  const now = Date.now()
+
+  const previewContent = content.split('\n').slice(0, PREVIEW_LINES).join('\n')
+
+  const tokenCountMap: Record<string, number> = { ...existingTokenMap }
+  const tokenCalculatedAt: Record<string, number> = {}
+
+  // Only calculate for the specified tokenizer
+  const fullKey = tokenizerType // 'default' or 'deepseek'
+  const previewKey = `${tokenizerType}_preview`
+
+  if (tokenCountMap[fullKey] === undefined) {
+    tokenCountMap[fullKey] = estimateTokens(
+      content,
+      tokenizerType === 'deepseek' ? { provider: '', modelId: 'deepseek' } : undefined
+    )
+    tokenCalculatedAt[fullKey] = now
+  }
+
+  tokenCountMap[previewKey] = estimateTokens(
+    previewContent,
+    tokenizerType === 'deepseek' ? { provider: '', modelId: 'deepseek' } : undefined
+  )
+  tokenCalculatedAt[previewKey] = now
+
+  return { lineCount, byteLength, tokenCountMap, tokenCalculatedAt }
+}
+
 function getEffectiveDocumentParserConfig(): DocumentParserConfig {
   const globalConfig = settingsStore.getState().extension?.documentParser
   return globalConfig ?? getPlatformDefaultDocumentParser()
@@ -163,6 +205,8 @@ export async function preprocessFile(
   content: string
   storageKey: string
   tokenCountMap?: Record<string, number>
+  lineCount?: number
+  byteLength?: number
   error?: string
 }> {
   try {
@@ -177,26 +221,22 @@ export async function preprocessFile(
         number
       >
 
-      // Calculate tokens if not cached
-      if (!existingTokenMap[TOKEN_CACHE_KEYS.default]) {
-        existingTokenMap[TOKEN_CACHE_KEYS.default] = estimateTokens(existingContent)
-      }
-      if (!existingTokenMap[TOKEN_CACHE_KEYS.deepseek]) {
-        existingTokenMap[TOKEN_CACHE_KEYS.deepseek] = estimateTokens(existingContent, {
-          provider: '',
-          modelId: 'deepseek',
-        })
-      }
+      const tokenizerType = getCurrentTokenizerType()
+      const { lineCount, byteLength, tokenCountMap } = computePreviewMetadata(
+        existingContent,
+        tokenizerType,
+        existingTokenMap
+      )
 
-      if (!existingTokenMap[TOKEN_CACHE_KEYS.default] || !existingTokenMap[TOKEN_CACHE_KEYS.deepseek]) {
-        await storage.setItem(`${uniqKey}_tokenMap`, existingTokenMap)
-      }
+      await storage.setItem(`${uniqKey}_tokenMap`, tokenCountMap)
 
       return {
         file,
         content: existingContent,
         storageKey: uniqKey,
-        tokenCountMap: existingTokenMap,
+        tokenCountMap,
+        lineCount,
+        byteLength,
       }
     }
 
@@ -272,11 +312,21 @@ export async function preprocessFile(
       }
     }
 
+    const tokenizerType = getCurrentTokenizerType()
+    const { lineCount, byteLength, tokenCountMap } = computePreviewMetadata(
+      result.content,
+      tokenizerType,
+      result.tokenCountMap
+    )
+    await storage.setItem(`${result.storageKey}_tokenMap`, tokenCountMap)
+
     return {
       file,
       content: result.content,
       storageKey: result.storageKey,
-      tokenCountMap: result.tokenCountMap,
+      tokenCountMap,
+      lineCount,
+      byteLength,
     }
   } catch (error) {
     log.error('Failed to preprocess file:', error)
@@ -304,6 +354,8 @@ export async function preprocessLink(
   content: string
   storageKey: string
   tokenCountMap?: Record<string, number>
+  lineCount?: number
+  byteLength?: number
   error?: string
 }> {
   try {
@@ -323,28 +375,23 @@ export async function preprocessLink(
         number
       >
 
-      // Calculate tokens for both tokenizers if not cached
-      if (!existingTokenMap[TOKEN_CACHE_KEYS.default]) {
-        existingTokenMap[TOKEN_CACHE_KEYS.default] = estimateTokens(existingContent)
-      }
-      if (!existingTokenMap[TOKEN_CACHE_KEYS.deepseek]) {
-        existingTokenMap[TOKEN_CACHE_KEYS.deepseek] = estimateTokens(existingContent, {
-          provider: '',
-          modelId: 'deepseek',
-        })
-      }
+      const tokenizerType = getCurrentTokenizerType()
+      const { lineCount, byteLength, tokenCountMap } = computePreviewMetadata(
+        existingContent,
+        tokenizerType,
+        existingTokenMap
+      )
 
-      // Save updated token map if changes were made
-      if (!existingTokenMap[TOKEN_CACHE_KEYS.default] || !existingTokenMap[TOKEN_CACHE_KEYS.deepseek]) {
-        await storage.setItem(`${uniqKey}_tokenMap`, existingTokenMap)
-      }
+      await storage.setItem(`${uniqKey}_tokenMap`, tokenCountMap)
 
       return {
         url,
         title,
         content: existingContent,
         storageKey: uniqKey,
-        tokenCountMap: existingTokenMap,
+        tokenCountMap,
+        lineCount,
+        byteLength,
       }
     }
 
@@ -361,13 +408,11 @@ export async function preprocessLink(
         await storage.setBlob(uniqKey, content)
       }
 
-      // Calculate token counts for both tokenizers
-      const tokenCountMap: Record<string, number> = content
-        ? {
-            [TOKEN_CACHE_KEYS.default]: estimateTokens(content),
-            [TOKEN_CACHE_KEYS.deepseek]: estimateTokens(content, { provider: '', modelId: 'deepseek' }),
-          }
-        : {}
+      // Calculate token counts including preview metadata
+      const tokenizerType = getCurrentTokenizerType()
+      const { lineCount, byteLength, tokenCountMap } = content
+        ? computePreviewMetadata(content, tokenizerType)
+        : { lineCount: undefined, byteLength: undefined, tokenCountMap: {} }
 
       // Store token map for future use
       if (content) {
@@ -380,6 +425,8 @@ export async function preprocessLink(
         content,
         storageKey: uniqKey,
         tokenCountMap,
+        lineCount,
+        byteLength,
       }
     } else {
       // 本地方案：解析链接内容
@@ -391,15 +438,11 @@ export async function preprocessLink(
         await storage.setBlob(uniqKey, content)
       }
 
-      // Calculate token counts for both tokenizers
-      const tokenCountMap: Record<string, number> = content
-        ? {
-            [TOKEN_CACHE_KEYS.default]: estimateTokens(content),
-            [TOKEN_CACHE_KEYS.deepseek]: estimateTokens(content, { provider: '', modelId: 'deepseek' }),
-          }
-        : {}
+      const tokenizerType = getCurrentTokenizerType()
+      const { lineCount, byteLength, tokenCountMap } = content
+        ? computePreviewMetadata(content, tokenizerType)
+        : { lineCount: undefined, byteLength: undefined, tokenCountMap: {} }
 
-      // Store token map for future use
       if (content) {
         await storage.setItem(`${uniqKey}_tokenMap`, tokenCountMap)
       }
@@ -410,6 +453,8 @@ export async function preprocessLink(
         content,
         storageKey: uniqKey,
         tokenCountMap,
+        lineCount,
+        byteLength,
       }
     }
   } catch (error) {
@@ -439,6 +484,8 @@ export function constructUserMessage(
     content: string
     storageKey: string
     tokenCountMap?: Record<string, number>
+    lineCount?: number
+    byteLength?: number
   }> = [],
   preprocessedLinks: Array<{
     url: string
@@ -446,6 +493,8 @@ export function constructUserMessage(
     content: string
     storageKey: string
     tokenCountMap?: Record<string, number>
+    lineCount?: number
+    byteLength?: number
   }> = []
 ): Message {
   // 只使用原始文本，不添加文件和链接内容
@@ -457,7 +506,6 @@ export function constructUserMessage(
     msg.contentParts.push(...pictureKeys.map((k) => ({ type: 'image' as const, storageKey: k })))
   }
 
-  // 添加附件元数据（只包含存储键，不包含内容）
   if (preprocessedFiles.length > 0) {
     msg.files = preprocessedFiles.map((f) => ({
       id: f.storageKey || f.file.name,
@@ -465,10 +513,11 @@ export function constructUserMessage(
       fileType: f.file.type,
       storageKey: f.storageKey,
       tokenCountMap: f.tokenCountMap,
+      lineCount: f.lineCount,
+      byteLength: f.byteLength,
     }))
   }
 
-  // 添加链接元数据（只包含存储键，不包含内容）
   if (preprocessedLinks.length > 0) {
     msg.links = preprocessedLinks.map((l) => ({
       id: l.storageKey || l.url,
@@ -476,6 +525,8 @@ export function constructUserMessage(
       title: l.title,
       storageKey: l.storageKey,
       tokenCountMap: l.tokenCountMap,
+      lineCount: l.lineCount,
+      byteLength: l.byteLength,
     }))
   }
 

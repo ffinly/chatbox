@@ -170,14 +170,11 @@ dist
 
 electron-builder.env
 
-.vscode
+# Share VS Code settings
+# .vscode
 
 
 **/routeTree.gen.ts
 
 .env.sentry-build-plugin
-
-# Cherry-pick workflow files (not tracked)
-AGENTS.md
-pick-list-*.md
-ELECTRON_VITE_MIGRATION.md
+.sisyphus/

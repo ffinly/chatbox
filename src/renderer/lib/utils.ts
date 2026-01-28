@@ -32,7 +32,7 @@ export function getLogger(logId: string) {
       this.log('error', ...args)
     },
     debug(...args: any[]) {
-      this.log('debug', ...args)
+      console.debug('debug', ...args)
     },
   }
 }

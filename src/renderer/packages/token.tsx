@@ -1,68 +1,22 @@
 import * as Sentry from '@sentry/react'
-import { Tiktoken } from 'js-tiktoken/lite'
-// @ts-ignore
-import cl100k_base from 'js-tiktoken/ranks/cl100k_base'
-import type { Message } from '../../shared/types'
+import type { Message, MessageFile, MessageLink } from '../../shared/types'
 import { TOKEN_CACHE_KEYS, type TokenCacheKey } from '../../shared/types/session'
 import { getMessageText, isEmptyMessage } from '../../shared/utils/message'
+import {
+  buildAttachmentWrapperPrefix,
+  buildAttachmentWrapperSuffix,
+  MAX_INLINE_FILE_LINES,
+} from './context-management/attachment-payload'
+import {
+  estimateDeepSeekTokens,
+  estimateTokens,
+  getTokenizerType,
+  isDeepSeekModel,
+  type TokenModel,
+} from './token-estimation/tokenizer'
 
-const encoding = new Tiktoken(cl100k_base)
+export { estimateDeepSeekTokens, estimateTokens, getTokenizerType, isDeepSeekModel, type TokenModel }
 
-// DeepSeek tokenizer implementation
-// https://api-docs.deepseek.com/zh-cn/quick_start/token_usage
-function estimateDeepSeekTokens(text: string): number {
-  let total = 0
-  let prevSpace = false
-
-  for (const char of text) {
-    // Check if character is Chinese (CJK Unified Ideographs)
-    if (
-      /[\u4e00-\u9fff\u3400-\u4dbf\u20000-\u2a6df\u2a700-\u2b73f\u2b740-\u2b81f\u2b820-\u2ceaf\uf900-\ufaff\u2f800-\u2fa1f]/.test(
-        char
-      )
-    ) {
-      // Chinese character ≈ 0.6 token
-      total += 0.6
-      prevSpace = false
-    } else if (/\s/.test(char)) {
-      // Space counts as 1 token
-      // if previous character is not a space, add 1 token
-      if (!prevSpace) {
-        total += 1
-        prevSpace = true
-      }
-    } else if (/[a-zA-Z0-9]/.test(char) || /[!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~]/.test(char)) {
-      // English character/number/symbol ≈ 0.3 token
-      total += 0.3
-      prevSpace = false
-    } else {
-      // Other characters
-      total += 0.3
-      prevSpace = false
-    }
-  }
-
-  // Round up to nearest integer, minimum 1
-  return Math.max(Math.ceil(total), 1)
-}
-
-// Model type for token counting
-type TokenModel =
-  | {
-      provider: string
-      modelId: string
-    }
-  | null
-  | undefined
-
-// Check if model is DeepSeek
-export function isDeepSeekModel(model?: TokenModel): boolean {
-  if (!model) return false
-  const modelId = model.modelId?.toLowerCase() || ''
-  return modelId.includes('deepseek')
-}
-
-// Get token cache key based on model
 export function getTokenCacheKey(model?: TokenModel): TokenCacheKey {
   if (isDeepSeekModel(model)) {
     return TOKEN_CACHE_KEYS.deepseek
@@ -70,34 +24,14 @@ export function getTokenCacheKey(model?: TokenModel): TokenCacheKey {
   return TOKEN_CACHE_KEYS.default
 }
 
-// Helper function to get token count from file or link
 export function getTokenCountForModel(item: { tokenCountMap?: Record<string, number> }, model?: TokenModel): number {
   const tokenCacheKey = getTokenCacheKey(model)
 
-  // Use model-specific token count if available
   if (item.tokenCountMap?.[tokenCacheKey]) {
     return item.tokenCountMap[tokenCacheKey]
   }
 
   return 0
-}
-
-export function estimateTokens(str: string, model?: TokenModel): number {
-  try {
-    str = typeof str === 'string' ? str : JSON.stringify(str)
-
-    // Use DeepSeek tokenizer for DeepSeek models
-    if (isDeepSeekModel(model)) {
-      return estimateDeepSeekTokens(str)
-    }
-
-    // Use default tokenizer for other models
-    const tokens = encoding.encode(str)
-    return tokens.length
-  } catch (e) {
-    Sentry.captureException(e)
-    return 0
-  }
 }
 
 // 参考: https://github.com/pkoukk/tiktoken-go#counting-tokens-for-chat-api-calls
@@ -169,4 +103,146 @@ export function sliceTextByTokenLimit(text: string, limit: number, model?: Token
     retTokenCount += partTokenCount
   }
   return ret
+}
+
+export type PreviewTokenCacheKey = 'default_preview' | 'deepseek_preview'
+
+export function getAttachmentTokenCacheKey(params: {
+  model?: TokenModel
+  preferPreview: boolean
+}): TokenCacheKey | PreviewTokenCacheKey {
+  const { model, preferPreview } = params
+  const isDeepSeek = isDeepSeekModel(model)
+
+  if (preferPreview) {
+    return isDeepSeek ? 'deepseek_preview' : 'default_preview'
+  }
+  return isDeepSeek ? TOKEN_CACHE_KEYS.deepseek : TOKEN_CACHE_KEYS.default
+}
+
+const FALLBACK_WRAPPER_SAFETY_MARGIN_TOKENS = 50
+
+function computeAttachmentTokens(
+  attachment: MessageFile | MessageLink,
+  attachmentIndex: number,
+  model: TokenModel,
+  modelSupportToolUseForFile: boolean
+): number {
+  const lineCount = attachment.lineCount
+  const byteLength = attachment.byteLength
+  const tokenCountMap = attachment.tokenCountMap
+
+  const isLargeFile = lineCount !== undefined && lineCount > MAX_INLINE_FILE_LINES
+  const usePreview = modelSupportToolUseForFile && isLargeFile
+
+  const hasMetadata = lineCount !== undefined && byteLength !== undefined
+
+  const fileName = 'name' in attachment ? attachment.name : attachment.title
+  const fileKey = attachment.storageKey || attachment.id
+
+  if (!hasMetadata) {
+    const placeholderPrefix = buildAttachmentWrapperPrefix({
+      attachmentIndex,
+      fileName,
+      fileKey,
+      fileLines: 0,
+      fileSize: 0,
+    })
+    const placeholderSuffix = buildAttachmentWrapperSuffix({ isTruncated: false })
+    const wrapperTokens = estimateTokens(placeholderPrefix + placeholderSuffix, model)
+
+    const cacheKey = getAttachmentTokenCacheKey({ model, preferPreview: false })
+    const contentTokens = tokenCountMap?.[cacheKey] ?? 0
+
+    return wrapperTokens + contentTokens + FALLBACK_WRAPPER_SAFETY_MARGIN_TOKENS
+  }
+
+  const prefix = buildAttachmentWrapperPrefix({
+    attachmentIndex,
+    fileName,
+    fileKey,
+    fileLines: lineCount,
+    fileSize: byteLength,
+  })
+  const suffix = buildAttachmentWrapperSuffix({
+    isTruncated: usePreview,
+    previewLines: usePreview ? 100 : undefined,
+    totalLines: usePreview ? lineCount : undefined,
+    fileKey: usePreview ? fileKey : undefined,
+  })
+
+  const wrapperTokens = estimateTokens(prefix + suffix, model)
+
+  const cacheKey = getAttachmentTokenCacheKey({ model, preferPreview: usePreview })
+  let contentTokens = tokenCountMap?.[cacheKey] ?? 0
+
+  if (contentTokens === 0) {
+    const fallbackKey = getAttachmentTokenCacheKey({ model, preferPreview: false })
+    contentTokens = tokenCountMap?.[fallbackKey] ?? 0
+  }
+
+  const trailingNewlineTokens = estimateTokens('\n', model)
+
+  return wrapperTokens + contentTokens + trailingNewlineTokens
+}
+
+export interface EstimateTokensForSendPayloadOptions {
+  type?: 'output' | 'input'
+  model?: TokenModel
+  modelSupportToolUseForFile?: boolean
+}
+
+export function estimateTokensFromMessagesForSendPayload(
+  messages: Message[],
+  options: EstimateTokensForSendPayloadOptions = {}
+): number {
+  const { type = 'input', model, modelSupportToolUseForFile = false } = options
+
+  if (messages.length === 0) {
+    return 0
+  }
+
+  try {
+    const tokensPerMessage = 3
+    const tokensPerName = 1
+    let total = 0
+
+    for (const msg of messages) {
+      if (isEmptyMessage(msg)) {
+        continue
+      }
+
+      total += tokensPerMessage
+      total += estimateTokens(getMessageText(msg, false, type === 'output'), model)
+      total += estimateTokens(msg.role, model)
+
+      if (msg.name) {
+        total += estimateTokens(msg.name, model)
+        total += tokensPerName
+      }
+
+      let attachmentIndex = 1
+
+      if (msg.files?.length) {
+        for (const file of msg.files) {
+          if (!file.storageKey) continue
+          total += computeAttachmentTokens(file, attachmentIndex, model, modelSupportToolUseForFile)
+          attachmentIndex++
+        }
+      }
+
+      if (msg.links?.length) {
+        for (const link of msg.links) {
+          if (!link.storageKey) continue
+          total += computeAttachmentTokens(link, attachmentIndex, model, modelSupportToolUseForFile)
+          attachmentIndex++
+        }
+      }
+    }
+
+    return total
+  } catch (e) {
+    Sentry.captureException(e)
+    return 0
+  }
 }

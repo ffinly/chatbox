@@ -10,6 +10,9 @@ type Props = {
   currentInputTokens: number
   contextTokens: number
   totalTokens: number
+  isCalculating?: boolean
+  pendingTasks?: number
+  totalContextMessages?: number
   contextWindow?: number
   currentMessageCount?: number
   maxContextMessageCount?: number
@@ -26,6 +29,9 @@ const TokenCountMenu: FC<Props> = ({
   currentInputTokens,
   contextTokens,
   totalTokens,
+  isCalculating = false,
+  pendingTasks,
+  totalContextMessages,
   contextWindow,
   currentMessageCount,
   maxContextMessageCount,
@@ -89,7 +95,19 @@ const TokenCountMenu: FC<Props> = ({
     >
       <Menu.Target>{children}</Menu.Target>
       <Menu.Dropdown className="min-w-56">
-        <Menu.Label fw={600}>{t('Estimated Token Usage')}</Menu.Label>
+        <Flex justify="space-between" align="center" px="xs" pt="xs" pb="4">
+          <Text size="sm" fw={600}>
+            {t('Estimated Token Usage')}
+          </Text>
+          {isCalculating && (
+            <Flex align="center" gap="xs">
+              <Loader size="xs" />
+              <Text size="xs" c="dimmed">
+                {t('Calculating...')}
+              </Text>
+            </Flex>
+          )}
+        </Flex>
 
         <Menu.Item disabled style={{ cursor: 'default' }}>
           <Flex justify="space-between" align="center" gap="xs">
@@ -103,9 +121,20 @@ const TokenCountMenu: FC<Props> = ({
         <Menu.Item disabled style={{ cursor: 'default' }}>
           <Flex justify="space-between" align="center" gap="xs">
             <Text size="sm">{t('Context')}:</Text>
-            <Text size="sm" fw={500}>
-              {formatNumber(contextTokens)}
-            </Text>
+            <Flex align="center" gap="xs">
+              <Text size="sm" fw={500}>
+                {isCalculating ? '~' : ''}
+                {formatNumber(contextTokens)}
+              </Text>
+              {isCalculating &&
+                pendingTasks !== undefined &&
+                totalContextMessages !== undefined &&
+                totalContextMessages > 0 && (
+                  <Text size="xs" c="dimmed">
+                    ({Math.max(0, totalContextMessages - pendingTasks)}/{totalContextMessages})
+                  </Text>
+                )}
+            </Flex>
           </Flex>
         </Menu.Item>
 

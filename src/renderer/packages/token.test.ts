@@ -4,6 +4,8 @@ import { MessageRoleEnum } from '../../shared/types/session'
 import {
   estimateTokens,
   estimateTokensFromMessages,
+  estimateTokensFromMessagesForSendPayload,
+  getAttachmentTokenCacheKey,
   getTokenCacheKey,
   getTokenCountForModel,
   isDeepSeekModel,
@@ -478,5 +480,295 @@ describe('sliceTextByTokenLimit', () => {
     const result = sliceTextByTokenLimit(text, 1)
     // Should return as much as fits within 1 token
     expect(result.length).toBeLessThanOrEqual(text.length)
+  })
+})
+
+describe('getAttachmentTokenCacheKey', () => {
+  it('should return default for non-DeepSeek without preview', () => {
+    expect(getAttachmentTokenCacheKey({ model: openAIModel, preferPreview: false })).toBe('default')
+  })
+
+  it('should return deepseek for DeepSeek without preview', () => {
+    expect(getAttachmentTokenCacheKey({ model: deepSeekModel, preferPreview: false })).toBe('deepseek')
+  })
+
+  it('should return default_preview for non-DeepSeek with preview', () => {
+    expect(getAttachmentTokenCacheKey({ model: openAIModel, preferPreview: true })).toBe('default_preview')
+  })
+
+  it('should return deepseek_preview for DeepSeek with preview', () => {
+    expect(getAttachmentTokenCacheKey({ model: deepSeekModel, preferPreview: true })).toBe('deepseek_preview')
+  })
+
+  it('should return default when model is undefined without preview', () => {
+    expect(getAttachmentTokenCacheKey({ model: undefined, preferPreview: false })).toBe('default')
+  })
+
+  it('should return default_preview when model is undefined with preview', () => {
+    expect(getAttachmentTokenCacheKey({ model: undefined, preferPreview: true })).toBe('default_preview')
+  })
+})
+
+describe('estimateTokensFromMessagesForSendPayload', () => {
+  it('should return 0 for empty message array', () => {
+    expect(estimateTokensFromMessagesForSendPayload([])).toBe(0)
+  })
+
+  it('should estimate tokens for single text message', () => {
+    const messages = [createMessage({ text: 'Hello, how are you?' })]
+    const tokens = estimateTokensFromMessagesForSendPayload(messages)
+    expect(tokens).toBeGreaterThan(0)
+  })
+
+  it('should skip attachments without storageKey', () => {
+    const messageWithFile = createMessage({
+      text: 'Check this',
+      files: [
+        {
+          id: 'file1',
+          name: 'doc.txt',
+          fileType: 'text/plain',
+          tokenCountMap: { default: 500, deepseek: 400 },
+        },
+      ],
+    })
+    const messageWithoutFile = createMessage({ text: 'Check this' })
+
+    const tokensWithFile = estimateTokensFromMessagesForSendPayload([messageWithFile])
+    const tokensWithoutFile = estimateTokensFromMessagesForSendPayload([messageWithoutFile])
+
+    expect(tokensWithFile).toBe(tokensWithoutFile)
+  })
+
+  it('should include wrapper tokens for files with storageKey', () => {
+    const messageWithFile = createMessage({
+      text: 'Check this',
+      files: [
+        {
+          id: 'file1',
+          name: 'doc.txt',
+          fileType: 'text/plain',
+          storageKey: 'storage-key-123',
+          tokenCountMap: { default: 100, deepseek: 80 },
+          lineCount: 50,
+          byteLength: 1000,
+        },
+      ],
+    })
+    const messageWithoutFile = createMessage({ text: 'Check this' })
+
+    const tokensWithFile = estimateTokensFromMessagesForSendPayload([messageWithFile])
+    const tokensWithoutFile = estimateTokensFromMessagesForSendPayload([messageWithoutFile])
+
+    expect(tokensWithFile).toBeGreaterThan(tokensWithoutFile + 100)
+  })
+
+  describe('preview mode selection', () => {
+    const smallFile = {
+      id: 'small',
+      name: 'small.txt',
+      fileType: 'text/plain',
+      storageKey: 'storage-small',
+      tokenCountMap: { default: 100, deepseek: 80, default_preview: 20, deepseek_preview: 16 },
+      lineCount: 50,
+      byteLength: 500,
+    }
+
+    const largeFile = {
+      id: 'large',
+      name: 'large.txt',
+      fileType: 'text/plain',
+      storageKey: 'storage-large',
+      tokenCountMap: { default: 1000, deepseek: 800, default_preview: 200, deepseek_preview: 160 },
+      lineCount: 501,
+      byteLength: 50000,
+    }
+
+    it('should use full tokens for small file (<=500 lines) regardless of tool support', () => {
+      const message = createMessage({ text: 'Check', files: [smallFile] })
+
+      const tokensNoTool = estimateTokensFromMessagesForSendPayload([message], { modelSupportToolUseForFile: false })
+      const tokensWithTool = estimateTokensFromMessagesForSendPayload([message], { modelSupportToolUseForFile: true })
+
+      expect(tokensNoTool).toBe(tokensWithTool)
+    })
+
+    it('should use full tokens for large file when model does NOT support tool use', () => {
+      const message = createMessage({ text: 'Check', files: [largeFile] })
+
+      const tokensNoTool = estimateTokensFromMessagesForSendPayload([message], { modelSupportToolUseForFile: false })
+
+      expect(tokensNoTool).toBeGreaterThan(1000)
+    })
+
+    it('should use preview tokens for large file when model supports tool use', () => {
+      const message = createMessage({ text: 'Check', files: [largeFile] })
+
+      const tokensNoTool = estimateTokensFromMessagesForSendPayload([message], { modelSupportToolUseForFile: false })
+      const tokensWithTool = estimateTokensFromMessagesForSendPayload([message], { modelSupportToolUseForFile: true })
+
+      expect(tokensWithTool).toBeLessThan(tokensNoTool)
+    })
+
+    it('should use DeepSeek preview tokens for DeepSeek model with large file and tool support', () => {
+      const message = createMessage({ text: 'Check', files: [largeFile] })
+
+      const tokensOpenAI = estimateTokensFromMessagesForSendPayload([message], {
+        model: openAIModel,
+        modelSupportToolUseForFile: true,
+      })
+      const tokensDeepSeek = estimateTokensFromMessagesForSendPayload([message], {
+        model: deepSeekModel,
+        modelSupportToolUseForFile: true,
+      })
+
+      expect(tokensDeepSeek).not.toBe(tokensOpenAI)
+    })
+  })
+
+  describe('links handling', () => {
+    it('should apply same preview/full logic to links', () => {
+      const smallLink = {
+        id: 'link1',
+        url: 'https://example.com',
+        title: 'Example',
+        storageKey: 'storage-link',
+        tokenCountMap: { default: 100, deepseek: 80, default_preview: 20, deepseek_preview: 16 },
+        lineCount: 50,
+        byteLength: 500,
+      }
+
+      const largeLink = {
+        id: 'link2',
+        url: 'https://example.com/large',
+        title: 'Large Page',
+        storageKey: 'storage-link-large',
+        tokenCountMap: { default: 1000, deepseek: 800, default_preview: 200, deepseek_preview: 160 },
+        lineCount: 501,
+        byteLength: 50000,
+      }
+
+      const msgSmall = createMessage({ text: 'Check', links: [smallLink] })
+      const msgLarge = createMessage({ text: 'Check', links: [largeLink] })
+
+      const smallNoTool = estimateTokensFromMessagesForSendPayload([msgSmall], { modelSupportToolUseForFile: false })
+      const smallWithTool = estimateTokensFromMessagesForSendPayload([msgSmall], { modelSupportToolUseForFile: true })
+
+      expect(smallNoTool).toBe(smallWithTool)
+
+      const largeNoTool = estimateTokensFromMessagesForSendPayload([msgLarge], { modelSupportToolUseForFile: false })
+      const largeWithTool = estimateTokensFromMessagesForSendPayload([msgLarge], { modelSupportToolUseForFile: true })
+
+      expect(largeWithTool).toBeLessThan(largeNoTool)
+    })
+  })
+
+  describe('missing metadata fallback', () => {
+    it('should use safety margin when lineCount is missing', () => {
+      const fileNoLineCount = {
+        id: 'file1',
+        name: 'doc.txt',
+        fileType: 'text/plain',
+        storageKey: 'storage-key',
+        tokenCountMap: { default: 100 },
+      }
+
+      const message = createMessage({ text: 'Check', files: [fileNoLineCount] })
+      const tokens = estimateTokensFromMessagesForSendPayload([message], { modelSupportToolUseForFile: true })
+
+      expect(tokens).toBeGreaterThan(150)
+    })
+
+    it('should fall back to full token count when preview key is missing', () => {
+      const fileNoPreviewKey = {
+        id: 'file1',
+        name: 'doc.txt',
+        fileType: 'text/plain',
+        storageKey: 'storage-key',
+        tokenCountMap: { default: 500 },
+        lineCount: 501,
+        byteLength: 10000,
+      }
+
+      const message = createMessage({ text: 'Check', files: [fileNoPreviewKey] })
+      const tokens = estimateTokensFromMessagesForSendPayload([message], { modelSupportToolUseForFile: true })
+
+      expect(tokens).toBeGreaterThan(500)
+    })
+  })
+
+  describe('boundary conditions', () => {
+    it('should treat exactly 500 lines as small file (full tokens)', () => {
+      const file500Lines = {
+        id: 'file',
+        name: 'doc.txt',
+        fileType: 'text/plain',
+        storageKey: 'storage-key',
+        tokenCountMap: { default: 500, default_preview: 100 },
+        lineCount: 500,
+        byteLength: 5000,
+      }
+
+      const message = createMessage({ text: 'Check', files: [file500Lines] })
+      const tokensNoTool = estimateTokensFromMessagesForSendPayload([message], { modelSupportToolUseForFile: false })
+      const tokensWithTool = estimateTokensFromMessagesForSendPayload([message], { modelSupportToolUseForFile: true })
+
+      expect(tokensNoTool).toBe(tokensWithTool)
+    })
+
+    it('should treat 501 lines as large file (preview tokens when tool supported)', () => {
+      const file501Lines = {
+        id: 'file',
+        name: 'doc.txt',
+        fileType: 'text/plain',
+        storageKey: 'storage-key',
+        tokenCountMap: { default: 500, default_preview: 100 },
+        lineCount: 501,
+        byteLength: 5010,
+      }
+
+      const message = createMessage({ text: 'Check', files: [file501Lines] })
+      const tokensNoTool = estimateTokensFromMessagesForSendPayload([message], { modelSupportToolUseForFile: false })
+      const tokensWithTool = estimateTokensFromMessagesForSendPayload([message], { modelSupportToolUseForFile: true })
+
+      expect(tokensWithTool).toBeLessThan(tokensNoTool)
+    })
+  })
+
+  describe('multiple attachments', () => {
+    it('should use incrementing attachment indices', () => {
+      const file1 = {
+        id: 'file1',
+        name: 'a.txt',
+        fileType: 'text/plain',
+        storageKey: 'storage-1',
+        tokenCountMap: { default: 100 },
+        lineCount: 50,
+        byteLength: 500,
+      }
+      const file2 = {
+        id: 'file2',
+        name: 'b.txt',
+        fileType: 'text/plain',
+        storageKey: 'storage-2',
+        tokenCountMap: { default: 100 },
+        lineCount: 50,
+        byteLength: 500,
+      }
+      const link1 = {
+        id: 'link1',
+        url: 'https://example.com',
+        title: 'Example',
+        storageKey: 'storage-link',
+        tokenCountMap: { default: 100 },
+        lineCount: 50,
+        byteLength: 500,
+      }
+
+      const message = createMessage({ text: 'Check', files: [file1, file2], links: [link1] })
+      const tokens = estimateTokensFromMessagesForSendPayload([message])
+
+      expect(tokens).toBeGreaterThan(300)
+    })
   })
 })

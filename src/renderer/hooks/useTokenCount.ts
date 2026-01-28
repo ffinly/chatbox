@@ -1,11 +1,59 @@
 import { useDebouncedValue } from '@mantine/hooks'
-import { type UseQueryOptions, useQueries } from '@tanstack/react-query'
+import { type UseQueryOptions, useQueries, useQuery } from '@tanstack/react-query'
 import { sum } from 'lodash'
 import { useEffect, useMemo, useState } from 'react'
-import { estimateTokensFromMessages, isDeepSeekModel } from '@/packages/token'
+import { createModelDependencies } from '@/adapters'
+import { estimateTokensFromMessages, estimateTokensFromMessagesForSendPayload, isDeepSeekModel } from '@/packages/token'
+import platform from '@/platform'
 import queryClient from '@/stores/queryClient'
+import { settingsStore } from '@/stores/settingsStore'
+import { getModel } from '../../shared/providers'
 import { type Message, type MessageTokenCountResult, TOKEN_CACHE_KEYS } from '../../shared/types'
 import * as chatStore from '../stores/chatStore'
+
+function useModelToolCapability(
+  model?: { provider: string; modelId: string },
+  sessionSettings?: { provider?: string; modelId?: string }
+): boolean {
+  const { data: supportToolUse = false } = useQuery({
+    queryKey: [
+      'model-tool-capability',
+      model?.provider || sessionSettings?.provider,
+      model?.modelId || sessionSettings?.modelId,
+    ],
+    queryFn: async () => {
+      const provider = model?.provider || sessionSettings?.provider
+      const modelId = model?.modelId || sessionSettings?.modelId
+
+      if (!provider || !modelId) {
+        return false
+      }
+
+      try {
+        const globalSettings = settingsStore.getState().getSettings()
+        const configs = await platform.getConfig()
+        const dependencies = await createModelDependencies()
+
+        const settings = {
+          provider,
+          modelId,
+          ...sessionSettings,
+        }
+
+        const modelInstance = getModel(settings, globalSettings, configs, dependencies)
+        return modelInstance.isSupportToolUse('read-file')
+      } catch (e) {
+        console.debug('useModelToolCapability: failed to check capability', e)
+        return false
+      }
+    },
+    enabled: !!(model?.provider || sessionSettings?.provider) && !!(model?.modelId || sessionSettings?.modelId),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  })
+
+  return supportToolUse
+}
 
 async function saveMessageTokenCount(sessionId: string, calcResults: MessageTokenCountResult[]) {
   // mark queries result as reused when saved to storage, prevent re-calculation
@@ -38,7 +86,12 @@ async function saveMessageTokenCount(sessionId: string, calcResults: MessageToke
   })
 }
 
-// get estimated token count for a list of context messages, save to message storage for later reuse
+/**
+ * @deprecated Use `useTokenEstimation` from `@/packages/token-estimation` instead.
+ * This hook will be removed in a future version.
+ *
+ * Get estimated token count for a list of context messages, save to message storage for later reuse
+ */
 export function useMessagesTokenCountQuery(
   sessionId: string | null,
   messageIds: string[] | null,
@@ -111,15 +164,33 @@ export function useMessagesTokenCountQuery(
   return tokenCount
 }
 
+/**
+ * @deprecated Use `useTokenEstimation` from `@/packages/token-estimation` instead.
+ * This hook will be removed in a future version.
+ */
 export function useTokenCount(
   sessionId: string | null,
   constructedMessage: Message | undefined,
   messageIds: string[] | null,
-  model?: { provider: string; modelId: string }
+  model?: { provider: string; modelId: string },
+  contextMessages?: Message[]
 ) {
   const [currentInputTokens, setCurrentInputTokens] = useState(0)
 
-  const contextTokens = useMessagesTokenCountQuery(sessionId, messageIds, model)
+  const modelSupportToolUseForFile = useModelToolCapability(model)
+
+  const legacyContextTokens = useMessagesTokenCountQuery(sessionId, messageIds, model)
+
+  const contextTokens = useMemo(() => {
+    if (contextMessages && contextMessages.length > 0) {
+      return estimateTokensFromMessagesForSendPayload(contextMessages, {
+        type: 'input',
+        model: model ? { modelId: model.modelId, provider: model.provider } : undefined,
+        modelSupportToolUseForFile,
+      })
+    }
+    return legacyContextTokens
+  }, [contextMessages, model, modelSupportToolUseForFile, legacyContextTokens])
 
   const [debouncedConstructedMessage] = useDebouncedValue(constructedMessage, 300)
 
@@ -130,13 +201,14 @@ export function useTokenCount(
     } else {
       console.debug('useTokenCount', 'calculate current input tokens')
       setCurrentInputTokens(
-        estimateTokensFromMessages([debouncedConstructedMessage], 'input', {
-          modelId: model?.modelId || '',
-          provider: model?.provider || '',
+        estimateTokensFromMessagesForSendPayload([debouncedConstructedMessage], {
+          type: 'input',
+          model: model ? { modelId: model.modelId, provider: model.provider } : undefined,
+          modelSupportToolUseForFile,
         })
       )
     }
-  }, [debouncedConstructedMessage, model?.modelId, model?.provider])
+  }, [debouncedConstructedMessage, model?.modelId, model?.provider, modelSupportToolUseForFile])
 
   return {
     currentInputTokens,

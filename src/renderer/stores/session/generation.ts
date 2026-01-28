@@ -18,6 +18,12 @@ import { identity, pickBy } from 'lodash'
 import { createModelDependencies } from '@/adapters'
 import * as appleAppStore from '@/packages/apple_app_store'
 import { buildContextForAI } from '@/packages/context-management'
+import {
+  buildAttachmentWrapperPrefix,
+  buildAttachmentWrapperSuffix,
+  MAX_INLINE_FILE_LINES,
+  PREVIEW_LINES,
+} from '@/packages/context-management/attachment-payload'
 import { generateImage, streamText } from '@/packages/model-calls'
 import { getModelDisplayName } from '@/packages/model-setting-utils'
 import { estimateTokensFromMessages } from '@/packages/token'
@@ -448,74 +454,78 @@ export async function genMessageContext(
       break
     }
 
-    // If message contains local files (message carries local file storageKey), include file content as part of prompt
-    // For small files (<=500 lines), even if model supports tool calls, directly include file content for better compatibility and response quality
-    // For large files, show first PREVIEW_LINES as preview, remaining content needs to be read via tool
-    const MAX_INLINE_FILE_LINES = 500
-    const PREVIEW_LINES = 100
     let attachmentIndex = 1
     if (msg.files && msg.files.length > 0) {
       for (const file of msg.files) {
         if (file.storageKey) {
-          msg = cloneMessage(msg) // Clone message to avoid modifying original
+          msg = cloneMessage(msg)
           const content = blobContents.get(file.storageKey) ?? ''
           if (content) {
             const fileLines = content.split('\n').length
-            // Only use tool for large files when model supports tool calls; include small files directly
             const shouldUseToolForThisFile = modelSupportToolUseForFile && fileLines > MAX_INLINE_FILE_LINES
-            let attachment = `\n\n<ATTACHMENT_FILE>\n`
-            attachment += `<FILE_INDEX>${attachmentIndex++}</FILE_INDEX>\n`
-            attachment += `<FILE_NAME>${file.name}</FILE_NAME>\n`
-            attachment += `<FILE_KEY>${file.storageKey}</FILE_KEY>\n`
-            attachment += `<FILE_LINES>${fileLines}</FILE_LINES>\n`
-            attachment += `<FILE_SIZE>${content.length} bytes</FILE_SIZE>\n`
-            attachment += '<FILE_CONTENT>\n'
+
+            const prefix = buildAttachmentWrapperPrefix({
+              attachmentIndex: attachmentIndex++,
+              fileName: file.name,
+              fileKey: file.storageKey,
+              fileLines,
+              fileSize: content.length,
+            })
+
+            let contentToAdd = content
+            let isTruncated = false
             if (shouldUseToolForThisFile) {
-              // Large file: only show first PREVIEW_LINES as preview
               const lines = content.split('\n')
-              const previewContent = lines.slice(0, PREVIEW_LINES).join('\n')
-              attachment += `${previewContent}\n`
-              attachment += `</FILE_CONTENT>\n`
-              attachment += `<TRUNCATED>Content truncated. Showing first ${PREVIEW_LINES} of ${fileLines} lines. Use read_file or search_file_content tool with FILE_KEY="${file.storageKey}" to read more content.</TRUNCATED>\n`
-            } else {
-              attachment += `${content}\n`
-              attachment += '</FILE_CONTENT>\n'
+              contentToAdd = lines.slice(0, PREVIEW_LINES).join('\n')
+              isTruncated = true
             }
-            attachment += `</ATTACHMENT_FILE>\n`
+
+            const suffix = buildAttachmentWrapperSuffix({
+              isTruncated,
+              previewLines: isTruncated ? PREVIEW_LINES : undefined,
+              totalLines: isTruncated ? fileLines : undefined,
+              fileKey: isTruncated ? file.storageKey : undefined,
+            })
+
+            const attachment = prefix + contentToAdd + '\n' + suffix
             msg = mergeMessages(msg, createMessage(msg.role, attachment))
           }
         }
       }
     }
-    // If message contains local links (message carries local link storageKey), include link content as part of prompt
     if (msg.links && msg.links.length > 0) {
       for (const link of msg.links) {
         if (link.storageKey) {
-          msg = cloneMessage(msg) // Clone message to avoid modifying original
+          msg = cloneMessage(msg)
           const content = blobContents.get(link.storageKey) ?? ''
           if (content) {
             const linkLines = content.split('\n').length
-            // Only use tool for large files when model supports tool calls; include small files directly
             const shouldUseToolForThisLink = modelSupportToolUseForFile && linkLines > MAX_INLINE_FILE_LINES
-            let attachment = `\n\n<ATTACHMENT_FILE>\n`
-            attachment += `<FILE_INDEX>${attachmentIndex++}</FILE_INDEX>\n`
-            attachment += `<FILE_NAME>${link.title}</FILE_NAME>\n`
-            attachment += `<FILE_KEY>${link.storageKey}</FILE_KEY>\n`
-            attachment += `<FILE_LINES>${linkLines}</FILE_LINES>\n`
-            attachment += `<FILE_SIZE>${content.length} bytes</FILE_SIZE>\n`
-            attachment += '<FILE_CONTENT>\n'
+
+            const prefix = buildAttachmentWrapperPrefix({
+              attachmentIndex: attachmentIndex++,
+              fileName: link.title,
+              fileKey: link.storageKey,
+              fileLines: linkLines,
+              fileSize: content.length,
+            })
+
+            let contentToAdd = content
+            let isTruncated = false
             if (shouldUseToolForThisLink) {
-              // Large file: only show first PREVIEW_LINES as preview
               const lines = content.split('\n')
-              const previewContent = lines.slice(0, PREVIEW_LINES).join('\n')
-              attachment += `${previewContent}\n`
-              attachment += `</FILE_CONTENT>\n`
-              attachment += `<TRUNCATED>Content truncated. Showing first ${PREVIEW_LINES} of ${linkLines} lines. Use read_file or search_file_content tool with FILE_KEY="${link.storageKey}" to read more content.</TRUNCATED>\n`
-            } else {
-              attachment += `${content}\n`
-              attachment += '</FILE_CONTENT>\n'
+              contentToAdd = lines.slice(0, PREVIEW_LINES).join('\n')
+              isTruncated = true
             }
-            attachment += `</ATTACHMENT_FILE>\n`
+
+            const suffix = buildAttachmentWrapperSuffix({
+              isTruncated,
+              previewLines: isTruncated ? PREVIEW_LINES : undefined,
+              totalLines: isTruncated ? linkLines : undefined,
+              fileKey: isTruncated ? link.storageKey : undefined,
+            })
+
+            const attachment = prefix + contentToAdd + '\n' + suffix
             msg = mergeMessages(msg, createMessage(msg.role, attachment))
           }
         }
