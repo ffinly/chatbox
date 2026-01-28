@@ -1,5 +1,5 @@
 import { arrayMove } from '@dnd-kit/sortable'
-import { copyMessage, copyThreads, type Session, type SessionMeta } from '@shared/types'
+import { copyMessagesWithMapping, copyThreads, type Session, type SessionMeta } from '@shared/types'
 import { getDefaultStore } from 'jotai'
 import { omit } from 'lodash'
 import { router } from '@/router'
@@ -45,18 +45,48 @@ async function copySession(
     messages?: Session['messages']
     threads?: Session['threads']
     threadName?: Session['threadName']
+    compactionPoints?: Session['compactionPoints']
   }
 ) {
   const source = await chatStore.getSession(sourceMeta.id)
   if (!source) {
     throw new Error(`Session ${sourceMeta.id} not found`)
   }
+
+  // Copy messages and get ID mapping
+  const { messages: newMessages, idMapping } = sourceMeta.messages
+    ? copyMessagesWithMapping(sourceMeta.messages)
+    : copyMessagesWithMapping(source.messages)
+
+  // Use sourceMeta.compactionPoints if explicitly provided (e.g., from thread),
+  // otherwise fall back to source session's compactionPoints
+  const sourceCompactionPoints =
+    'compactionPoints' in sourceMeta ? sourceMeta.compactionPoints : source.compactionPoints
+
+  // Map compactionPoints IDs
+  const newCompactionPoints = sourceCompactionPoints
+    ?.map((cp) => {
+      const newSummaryId = idMapping.get(cp.summaryMessageId)
+      const newBoundaryId = idMapping.get(cp.boundaryMessageId)
+      if (!newSummaryId || !newBoundaryId) {
+        console.warn('[copySession] Skipping compactionPoint with unmapped IDs', cp)
+        return null
+      }
+      return {
+        ...cp,
+        summaryMessageId: newSummaryId,
+        boundaryMessageId: newBoundaryId,
+      }
+    })
+    .filter((cp): cp is NonNullable<typeof cp> => cp !== null)
+
   const newSession = {
-    ...omit(source, 'id', 'messages', 'threads', 'messageForksHash'),
+    ...omit(source, 'id', 'messages', 'threads', 'messageForksHash', 'compactionPoints'),
     ...(sourceMeta.name ? { name: sourceMeta.name } : {}),
-    messages: sourceMeta.messages ? sourceMeta.messages.map(copyMessage) : source.messages.map(copyMessage),
-    threads: sourceMeta.threads ? copyThreads(sourceMeta.threads) : source.threads,
+    messages: newMessages,
+    threads: sourceMeta.threads ? copyThreads(sourceMeta.threads, idMapping) : copyThreads(source.threads, idMapping),
     messageForksHash: undefined,
+    compactionPoints: newCompactionPoints?.length ? newCompactionPoints : undefined,
     ...(sourceMeta.threadName ? { threadName: sourceMeta.threadName } : {}),
   }
   return await chatStore.createSession(newSession, source.id)

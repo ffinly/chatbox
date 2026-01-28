@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
 import {
+  type CompactionPoint,
   type Message,
   type MessageRole,
   MessageRoleEnum,
@@ -108,16 +109,57 @@ export function copyMessage(source: Message): Message {
   }
 }
 
-export function copyThreads(source?: SessionThread[]): SessionThread[] | undefined {
+export function copyMessagesWithMapping(messages: Message[]): {
+  messages: Message[]
+  idMapping: Map<string, string>
+} {
+  const idMapping = new Map<string, string>()
+  const newMessages = messages.map((msg) => {
+    const newMsg = copyMessage(msg)
+    idMapping.set(msg.id, newMsg.id)
+    return newMsg
+  })
+  return { messages: newMessages, idMapping }
+}
+
+export function copyThreads(source?: SessionThread[], idMapping?: Map<string, string>): SessionThread[] | undefined {
   if (!source) {
     return undefined
   }
-  return source.map((thread) => ({
-    ...thread,
-    messages: thread.messages.map(copyMessage),
-    createdAt: Date.now(),
-    id: uuidv4(),
-  }))
+  return source.map((thread) => {
+    // Use copyMessagesWithMapping for thread messages
+    const { messages: newMessages, idMapping: threadIdMapping } = copyMessagesWithMapping(thread.messages)
+
+    // Combine external mapping (if provided) with thread mapping
+    const combinedMapping = idMapping ? new Map([...idMapping, ...threadIdMapping]) : threadIdMapping
+
+    // Map compactionPoints (if they exist)
+    const newCompactionPoints = thread.compactionPoints
+      ?.map((cp) => {
+        const newSummaryId = combinedMapping.get(cp.summaryMessageId)
+        const newBoundaryId = combinedMapping.get(cp.boundaryMessageId)
+        // Skip compactionPoints with unmapped IDs
+        if (!newSummaryId || !newBoundaryId) {
+          console.warn('[copyThreads] Skipping compactionPoint with unmapped IDs', cp)
+          return null
+        }
+        return {
+          ...cp,
+          summaryMessageId: newSummaryId,
+          boundaryMessageId: newBoundaryId,
+        }
+      })
+      .filter((cp): cp is NonNullable<typeof cp> => cp !== null)
+
+    return {
+      ...thread,
+      messages: newMessages,
+      createdAt: Date.now(),
+      id: uuidv4(),
+      // Preserve undefined if no compactionPoints, empty array if had some but all were invalid
+      compactionPoints: newCompactionPoints?.length ? newCompactionPoints : thread.compactionPoints ? [] : undefined,
+    }
+  })
 }
 
 // RAG related types

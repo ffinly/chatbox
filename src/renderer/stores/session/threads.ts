@@ -226,6 +226,7 @@ export async function moveThreadToConversations(sessionId: string, threadId: str
     messages: targetThread.messages,
     threads: [],
     threadName: undefined,
+    compactionPoints: targetThread.compactionPoints,
   })
   await removeThread(sessionId, threadId)
   switchCurrentSession(newSession.id)
