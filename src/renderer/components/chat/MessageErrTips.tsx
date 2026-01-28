@@ -1,15 +1,39 @@
+import { ActionIcon, Collapse, Flex, Tooltip } from '@mantine/core'
 import { Link } from '@mui/material'
 import Alert from '@mui/material/Alert'
 import { aiProviderNameHash } from '@shared/models'
 import { ChatboxAIAPIError } from '@shared/models/errors'
 import type { Message } from '@shared/types'
+import { IconCheck, IconChevronDown, IconChevronUp, IconCopy } from '@tabler/icons-react'
 import type React from 'react'
-import { Trans } from 'react-i18next'
+import { useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
+import { useCopied } from '@/hooks/useCopied'
 import { navigateToSettings } from '@/modals/Settings'
 import { trackingEvent } from '@/packages/event'
 import platform from '@/platform'
 import * as settingActions from '@/stores/settingActions'
 import LinkTargetBlank from '../common/Link'
+
+const MAX_CHARS = 200
+const MAX_LINES = 3
+
+function shouldTruncate(text: string): boolean {
+  if (text.length > MAX_CHARS) return true
+  const lineCount = text.split('\n').length
+  return lineCount > MAX_LINES
+}
+
+function getTruncatedText(text: string): string {
+  if (text.length > MAX_CHARS) {
+    return `${text.slice(0, MAX_CHARS)}...`
+  }
+  const lines = text.split('\n')
+  if (lines.length > MAX_LINES) {
+    return `${lines.slice(0, MAX_LINES).join('\n')}...`
+  }
+  return text
+}
 
 /**
  * Detects if an error message indicates a context length exceeded error from various AI providers.
@@ -30,9 +54,9 @@ export function isContextLengthError(errorText: string | null | undefined): bool
 
 export default function MessageErrTips(props: { msg: Message }) {
   const { msg } = props
-  if (!msg.error) {
-    return null
-  }
+  const { t } = useTranslation()
+  const [expanded, setExpanded] = useState(false)
+
   const errorMessage = msg.errorExtra?.responseBody
     ? (() => {
         try {
@@ -42,7 +66,14 @@ export default function MessageErrTips(props: { msg: Message }) {
           return String(msg.errorExtra.responseBody)
         }
       })()
-    : msg.error
+    : msg.error || ''
+
+  const { copied, copy } = useCopied(errorMessage)
+  const isTruncated = shouldTruncate(errorMessage)
+
+  if (!msg.error) {
+    return null
+  }
 
   const tips: React.ReactNode[] = []
   let onlyShowTips = false // 是否只显示提示，不显示错误信息详情
@@ -191,7 +222,49 @@ export default function MessageErrTips(props: { msg: Message }) {
         <>
           <br />
           <br />
-          <div className="text-sm whitespace-pre-wrap p-2 rounded-md bg-red-50 dark:bg-red-900/20">{errorMessage}</div>
+          {isTruncated ? (
+            <div
+              className="text-sm p-2 rounded-md bg-red-50 dark:bg-red-900/20 cursor-pointer overflow-hidden"
+              onClick={() => setExpanded(!expanded)}
+            >
+              <Flex align="flex-start" gap="xs" className="min-w-0">
+                <ActionIcon variant="transparent" size="xs" c="red" p={0} className="flex-shrink-0">
+                  {expanded ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
+                </ActionIcon>
+                <div className="flex-1 min-w-0 whitespace-pre-wrap break-all">
+                  {expanded ? errorMessage : getTruncatedText(errorMessage)}
+                </div>
+              </Flex>
+              <Collapse in={expanded}>
+                <Flex justify="flex-end" mt="xs">
+                  <Tooltip label={t('copy')} withArrow openDelay={1000}>
+                    <ActionIcon
+                      variant="subtle"
+                      size="sm"
+                      color="red"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        copy()
+                      }}
+                    >
+                      {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
+                    </ActionIcon>
+                  </Tooltip>
+                </Flex>
+              </Collapse>
+            </div>
+          ) : (
+            <div className="text-sm p-2 rounded-md bg-red-50 dark:bg-red-900/20 overflow-hidden">
+              <div className="whitespace-pre-wrap break-all">{errorMessage}</div>
+              <Flex justify="flex-end" mt="xs">
+                <Tooltip label={t('copy')} withArrow openDelay={1000}>
+                  <ActionIcon variant="subtle" size="sm" color="red" onClick={() => copy()}>
+                    {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
+                  </ActionIcon>
+                </Tooltip>
+              </Flex>
+            </div>
+          )}
         </>
       )}
     </Alert>
