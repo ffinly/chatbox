@@ -363,8 +363,8 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
 
     const contextWindowKnown = useMemo(() => {
       if (!model?.modelId) return false
-      return getModelContextWindowSync(model.modelId) !== null
-    }, [model?.modelId])
+      return !!modelInfo?.contextWindow || getModelContextWindowSync(model.modelId) !== null
+    }, [model?.modelId, modelInfo?.contextWindow])
 
     // Use model setting contextWindow if available, otherwise fallback to models.dev data
     const effectiveContextWindow = useMemo(() => {
@@ -395,14 +395,20 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
     const handleAutoCompactionChange = useCallback(
       async (enabled: boolean) => {
         if (!currentSessionId || isNewSession) return
-        await chatStore.updateSession(currentSessionId, {
-          settings: {
-            ...currentSession?.settings,
-            autoCompaction: enabled,
-          },
+        await chatStore.updateSession(currentSessionId, (session) => {
+          if (!session) {
+            throw new Error('Session not found')
+          }
+          return {
+            ...session,
+            settings: {
+              ...session.settings,
+              autoCompaction: enabled,
+            },
+          }
         })
       },
-      [currentSessionId, isNewSession, currentSession?.settings]
+      [currentSessionId, isNewSession]
     )
 
     const [showSelectModelErrorTip, setShowSelectModelErrorTip] = useState(false)
