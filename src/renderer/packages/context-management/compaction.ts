@@ -3,7 +3,7 @@ import { createMessage } from '@shared/types'
 import { setCompactionUIState } from '@/stores/atoms/compactionAtoms'
 import * as chatStore from '@/stores/chatStore'
 import { settingsStore } from '@/stores/settingsStore'
-import { estimateTokensFromMessages } from '../token'
+import { estimateTokensFromMessages, sumCachedTokensFromMessages } from '../token'
 import { checkOverflow } from './compaction-detector'
 import { buildContextForAI } from './context-builder'
 import { generateSummary, generateSummaryWithStream } from './summary-generator'
@@ -180,7 +180,7 @@ export async function needsCompaction(sessionId: string): Promise<boolean> {
     settings: globalSettings,
   })
 
-  const currentTokens = estimateTokensFromMessages(currentContext)
+  const currentTokens = sumCachedTokensFromMessages(currentContext)
 
   const contextWindow = getModelContextWindowFromSettings(providerId, modelId, globalSettings)
   const overflowResult = checkOverflow({

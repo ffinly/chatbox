@@ -88,6 +88,59 @@ export function estimateTokensFromMessages(
   }
 }
 
+/**
+ * Sum cached token values from messages without calculation.
+ * Used by needsCompaction for non-blocking token count checks.
+ * Actual calculation is done by InputBox's useTokenEstimation.
+ */
+export function sumCachedTokensFromMessages(messages: Message[], model?: TokenModel): number {
+  if (messages.length === 0) {
+    return 0
+  }
+
+  const cacheKey = getTokenCacheKey(model)
+  const tokensPerMessage = 3
+  const tokensPerName = 1
+  let total = 0
+
+  for (const msg of messages) {
+    if (isEmptyMessage(msg)) {
+      continue
+    }
+
+    // Add per-message overhead
+    total += tokensPerMessage
+
+    // Read cached message text tokens (tokenCountMap preferred, tokenCount as fallback)
+    total += msg.tokenCountMap?.[cacheKey] ?? msg.tokenCount ?? 0
+
+    // Add role tokens
+    total += estimateTokens(msg.role, model)
+
+    // Add name tokens if present
+    if (msg.name) {
+      total += estimateTokens(msg.name, model)
+      total += tokensPerName
+    }
+
+    // Read cached file tokens
+    if (msg.files?.length) {
+      for (const file of msg.files) {
+        total += file.tokenCountMap?.[cacheKey] ?? 0
+      }
+    }
+
+    // Read cached link tokens
+    if (msg.links?.length) {
+      for (const link of msg.links) {
+        total += link.tokenCountMap?.[cacheKey] ?? 0
+      }
+    }
+  }
+
+  return total
+}
+
 export function sliceTextByTokenLimit(text: string, limit: number, model?: TokenModel) {
   let ret = ''
   let retTokenCount = 0
