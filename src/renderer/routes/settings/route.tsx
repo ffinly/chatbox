@@ -147,7 +147,10 @@ export function SettingsRoot() {
         >
           {ITEMS.map((item) => (
             <Link
-              disabled={routerState.location.pathname.startsWith(`/settings/${item.key}`)}
+              disabled={
+                routerState.location.pathname === `/settings/${item.key}` ||
+                routerState.location.pathname.startsWith(`/settings/${item.key}/`)
+              }
               key={item.key}
               to={`/settings/${item.key}` as any}
               className={'block no-underline w-full'}
