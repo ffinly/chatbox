@@ -13,28 +13,32 @@ export interface BuildContextOptions {
  * Builds context for AI by finding the latest compaction point, including the summary
  * message at the beginning, and applying tool call cleanup for older messages.
  * Falls back to all messages if no compaction points exist.
+ *
+ * Note: Messages with `generating: true` are excluded from context as they are incomplete.
  */
 export function buildContextForAI(options: BuildContextOptions): Message[] {
   const { messages, compactionPoints, keepToolCallRounds = 2 } = options
 
-  if (messages.length === 0) {
+  const completedMessages = messages.filter((m) => !m.generating)
+
+  if (completedMessages.length === 0) {
     return []
   }
 
   const latestCompactionPoint = findLatestCompactionPoint(compactionPoints)
 
   if (!latestCompactionPoint) {
-    return cleanToolCalls(messages, keepToolCallRounds)
+    return cleanToolCalls(completedMessages, keepToolCallRounds)
   }
 
-  const boundaryIndex = findMessageIndex(messages, latestCompactionPoint.boundaryMessageId)
-  const summaryMessage = findMessage(messages, latestCompactionPoint.summaryMessageId)
+  const boundaryIndex = findMessageIndex(completedMessages, latestCompactionPoint.boundaryMessageId)
+  const summaryMessage = findMessage(completedMessages, latestCompactionPoint.summaryMessageId)
 
   if (boundaryIndex === -1) {
-    return cleanToolCalls(messages, keepToolCallRounds)
+    return cleanToolCalls(completedMessages, keepToolCallRounds)
   }
 
-  const messagesAfterBoundary = messages.slice(boundaryIndex + 1).filter((m) => !m.isSummary)
+  const messagesAfterBoundary = completedMessages.slice(boundaryIndex + 1).filter((m) => !m.isSummary)
 
   let contextMessages: Message[]
   if (summaryMessage) {
@@ -43,9 +47,7 @@ export function buildContextForAI(options: BuildContextOptions): Message[] {
     contextMessages = messagesAfterBoundary
   }
 
-  // Preserve system prompt from original messages (before compaction point)
-  // System message should always be first in context sent to AI
-  const systemMessage = messages.find((m) => m.role === 'system')
+  const systemMessage = completedMessages.find((m) => m.role === 'system')
   if (systemMessage && !contextMessages.some((m) => m.id === systemMessage.id)) {
     contextMessages = [systemMessage, ...contextMessages]
   }
@@ -100,7 +102,7 @@ export function buildContextForThread(
 
 export function getContextMessageIds(session: Session, maxCount?: number): string[] {
   const contextMessages = buildContextForSession(session)
-  const ids = contextMessages.filter((m) => !m.generating).map((m) => m.id)
+  const ids = contextMessages.map((m) => m.id)
 
   if (maxCount && maxCount > 0) {
     return ids.slice(-maxCount)

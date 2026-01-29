@@ -3,10 +3,10 @@ import { createMessage } from '@shared/types'
 import { setCompactionUIState } from '@/stores/atoms/compactionAtoms'
 import * as chatStore from '@/stores/chatStore'
 import { settingsStore } from '@/stores/settingsStore'
-import { estimateTokensFromMessages, sumCachedTokensFromMessages } from '../token'
+import { sumCachedTokensFromMessages } from '../token'
 import { checkOverflow } from './compaction-detector'
 import { buildContextForAI } from './context-builder'
-import { generateSummary, generateSummaryWithStream } from './summary-generator'
+import { generateSummaryWithStream } from './summary-generator'
 
 function getModelContextWindowFromSettings(
   providerId: string | undefined,
@@ -41,115 +41,6 @@ export function isAutoCompactionEnabled(sessionSettings?: SessionSettings, globa
 
 export function isCompactionInProgress(sessionId: string): boolean {
   return ongoingCompactions.has(sessionId)
-}
-
-export async function runCompaction(sessionId: string, options: CompactionOptions = {}): Promise<CompactionResult> {
-  if (ongoingCompactions.has(sessionId)) {
-    return { success: true, compacted: false }
-  }
-
-  ongoingCompactions.add(sessionId)
-
-  try {
-    const session = await chatStore.getSession(sessionId)
-    if (!session) {
-      return { success: false, compacted: false, error: new Error('Session not found') }
-    }
-
-    const globalSettings = settingsStore.getState().getSettings()
-
-    if (!options.force && !isAutoCompactionEnabled(session.settings, globalSettings)) {
-      return { success: true, compacted: false }
-    }
-
-    const providerId = session.settings?.provider ?? globalSettings.defaultChatModel?.provider
-    const modelId = session.settings?.modelId ?? globalSettings.defaultChatModel?.model
-    if (!modelId) {
-      return { success: true, compacted: false }
-    }
-
-    const currentContext = buildContextForAI({
-      messages: session.messages,
-      compactionPoints: session.compactionPoints,
-      sessionSettings: session.settings,
-      settings: globalSettings,
-    })
-
-    const currentTokens = estimateTokensFromMessages(currentContext)
-
-    if (!options.force) {
-      const contextWindow = getModelContextWindowFromSettings(providerId, modelId, globalSettings)
-      const overflowResult = checkOverflow({
-        tokens: currentTokens,
-        modelId,
-        settings: { compactionThreshold: globalSettings.compactionThreshold },
-        contextWindow,
-      })
-
-      if (!overflowResult.isOverflow) {
-        return { success: true, compacted: false }
-      }
-    }
-
-    const summaryResult = await generateSummary({
-      messages: currentContext,
-      sessionSettings: session.settings,
-    })
-
-    if (!summaryResult.success || !summaryResult.summary) {
-      return {
-        success: false,
-        compacted: false,
-        error: summaryResult.error ?? new Error('Failed to generate summary'),
-      }
-    }
-
-    const summaryMessage = createMessage('assistant', summaryResult.summary)
-    summaryMessage.isSummary = true
-
-    const lastNonSummaryMessage = [...session.messages].reverse().find((m) => !m.isSummary)
-    if (!lastNonSummaryMessage) {
-      return { success: false, compacted: false, error: new Error('No messages to compact') }
-    }
-
-    const newCompactionPoint: CompactionPoint = {
-      summaryMessageId: summaryMessage.id,
-      boundaryMessageId: lastNonSummaryMessage.id,
-      createdAt: Date.now(),
-    }
-
-    await chatStore.updateSessionWithMessages(sessionId, (currentSession) => {
-      if (!currentSession) {
-        throw new Error('Session not found during update')
-      }
-
-      const updatedMessages: Message[] = [...currentSession.messages, summaryMessage]
-      const updatedCompactionPoints: CompactionPoint[] = [
-        ...(currentSession.compactionPoints ?? []),
-        newCompactionPoint,
-      ]
-
-      return {
-        ...currentSession,
-        messages: updatedMessages,
-        compactionPoints: updatedCompactionPoints,
-      }
-    })
-
-    return {
-      success: true,
-      compacted: true,
-      summaryMessageId: summaryMessage.id,
-    }
-  } catch (error) {
-    return {
-      success: false,
-      compacted: false,
-      error: error instanceof Error ? error : new Error(String(error)),
-    }
-  } finally {
-    ongoingCompactions.delete(sessionId)
-  }
 }
 
 export async function needsCompaction(sessionId: string): Promise<boolean> {
@@ -191,17 +82,6 @@ export async function needsCompaction(sessionId: string): Promise<boolean> {
   })
 
   return overflowResult.isOverflow
-}
-
-export function scheduleCompactionCheck(sessionId: string): void {
-  void (async () => {
-    try {
-      const shouldCompact = await needsCompaction(sessionId)
-      if (shouldCompact) {
-        await runCompaction(sessionId)
-      }
-    } catch {}
-  })()
 }
 
 export async function runCompactionWithUIState(

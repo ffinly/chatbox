@@ -3,9 +3,7 @@ export {
   isAutoCompactionEnabled,
   isCompactionInProgress,
   needsCompaction,
-  runCompaction,
   runCompactionWithUIState,
-  scheduleCompactionCheck,
 } from './compaction'
 export type { OverflowCheckOptions, OverflowCheckResult } from './compaction-detector'
 export {

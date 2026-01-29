@@ -432,7 +432,7 @@ export async function genMessageContext(
   const head = contextMessages[0]?.role === 'system' ? contextMessages[0] : undefined
   const workingMsgs = head ? contextMessages.slice(1) : contextMessages
 
-  let _totalLen = head ? estimateTokensFromMessages([head]) : 0
+  let _totalLen = head ? (head.tokenCount ?? estimateTokensFromMessages([head])) : 0
   let prompts: Message[] = []
   for (let i = workingMsgs.length - 1; i >= 0; i--) {
     let msg = workingMsgs[i]
@@ -440,7 +440,7 @@ export async function genMessageContext(
     if (msg.error || msg.errorCode) {
       continue
     }
-    const size = estimateTokensFromMessages([msg]) + 20 // 20 as estimated error compensation
+    const size = (msg.tokenCount ?? estimateTokensFromMessages([msg])) + 20 // 20 as estimated error compensation
     // Only OpenAI supports context tokens limit
     if (settings.provider === 'openai') {
       // if (size + totalLen > openaiMaxContextTokens) {
