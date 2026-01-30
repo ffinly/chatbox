@@ -1085,52 +1085,60 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                   </KnowledgeBaseMenu>
                 )}
 
-                <UnstyledButton
-                  onClick={() => {
-                    setWebBrowsingMode(!webBrowsingMode)
-                    dom.focusMessageInput()
-                  }}
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors"
-                >
-                  <IconWorldWww
-                    size={18}
-                    strokeWidth={1.8}
-                    className={
-                      webBrowsingMode ? 'text-[var(--chatbox-tint-brand)]' : 'text-[var(--chatbox-tint-secondary)]'
-                    }
-                  />
-                </UnstyledButton>
+                <Tooltip label={t('Web Search')} position="top" withArrow disabled={isSmallScreen}>
+                  <UnstyledButton
+                    onClick={() => {
+                      setWebBrowsingMode(!webBrowsingMode)
+                      dom.focusMessageInput()
+                    }}
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors"
+                  >
+                    <IconWorldWww
+                      size={18}
+                      strokeWidth={1.8}
+                      className={
+                        webBrowsingMode ? 'text-[var(--chatbox-tint-brand)]' : 'text-[var(--chatbox-tint-secondary)]'
+                      }
+                    />
+                  </UnstyledButton>
+                </Tooltip>
 
                 {!isSmallScreen &&
                   (showRollbackThreadButton ? (
-                    <UnstyledButton
-                      onClick={rollbackThread}
-                      className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors"
-                    >
-                      <IconArrowBackUp size={18} strokeWidth={1.8} className="text-[var(--chatbox-tint-secondary)]" />
-                    </UnstyledButton>
+                    <Tooltip label={t('Rollback Thread')} position="top" withArrow>
+                      <UnstyledButton
+                        onClick={rollbackThread}
+                        className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors"
+                      >
+                        <IconArrowBackUp size={18} strokeWidth={1.8} className="text-[var(--chatbox-tint-secondary)]" />
+                      </UnstyledButton>
+                    </Tooltip>
                   ) : (
-                    <UnstyledButton
-                      onClick={startNewThread}
-                      disabled={!onStartNewThread}
-                      className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors disabled:opacity-50"
-                    >
-                      <IconFilePencil size={18} strokeWidth={1.8} className="text-[var(--chatbox-tint-secondary)]" />
-                    </UnstyledButton>
+                    <Tooltip label={t('New Thread')} position="top" withArrow>
+                      <UnstyledButton
+                        onClick={startNewThread}
+                        disabled={!onStartNewThread}
+                        className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors disabled:opacity-50"
+                      >
+                        <IconFilePencil size={18} strokeWidth={1.8} className="text-[var(--chatbox-tint-secondary)]" />
+                      </UnstyledButton>
+                    </Tooltip>
                   ))}
 
                 {!isSmallScreen && (
-                  <UnstyledButton
-                    onClick={onClickSessionSettings}
-                    disabled={!onClickSessionSettings}
-                    className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors disabled:opacity-50"
-                  >
-                    <IconAdjustmentsHorizontal
-                      size={18}
-                      strokeWidth={1.8}
-                      className="text-[var(--chatbox-tint-secondary)]"
-                    />
-                  </UnstyledButton>
+                  <Tooltip label={t('Conversation Settings')} position="top" withArrow>
+                    <UnstyledButton
+                      onClick={onClickSessionSettings}
+                      disabled={!onClickSessionSettings}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors disabled:opacity-50"
+                    >
+                      <IconAdjustmentsHorizontal
+                        size={18}
+                        strokeWidth={1.8}
+                        className="text-[var(--chatbox-tint-secondary)]"
+                      />
+                    </UnstyledButton>
+                  </Tooltip>
                 )}
 
                 {/* Mobile: Settings menu */}
