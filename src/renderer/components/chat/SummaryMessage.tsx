@@ -1,23 +1,25 @@
+import NiceModal from '@ebay/nice-modal-react'
 import { ActionIcon, Button, Collapse, Flex, Group, Stack, Text, Tooltip } from '@mantine/core'
 import type { Message } from '@shared/types'
 import { getMessageText } from '@shared/utils/message'
-import { IconChevronDown, IconChevronUp, IconTrash } from '@tabler/icons-react'
-import { type FC, memo, useState } from 'react'
+import { IconChevronDown, IconChevronUp, IconPencil, IconTrash } from '@tabler/icons-react'
+import { type FC, memo, useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Markdown from '@/components/Markdown'
 import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/settingsStore'
-import { Modal } from '../layout/Overlay'
 import { ScalableIcon } from '../common/ScalableIcon'
+import { Modal } from '../layout/Overlay'
 
 interface SummaryMessageProps {
   msg: Message
   className?: string
   isLatestSummary?: boolean
   onDelete?: () => void
+  sessionId: string
 }
 
-const SummaryMessage: FC<SummaryMessageProps> = ({ msg, className, isLatestSummary, onDelete }) => {
+const SummaryMessage: FC<SummaryMessageProps> = ({ msg, className, isLatestSummary, onDelete, sessionId }) => {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -29,6 +31,10 @@ const SummaryMessage: FC<SummaryMessageProps> = ({ msg, className, isLatestSumma
     setShowDeleteConfirm(false)
     onDelete?.()
   }
+
+  const handleEdit = useCallback(() => {
+    void NiceModal.show('message-edit', { sessionId, msg, hideSaveAndResend: true })
+  }, [sessionId, msg])
 
   const summaryBadge = (
     <Flex
@@ -70,9 +76,9 @@ const SummaryMessage: FC<SummaryMessageProps> = ({ msg, className, isLatestSumma
             </Text>
           )}
 
-          {isLatestSummary && onDelete && (
+          {isLatestSummary && (
             <Flex gap={0} mt="xs" className="opacity-0 group-hover/summary:opacity-100 transition-opacity">
-              <Tooltip label={t('Delete')} openDelay={1000} withArrow>
+              <Tooltip label={t('Edit')} openDelay={1000} withArrow>
                 <ActionIcon
                   variant="subtle"
                   w="auto"
@@ -82,11 +88,28 @@ const SummaryMessage: FC<SummaryMessageProps> = ({ msg, className, isLatestSumma
                   p={4}
                   bd={0}
                   color="chatbox-secondary"
-                  onClick={() => setShowDeleteConfirm(true)}
+                  onClick={handleEdit}
                 >
-                  <ScalableIcon icon={IconTrash} size={16} />
+                  <ScalableIcon icon={IconPencil} size={16} />
                 </ActionIcon>
               </Tooltip>
+              {onDelete && (
+                <Tooltip label={t('Delete')} openDelay={1000} withArrow>
+                  <ActionIcon
+                    variant="subtle"
+                    w="auto"
+                    h="auto"
+                    miw="auto"
+                    mih="auto"
+                    p={4}
+                    bd={0}
+                    color="chatbox-secondary"
+                    onClick={() => setShowDeleteConfirm(true)}
+                  >
+                    <ScalableIcon icon={IconTrash} size={16} />
+                  </ActionIcon>
+                </Tooltip>
+              )}
             </Flex>
           )}
         </div>

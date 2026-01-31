@@ -3,12 +3,12 @@ import { Button, Combobox, Input, InputBase, Stack, Text, Textarea, useCombobox 
 import { type Message, type MessageContentParts, type MessageRole, MessageRoleEnum } from '@shared/types'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AssistantAvatar, SystemAvatar, UserAvatar } from '@/components/common/Avatar'
 import { AdaptiveModal } from '@/components/common/AdaptiveModal'
+import { AssistantAvatar, SystemAvatar, UserAvatar } from '@/components/common/Avatar'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { generateMoreInNewFork, modifyMessage } from '@/stores/sessionActions'
 
-const MessageEdit = NiceModal.create((props: { sessionId: string; msg: Message }) => {
+const MessageEdit = NiceModal.create((props: { sessionId: string; msg: Message; hideSaveAndResend?: boolean }) => {
   const modal = useModal()
 
   if (!props.msg) {
@@ -21,6 +21,7 @@ const MessageEdit = NiceModal.create((props: { sessionId: string; msg: Message }
       sessionId={props.sessionId}
       msg={props.msg}
       opened={modal.visible}
+      hideSaveAndResend={props.hideSaveAndResend}
       onClose={() => {
         modal.resolve()
         modal.hide()
@@ -36,11 +37,13 @@ const MessageEditModal = ({
   msg: origMsg,
   opened,
   onClose,
+  hideSaveAndResend,
 }: {
   sessionId: string
   msg: Message
   opened: boolean
   onClose(): void
+  hideSaveAndResend?: boolean
 }) => {
   const { t } = useTranslation()
   const isSmallScreen = useIsSmallScreen()
@@ -200,8 +203,8 @@ const MessageEditModal = ({
     const ctrlOrCmd = event.ctrlKey || event.metaKey
     const shift = event.shiftKey
 
-    // ctrl + shift + enter 保存并生成
-    if (event.key === 'Enter' && ctrlOrCmd && shift) {
+    // ctrl + shift + enter 保存并生成 (skip if hideSaveAndResend is true)
+    if (event.key === 'Enter' && ctrlOrCmd && shift && !hideSaveAndResend) {
       event.preventDefault()
       onSaveAndReply()
       return
@@ -324,9 +327,11 @@ const MessageEditModal = ({
 
         <AdaptiveModal.Actions>
           <AdaptiveModal.CloseButton onClick={handleClose} />
-          <Button onClick={onSaveAndReply} variant="light">
-            {t('Save & Resend')}
-          </Button>
+          {!hideSaveAndResend && (
+            <Button onClick={onSaveAndReply} variant="light">
+              {t('Save & Resend')}
+            </Button>
+          )}
           <Button onClick={onSave}>{t('save')}</Button>
         </AdaptiveModal.Actions>
       </AdaptiveModal>

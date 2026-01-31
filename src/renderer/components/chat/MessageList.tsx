@@ -49,8 +49,8 @@ import { useUIStore } from '@/stores/uiStore'
 import ActionMenu from '../ActionMenu'
 
 import { ErrorBoundary } from '../common/ErrorBoundary'
-import { BlockCodeCollapsedStateProvider } from '../Markdown'
 import { ScalableIcon } from '../common/ScalableIcon'
+import { BlockCodeCollapsedStateProvider } from '../Markdown'
 import Message from './Message'
 import MessageNavigation, { ScrollToBottomButton } from './MessageNavigation'
 import SummaryMessage from './SummaryMessage'
@@ -302,6 +302,7 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
                         className={index === 0 ? 'pt-4' : index === currentMessageList.length - 1 ? '!pb-4' : ''}
                         isLatestSummary={msg.id === latestSummaryMessageId}
                         onDelete={() => removeMessage(currentSession.id, msg.id)}
+                        sessionId={currentSession.id}
                       />
                     ) : (
                       <Message
