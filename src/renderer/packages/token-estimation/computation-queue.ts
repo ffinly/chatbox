@@ -223,6 +223,21 @@ export class ComputationQueue {
   }
 
   /**
+   * Cancel tasks for a session that don't match the current tokenizerType
+   * Called when user switches models (tokenizerType changes)
+   */
+  retainOnlyTokenizerType(sessionId: string, tokenizerType: string): void {
+    const beforeCount = this.state.pending.length
+    this.state.pending = this.state.pending.filter(
+      (t) => t.sessionId !== sessionId || t.tokenizerType === tokenizerType
+    )
+
+    if (beforeCount !== this.state.pending.length) {
+      this.notifyListeners()
+    }
+  }
+
+  /**
    * Check if a session has been cancelled
    * Used by task executor to abort early
    */
@@ -259,6 +274,22 @@ export class ComputationQueue {
    */
   getPendingTasks(): ComputationTask[] {
     return [...this.state.pending]
+  }
+
+  /**
+   * Remove completed markers for the given task IDs so they can be re-enqueued
+   */
+  invalidateCompletedTasks(taskIds: string[]): void {
+    if (taskIds.length === 0) return
+    let removed = 0
+    for (const id of taskIds) {
+      if (this.state.completed.delete(id)) {
+        removed++
+      }
+    }
+    if (removed > 0) {
+      this.notifyListeners()
+    }
   }
 
   /**

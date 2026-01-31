@@ -144,39 +144,21 @@ Comply with user requests to the best of your abilities. Maintain composure and 
 }
 
 export function summarizeConversation(msgs: Message[], language: string): Message[] {
-  const format = (msgs: Message[]) =>
-    msgs.map((msg) => `${msg.role.toUpperCase()}: ${getMessageText(msg, true, false)}`).join('\n\n---------\n\n')
+  const instructionText = `Provide a detailed summary for continuing this conversation.
+Focus on information that would be helpful for continuing, including:
+- What we discussed and why it matters
+- Key decisions made
+- What we're working on
+- What we're going to do next
 
-  return [
-    {
-      id: '1',
-      role: 'user',
-      contentParts: [
-        {
-          type: 'text',
-          text: `Create a continuation-ready instruction for a NEW chat thread based on the conversation below.
+The new session will not have access to our conversation history.
+Write in ${language}. Be concise but complete. Do NOT include prefaces or meta-commentary.`
 
-Requirements:
-- Produce a self-contained brief that lets the assistant continue seamlessly without asking to recap.
-- Explicitly preserve the original directives and constraints under a section named "Retained instructions". If system or user instructions exist, keep them verbatim when short, otherwise condense faithfully.
-- Include these sections, using clear bullet points where helpful:
-  1) Retained instructions (role, goals, constraints, style/tone, formatting rules, tools, safety boundaries)
-  2) Context summary (what has happened so far and why it matters)
-  3) Key decisions and outcomes
-  4) Open questions / TODOs (with owners if known)
-  5) Next reply guidance (what the assistant should do/say next to proceed)
-  6) User preferences (language, style, domain nuances) that should persist
-- Write in ${language}. Keep it concise but complete. Do NOT include prefaces, apologies, or meta-commentary. Do NOT ask follow-up questions just to reconnect.
+  const instructionMessage: Message = {
+    id: `summary-instruction-${Date.now()}`,
+    role: 'user',
+    contentParts: [{ type: 'text', text: instructionText }],
+  }
 
-Here is the conversation to base this on:
-
-\`\`\`
-${format(msgs)}
-\`\`\`
-
-Return only the continuation-ready instruction with the sections above.`,
-        },
-      ],
-    },
-  ]
+  return [...msgs, instructionMessage]
 }

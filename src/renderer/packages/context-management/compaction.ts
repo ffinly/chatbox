@@ -1,11 +1,19 @@
 import type { CompactionPoint, Message, SessionSettings, Settings } from '@shared/types'
 import { createMessage } from '@shared/types'
+import { getTokenizerType } from '@/packages/token-estimation'
 import { setCompactionUIState } from '@/stores/atoms/compactionAtoms'
 import * as chatStore from '@/stores/chatStore'
+import queryClient from '@/stores/queryClient'
 import { settingsStore } from '@/stores/settingsStore'
 import { sumCachedTokensFromMessages } from '../token'
 import { checkOverflow } from './compaction-detector'
 import { buildContextForAI } from './context-builder'
+import {
+  type ContextTokensCacheValue,
+  getContextMessagesForTokenEstimation,
+  getContextTokensCacheKey,
+  getLatestCompactionBoundaryId,
+} from './context-tokens'
 import { generateSummaryWithStream } from './summary-generator'
 
 function getModelContextWindowFromSettings(
@@ -44,6 +52,7 @@ export function isCompactionInProgress(sessionId: string): boolean {
 }
 
 export async function needsCompaction(sessionId: string): Promise<boolean> {
+  // ===== Keep existing early returns (do not modify) =====
   const session = await chatStore.getSession(sessionId)
   if (!session) {
     console.log('[DEBUG needsCompaction] session not found')
@@ -64,18 +73,46 @@ export async function needsCompaction(sessionId: string): Promise<boolean> {
     return false
   }
 
-  const currentContext = buildContextForAI({
-    messages: session.messages,
-    compactionPoints: session.compactionPoints,
-    sessionSettings: session.settings,
-    settings: globalSettings,
+  // ===== NEW: Get merged settings =====
+  const mergedSettings = await chatStore.getSessionSettings(sessionId)
+  const maxContextMessageCount = mergedSettings.maxContextMessageCount ?? Number.MAX_SAFE_INTEGER
+
+  // ===== NEW: Construct cache key =====
+  const contextMessages = getContextMessagesForTokenEstimation(session, { settings: mergedSettings })
+  const model = providerId && modelId ? { provider: providerId, modelId } : undefined
+  const tokenizerType = getTokenizerType(model)
+
+  const cacheKey = getContextTokensCacheKey({
+    sessionId,
+    maxContextMessageCount,
+    latestContextMessageId: contextMessages[contextMessages.length - 1]?.id ?? null,
+    latestCompactionBoundaryId: getLatestCompactionBoundaryId(session.compactionPoints),
+    tokenizerType,
   })
 
-  const currentTokens = sumCachedTokensFromMessages(currentContext)
+  // ===== NEW: Read from cache =====
+  const cachedResult = queryClient.getQueryData<ContextTokensCacheValue>(cacheKey)
+  if (!cachedResult) {
+    // L2 cache miss: Use L1 cache aggregation (do NOT trigger calculation tasks)
+    const estimatedTokens = sumCachedTokensFromMessages(contextMessages)
+    queryClient.setQueryData(cacheKey, {
+      contextTokens: estimatedTokens,
+      messageCount: contextMessages.length,
+      timestamp: Date.now(),
+    })
+    const contextWindow = getModelContextWindowFromSettings(providerId, modelId, globalSettings)
+    return checkOverflow({
+      tokens: estimatedTokens,
+      modelId,
+      settings: { compactionThreshold: globalSettings.compactionThreshold },
+      contextWindow,
+    }).isOverflow
+  }
 
+  // ===== Keep existing: checkOverflow call (only replace tokens source) =====
   const contextWindow = getModelContextWindowFromSettings(providerId, modelId, globalSettings)
   const overflowResult = checkOverflow({
-    tokens: currentTokens,
+    tokens: cachedResult.contextTokens, // ← Changed: from cache
     modelId,
     settings: { compactionThreshold: globalSettings.compactionThreshold },
     contextWindow,
@@ -132,12 +169,10 @@ async function runCompactionWithStreaming(sessionId: string): Promise<Compaction
       return { success: true, compacted: false }
     }
 
-    const currentContext = buildContextForAI({
-      messages: session.messages,
-      compactionPoints: session.compactionPoints,
-      sessionSettings: session.settings,
-      settings: globalSettings,
-    })
+    // Apply maxContextMessageCount to summary input
+    const mergedSettings = await chatStore.getSessionSettings(sessionId)
+    const maxContextMessageCount = mergedSettings.maxContextMessageCount ?? Number.MAX_SAFE_INTEGER
+    const currentContext = getContextMessagesForTokenEstimation(session, { settings: mergedSettings })
 
     const summaryResult = await generateSummaryWithStream({
       messages: currentContext,

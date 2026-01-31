@@ -1,7 +1,7 @@
 import type { Message } from '@shared/types/session'
 import { useEffect, useMemo, useState } from 'react'
 import { analyzeTokenRequirements } from '../analyzer'
-import { computationQueue } from '../computation-queue'
+import { computationQueue, generateTaskId } from '../computation-queue'
 import { getTokenizerType } from '../tokenizer'
 import type { TokenEstimationResult } from '../types'
 
@@ -45,11 +45,28 @@ export function useTokenEstimation(options: UseTokenEstimationOptions): TokenEst
 
   const contextMessageIds = useMemo(() => new Set(contextMessages.map((m) => m.id)), [contextMessages])
 
+  const pendingTaskIds = useMemo(() => {
+    if (!sessionId || sessionId === 'new') return []
+    return analysisResult.pendingTasks.map((task) =>
+      generateTaskId({
+        ...task,
+        sessionId,
+      })
+    )
+  }, [analysisResult.pendingTasks, sessionId])
+
   useEffect(() => {
     if (!sessionId || sessionId === 'new') return
 
+    if (pendingTaskIds.length > 0) {
+      computationQueue.invalidateCompletedTasks(pendingTaskIds)
+    }
+
     // Cancel tasks for messages no longer in context (e.g., maxContextMessageCount changed)
     computationQueue.retainOnlyMessages(sessionId, contextMessageIds)
+
+    // Cancel tasks with old tokenizerType when model changes
+    computationQueue.retainOnlyTokenizerType(sessionId, tokenizerType)
 
     if (analysisResult.pendingTasks.length === 0) return
 
@@ -59,7 +76,7 @@ export function useTokenEstimation(options: UseTokenEstimationOptions): TokenEst
         sessionId,
       }))
     )
-  }, [sessionId, contextMessageIds, analysisResult.pendingTasks])
+  }, [sessionId, contextMessageIds, analysisResult.pendingTasks, pendingTaskIds, tokenizerType])
 
   useEffect(() => {
     return () => {

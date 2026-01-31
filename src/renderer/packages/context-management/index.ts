@@ -20,6 +20,19 @@ export {
   buildContextForThread,
   getContextMessageIds,
 } from './context-builder'
+export type {
+  ContextTokensCacheKeyParams,
+  ContextTokensCacheValue,
+  GetContextMessagesForTokenEstimationOptions,
+  UseContextTokensOptions,
+  UseContextTokensResult,
+} from './context-tokens'
+export {
+  getContextMessagesForTokenEstimation,
+  getContextTokensCacheKey,
+  getLatestCompactionBoundaryId,
+  useContextTokens,
+} from './context-tokens'
 export type { SummaryGeneratorOptions, SummaryResult } from './summary-generator'
 export { generateSummary, generateSummaryWithStream, isSummaryGenerationAvailable } from './summary-generator'
 export { cleanToolCalls } from './tool-cleanup'

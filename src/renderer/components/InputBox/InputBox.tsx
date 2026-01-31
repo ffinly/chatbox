@@ -56,16 +56,14 @@ import { useProviders } from '@/hooks/useProviders'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { cn } from '@/lib/utils'
 import {
-  buildContextForSession,
   getContextMessageIds,
   isAutoCompactionEnabled,
   isCompactionInProgress,
+  useContextTokens,
 } from '@/packages/context-management'
-import { selectMessagesForSendContext } from '@/packages/context-management/attachment-payload'
 import { trackingEvent } from '@/packages/event'
 import { getModelContextWindowSync } from '@/packages/model-context'
 import * as picUtils from '@/packages/pic_utils'
-import { useTokenEstimation } from '@/packages/token-estimation/hooks/useTokenEstimation'
 import platform from '@/platform'
 import storage from '@/storage'
 import { StorageKeyGenerator } from '@/storage/StoreStorage'
@@ -91,6 +89,7 @@ import * as toastActions from '../../stores/toastActions'
 import { CompactionStatus } from '../chat/CompactionStatus'
 import { CompressionModal } from '../common/CompressionModal'
 import { ScalableIcon } from '../common/ScalableIcon'
+import Disclaimer from '../Disclaimer'
 import ProviderImageIcon from '../icons/ProviderImageIcon'
 import KnowledgeBaseMenu from '../knowledge-base/KnowledgeBaseMenu'
 import ModelSelector from '../ModelSelector'
@@ -211,20 +210,6 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
       return getContextMessageIds(currentSession, currentSessionMergedSettings?.maxContextMessageCount)
     }, [isNewSession, currentSessionMergedSettings?.maxContextMessageCount, currentSession])
 
-    const currentContextMessages = useMemo(() => {
-      if (isNewSession) return undefined
-      if (!currentSession?.messages.length) return undefined
-
-      const contextFromSession = buildContextForSession(currentSession)
-
-      return selectMessagesForSendContext({
-        settings: currentSessionMergedSettings || {},
-        msgs: contextFromSession,
-        compactionPoints: currentSession.compactionPoints,
-        preserveLastUserMessage: false,
-      })
-    }, [isNewSession, currentSession, currentSessionMergedSettings])
-
     const { knowledgeBase, setKnowledgeBase } = useKnowledgeBase({ isNewSession })
 
     const [showCompressionModal, setShowCompressionModal] = useState(false)
@@ -338,14 +323,16 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
       gcTime: 10 * 60 * 1000,
     })
 
-    // Calculate token counts - use stable messages to avoid recalculation during streaming
-    const { currentInputTokens, contextTokens, totalTokens, isCalculating, pendingTasks } = useTokenEstimation({
-      sessionId: currentSessionId || null,
-      constructedMessage: preConstructedMessage.message,
-      contextMessages: currentContextMessages || [],
-      model,
-      modelSupportToolUseForFile,
-    })
+    // Calculate token counts using unified cache layer
+    const { contextTokens, currentInputTokens, totalTokens, isCalculating, pendingTasks, messageCount } =
+      useContextTokens({
+        sessionId: currentSessionId || null,
+        session: currentSession,
+        settings: currentSessionMergedSettings || {},
+        model,
+        modelSupportToolUseForFile,
+        constructedMessage: preConstructedMessage.message,
+      })
 
     const globalSettings = useSettingsStore((state) => state)
     const [isCompacting, setIsCompacting] = useState(false)
@@ -1181,7 +1168,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                   totalTokens={totalTokens}
                   isCalculating={isCalculating}
                   pendingTasks={pendingTasks}
-                  totalContextMessages={currentContextMessages?.length ?? 0}
+                  totalContextMessages={messageCount}
                   contextWindow={effectiveContextWindow ?? undefined}
                   currentMessageCount={currentContextMessageIds?.length ?? 0}
                   maxContextMessageCount={currentSessionMergedSettings?.maxContextMessageCount}
