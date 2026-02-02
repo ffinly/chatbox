@@ -1,8 +1,9 @@
 import type { ModelInterface } from '../models/types'
 import type { Config, ProviderModelInfo, SessionSettings, Settings } from '../types'
 import type { ModelDependencies } from '../types/adapters'
-import './definitions/azure'
+// ChatboxAI must be imported first to ensure it appears at the top of provider lists
 import './definitions/chatboxai'
+import './definitions/azure'
 import './definitions/chatglm'
 import './definitions/claude'
 import './definitions/deepseek'
