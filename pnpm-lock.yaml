@@ -9,7 +9,6 @@ overrides:
   '@tanstack/router-plugin': 1.120.15
   '@mastra/libsql': 0.13.2
   '@mastra/rag': 1.0.8
-  '@napi-rs/canvas': '-'
 
 patchedDependencies:
   libsql@0.5.22:
@@ -47,9 +46,6 @@ importers:
       auto-launch:
         specifier: ^5.0.6
         version: 5.0.6
-      canvas-confetti:
-        specifier: ^1.9.4
-        version: 1.9.4
       chardet:
         specifier: ^2.1.0
         version: 2.1.1
@@ -93,8 +89,8 @@ importers:
         specifier: ^1.0.1
         version: 1.5.1
       officeparser:
-        specifier: ^5.0.0
-        version: 5.2.2
+        specifier: 5.0.0
+        version: 5.0.0
       sanitize-filename:
         specifier: ^1.6.3
         version: 1.6.3
@@ -402,6 +398,9 @@ importers:
       browserslist-config-erb:
         specifier: ^0.0.3
         version: 0.0.3(electron@26.6.10)
+      canvas-confetti:
+        specifier: ^1.9.4
+        version: 1.9.4
       capacitor-plugin-safe-area:
         specifier: ^4.0.0
         version: 4.0.3(@capacitor/core@7.4.5)
@@ -10059,9 +10058,6 @@ packages:
     deprecated: 'Please upgrade to @mapbox/node-pre-gyp: the non-scoped node-pre-gyp package is deprecated and only the @mapbox scoped package will recieve updates in the future'
     hasBin: true
 
-  node-readable-to-web-readable-stream@0.4.2:
-    resolution: {integrity: sha512-/cMZNI34v//jUTrI+UIo4ieHAB5EZRY/+7OmXZgBxaWBMcW2tGdceIw06RFxWxrKZ5Jp3sI2i5TsRo+CBhtVLQ==}
-
   node-releases@2.0.27:
     resolution: {integrity: sha512-nmh3lCkYZ3grZvqcCH+fjmQ7X+H0OeZgP40OierEaAptX4XofMh5kwNbWh7lBduUzCcV/8kZ+NDLCwm2iorIlA==}
 
@@ -10160,8 +10156,8 @@ packages:
   ofetch@1.5.1:
     resolution: {integrity: sha512-2W4oUZlVaqAPAil6FUg/difl6YhqhUR7x2eZY4bQCko22UXg3hptq9KLQdqFClV+Wu85UX7hNtdGTngi/1BxcA==}
 
-  officeparser@5.2.2:
-    resolution: {integrity: sha512-5JrV1CZFqTv/27fXy2bcf+3g6BpDZiJ3XoSRW3fb2i2EFex0DduqjTxiU2RsJ08WBsk4Hp0nZoGi9ZtHMZFaPA==}
+  officeparser@5.0.0:
+    resolution: {integrity: sha512-IpUOA2yEBgmOH7gwekzg5V6dSzi3p3Tn98f88Hk1KneG1Q7hZ+bZXbpAPqDc1F02r192joIZAZw9Wd0PT0NwRg==}
     hasBin: true
 
   on-change@4.0.2:
@@ -10388,10 +10384,6 @@ packages:
 
   pathe@2.0.3:
     resolution: {integrity: sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w==}
-
-  pdfjs-dist@5.4.624:
-    resolution: {integrity: sha512-sm6TxKTtWv1Oh6n3C6J6a8odejb5uO4A4zo/2dgkHuC0iu8ZMAXOezEODkVaoVp8nX1Xzr+0WxFJJmUr45hQzg==}
-    engines: {node: '>=20.16.0 || >=22.3.0'}
 
   peek-readable@4.1.0:
     resolution: {integrity: sha512-ZI3LnwUv5nOGbQzD9c2iDG6toheuXSZP5esSHBjopsXH4dg19soufvpUGA3uohi5anFtGb2lhAVdHzH6R/Evvg==}
@@ -24939,9 +24931,6 @@ snapshots:
       - supports-color
     optional: true
 
-  node-readable-to-web-readable-stream@0.4.2:
-    optional: true
-
   node-releases@2.0.27: {}
 
   nopt@4.0.3:
@@ -25050,13 +25039,12 @@ snapshots:
       node-fetch-native: 1.6.7
       ufo: 1.6.3
 
-  officeparser@5.2.2:
+  officeparser@5.0.0:
     dependencies:
       '@xmldom/xmldom': 0.8.11
       concat-stream: 2.0.0
       file-type: 16.5.4
       node-ensure: 0.0.0
-      pdfjs-dist: 5.4.624
       yauzl: 3.2.0
 
   on-change@4.0.2: {}
@@ -25286,10 +25274,6 @@ snapshots:
   path-type@4.0.0: {}
 
   pathe@2.0.3: {}
-
-  pdfjs-dist@5.4.624:
-    optionalDependencies:
-      node-readable-to-web-readable-stream: 0.4.2
 
   peek-readable@4.1.0: {}
 

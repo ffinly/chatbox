@@ -2,7 +2,6 @@ import * as chardet from 'chardet'
 import Epub from 'epub'
 import * as fs from 'fs-extra'
 import * as iconv from 'iconv-lite'
-import officeParser from 'officeparser'
 import { isEpubFilePath, isOfficeFilePath } from '../shared/file-extensions'
 import { getLogger } from './util'
 
@@ -70,7 +69,8 @@ async function concurrentMap<T, R>(
 export async function parseFile(filePath: string) {
   if (isOfficeFilePath(filePath)) {
     try {
-      const data = await officeParser.parseOfficeAsync(filePath)
+      const officeParser = await import('officeparser')
+      const data = await officeParser.default.parseOfficeAsync(filePath)
       return data
     } catch (error) {
       log.error(error)

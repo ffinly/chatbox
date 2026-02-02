@@ -59,6 +59,7 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
   const [showRemoteRetryModal, setShowRemoteRetryModal] = useState(false)
 
   const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const globalDocumentParserType = useSettingsStore((state) => state.extension?.documentParser?.type)
 
   // Chunks preview hook
   const chunksPreview = useChunksPreview()
@@ -183,37 +184,34 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
 
   // Get supported file types
   const getSupportedFileTypes = useCallback(() => {
-    const documentTypes = [
-      '.pdf',
-      '.doc',
-      '.docx',
-      '.txt',
-      '.md',
-      '.rtf',
-      '.ppt',
-      '.pptx',
-      '.xls',
-      '.xlsx',
-      '.csv',
-      '.epub',
-    ]
+    const effectiveParserType = knowledgeBase?.documentParser?.type || globalDocumentParserType || 'local'
+    const isLocalParser = effectiveParserType === 'local'
+
+    const baseDocumentTypes = ['.pdf', '.docx', '.txt', '.md', '.rtf', '.pptx', '.xlsx', '.csv', '.epub']
+    const extendedDocumentTypes = ['.doc', '.ppt', '.xls']
+    const documentTypes = isLocalParser ? baseDocumentTypes : [...baseDocumentTypes, ...extendedDocumentTypes]
     const imageTypes = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']
 
     // Add MIME types for better Windows compatibility
-    const documentMimeTypes = [
+    const baseDocumentMimeTypes = [
       'application/pdf',
-      'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'text/plain',
       'text/markdown',
       'application/rtf',
-      'application/vnd.ms-powerpoint',
       'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      'application/vnd.ms-excel',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'text/csv',
       'application/epub+zip',
     ]
+    const extendedDocumentMimeTypes = [
+      'application/msword',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.ms-excel',
+    ]
+    const documentMimeTypes = isLocalParser
+      ? baseDocumentMimeTypes
+      : [...baseDocumentMimeTypes, ...extendedDocumentMimeTypes]
     const imageMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp']
 
     const hasVisionModel = knowledgeBase?.visionModel && knowledgeBase.visionModel.trim() !== ''
@@ -227,7 +225,7 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
       accept: allTypes.join(','),
       display: hasVisionModel ? [...documentTypes, ...imageTypes] : documentTypes,
     }
-  }, [knowledgeBase?.visionModel])
+  }, [knowledgeBase?.documentParser?.type, knowledgeBase?.visionModel, globalDocumentParserType])
 
   // Handle file upload (shared logic)
   const uploadFiles = useCallback(

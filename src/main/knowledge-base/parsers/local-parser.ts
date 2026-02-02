@@ -1,6 +1,11 @@
 import fs from 'node:fs'
 import type { ModelMessage } from 'ai'
-import { isEpubFilePath, isOfficeFilePath, isTextFilePath } from '../../../shared/file-extensions'
+import {
+  isEpubFilePath,
+  isLegacyOfficeFilePath,
+  isOfficeFilePath,
+  isTextFilePath,
+} from '../../../shared/file-extensions'
 import type { DocumentParserType } from '../../../shared/types/settings'
 import { parseFile } from '../../file-parser'
 import { getVisionProvider } from '../model-providers'
@@ -17,6 +22,12 @@ export class LocalParser implements DocumentParser {
   constructor(private kbId?: number) {}
 
   async parse(filePath: string, meta: ParserFileMeta): Promise<string> {
+    if (isLegacyOfficeFilePath(filePath)) {
+      throw new Error(
+        'Legacy Office formats (.doc/.xls/.ppt) are not supported by local parser. Please convert to .docx/.xlsx/.pptx or switch document parser to Chatbox AI.'
+      )
+    }
+
     if (isOfficeFilePath(filePath)) {
       return await parseFile(filePath)
     }
