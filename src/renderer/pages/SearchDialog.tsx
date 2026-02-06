@@ -95,6 +95,7 @@ export default function SearchDialog(props: Props) {
               <CommandEmpty>{t('No results found')}</CommandEmpty>
               <CommandGroup heading={t('Search')}>
                 <CommandItem
+                  value="search-current-session"
                   className={cn(
                     theme.palette.mode === 'dark' ? 'aria-selected:bg-slate-500' : 'aria-selected:bg-slate-100'
                   )}
@@ -107,6 +108,7 @@ export default function SearchDialog(props: Props) {
                   </span>
                 </CommandItem>
                 <CommandItem
+                  value="search-global"
                   className={cn(
                     theme.palette.mode === 'dark' ? 'aria-selected:bg-slate-500' : 'aria-selected:bg-slate-100'
                   )}
@@ -168,6 +170,7 @@ export default function SearchDialog(props: Props) {
                       {result.messages.map((message, j) => (
                         <CommandItem
                           key={`${i}-${j}`}
+                          value={`result-${i}-${j}`}
                           className={cn(
                             theme.palette.mode === 'dark' ? 'bg-slate-600' : 'bg-slate-50',
                             theme.palette.mode === 'dark' ? 'aria-selected:bg-slate-500' : 'aria-selected:bg-slate-200',
