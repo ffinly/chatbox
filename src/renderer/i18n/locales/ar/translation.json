@@ -1,4 +1,5 @@
 {
+  " for free now!": " مجانًا الآن!",
   "(Trial)": "(تجريبي)",
   "[Ctrl+Enter] Save, [Ctrl+Shift+Enter] Save and Resend": "[Ctrl+Enter] حفظ، [Ctrl+Shift+Enter] حفظ وإعادة الإرسال",
   "[Enter] send, [Shift+Enter] line break, [Ctrl+Enter] send without generating": "[Enter] إرسال، [Shift+Enter] فاصل سطر، [Ctrl+Enter] إرسال بدون توليد",
@@ -10,6 +11,7 @@
   "{{count}} file(s) queued for server parsing": "{{count}} ملف(ات) في قائمة الانتظار لتحليل الخادم",
   "{{count}} MCP servers imported": "{{count}} خوادم MCP مستوردة",
   "{{count}} ref": "{{count}} مرجع",
+  "## 👋 Hey! I'm Boxy, your setup guide assistant.\n\nChatbox is an **all-in-one AI chat client** that supports 30+ mainstream models including ChatGPT, Claude, DeepSeek, and more.\n\n### ✨ Key Features\n- 🔐 **Local First** — Your data stays on your device, ensuring privacy and security\n- 🎯 **Multi-Model Support** — One app, chat with all AI models\n- 📚 **Knowledge Base** — Let AI understand your private documents\n\n### 📖 Get Help\n- 🎬 [Xiaohongshu Setup Guide](https://www.xiaohongshu.com/user/profile/67b581b6000000000e01d11f) — Step-by-step tutorial (Recommended)\n- 🆘 [Help Center](https://chatboxai.app/zh/help-center) — FAQs\n- 📕 [Product Manual](https://docs.chatboxai.app/) — Detailed feature documentation\n- 📮 Contact us: hi@chatboxai.com\n\n💡 Follow Chatbox on [Xiaohongshu](https://www.xiaohongshu.com/user/profile/67b581b6000000000e01d11f) for the latest updates and tips\n\n---\n\n**Now, let me help you get set up!** First, tell me about your AI experience:": "## 👋 مرحبًا! أنا Boxy، مساعد دليل الإعداد الخاص بك.\n\nChatbox هو **عميل دردشة AI شامل** يدعم أكثر من 30 نموذجًا رائدًا بما في ذلك ChatGPT وClaude وDeepSeek والمزيد.\n\n### ✨ الميزات الرئيسية\n- 🔐 **المحلية أولاً** — تظل بياناتك على جهازك، مما يضمن الخصوصية والأمان\n- 🎯 **دعم نماذج متعددة** — تطبيق واحد، دردش مع جميع نماذج AI\n- 📚 **قاعدة المعرفة** — اجعل AI يفهم مستنداتك الخاصة\n\n### 📖 احصل على المساعدة\n- 🎬 [دليل إعداد Xiaohongshu](https://www.xiaohongshu.com/user/profile/67b581b6000000000e01d11f) — دليل خطوة بخطوة (موصى به)\n- 🆘 [مركز المساعدة](https://chatboxai.app/zh/help-center) — الأسئلة الشائعة\n- 📕 [دليل المنتج](https://docs.chatboxai.app/) — توثيق مفصل للميزات\n- 📮 اتصل بنا: hi@chatboxai.com\n\n💡 تابع Chatbox على [Xiaohongshu](https://www.xiaohongshu.com/user/profile/67b581b6000000000e01d11f) للحصول على أحدث التحديثات والنصائح\n\n---\n\n**الآن، دعني أساعدك في الإعداد!** أولاً، أخبرني عن خبرتك مع AI:",
   "A cozy coffee shop interior": "تصميم داخلي لمقهى مريح",
   "A cute rabbit in Pixar animation style": "أرنب لطيف بأسلوب رسوم بيكسار المتحركة",
   "A futuristic city with flying cars": "مدينة مستقبلية مع سيارات طائرة",
@@ -43,6 +45,7 @@
   "AI Model Provider": "مقدم نموذج الذكاء الصناعي",
   "ai provider no implemented paint tips": "مزود نموذج الذكاء الاصطناعي الحالي ({{aiProvider}}) لا يدعم قدرات الرسم في هذا الوقت. حاليًا، فقط Chatbox AI وOpenAI وAzure OpenAI يقدمون هذه الميزة. إذا لزم الأمر، يرجى <0>الذهاب إلى الإعدادات</0> وتبديل مزود نموذج الذكاء الاصطناعي.",
   "AI Settings": "إعدادات الذكاء الصناعي",
+  "AI-generated content may be inaccurate. Please verify important information.": "قد يكون المحتوى الذي يتم إنشاؤه بواسطة AI غير دقيق. يرجى التحقق من المعلومات المهمة.",
   "AI-generated images may not be accurate. Review output carefully.": "الصور التي تم إنشاؤها بواسطة AI قد لا تكون دقيقة. يرجى مراجعة المخرجات بعناية.",
   "AIHubMix integration in Chatbox offers 10% discount": "تكامل AIHubMix في Chatbox يقدم خصم 10%",
   "All": "الكل",
@@ -90,6 +93,11 @@
   "Automatic updates": "تحديثات تلقائية",
   "Automatically render generated artifacts (e.g., HTML with CSS, JS, Tailwind)": "عرض التحف المتولدة تلقائيًا (مثل، HTML مع CSS، JS، Tailwind)",
   "Automatically summarize and compact conversation history when context size exceeds the threshold, preserving key information while reducing token usage.": "تلخيص وضغط سجل المحادثة تلقائيًا عندما يتجاوز حجم السياق الحد المحدد، مما يحافظ على المعلومات الأساسية ويقلل من استخدام الرموز.",
+  "Awesome, you're all set! You can now start using Chatbox.\n\nClick **New Chat** below to start chatting, or **View License Details** to check your subscription info. If you have any questions, feel free to click the Help button in the bottom left corner anytime. Enjoy!": "رائع، لقد أصبحت جاهزًا تمامًا! يمكنك الآن البدء في استخدام Chatbox.\n\nانقر على **دردشة جديدة** أدناه لبدء الدردشة، أو **عرض تفاصيل الترخيص** للتحقق من معلومات اشتراكك. إذا كان لديك أي أسئلة، فلا تتردد في النقر على زر المساعدة في الزاوية السفلية اليسرى في أي وقت. استمتع!",
+  "Awesome, you're all set! You can now start using Chatbox.\n\nClick **New Chat** below to start chatting, or **View License Details** to check your subscription info. If you have more questions, feel free to click the Help button in the bottom left corner anytime. Enjoy!": "ممتاز، كل شيء جاهز! يمكنك الآن البدء في استخدام Chatbox.\n\nانقر على **دردشة جديدة** أدناه لبدء الدردشة، أو **عرض تفاصيل الترخيص** للتحقق من معلومات اشتراكك. إذا كان لديك المزيد من الأسئلة، فلا تتردد في النقر على زر المساعدة في الزاوية السفلية اليسرى في أي وقت. استمتع!",
+  "Awesome, you're all set! You can now start using Chatbox.\n\nClick the **New Chat** button in the sidebar or below to start a new conversation. If you have any questions, feel free to click the Help button in the bottom left corner anytime. Enjoy!": "رائع، لقد أصبحت جاهزًا تمامًا! يمكنك الآن البدء في استخدام Chatbox.\n\nانقر على زر **دردشة جديدة** في الشريط الجانبي أو بالأسفل لبدء محادثة جديدة. إذا كانت لديك أي أسئلة، فلا تتردد في النقر على زر المساعدة في الزاوية السفلية اليسرى في أي وقت. استمتع!",
+  "Awesome, you're all set! You can now start using Chatbox.\n\nClick the **New Chat** button in the sidebar or below to start a new conversation. If you have more questions about Chatbox AI, feel free to click the Help button in the bottom left corner anytime. Enjoy!": "رائع، لقد أصبحت جاهزًا تمامًا! يمكنك الآن البدء في استخدام Chatbox.\n\nانقر على زر **دردشة جديدة** في الشريط الجانبي أو أدناه لبدء محادثة جديدة. إذا كان لديك المزيد من الأسئلة حول Chatbox AI، فلا تتردد في النقر على زر المساعدة في الزاوية السفلية اليسرى في أي وقت. استمتع!",
+  "Awesome, you're all set! You can now start using Chatbox.\n\nTry Clicking the **New Chat** button in the sidebar to start a new chat. If you have any questions, feel free to click the Help button in the bottom left corner anytime. Enjoy!": "رائع، لقد أصبحت جاهزاً تماماً! يمكنك الآن البدء في استخدام Chatbox.\n\nجرب النقر على زر **دردشة جديدة** في الشريط الجانبي لبدء دردشة جديدة. إذا كانت لديك أي أسئلة، فلا تتردد في النقر على زر المساعدة في الزاوية السفلية اليسرى في أي وقت. استمتع!",
   "Azure API Key": "مفتاح Azure API",
   "Azure API Version": "إصدار Azure API",
   "Azure Dall-E Deployment Name": "اسم نشر Azure Dall-E",
@@ -120,14 +128,19 @@
   "Chat Settings": "إعدادات الدردشة",
   "Chatbox AI Advanced Model Quota": "حصة Chatbox AI المتقدمة",
   "Chatbox AI Cloud": "Chatbox AI السحابة",
+  "Chatbox AI document parsing failed. Please try again later.": "فشل Chatbox AI في تحليل المستند. يرجى المحاولة مرة أخرى لاحقاً.",
+  "Chatbox AI free trial available": "تجربة مجانية لـ Chatbox AI متاحة",
   "Chatbox AI Image Quota": "حصة صور Chatbox AI",
   "Chatbox AI License": "رخصة Chatbox AI",
   "Chatbox AI offers a user-friendly AI solution to help you enhance productivity": "يقدم Chatbox AI حلاً ذكياً وسهل الاستخدام لمساعدتك في تعزيز الإنتاجية",
   "Chatbox AI parse failed": "فشل تحليل Chatbox AI",
   "Chatbox AI provides all the essential model support required for knowledge base processing": "يوفر Chatbox AI كل الدعم الأساسي للنماذج المطلوب لمعالجة قاعدة المعرفة.",
+  "Chatbox AI provides all the essential model support required for knowledge base processing. Consumes compute points.": "يوفر Chatbox AI كافة دعم النماذج الضروري لمعالجة قاعدة المعرفة. يستهلك نقاط الحساب.",
   "Chatbox AI Quota": "حصة Chatbox AI",
   "Chatbox AI Standard Model Quota": "حصة Chatbox AI القياسية",
   "Chatbox Featured": "مميز في Chatbox",
+  "Chatbox Guide": "دليل Chatbox",
+  "Chatbox is ready. To save resources, please start a new chat to continue.": "Chatbox جاهز. لتوفير الموارد، يرجى بدء دردشة جديدة للمتابعة.",
   "Chatbox OCRs images with this model and sends the text to models without image support.": "يقوم Chatbox بإجراء التعرف الضوئي على الصور (OCR) باستخدام هذا النموذج، ثم يرسل النص إلى النماذج التي لا تدعم الصور.",
   "Chatbox respects your privacy and only uploads anonymous error data and events when necessary. You can change your preferences at any time in the settings.": "يحترم Chatbox خصوصيتك ولا يقوم بتحميل بيانات الأخطاء والأحداث المجهولة إلا عند الضرورة. يمكنك تغيير تفضيلاتك في أي وقت في الإعدادات.",
   "Chatbox Search is a paid feature with advanced capabilities and better performance.": "بحث Chatbox ميزة مدفوعة بقدرات متقدمة وأداء أفضل.",
@@ -143,11 +156,13 @@
   "Choose a knowledge base": "اختر قاعدة معرفية",
   "Chunk": "جزء",
   "chunks": "أجزاء",
+  "Claim Free Plan": "احصل على الخطة المجانية",
   "Claude API Compatible": "متوافق مع Claude API",
   "clean": "تنظيف",
   "clean it up": "نظفه",
   "Clear All Messages": "مسح جميع الرسائل",
   "Clear Conversation List": "مسح قائمة المحادثات",
+  "Click here to login": "اضغط هنا لتسجيل الدخول",
   "Click here to set up": "انقر هنا لإعداد",
   "Click to view full text": "انقر لعرض النص الكامل",
   "Click to view license details and quota usage": "اضغط لعرض تفاصيل الترخيص واستخدام الحصة",
@@ -262,6 +277,7 @@
   "Display Settings": "إعدادات العرض",
   "Document Parser": "محلل المستندات",
   "Document parser reset to default due to unverified MinerU token": "تم إعادة تعيين محلل المستندات إلى الإعدادات الافتراضية بسبب رمز MinerU غير المتحقق منه",
+  "Document parsing failed. You can go to <OpenDocumentParserSettingButton>Settings</OpenDocumentParserSettingButton> and switch to Chatbox AI for cloud-based document parsing.": "فشل تحليل المستند. يمكنك الانتقال إلى <OpenDocumentParserSettingButton>الإعدادات</OpenDocumentParserSettingButton> والتبديل إلى Chatbox AI لتحليل المستندات القائم على السحابة.",
   "Documents": "المستندات",
   "Donate": "تبرع",
   "Done": "تم",
@@ -300,6 +316,7 @@
   "Environment Variables": "متغيرات البيئة",
   "Error Reporting": "الإبلاغ عن الأخطاء",
   "Estimated Token Usage": "الاستخدام التقديري للتوكنات",
+  "Excellent! You're all set to explore on your own.\n\nClick the **Settings** icon in the sidebar, then go to **Model Providers** to configure your API key. If you need help later, just click the Help button in the bottom left corner. Enjoy!": "ممتاز! أنت جاهز تماماً للاستكشاف بنفسك.\n\nانقر فوق أيقونة **الإعدادات** في الشريط الجانبي، ثم انتقل إلى **مزودي النماذج** لتهيئة مفتاح API الخاص بك. إذا كنت بحاجة إلى المساعدة لاحقاً، فما عليك سوى النقر فوق زر المساعدة في الزاوية السفلية اليسرى. استمتع!",
   "expand": "توسيع",
   "Expand": "توسيع",
   "Expansion Pack Quota": "حصة حزمة التوسعة",
@@ -318,6 +335,7 @@
   "extension": "الإضافات",
   "Failed": "فشل",
   "Failed to activate license, please check your license key and network connection": "فشل في تفعيل الترخيص، يرجى التحقق من مفتاح الترخيص الخاص بك و الاتصال بالشبكة",
+  "Failed to activate the license key. You can try activating manually in **Settings**, or log in to the [Chatbox AI website](https://chatboxai.app) to view your license details.": "فشل تنشيط مفتاح الترخيص. يمكنك محاولة التنشيط يدوياً في **الإعدادات**، أو تسجيل الدخول إلى [موقع Chatbox AI الإلكتروني](https://chatboxai.app) لعرض تفاصيل ترخيصك.",
   "Failed to create knowledge base, Error: {{error}}": "فشل إنشاء قاعدة المعرفة، خطأ: {{error}}",
   "Failed to export file: {{error}}": "فشل في تصدير الملف: {{error}}",
   "Failed to fetch Chatbox AI models config, Error: {{error}}": "فشل في جلب إعدادات نماذج Chatbox AI، خطأ: {{error}}",
@@ -358,6 +376,7 @@
   "Font Size": "حجم الخط",
   "font size changed, effective after next launch": "تم تغيير حجم الخط، سيسري بعد الإطلاق التالي",
   "Format": "التنسيق",
+  "Free trial available": "تجربة مجانية متوفرة",
   "Full-text search of chat history (coming soon)": "البحث النصي الكامل في سجل الدردشة (قريباً)",
   "Function": "وظيفة",
   "General Settings": "الإعدادات العامة",
@@ -370,13 +389,17 @@
   "Get Files Meta": "الحصول على بيانات وصفية للملفات",
   "Get License": "احصل على ترخيص",
   "get more": "احصل على المزيد",
+  "Getting Started": "البدء",
   "Github": "Github",
-  "Go to Image Creator": "اذهب إلى منشئ الصور",
+  "Go to Image Creator": "انتقل إلى منشئ الصور",
   "Google Gemini API Compatible": "متوافق مع Google Gemini API",
+  "Great! Chatbox AI is our all-in-one service designed for new users - it works out of the box with no complex setup required.\n\nClick the login button below to sign in on the Chatbox AI website and complete authorization.": "رائع! Chatbox AI هي خدمتنا الشاملة المصممة للمستخدمين الجدد - فهي تعمل مباشرة دون الحاجة إلى أي إعدادات معقدة.\n\nانقر على زر تسجيل الدخول أدناه لتسجيل الدخول إلى موقع Chatbox AI الإلكتروني وإتمام عملية التفويض.",
   "Harmful or offensive content": "محتوى مضر أو مخلي",
   "Hassle-free setup": "إعداد بدون متاعب",
   "Hate speech or harassment": "تحديد أو إصطهار",
+  "Help": "مساعدة",
   "Here you can add and manage various custom model providers. As long as the provider's API is compatible with the selected API mode, you can seamlessly connect and use it within Chatbox.": "هنا يمكنك إضافة وإدارة مختلف مزودي النماذج المخصصة. طالما أن واجهة برمجة التطبيقات للمزود متوافقة مع وضع واجهة برمجة التطبيقات المحدد، يمكنك الاتصال بها واستخدامها بسلاسة داخل Chatbox.",
+  "Hey! Welcome to Chatbox, your personal AI assistant.\n\nBefore we begin, I'd like to know a bit about your experience so I can provide better guidance.\n\nHave you used AI chat tools before?": "أهلاً بك! مرحباً بك في Chatbox، مساعدك الـ AI الشخصي.\n\nقبل أن نبدأ، أود معرفة القليل عن خبرتك حتى أتمكن من تقديم إرشادات أفضل.\n\nهل استخدمت أدوات دردشة AI من قبل؟",
   "Hide": "إخفاء",
   "Hide History": "إخفاء السجل",
   "High": "مرتفع",
@@ -384,11 +407,17 @@
   "Home Page": "الصفحة الرئيسية",
   "Homepage": "الصفحة الرئيسية",
   "Hotkeys": "مفاتيح السرعة",
+  "How do I switch to different models, like DeepSeek?": "كيف يمكنني التبديل إلى نماذج مختلفة، مثل DeepSeek؟",
   "How to use?": "كيفية الاستخدام؟",
+  "I know how to configure API keys": "أعرف كيفية إعداد مفاتيح API",
+  "I want to try Chatbox for free!": "أريد تجربة Chatbox مجانًا!",
+  "I'm a bit tired now. Please click the **New Chat** button in the sidebar or below to start a new conversation.": "أنا متعب قليلاً الآن. يرجى النقر فوق زر **دردشة جديدة** في الشريط الجانبي أو بالأسفل لبدء محادثة جديدة.",
+  "I'm new to this": "أنا جديد في هذا",
   "ID": "المعرف",
   "Ideal for both work and educational scenarios": "مثالي لكل من سيناريوهات العمل والتعليم",
   "Ideal for work and study": "مثالي للعمل والدراسة",
   "If conversations are missing from the list, use this feature to scan and recover them from storage": "إذا كانت المحادثات مفقودة من القائمة، استخدم هذه الميزة لمسحها واستعادتها من التخزين",
+  "If you have never had a license before, you can claim it after logging in on the official website.": "إذا لم تكن قد حصلت على ترخيص من قبل، يمكنك المطالبة به بعد تسجيل الدخول إلى الموقع الرسمي.",
   "Image Creator": "مُنشِئ الصور",
   "Image Creator Intro": "مرحبًا! أنا منشئ الصور في Chatbox، رفيقك الفني المدعوم بالذكاء الاصطناعي المكرس لتحويل كلماتك إلى صور مذهلة. إذا كنت تستطيع أن تحلم بها، يمكنني أن أخلقها - من المناظر الطبيعية الساحرة، الشخصيات الديناميكية، رموز التطبيقات إلى التجريد وما وراءه.\n\nأنا روبوت هادئ، فقط **أخبرني ببساطة بوصف الصورة التي في ذهنك**، وسأركز كل وحدات البكسل الخاصة بي على إنشاء رؤيتك.\n\nلنصنع الفن!",
   "Image Quota": "حصة الصور",
@@ -423,6 +452,8 @@
   "Last Session": "الجلسة الأخيرة",
   "LaTeX Rendering (Requires Markdown)": "عرض LaTeX (يتطلب Markdown)",
   "Launch at system startup": "تشغيل تلقائي عند بدء النظام",
+  "Leave": "مغادرة",
+  "Leave Guide?": "مغادرة الدليل؟",
   "License Activated": "تم تفعيل الترخيص",
   "License expired, please check your license key": "انتهت صلاحية الترخيص، يرجى التحقق من مفتاح الترخيص الخاص بك",
   "License Expiry": "انتهاء صلاحية الترخيص",
@@ -443,17 +474,22 @@
   "Loading...": "جاري التحميل...",
   "Local": "محلي",
   "Local (stdio)": "محلي (stdio)",
+  "Local document parsing failed. You can go to <OpenDocumentParserSettingButton>Settings</OpenDocumentParserSettingButton> and switch to Chatbox AI for cloud-based document parsing.": "فشل تحليل المستند محلياً. يمكنك الانتقال إلى <OpenDocumentParserSettingButton>الإعدادات</OpenDocumentParserSettingButton> والتبديل إلى Chatbox AI لتحليل المستندات سحابياً.",
   "Local file processing failed. You can upgrade your plan to use Chatbox AI's advanced file processing capabilities.": "فشلت معالجة الملفات المحلية. يمكنك ترقية خطتك لاستخدام قدرات Chatbox AI المتقدمة لمعالجة الملفات.",
   "Local Mode": "وضع محلي",
   "Local parse failed": "فشل التحليل المحلي",
   "Log in to your Chatbox account": "تسجيل الدخول إلى حسابك في Chatbox",
   "Log out": "تسجيل الخروج",
   "Login": "سجل الدخول",
+  "Login Chatbox AI": "تسجيل الدخول إلى Chatbox AI",
   "Login Error": "خطأ في تسجيل الدخول",
+  "Login failed.": "فشل تسجيل الدخول.",
   "Login Successful": "تسجيل الدخول ناجح",
   "Login successful but tokens not received from server": "تم تسجيل الدخول بنجاح ولكن لم يتم استلام الرموز المميزة من الخادم",
   "Login Timeout": "انتهت مهلة تسجيل الدخول",
   "Login timeout. Please try again.": "انتهت مهلة تسجيل الدخول. الرجاء المحاولة مرة أخرى.",
+  "Login to Chatbox AI": "تسجيل الدخول إلى Chatbox AI",
+  "Login to start chatting with AI": "سجل الدخول لبدء الدردشة مع AI",
   "Low": "منخفض",
   "Make sure you have the following command installed:": "تأكد من تثبيت الأمر التالي:",
   "Manage License": "إدارة الترخيص",
@@ -476,6 +512,7 @@
   "meticulous": "دقيق",
   "MIME Type": "نوع MIME",
   "MinerU API Token": "MinerU API Token",
+  "MinerU API token is required. Please go to <OpenDocumentParserSettingButton>Settings</OpenDocumentParserSettingButton> and configure your MinerU API token.": "رمز MinerU API مطلوب. يرجى الانتقال إلى <OpenDocumentParserSettingButton>الإعدادات</OpenDocumentParserSettingButton> وتهيئة رمز MinerU API الخاص بك.",
   "MinerU parse failed": "فشل تحليل MinerU",
   "Minimize": "تصغير",
   "Misleading information": "معلومات مضللة",
@@ -524,6 +561,7 @@
   "No files were dropped": "لم يتم إفلات أي ملفات",
   "No history yet": "لا يوجد سجل بعد",
   "No Knowledge Base Yet": "لا توجد قاعدة معرفية بعد",
+  "No licenses found": "لم يتم العثور على تراخيص",
   "No licenses found. Please purchase a license to continue.": "لم يتم العثور على أي تراخيص. يرجى شراء ترخيص للمتابعة.",
   "No Limit": "بدون حد",
   "No MCP servers parsed from clipboard": "لم يتم استخلاص أي خوادم MCP من الحافظة",
@@ -536,6 +574,7 @@
   "None": "لا شيء",
   "not available in browser": "هذه الميزة غير متاحة في المتصفح. يرجى تنزيل تطبيق سطح المكتب.",
   "Not set": "غير مُعين",
+  "Note: If you have never had a license before, you can claim it after logging in on the official website. Quota refreshed daily.": "ملاحظة: إذا لم يسبق لك الحصول على ترخيص من قبل، يمكنك المطالبة به بعد تسجيل الدخول على الموقع الرسمي. يتم تجديد الحصة يوميًا.",
   "Nothing found...": "لا يوجد شيء...",
   "Number of Images per Reply": "عدد الصور لكل رد",
   "OCR Model": "نموذج OCR",
@@ -544,6 +583,7 @@
   "One-click MCP servers for Chatbox AI subscribers": "خوادم MCP بنقرة واحدة لمشتركي Chatbox AI",
   "Only supports basic text files (.txt, .md, .json, code files, etc.). For PDF and Office files, please switch to Chatbox AI.": "يدعم فقط ملفات نصية أساسية (.txt, .md, .json, ملفات التعليمات البرمجية، إلخ.). لملفات PDF و Office، يرجى التبديل إلى Chatbox AI.",
   "Open": "فتح",
+  "Open Provider Settings": "فتح إعدادات المزود",
   "OpenAI API Compatible": "متوافق مع OpenAI API",
   "OpenAI Responses API Compatible": "متوافق مع API استجابات OpenAI",
   "Operations": "العمليات",
@@ -551,6 +591,7 @@
   "or": "أو",
   "Or become a sponsor": "أو تصبح راعياً",
   "Other concerns": "أخرى",
+  "Other options": "خيارات أخرى",
   "Parse Link": "تحليل الرابط",
   "Parser": "محلل",
   "Parser Type": "نوع المحلل",
@@ -565,6 +606,7 @@
   "Platform Not Supported": "المنصة غير مدعومة",
   "Please click the link below to complete login:": "الرجاء النقر على الرابط أدناه لإكمال تسجيل الدخول:",
   "Please complete login in your browser. If you are not redirected, please click the link below:": "الرجاء إكمال تسجيل الدخول في متصفحك. إذا لم يتم توجيهك، الرجاء النقر على الرابط أدناه:",
+  "Please complete setup to continue chatting": "يرجى إكمال الإعداد لمواصلة الدردشة",
   "Please describe the content you want to report (Optional)": "يرجى وصف المحتوى الذي تريد الإبلاغ عنه (اختياري)",
   "Please ensure that the Remote LM Studio Service is able to connect remotely. For more details, refer to <a>this tutorial</a>.": "يرجى التأكد من أن خدمة Remote LM Studio قادرة على الاتصال عن بُعد. لمزيد من التفاصيل، راجع <a>هذا الدليل</a>.",
   "Please ensure that the Remote Ollama Service is able to connect remotely. For more details, refer to <a>this tutorial</a>.": "يرجى التأكد من أن خدمة Remote Ollama قادرة على الاتصال عن بُعد. لمزيد من التفاصيل، راجع <a>هذا الدليل</a>.",
@@ -579,6 +621,7 @@
   "Premium Activation": "تفعيل المميز",
   "Premium License Activated": "تم تفعيل ترخيص المميز",
   "Premium License Key": "مفتاح ترخيص المميز",
+  "Preparing login...": "جارٍ تحضير تسجيل الدخول...",
   "Press hotkey": "أدخل مفتاح السرعة",
   "Preview": "معاينة",
   "Privacy Policy": "سياسة الخصوصية",
@@ -605,6 +648,7 @@
   "Read our": "اقرأ علينا",
   "Reading file...": "جارٍ قراءة الملف...",
   "Reasoning": "الاستدلال",
+  "Recommended": "موصى به",
   "Recover": "استعادة",
   "Recover Conversation List": "استعادة قائمة المحادثات",
   "Recovered {{count}} conversations": "تم استرداد {{count}} محادثات",
@@ -646,6 +690,7 @@
   "Retrying {{attempt}}/{{maxAttempts}}": "إعادة المحاولة {{attempt}}/{{maxAttempts}}",
   "Return to the top": "العودة إلى الأعلى",
   "Roadmap": "خارطة الطريق",
+  "Rollback Thread": "تراجع في السلسلة",
   "save": "حفظ",
   "Save": "حفظ",
   "Save & Resend": "حفظ وإعادة الإرسال",
@@ -664,10 +709,12 @@
   "Select and configure an AI model provider": "اختر وقم بتكوين مزود نموذج الذكاء الاصطناعي",
   "Select File": "حدد ملف",
   "Select Knowledge Base": "اختر قاعدة المعرفة",
+  "Select Language": "اختر اللغة",
   "Select License": "اختر ترخيص",
   "Select Model": "اختر النموذج",
   "Select Test Model": "اختر نموذج الاختبار",
   "Select the Current Option (in search dialog)": "تحديد الخيار الحالي (في مربع الحوار الخاص بالبحث)",
+  "Selected document parser is currently only supported in Knowledge Base. For chat file attachments, please go to <OpenDocumentParserSettingButton>Settings</OpenDocumentParserSettingButton> and switch to Local or Chatbox AI.": "محلل المستندات المختار مدعوم حاليًا فقط في قاعدة المعرفة. بالنسبة لمرفقات ملفات الدردشة، يرجى الانتقال إلى <OpenDocumentParserSettingButton>الإعدادات</OpenDocumentParserSettingButton> والتبديل إلى Local أو Chatbox AI.",
   "Selected Key": "المفتاح المحدد",
   "send": "إرسال",
   "Send": "إرسال",
@@ -700,6 +747,7 @@
   "Show/Hide the Search Dialog": "إظهار/إخفاء مربع الحوار الخاص بالبحث",
   "Showing {{loaded}} of {{total}} chunks": "عرض {{loaded}} من {{total}} أجزاء",
   "Showing first {{count}} chunks": "إظهار أول {{count}} أجزاء",
+  "Skip guide": "تخطّي الدليل",
   "Smartest AI-Powered Services for Rapid Access": "أذكى الخدمات المدعومة بالذكاء الاصطناعي للوصول السريع",
   "Some files failed to parse. Please remove them and try again.": "فشلت بعض الملفات في التحليل. يرجى إزالتها والمحاولة مرة أخرى.",
   "Sorry, the current model {{model}} API itself does not support image understanding. If you need to send images, please switch to another model or use the recommended <OpenMorePlanButton>Chatbox AI Models</OpenMorePlanButton>.": "للأسف، النموذج الحالي {{model}} API لا يدعم فهم الصور. إذا كنت تحتاج إلى إرسال صور، يرجى التبديل إلى نموذج آخر أو استخدام النماذج الموصى بها <OpenMorePlanButton>Chatbox AI</OpenMorePlanButton>.",
@@ -713,10 +761,12 @@
   "Standard": "قياسي",
   "star": "نجمة",
   "Start a New Thread": "بدء موضوع جديد",
+  "Start New Chat": "بدء دردشة جديدة",
   "Start Setup": "بدء الإعداد",
   "Starting new thread...": "جاري بدء محادثة جديدة...",
   "Startup Page": "صفحة بدء التشغيل",
   "Status": "الحالة",
+  "Stay": "البقاء",
   "stop generating": "إيقاف التوليد",
   "Stream output": "إخراج متدفق",
   "submit": "إرسال",
@@ -774,6 +824,7 @@
   "Thinking Effort only works for OpenAI o-series models": "جهد التفكير يعمل فقط مع نماذج OpenAI o-series",
   "Third-party cloud parsing service, supports PDF and most Office files. Requires API token.": "خدمة تحليل سحابي من طرف ثالث، تدعم ملفات PDF ومعظم ملفات Office. تتطلب رمز API.",
   "This action cannot be undone. All documents and their embeddings will be permanently deleted.": "هذا الإجراء لا يمكن التراجع عنه. سيتم حذف جميع المستندات وتضميناتها نهائيًا.",
+  "This file type requires a document parser. Please go to <OpenDocumentParserSettingButton>Settings</OpenDocumentParserSettingButton> and enable Chatbox AI document parsing.": "يتطلب هذا النوع من الملفات محللاً للمستندات. يرجى الانتقال إلى <OpenDocumentParserSettingButton>الإعدادات</OpenDocumentParserSettingButton> وتفعيل ميزة تحليل المستندات في Chatbox AI.",
   "This image session is no longer active. Please use the new Image Creator for image generation.": "هذه الجلسة للصور لم تعد نشطة. يرجى استخدام منشئ الصور الجديد لإنشاء الصور.",
   "This license key has reached the activation limit": "لقد وصل مفتاح الترخيص هذا إلى حد التفعيل",
   "This license key has reached the activation limit, <a>click here</a> to manage license and devices to deactivate old devices.": "لقد وصل مفتاح الترخيص هذا إلى حد التفعيل، <a>انقر هنا</a> لإدارة الترخيص والأجهزة لتعطيل الأجهزة القديمة.",
@@ -799,6 +850,8 @@
   "Total": "المجموع",
   "Total Chunks": "إجمالي الأجزاء",
   "Total Quota": "الحصة الإجمالية",
+  "Try again": "حاول مرة أخرى",
+  "try Chatbox AI": "جرّب Chatbox AI",
   "Type": "اكتب",
   "Type a command or search": "اكتب أمرًا أو ابحث",
   "Type your question here...": "اكتب سؤالك هنا...",
@@ -820,6 +873,7 @@
   "Upload your first document to get started": "ارفع مستندك الأول للبدء",
   "Upon import, changes will take effect immediately and existing data will be overwritten": "عند الاستيراد، ستصبح التغييرات نافذة على الفور وسيتم الكتابة فوق البيانات الحالية",
   "Use as Reference": "استخدام كمرجع",
+  "Use Chatbox AI service": "استخدم خدمة Chatbox AI",
   "Use My Own API Key / Local Model": "استخدام مفتاح API الخاص بي / نموذج محلي",
   "Use proxy to resolve CORS and other network issues": "استخدام البروكسي لحل مشاكل CORS وغيرها من مشاكل الشبكة",
   "Use server parsing": "استخدام تحليل الخادم",
@@ -836,6 +890,7 @@
   "View All Copilots": "عرض جميع مساعدي الطيارين",
   "View Details": "عرض التفاصيل",
   "View historical threads": "عرض المحادثات التاريخية",
+  "View License Details": "عرض تفاصيل الترخيص",
   "View Message JSON": "عرض رسالة JSON",
   "View More Plans": "عرض المزيد من الخطط",
   "View Session JSON": "عرض JSON الجلسة",
@@ -848,6 +903,7 @@
   "Vision, Drawing, File Understanding and more": "الرؤية، الرسم، فهم الملفات والمزيد",
   "Vivid": "حيوي",
   "Waiting for login...": "جاري انتظار تسجيل الدخول...",
+  "We've been chatting for a while now. To conserve resources, please complete the setup before continuing our conversation.": "لقد كنا نتحدث منذ فترة. للحفاظ على الموارد، يرجى إكمال الإعداد قبل متابعة حديثنا.",
   "Web Browsing": "تصفح الويب",
   "Web browsing (coming soon)": "تصفح الويب (قريباً)",
   "Web Browsing...": "تصفح الويب...",
@@ -855,10 +911,15 @@
   "Webpage Published": "تم نشر صفحة الويب",
   "WeChat": "وي تشات",
   "Welcome to Chatbox": "مرحباً بكم في Chatbox AI",
+  "Welcome to Chatbox!": "مرحباً بك في Chatbox!",
   "What can I help you with today?": "كيف يمكنني مساعدتك اليوم؟",
+  "What is an API? Where to get it? How to connect?": "ما هي الـ API؟ ومن أين تحصل عليها؟ وكيف تتصل بها؟",
+  "What is the relationship between Chatbox and other model providers?": "ما هي العلاقة بين Chatbox ومزودي النماذج الآخرين؟",
   "When enabled, conversations will be automatically summarized to manage context window usage.": "عند التفعيل، سيتم تلخيص المحادثات تلقائياً لإدارة استخدام نافذة السياق.",
+  "Where is the Knowledge Base feature?": "أين هي ميزة قاعدة المعرفة؟",
   "Yes": "نعم",
   "You are already a Premium user": "أنت بالفعل مستخدم مميز",
+  "You can ": "يمكنك  ",
   "You have exceeded the rate limit for the Chatbox AI service. Please try again later.": "لقد تجاوزت الحد الأقصى لمعدل استخدام خدمة Chatbox AI. يرجى المحاولة مرة أخرى لاحقًا.",
   "You have multiple licenses. Please select one to use:": "لديك تراخيص متعددة. يرجى تحديد واحد للاستخدام:",
   "You have no more Chatbox AI quota left this month.": "لم يتبق لديك أي حصة من Chatbox AI لهذا الشهر.",
@@ -868,6 +929,9 @@
   "You have selected Tavily as the search provider, but an API key has not been entered yet. Please <OpenExtensionSettingButton>click here to open Settings</OpenExtensionSettingButton> and enter your API key, or choose a different search provider.": "لقد اخترت Tavily كمزود بحث، لكن لم يتم إدخال مفتاح API بعد. يرجى <OpenExtensionSettingButton>النقر هنا لفتح الإعدادات</OpenExtensionSettingButton> وإدخال مفتاح API الخاص بك، أو اختيار مزود بحث مختلف.",
   "You have unsaved changes. Exiting will discard these changes.": "لديك تغييرات غير محفوظة. سيؤدي الخروج إلى تجاهل هذه التغييرات.",
   "You have unsaved settings. Are you sure you want to leave?": "لديك إعدادات غير محفوظة. هل أنت متأكد من أنك تريد المغادرة؟",
+  "You haven't completed the setup yet. Your progress will be cleared if you leave now.": "لم تكمل الإعداد بعد. سيتم مسح تقدمك إذا غادرت الآن.",
+  "You might also want to ask": "قد تود أيضًا أن تسأل",
+  "You've already completed the setup and can use Chatbox normally.\n\nIf you have any questions about Chatbox AI, feel free to ask me here.": "لقد أكملت الإعداد بالفعل، ويمكنك استخدام Chatbox بشكل طبيعي.\n\nإذا كان لديك أي أسئلة حول Chatbox AI، فلا تتردد في سؤالي هنا.",
   "Your ChatboxAI subscription already includes access to models from various providers. There's no need to switch providers - you can select different models directly within ChatboxAI. Switching from ChatboxAI to other providers will require their respective API keys. <button>Back to ChatboxAI</button>": "تشمل عقد ChatboxAI الذكاء الاصطناعي على نماذج من مختلف المزودين. لا يلزمك تغيير المزود - يمكنك اختيار نماذج مختلفة بشكل مباشر داخل ChatboxAI. التبديل من ChatboxAI إلى مزود آخر سيتطلب مفتاح API الخاص به. <button>Back to ChatboxAI</button>",
   "Your conversation has exceeded the model's context limit. Try compressing the conversation, starting a new chat, or reducing the number of context messages in settings.": "لقد تجاوزت محادثتك الحد الأقصى لسياق النموذج. حاول ضغط المحادثة، أو بدء دردشة جديدة، أو تقليل عدد رسائل السياق في الإعدادات.",
   "Your current License (Chatbox AI Lite) does not support the {{model}} model. To use this model, please <OpenMorePlanButton>upgrade</OpenMorePlanButton> to Chatbox AI Pro or a higher-tier package. Alternatively, you can switch to a different model by <OpenSettingButton>accessing the settings</OpenSettingButton>.": "الترخيص الحالي الخاص بك (Chatbox AI Lite) لا يدعم نموذج {{model}}. لاستخدام هذا النموذج، يرجى <OpenMorePlanButton>الترقية</OpenMorePlanButton> إلى Chatbox AI Pro أو حزمة أعلى. بدلاً من ذلك، يمكنك التبديل إلى نموذج مختلف عن طريق <OpenSettingButton>الوصول إلى الإعدادات</OpenSettingButton>.",
