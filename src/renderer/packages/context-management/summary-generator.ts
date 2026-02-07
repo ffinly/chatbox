@@ -143,7 +143,7 @@ export async function generateSummaryWithStream(options: StreamingSummaryOptions
     const model = getModel(settings, globalSettings, configs, dependencies)
 
     const promptMessages = promptFormat.summarizeConversation(messages, languageName)
-    const coreMessages = await convertToModelMessages(promptMessages)
+    const coreMessages = await convertToModelMessages(promptMessages, { modelSupportVision: model.isSupportVision() })
 
     const result = await model.chat(coreMessages, {
       onResultChange: (data) => {
