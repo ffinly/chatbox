@@ -13,13 +13,13 @@ async function initializeKnowledgeBase() {
   log.info('[KB] Initializing knowledge base system...')
 
   try {
-    // Initialize database and vector store
-    await initializeDatabase()
-    log.debug('[KB] Database initialized')
-
     // Register IPC handlers
     registerKnowledgeBaseHandlers()
     log.debug('[KB] IPC handlers registered')
+
+    // Initialize database and vector store
+    await initializeDatabase()
+    log.debug('[KB] Database initialized')
 
     // Start background file processing worker
     startWorkerLoop()

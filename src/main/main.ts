@@ -37,10 +37,11 @@ import {
 } from './store-node'
 import * as windowState from './window_state'
 
-// Only import knowledge-base module if not on win32 arm64 (libsql doesn't support win32 arm64)
-if (!(process.platform === 'win32' && process.arch === 'arm64')) {
-  import('./knowledge-base')
-}
+const knowledgeBaseInitPromise = import('./knowledge-base/index.js')
+  .then((mod) => mod.getInitPromise())
+  .catch((error) => {
+    log.error('[KB] Failed to initialize knowledge base during bootstrap:', error)
+  })
 
 // 这行代码是解决 Windows 通知的标题和图标不正确的问题，标题会错误显示成 electron.app.Chatbox
 // 参考：https://stackoverflow.com/questions/65859634/notification-from-electron-shows-electron-app-electron
@@ -430,6 +431,7 @@ if (!gotTheLock) {
   app
     .whenReady()
     .then(async () => {
+      await knowledgeBaseInitPromise
       await createWindow()
       ensureTray()
       // Remove this if your app does not use auto updates
