@@ -12,7 +12,8 @@ export function useMyCopilots() {
   const [copilots, setCopilots] = useAtom(myCopilotsAtom)
 
   const addOrUpdate = (target: CopilotDetail) => {
-    setCopilots((copilots) => {
+    setCopilots(async (prev) => {
+      const copilots = await prev
       let found = false
       const newCopilots = copilots.map((c) => {
         if (c.id === target.id) {
@@ -29,7 +30,10 @@ export function useMyCopilots() {
   }
 
   const remove = (id: string) => {
-    setCopilots((copilots) => copilots.filter((c) => c.id !== id))
+    setCopilots(async (prev) => {
+      const copilots = await prev
+      return copilots.filter((c) => c.id !== id)
+    })
   }
 
   return {
