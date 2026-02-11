@@ -275,12 +275,13 @@ export async function generate(
     appleAppStore.tickAfterMessageGenerated()
   } catch (err: unknown) {
     const error = !(err instanceof Error) ? new Error(`${err}`) : err
+    const isExpectedOCRError = error instanceof OCRError && error.cause instanceof BaseError
     if (
       !(
         error instanceof ApiError ||
         error instanceof NetworkError ||
         error instanceof AIProviderNoImplementedPaintError ||
-        error instanceof OCRError
+        isExpectedOCRError
       )
     ) {
       Sentry.captureException(error) // unexpected error should be reported
