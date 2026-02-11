@@ -50,7 +50,7 @@ export const Page: FC<PageProps> = ({ children, title, left, right }) => {
         </Flex>
         {right}
         <WindowControls className="-mr-3 ml-2" />
-        {isSmallScreen && <Box w={28} />}
+        {isSmallScreen && !right && <Box w={28} />}
       </Flex>
 
       <Divider />

@@ -40,7 +40,9 @@ export function EmptyState({ onPromptSelect }: EmptyStateProps) {
             className="px-4 py-3 rounded-xl bg-[var(--chatbox-background-secondary)] hover:bg-[var(--chatbox-background-tertiary)] transition-colors duration-200"
             style={{ maxWidth: 280 }}
           >
-            <Text size="sm">{promptText}</Text>
+            <Text size="sm" ta="center">
+              {promptText}
+            </Text>
           </UnstyledButton>
         ))}
       </Flex>

@@ -19,8 +19,8 @@ import {
   IconChevronRight,
   IconHistory,
   IconPhoto,
+  IconArrowUp,
   IconPlus,
-  IconSend2,
   IconSparkles,
 } from '@tabler/icons-react'
 import { createFileRoute } from '@tanstack/react-router'
@@ -537,7 +537,7 @@ function ImageCreatorPage() {
           </ScrollArea>
 
           {/* Input Area */}
-          <Box className="py-4 px-4">
+          <Box py="md" px="sm">
             <Stack gap="xs" maw={800} mx="auto">
               <ReferenceImagesPreview
                 images={referenceImages}
@@ -554,7 +554,10 @@ function ImageCreatorPage() {
                 onChange={(e) => handleImageUpload(e.target.files)}
               />
 
-              <Box className="rounded-2xl bg-[var(--chatbox-background-secondary)] px-3 py-2">
+              <Box
+                className="rounded-md bg-[var(--chatbox-background-secondary)] px-3 py-2"
+                style={{ border: '1px solid var(--chatbox-border-primary)' }}
+              >
                 <Stack gap="xs">
                   {/* Input Row */}
                   <Flex align="flex-end" gap={4}>
@@ -589,16 +592,21 @@ function ImageCreatorPage() {
 
                     {/* Send Button */}
                     <ActionIcon
-                      size={36}
+                      size={32}
                       variant="filled"
-                      color="dark"
+                      color={isCurrentlyGenerating ? 'dark' : 'chatbox-brand'}
                       radius="xl"
                       onClick={isCurrentlyGenerating ? undefined : handleSubmit}
                       disabled={!prompt.trim() && !isCurrentlyGenerating}
-                      className="shrink-0 mb-1 hover:!bg-[var(--mantine-color-dark-filled)]"
-                      style={{ cursor: isCurrentlyGenerating ? 'default' : undefined }}
+                      className={`shrink-0 mb-1 ${!prompt.trim() && !isCurrentlyGenerating ? 'disabled:!opacity-100 !text-white' : ''}`}
+                      style={{
+                        cursor: isCurrentlyGenerating ? 'default' : undefined,
+                        ...(!prompt.trim() && !isCurrentlyGenerating
+                          ? { backgroundColor: 'rgba(222, 226, 230, 1)' }
+                          : {}),
+                      }}
                     >
-                      {isCurrentlyGenerating ? <Loader size={18} color="white" /> : <IconSend2 size={18} />}
+                      {isCurrentlyGenerating ? <Loader size={16} color="white" /> : <IconArrowUp size={16} />}
                     </ActionIcon>
                   </Flex>
 
@@ -618,7 +626,7 @@ function ImageCreatorPage() {
                 </Stack>
               </Box>
 
-              <Text size="xs" c="dimmed" ta="center">
+              <Text className="disclaimer-safe-area" size="xs" c="dimmed" ta="center">
                 {t('AI-generated images may not be accurate. Review output carefully.')}
               </Text>
             </Stack>
