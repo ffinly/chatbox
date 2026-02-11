@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/react'
 import { getModel } from '@shared/models'
-import { AIProviderNoImplementedPaintError, ApiError, BaseError, NetworkError } from '@shared/models/errors'
+import { AIProviderNoImplementedPaintError, ApiError, BaseError, NetworkError, OCRError } from '@shared/models/errors'
 import type { OnResultChangeWithCancel } from '@shared/models/types'
 import {
   type CompactionPoint,
@@ -279,7 +279,8 @@ export async function generate(
       !(
         error instanceof ApiError ||
         error instanceof NetworkError ||
-        error instanceof AIProviderNoImplementedPaintError
+        error instanceof AIProviderNoImplementedPaintError ||
+        error instanceof OCRError
       )
     ) {
       Sentry.captureException(error) // unexpected error should be reported
@@ -288,16 +289,24 @@ export async function generate(
     if (err instanceof BaseError) {
       errorCode = err.code
     }
+    const ocrError = error instanceof OCRError ? error : undefined
+    const causeError = ocrError?.cause
     targetMsg = {
       ...targetMsg,
       generating: false,
       cancel: undefined,
-      errorCode,
-      error: `${error.message}`, // Written this way to avoid type issues
+      errorCode: ocrError ? (causeError instanceof BaseError ? causeError.code : errorCode) : errorCode,
+      error: `${error.message}`,
       errorExtra: {
-        aiProvider: settings.provider,
-        host: error instanceof NetworkError ? error.host : undefined,
-        responseBody: error instanceof ApiError ? error.responseBody : undefined,
+        aiProvider: ocrError ? ocrError.ocrProvider : settings.provider,
+        host:
+          error instanceof NetworkError ? error.host : causeError instanceof NetworkError ? causeError.host : undefined,
+        responseBody:
+          error instanceof ApiError
+            ? error.responseBody
+            : causeError instanceof ApiError
+              ? causeError.responseBody
+              : undefined,
       },
       status: [],
     }

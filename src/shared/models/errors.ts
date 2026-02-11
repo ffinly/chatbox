@@ -39,6 +39,17 @@ export class AIProviderNoImplementedChatError extends BaseError {
   }
 }
 
+export class OCRError extends BaseError {
+  public code = 10006
+  public ocrProvider: string
+  public cause: Error
+  constructor(ocrProvider: string, cause: Error) {
+    super(`OCR Error (${ocrProvider}): ${cause.message}`)
+    this.ocrProvider = ocrProvider
+    this.cause = cause
+  }
+}
+
 // 20000 - 29999 为 Chatbox AI 服务错误
 
 // Chatbox AI 服务错误

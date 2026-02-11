@@ -82,6 +82,25 @@ export default function MessageErrTips(props: { msg: Message }) {
     tips.push(
       <Trans i18nKey="Your conversation has exceeded the model's context limit. Try compressing the conversation, starting a new chat, or reducing the number of context messages in settings." />
     )
+  } else if (msg.error.startsWith('OCR Error')) {
+    tips.push(
+      <Trans
+        i18nKey="OCR processing failed (provider: {{aiProvider}}). Please check your <OpenSettingButton>OCR model settings</OpenSettingButton> and ensure the configured model is available."
+        values={{
+          aiProvider: msg.errorExtra?.['aiProvider'] || 'AI Provider',
+        }}
+        components={{
+          OpenSettingButton: (
+            <Link
+              className="cursor-pointer italic"
+              onClick={() => {
+                navigateToSettings('/default-models')
+              }}
+            ></Link>
+          ),
+        }}
+      />
+    )
   } else if (msg.error.startsWith('API Error')) {
     tips.push(
       <Trans

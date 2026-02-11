@@ -1,5 +1,5 @@
 import { getModel } from '@shared/models'
-import { ChatboxAIAPIError } from '@shared/models/errors'
+import { ChatboxAIAPIError, OCRError } from '@shared/models/errors'
 import { sequenceMessages } from '@shared/utils/message'
 import { getModelSettings } from '@shared/utils/model_settings'
 import type { ModelMessage, ToolSet } from 'ai'
@@ -90,25 +90,33 @@ async function handleSearchResult(
 }
 
 async function ocrMessages(messages: Message[]) {
-  // check chatbox ai license active
-  const licenseKey = settingActions.getLicenseKey()
   const settings = settingsStore.getState().getSettings()
-  if (!licenseKey && !(settings.ocrModel?.provider && settings.ocrModel?.model)) {
-    // use default ocr model
+  const hasUserOcrModel = settings.ocrModel?.provider && settings.ocrModel?.model
+  const hasLicenseKey = !!settings.licenseKey
+
+  if (!hasUserOcrModel && !hasLicenseKey) {
+    // No user-configured OCR model and no Chatbox AI license — cannot perform OCR
     throw ChatboxAIAPIError.fromCodeName('model_not_support_image_2', 'model_not_support_image_2')
   }
+
   let ocrModel: ModelInterface
   const dependencies = await createModelDependencies()
-  if (settings.licenseKey) {
-    const modelSettings = getModelSettings(settings, ModelProviderEnum.ChatboxAI, 'chatbox-ocr-1')
+  if (hasUserOcrModel) {
+    // User has explicitly configured an OCR model — always respect their choice
+    const ocrModelSetting = settings.ocrModel!
+    const modelSettings = getModelSettings(settings, ocrModelSetting.provider, ocrModelSetting.model)
     ocrModel = getModel(modelSettings, settings, { uuid: '123' }, dependencies)
   } else {
-    const ocrModelSetting = settings.ocrModel
-    const modelSettings = getModelSettings(settings, ocrModelSetting?.provider!, ocrModelSetting?.model!)
+    // Fallback to Chatbox AI built-in OCR model
+    const modelSettings = getModelSettings(settings, ModelProviderEnum.ChatboxAI, 'chatbox-ocr-1')
     ocrModel = getModel(modelSettings, settings, { uuid: '123' }, dependencies)
   }
-  // do OCR first
-  await imageOCR(ocrModel, messages)
+  try {
+    await imageOCR(ocrModel, messages)
+  } catch (err) {
+    const ocrProviderName = hasUserOcrModel ? settings.ocrModel!.provider : 'Chatbox AI'
+    throw new OCRError(ocrProviderName, err instanceof Error ? err : new Error(`${err}`))
+  }
 }
 
 /**
