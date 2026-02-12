@@ -12,6 +12,7 @@ import type {
 import { getMessageText, migrateMessage } from 'src/shared/utils/message'
 import i18n from '@/i18n'
 import { formatChatAsHtml, formatChatAsMarkdown, formatChatAsTxt } from '@/lib/format-chat'
+import { getLogger } from '@/lib/utils'
 import * as localParser from '@/packages/local-parser'
 import * as remote from '@/packages/remote'
 import { estimateTokens } from '@/packages/token'
@@ -24,6 +25,9 @@ import { createMessage, type Message, SessionSettingsSchema, TOKEN_CACHE_KEYS } 
 import { lastUsedModelStore } from './lastUsedModelStore'
 import * as settingActions from './settingActions'
 import { settingsStore } from './settingsStore'
+
+const log = getLogger('session-helpers')
+
 /**
  * 预处理文件以获取内容和存储键
  * @param file 文件对象
@@ -50,6 +54,7 @@ export async function preprocessFile(
     // 检查是否已经处理过这个文件
     const existingContent = await storage.getBlob(uniqKey).catch(() => null)
     if (existingContent) {
+      log.debug(`File already preprocessed: ${file.name}, using cached content.`)
       // Get existing token map or create new one
       const existingTokenMap: Record<string, number> = (await storage.getItem(`${uniqKey}_tokenMap`, {})) as Record<
         string,
@@ -159,6 +164,7 @@ export async function preprocessFile(
       }
     }
   } catch (error) {
+    log.error('Failed to preprocess file:', error)
     return {
       file,
       content: '',

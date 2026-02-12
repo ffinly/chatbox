@@ -632,6 +632,33 @@ ipcMain.handle('appLog', (event, dataJson) => {
   }
 })
 
+ipcMain.handle('exportLogs', async () => {
+  try {
+    const fs = await import('fs/promises')
+    const logPath = log.transports.file.getFile()?.path
+    if (!logPath) {
+      return ''
+    }
+    const content = await fs.readFile(logPath, 'utf-8')
+    return content
+  } catch (error) {
+    log.error('Failed to export logs:', error)
+    return ''
+  }
+})
+
+ipcMain.handle('clearLogs', async () => {
+  try {
+    const fs = await import('fs/promises')
+    const logPath = log.transports.file.getFile()?.path
+    if (logPath) {
+      await fs.writeFile(logPath, '', 'utf-8')
+    }
+  } catch (error) {
+    log.error('Failed to clear logs:', error)
+  }
+})
+
 ipcMain.handle('ensureAutoLaunch', (event, enable: boolean) => {
   if (isDebug) {
     log.info('ensureAutoLaunch: skip by debug mode')

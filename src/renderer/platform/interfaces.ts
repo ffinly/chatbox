@@ -59,6 +59,10 @@ export interface Platform extends Storage {
 
   appLog(level: string, message: string): Promise<void>
 
+  // 日志导出与管理
+  exportLogs(): Promise<string> // 返回日志内容
+  clearLogs(): Promise<void> // 清空日志
+
   ensureAutoLaunch(enable: boolean): Promise<void>
 
   parseFileLocally(file: File): Promise<{ key?: string; isSupported: boolean }>

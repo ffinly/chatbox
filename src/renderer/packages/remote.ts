@@ -1,3 +1,4 @@
+import { getLogger } from '@/lib/utils'
 import platform from '@/platform'
 import { authInfoStore } from '@/stores/authInfoStore'
 import { USE_BETA_API, USE_LOCAL_API } from '@/variables'
@@ -16,6 +17,8 @@ import {
   type Settings,
 } from '../../shared/types'
 import { getOS } from './navigator'
+
+const log = getLogger('remote-api')
 
 interface AuthTokens {
   accessToken: string
@@ -303,13 +306,16 @@ export async function uploadAndCreateUserFile(licenseKey: string, file: File) {
     licenseKey,
     filename: file.name,
   })
+  log.debug(`Uploading user file to URL: ${url}`)
   await uploadFile(file, url)
+  log.debug(`Uploaded user file: ${file.name}`)
   const result = await createUserFile({
     licenseKey,
     filename,
     filetype: file.type,
     returnContent: true,
   })
+  log.debug(`Created user file with UUID: ${result.uuid}`)
   const storageKey = `parseFile-${file.name}_${result.uuid}.${file.type.split('/')[1]}.txt`
 
   await platform.setStoreBlob(storageKey, result.content)
@@ -519,8 +525,8 @@ export async function getModelManifest(params: { aiProvider: ModelProvider; lice
   )
   const { success, data, error } = ModelManifestResponseSchema.safeParse(await res.json())
   if (!success) {
-    console.log('getModelManifest error', error)
-    return []
+    log.error('getModelManifest error', error)
+    throw error
   }
   return data.data
 }
@@ -673,13 +679,13 @@ export async function refreshAccessToken(params: { refreshToken: string }) {
     }
   )
   const json: Response = await res.json()
-  // console.log('✅ refreshAccessToken response', json)
+  // log.info('✅ refreshAccessToken response', json)
 
   const accessToken = res.headers.get('x-chatbox-access-token')
   const refreshToken = res.headers.get('x-chatbox-refresh-token')
 
   if (!accessToken || !refreshToken) {
-    console.error('❌ Missing tokens in response headers:', {
+    log.error('❌ Missing tokens in response headers:', {
       accessToken: accessToken ? 'present' : 'missing',
       refreshToken: refreshToken ? 'present' : 'missing',
     })

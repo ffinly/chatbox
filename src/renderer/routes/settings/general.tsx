@@ -15,6 +15,7 @@ import {
 } from '@mantine/core'
 import { IconInfoCircle } from '@tabler/icons-react'
 import { createFileRoute } from '@tanstack/react-router'
+import dayjs from 'dayjs'
 import { mapValues, uniqBy } from 'lodash'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -158,6 +159,11 @@ export function RouteComponent() {
 
       {/* import and export data */}
       <ImportExportDataSection />
+
+      <Divider />
+
+      {/* Export Logs */}
+      <ExportLogsSection />
 
       <Divider />
 
@@ -325,7 +331,7 @@ const ImportExportDataSection = () => {
     const date = new Date()
     data['__exported_items'] = exportItems
     data['__exported_at'] = date.toISOString()
-    const dateStr = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`
+    const dateStr = dayjs(date).format('YYYY-M-D')
     platform.exporter.exportTextFile(`chatbox-exported-data-${dateStr}.json`, JSON.stringify(data))
   }
 
@@ -488,4 +494,70 @@ enum ExportDataItem {
   Key = 'key',
   Conversations = 'conversations',
   Copilot = 'copilot',
+}
+
+const ExportLogsSection = () => {
+  const { t } = useTranslation()
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportResult, setExportResult] = useState<{
+    success: boolean
+    error?: string
+  } | null>(null)
+
+  const handleExportLogs = async () => {
+    setIsExporting(true)
+    setExportResult(null)
+    try {
+      const logs = await platform.exportLogs()
+      if (!logs || logs.trim() === '') {
+        setExportResult({ success: true })
+        return
+      }
+
+      const date = new Date()
+      const dateStr = dayjs(date).format('YYYY-M-D_H-m')
+      await platform.exporter.exportTextFile(`chatbox-logs-${dateStr}.txt`, logs)
+      setExportResult({ success: true })
+    } catch (error) {
+      console.error('Failed to export logs:', error)
+      setExportResult({ success: false, error: String(error) })
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  const handleClearLogs = async () => {
+    try {
+      await platform.clearLogs()
+      setExportResult({ success: true })
+    } catch (error) {
+      console.error('Failed to clear logs:', error)
+    }
+  }
+
+  return (
+    <Stack gap="md">
+      <Stack gap="xxs">
+        <Title order={5}>{t('Diagnostic Logs')}</Title>
+        <Text c="chatbox-tertiary">
+          {t(
+            'Export application logs for troubleshooting. These logs may be requested by support to help diagnose issues.'
+          )}
+        </Text>
+      </Stack>
+      <Flex gap="md">
+        <Button variant="primary" onClick={handleExportLogs} disabled={isExporting} loading={isExporting}>
+          {isExporting ? t('Exporting...') : t('Export Logs')}
+        </Button>
+        {/* <Button variant="subtle" color="red" onClick={handleClearLogs} disabled={isExporting}>
+          {t('Clear Logs')}
+        </Button> */}
+      </Flex>
+      {exportResult && !exportResult.success && (
+        <Alert className="self-start" variant="light" color="red" title={t('Export failed')} icon={<IconInfoCircle />}>
+          <Text size="sm">{exportResult.error || t('Unknown error')}</Text>
+        </Alert>
+      )}
+    </Stack>
+  )
 }

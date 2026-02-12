@@ -185,6 +185,14 @@ export default class DesktopPlatform implements Platform {
     return this.ipc.invoke('appLog', JSON.stringify({ level, message }))
   }
 
+  public async exportLogs(): Promise<string> {
+    return this.ipc.invoke('exportLogs')
+  }
+
+  public async clearLogs(): Promise<void> {
+    return this.ipc.invoke('clearLogs')
+  }
+
   public async ensureAutoLaunch(enable: boolean) {
     return this.ipc.invoke('ensureAutoLaunch', enable)
   }

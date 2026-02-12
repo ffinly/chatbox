@@ -8,12 +8,19 @@ import type { Platform, PlatformType } from './interfaces'
 import type { KnowledgeBaseController } from './knowledge-base/interface'
 import { IndexedDBStorage } from './storages'
 import WebExporter from './web_exporter'
+import webLogger from './web_logger'
 import { parseTextFileLocally } from './web_platform_utils'
 
 export default class WebPlatform extends IndexedDBStorage implements Platform {
   public type: PlatformType = 'web'
 
   public exporter = new WebExporter()
+
+  constructor() {
+    super()
+    // 初始化日志系统
+    webLogger.init().catch((e) => console.error('Failed to init web logger:', e))
+  }
 
   public async getVersion(): Promise<string> {
     return 'web'
@@ -44,7 +51,7 @@ export default class WebPlatform extends IndexedDBStorage implements Platform {
   }
   public async getDeviceName(): Promise<string> {
     // Web 平台返回浏览器名称
-    return getBrowser()
+    return await Promise.resolve(getBrowser()!)
   }
   public async getInstanceName(): Promise<string> {
     return `${getOS()} / ${getBrowser()}`
@@ -122,7 +129,15 @@ export default class WebPlatform extends IndexedDBStorage implements Platform {
   }
 
   public async appLog(level: string, message: string): Promise<void> {
-    console.log(`APP_LOG: [${level}] ${message}`)
+    webLogger.log(level, message)
+  }
+
+  public async exportLogs(): Promise<string> {
+    return webLogger.exportLogs()
+  }
+
+  public async clearLogs(): Promise<void> {
+    return webLogger.clearLogs()
   }
 
   public async ensureAutoLaunch(enable: boolean) {
