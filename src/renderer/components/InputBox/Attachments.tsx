@@ -3,9 +3,9 @@ import { Tooltip, Typography } from '@mui/material'
 import { ChatboxAIAPIError } from '@shared/models/errors'
 import { AlertCircle, CheckCircle, Eye, Link, Link2, Loader2, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import MiniButton from '../common/MiniButton'
 import FileIcon from '../FileIcon'
 import { ImageInStorage } from '../Image'
-import MiniButton from '../common/MiniButton'
 
 // 根据错误码获取翻译后的错误消息
 function getTranslatedErrorMessage(errorCode: string | undefined, t: (key: string) => string): string | undefined {
@@ -103,8 +103,29 @@ export function FileMiniCard(props: {
   )
 }
 
-export function MessageAttachment(props: { label: string; filename?: string; url?: string; storageKey?: string }) {
-  const { label, filename, url, storageKey } = props
+function formatFileSize(bytes: number | undefined): string {
+  if (bytes === undefined || bytes === null) return ''
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
+}
+
+function getFileTypeLabel(filename: string, fileType?: string): string {
+  const ext = filename.split('.').pop()?.toUpperCase()
+  if (ext) return ext
+  if (fileType) return fileType.split('/').pop()?.toUpperCase() || fileType
+  return ''
+}
+
+export function MessageAttachment(props: {
+  label: string
+  filename?: string
+  url?: string
+  storageKey?: string
+  fileType?: string
+  byteLength?: number
+}) {
+  const { label, filename, url, storageKey, fileType, byteLength } = props
   const { t } = useTranslation()
 
   const handleClick = async () => {
@@ -123,22 +144,39 @@ export function MessageAttachment(props: { label: string; filename?: string; url
   }
 
   const isClickable = !!storageKey
+  const typeLabel = filename ? getFileTypeLabel(filename, fileType) : ''
+  const sizeLabel = formatFileSize(byteLength)
+  const subtitle = [typeLabel, sizeLabel].filter(Boolean).join(' · ')
 
   return (
-    <Tooltip title={isClickable ? t('Click to view parsed content') : ''}>
+    <Tooltip title={isClickable ? t('Click to view parsed content') : label}>
       <div
-        className={`flex justify-start items-center mb-2 p-1.5
-            border-solid border-slate-400/20 rounded 
-            bg-white dark:bg-slate-800
-            ${isClickable ? 'cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors' : ''}`}
+        className={`flex items-center gap-2 px-2 py-1.5 min-w-0
+            rounded-md
+            bg-chatbox-background-secondary
+            ${isClickable ? 'cursor-pointer hover:bg-chatbox-background-secondary-hover transition-colors' : ''}`}
         onClick={handleClick}
       >
-        {filename && <FileIcon filename={filename} className="w-6 h-6 ml-1 mr-2 text-black dark:text-white" />}
-        {url && <Link2 className="w-6 h-6 ml-1 mr-2 text-black dark:text-white" strokeWidth={1} />}
-        <Typography className="w-32" noWrap>
-          {label}
-        </Typography>
-        {isClickable && <Eye className="w-4 h-4 ml-1 text-gray-500 dark:text-gray-400" strokeWidth={1.5} />}
+        <div className="flex-none w-7 h-7 rounded-md bg-chatbox-background-primary flex items-center justify-center">
+          {filename && <FileIcon filename={filename} className="w-4 h-4" />}
+          {url && !filename && <Link2 className="w-4 h-4 text-chatbox-secondary" strokeWidth={1.5} />}
+        </div>
+        <div className="min-w-0 flex-1">
+          <Typography className="text-xs leading-tight" noWrap>
+            {label}
+          </Typography>
+          {subtitle && (
+            <Typography className="text-chatbox-tertiary" noWrap sx={{ fontSize: '10px', lineHeight: 1.4 }}>
+              {subtitle}
+            </Typography>
+          )}
+        </div>
+        {isClickable && (
+          <Eye
+            className="flex-none w-3.5 h-3.5 text-chatbox-tertiary opacity-0 group-hover/attachment:opacity-100 transition-opacity"
+            strokeWidth={1.5}
+          />
+        )}
       </div>
     </Tooltip>
   )

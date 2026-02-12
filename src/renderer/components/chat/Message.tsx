@@ -45,10 +45,10 @@ import * as toastActions from '@/stores/toastActions'
 import ActionMenu, { type ActionMenuItemProps } from '../ActionMenu'
 import { isContainRenderableCode, MessageArtifact } from '../Artifact'
 import { AssistantAvatar, SystemAvatar, UserAvatar } from '../common/Avatar'
-import { MessageAttachment } from '../InputBox/Attachments'
+import { ScalableIcon } from '../common/ScalableIcon'
 import Loading from '../icons/Loading'
 import { ReasoningContentUI, ToolCallPartUI } from '../message-parts/ToolCallPartUI'
-import { ScalableIcon } from '../common/ScalableIcon'
+import { MessageAttachmentGrid } from './MessageAttachmentGrid'
 import MessageErrTips from './MessageErrTips'
 import MessageStatuses from './MessageLoading'
 
@@ -464,7 +464,11 @@ const _Message: FC<Props> = (props) => {
                       ) : item.type === 'image' ? (
                         props.sessionType !== 'picture' && (
                           <div key={`image-${item.storageKey}`} className="mt-2">
-                            <PictureGallery key={`image-${item.storageKey}`} pictures={[item]} />
+                            <PictureGallery
+                              key={`image-${item.storageKey}`}
+                              pictures={[item]}
+                              compact={msg.role === 'user'}
+                            />
                             {item.ocrResult && (
                               <div
                                 className="my-2 p-2 bg-chatbox-background-brand-secondary rounded-md cursor-pointer hover:bg-chatbox-background-brand-secondary-hover transition-colors"
@@ -509,21 +513,6 @@ const _Message: FC<Props> = (props) => {
                   onReport={platform.type === 'mobile' ? onReport : undefined}
                 />
               )}
-              {(msg.files || msg.links) && (
-                <div className="flex flex-row items-start justify-start overflow-x-auto overflow-y-hidden pb-1">
-                  {msg.files?.map((file) => (
-                    <MessageAttachment
-                      key={file.name}
-                      label={file.name}
-                      filename={file.name}
-                      storageKey={file.storageKey}
-                    />
-                  ))}
-                  {msg.links?.map((link) => (
-                    <MessageAttachment key={link.url} label={link.title} url={link.url} storageKey={link.storageKey} />
-                  ))}
-                </div>
-              )}
               <MessageErrTips msg={msg} />
               {needCollapse && !isCollapsed && CollapseButton}
 
@@ -533,6 +522,7 @@ const _Message: FC<Props> = (props) => {
                 <Text c="chatbox-tertiary">{tips.join(', ')}</Text>
               )}
             </div>
+            {(msg.files || msg.links) && <MessageAttachmentGrid files={msg.files} links={msg.links} />}
 
             {/* actions */}
             {buttonGroup !== 'none' && !msg.generating && (
@@ -617,11 +607,13 @@ function getBase64ImageSize(base64: string): Promise<{ width: number; height: nu
 
 type PictureGalleryProps = {
   pictures: MessagePicture[]
+  compact?: boolean
   onReport?(picture: MessagePicture): void
 }
 
-const PictureGallery = memo(({ pictures, onReport }: PictureGalleryProps) => {
+const PictureGallery = memo(({ pictures, compact, onReport }: PictureGalleryProps) => {
   const isSmallScreen = useIsSmallScreen()
+  const imageHeight = compact ? (isSmallScreen ? 60 : 100) : isSmallScreen ? 100 : 200
   const uiElements: UIElementData[] = concat(
     [
       {
@@ -683,13 +675,13 @@ const PictureGallery = memo(({ pictures, onReport }: PictureGalleryProps) => {
       <Gallery uiElements={uiElements}>
         {pictures.map((p) =>
           p.storageKey ? (
-            <ImageInStorageGalleryItem key={p.storageKey} storageKey={p.storageKey} />
+            <ImageInStorageGalleryItem key={p.storageKey} storageKey={p.storageKey} height={imageHeight} />
           ) : p.url ? (
             <GalleryItem key={p.url} original={p.url} thumbnail={p.url} width={1024} height={1024}>
               {({ ref, open }) => (
                 <Img
                   src={p.url}
-                  h={isSmallScreen ? 100 : 200}
+                  h={imageHeight}
                   w="auto"
                   fit="contain"
                   radius="md"
@@ -706,8 +698,9 @@ const PictureGallery = memo(({ pictures, onReport }: PictureGalleryProps) => {
   )
 })
 
-const ImageInStorageGalleryItem = ({ storageKey }: { storageKey: string }) => {
+const ImageInStorageGalleryItem = ({ storageKey, height }: { storageKey: string; height?: number }) => {
   const isSmallScreen = useIsSmallScreen()
+  const fallbackHeight = isSmallScreen ? 100 : 200
   const { data: pic } = useQuery({
     queryKey: ['image-in-storage-gallery-item', storageKey],
     queryFn: async ({ queryKey: [, key] }) => {
@@ -728,7 +721,7 @@ const ImageInStorageGalleryItem = ({ storageKey }: { storageKey: string }) => {
       {({ ref, open }) => (
         <Img
           src={pic.data}
-          h={isSmallScreen ? 100 : 200}
+          h={height ?? fallbackHeight}
           w="auto"
           fit="contain"
           radius="md"

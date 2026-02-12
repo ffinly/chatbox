@@ -123,7 +123,7 @@ export function onFileProcessed(
   prev: PreConstructedMessageState,
   file: File,
   item: PreprocessedFile,
-  max: number = 10
+  max: number = 20
 ): PreConstructedMessageState {
   const key = StorageKeyGenerator.fileUniqKey(file)
   const newPromises = new Map(prev.preprocessingPromises.files)

@@ -630,7 +630,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
       return sessionHelpers
         .preprocessFile(file, { provider: model?.provider || '', modelId: model?.modelId || '' })
         .then((preprocessedFile) => {
-          setPreConstructedMessage((prev) => onFileProcessed(prev, file, preprocessedFile, 10))
+          setPreConstructedMessage((prev) => onFileProcessed(prev, file, preprocessedFile, 20))
         })
         .catch((error) => {
           setPreConstructedMessage((prev) =>
@@ -643,7 +643,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                 storageKey: '',
                 error: (error as Error)?.message || 'Failed to preprocess the file.',
               },
-              10
+              20
             )
           )
         })
@@ -703,13 +703,13 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
               (f) => StorageKeyGenerator.fileUniqKey(f) === StorageKeyGenerator.fileUniqKey(file)
             )
               ? prev.attachments
-              : [...(prev.attachments || []), file].slice(-10) // Maximum 10 attachments
+              : [...(prev.attachments || []), file].slice(-20) // Maximum 20 attachments
 
-            // Only preprocess first 10 files to avoid wasting resources
+            // Only preprocess first 20 files to avoid wasting resources
             const fileIndex = newAttachments.findIndex(
               (f) => f.name === file.name && f.lastModified === file.lastModified
             )
-            if (fileIndex < 10) {
+            if (fileIndex < 20) {
               const preprocessPromise = startFilePreprocessing(file)
               return {
                 ...storeFilePromise(markFileProcessing(prev, file), file, preprocessPromise),

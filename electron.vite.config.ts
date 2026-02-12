@@ -1,10 +1,10 @@
+import { sentryVitePlugin } from '@sentry/vite-plugin'
 import { TanStackRouterVite } from '@tanstack/router-plugin/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import path, { resolve } from 'path'
 import { visualizer } from 'rollup-plugin-visualizer'
 import type { Plugin } from 'vite'
-import { sentryVitePlugin } from '@sentry/vite-plugin'
 import packageJson from './release/app/package.json'
 /**
  * Vite plugin to inject <base href="/"> for web builds
