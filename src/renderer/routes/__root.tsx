@@ -1,4 +1,4 @@
-import { type RemoteConfig, Theme } from '@/../shared/types'
+import { type RemoteConfig, Theme } from '@shared/types'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import ExitFullscreenButton from '@/components/ExitFullscreenButton'
 import Toasts from '@/components/Toasts'

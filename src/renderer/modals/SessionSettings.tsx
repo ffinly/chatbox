@@ -14,11 +14,7 @@ import {
   Textarea,
   Tooltip,
 } from '@mantine/core'
-import { IconInfoCircle, IconTrash } from '@tabler/icons-react'
-import { pick } from 'lodash'
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { chatSessionSettings, pictureSessionSettings } from 'src/shared/defaults'
+import { chatSessionSettings, pictureSessionSettings } from '@shared/defaults'
 import {
   createMessage,
   isChatSession,
@@ -26,7 +22,11 @@ import {
   ModelProviderEnum,
   type Session,
   type SessionSettings,
-} from 'src/shared/types'
+} from '@shared/types'
+import { IconInfoCircle, IconTrash } from '@tabler/icons-react'
+import { pick } from 'lodash'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AssistantAvatar } from '@/components/Avatar'
 import { handleImageInputAndSave } from '@/components/Image'
 import ImageStyleSelect from '@/components/ImageStyleSelect'

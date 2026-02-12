@@ -1,5 +1,11 @@
 import { ActionIcon, alpha, Box, Code, Collapse, Group, Paper, SimpleGrid, Space, Stack, Text } from '@mantine/core'
 import {
+  type Message,
+  type MessageReasoningPart,
+  type MessageToolCallPart,
+  MessageToolCallPartSchema,
+} from '@shared/types'
+import {
   IconArrowRight,
   IconBulb,
   IconChevronRight,
@@ -13,12 +19,6 @@ import {
 import clsx from 'clsx'
 import { type FC, type ReactNode, useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import {
-  type Message,
-  type MessageReasoningPart,
-  type MessageToolCallPart,
-  MessageToolCallPartSchema,
-} from 'src/shared/types'
 import z from 'zod'
 import { formatElapsedTime, useThinkingTimer } from '@/hooks/useThinkingTimer'
 import { cn } from '@/lib/utils'

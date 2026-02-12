@@ -1,6 +1,6 @@
+import { ModelProviderEnum, type ProviderModelInfo } from '@shared/types'
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
-import { ModelProviderEnum, type ProviderModelInfo } from 'src/shared/types'
 import { getModelManifest } from '@/packages/remote'
 import { useLanguage, useProviderSettings, useSettingsStore } from '@/stores/settingsStore'
 

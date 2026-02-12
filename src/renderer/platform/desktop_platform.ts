@@ -1,8 +1,9 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: <any> */
+
+import type { ElectronIPC } from '@shared/electron-types'
+import type { Config, Settings, ShortcutSetting } from '@shared/types'
+import { cache } from '@shared/utils/cache'
 import localforage from 'localforage'
-import type { ElectronIPC } from 'src/shared/electron-types'
-import type { Config, Settings, ShortcutSetting } from 'src/shared/types'
-import { cache } from 'src/shared/utils/cache'
 import { v4 as uuidv4 } from 'uuid'
 import { parseLocale } from '@/i18n/parser'
 import { getOS } from '../packages/navigator'

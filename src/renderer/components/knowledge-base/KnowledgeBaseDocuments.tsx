@@ -16,6 +16,8 @@ import {
   Text,
   Tooltip,
 } from '@mantine/core'
+import type { FileMeta, KnowledgeBase } from '@shared/types'
+import { formatFileSize } from '@shared/utils'
 import {
   IconCheck,
   IconChevronDown,
@@ -36,8 +38,6 @@ import type React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import type { FileMeta, KnowledgeBase } from 'src/shared/types'
-import { formatFileSize } from 'src/shared/utils'
 import { useKnowledgeBaseFiles, useKnowledgeBaseFilesActions, useKnowledgeBaseFilesCount } from '@/hooks/knowledge-base'
 import { useChunksPreview } from '@/hooks/useChunksPreview'
 import platform from '@/platform'

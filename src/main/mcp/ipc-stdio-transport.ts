@@ -1,7 +1,7 @@
 // 和 renderer/packages/mcp/ipc-stdio-transport.ts 配套的main进程ipc handler
 
-import { StdioClientTransport, StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio.js'
-import { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js'
+import { StdioClientTransport, type StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio.js'
+import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js'
 import chardet from 'chardet'
 import { ipcMain } from 'electron'
 import iconv from 'iconv-lite'

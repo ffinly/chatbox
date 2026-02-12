@@ -1,4 +1,4 @@
-import { ModelProviderEnum, ModelProviderType } from 'src/shared/types'
+import { ModelProviderEnum, ModelProviderType } from '@shared/types'
 import { describe, expect, it } from 'vitest'
 import { parseProviderFromJson, validateProviderConfig } from './provider-config'
 

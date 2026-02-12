@@ -1,5 +1,5 @@
-import type { ProviderInfo, ProviderSettings } from 'src/shared/types'
-import { ModelProviderEnum, ModelProviderType } from 'src/shared/types'
+import type { ProviderInfo, ProviderSettings } from '@shared/types'
+import { ModelProviderEnum, ModelProviderType } from '@shared/types'
 import { z } from 'zod'
 
 const modelInfoSchema = z.object({

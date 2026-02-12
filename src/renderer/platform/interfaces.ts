@@ -1,5 +1,5 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: <any> */
-import type { Config, Language, Settings, ShortcutSetting } from 'src/shared/types'
+import type { Config, Language, Settings, ShortcutSetting } from '@shared/types'
 import type { KnowledgeBaseController } from './knowledge-base/interface'
 
 export type PlatformType = 'web' | 'desktop' | 'mobile'

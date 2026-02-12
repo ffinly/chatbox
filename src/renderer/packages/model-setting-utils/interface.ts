@@ -1,10 +1,4 @@
-import type {
-  ModelProvider,
-  ProviderBaseInfo,
-  ProviderModelInfo,
-  ProviderSettings,
-  SessionType,
-} from 'src/shared/types'
+import type { ModelProvider, ProviderBaseInfo, ProviderModelInfo, ProviderSettings, SessionType } from '@shared/types'
 
 export interface ModelSettingUtil {
   provider: ModelProvider

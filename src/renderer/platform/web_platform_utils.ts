@@ -1,7 +1,7 @@
+import { isTextFilePath } from '@shared/file-extensions'
 import { v4 as uuidv4 } from 'uuid'
 import platform from '@/platform'
 import * as remote from '../packages/remote'
-import { isTextFilePath } from 'src/shared/file-extensions'
 
 export async function parseTextFileLocally(file: File): Promise<{ text: string; isSupported: boolean }> {
   if (!isTextFilePath(file.name)) {

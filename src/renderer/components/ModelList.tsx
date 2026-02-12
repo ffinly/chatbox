@@ -1,4 +1,6 @@
 import { Badge, Button, Flex, Stack, Text, TextInput, Tooltip } from '@mantine/core'
+import type { ProviderModelInfo } from '@shared/types'
+import { formatNumber } from '@shared/utils'
 import {
   IconBulb,
   IconCircleMinus,
@@ -13,8 +15,6 @@ import {
 import { capitalize } from 'lodash'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { ProviderModelInfo } from 'src/shared/types'
-import { formatNumber } from 'src/shared/utils'
 import { ScalableIcon } from './ScalableIcon'
 
 interface ModelListProps {

@@ -1,5 +1,5 @@
-import SiliconFlow from 'src/shared/models/siliconflow'
-import { type ModelProvider, ModelProviderEnum, type ProviderSettings, type SessionType } from 'src/shared/types'
+import SiliconFlow from '@shared/models/siliconflow'
+import { type ModelProvider, ModelProviderEnum, type ProviderSettings, type SessionType } from '@shared/types'
 import { createModelDependencies } from '@/adapters'
 import BaseConfig from './base-config'
 import type { ModelSettingUtil } from './interface'

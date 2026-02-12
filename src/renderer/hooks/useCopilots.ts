@@ -1,7 +1,7 @@
+import type { CopilotDetail } from '@shared/types'
 import { useQuery } from '@tanstack/react-query'
 import { useAtom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
-import type { CopilotDetail } from 'src/shared/types'
 import * as remote from '@/packages/remote'
 import storage, { StorageKey } from '@/storage'
 import { useLanguage } from '@/stores/settingsStore'

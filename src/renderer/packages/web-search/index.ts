@@ -1,9 +1,9 @@
-import type { SearchResultItem } from '@/../shared/types'
-import { getExtensionSettings, getLanguage, getLicenseKey } from '@/stores/settingActions'
 import { cachified } from '@epic-web/cachified'
+import type { SearchResultItem } from '@shared/types'
 import { truncate } from 'lodash'
+import { getExtensionSettings, getLanguage, getLicenseKey } from '@/stores/settingActions'
 import { ChatboxAIAPIError } from '../../../shared/models/errors'
-import WebSearch from './base'
+import type WebSearch from './base'
 import { BingSearch } from './bing'
 import { BingNewsSearch } from './bing-news'
 import { ChatboxSearch } from './chatbox-search'
@@ -85,7 +85,6 @@ async function _searchRelatedResults(query: string, signal?: AbortSignal) {
         hasMore = true
         items.push(item)
       } else {
-        continue
       }
     }
     i++

@@ -1,6 +1,6 @@
-import type { ModelInterface } from 'src/shared/models/types'
-import type { Message } from 'src/shared/types'
-import { getMessageText } from 'src/shared/utils/message'
+import type { ModelInterface } from '@shared/models/types'
+import type { Message } from '@shared/types'
+import { getMessageText } from '@shared/utils/message'
 import { createModelDependencies } from '@/adapters'
 
 export async function generateImage(

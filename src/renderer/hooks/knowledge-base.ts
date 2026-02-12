@@ -1,6 +1,6 @@
+import { KnowledgeBaseFile } from '@shared/types'
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import platform from '@/platform'
-import { useQuery, useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
-import { KnowledgeBaseFile } from 'src/shared/types'
 
 const useKnowledgeBases = () => {
   const fetchKnowledgeBases = async () => {

@@ -1,5 +1,5 @@
-import OpenRouter from 'src/shared/models/openrouter'
-import { type ModelProvider, ModelProviderEnum, type ProviderSettings, type SessionType } from 'src/shared/types'
+import OpenRouter from '@shared/models/openrouter'
+import { type ModelProvider, ModelProviderEnum, type ProviderSettings, type SessionType } from '@shared/types'
 import { createModelDependencies } from '@/adapters'
 import BaseConfig from './base-config'
 import type { ModelSettingUtil } from './interface'

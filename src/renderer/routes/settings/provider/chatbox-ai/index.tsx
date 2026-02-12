@@ -1,7 +1,7 @@
 import { Stack, Transition } from '@mantine/core'
+import { type ModelProvider, ModelProviderEnum } from '@shared/types'
 import { createFileRoute } from '@tanstack/react-router'
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
-import { type ModelProvider, ModelProviderEnum } from 'src/shared/types'
 import useChatboxAIModels from '@/hooks/useChatboxAIModels'
 import { useLanguage, useProviderSettings, useSettingsStore } from '@/stores/settingsStore'
 import { VIEW_TRANSITION_DURATION, VIEW_TRANSITION_TIMING } from './-components/constants'

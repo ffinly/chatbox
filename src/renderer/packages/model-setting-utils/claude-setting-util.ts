@@ -1,8 +1,8 @@
+import Claude from '@shared/models/claude'
+import { type ModelProvider, ModelProviderEnum, type ProviderSettings, type SessionType } from '@shared/types'
 import { createModelDependencies } from '@/adapters'
-import Claude from 'src/shared/models/claude'
-import { ModelProvider, ModelProviderEnum, ProviderSettings, SessionType } from 'src/shared/types'
 import BaseConfig from './base-config'
-import { ModelSettingUtil } from './interface'
+import type { ModelSettingUtil } from './interface'
 
 export default class ClaudeSettingUtil extends BaseConfig implements ModelSettingUtil {
   public provider: ModelProvider = ModelProviderEnum.Claude

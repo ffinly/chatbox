@@ -1,13 +1,18 @@
 // modified from https://github.com/raycast/extensions/blob/main/extensions/model-context-protocol-registry/src/registries/builtin/entries.ts
 
+/// <reference types="vite/client" />
+
 import { fromPairs } from 'lodash'
 
-const logosContext = (require as any).context('../../../static/logos', false, /\.(png)$/)
+// Use Vite's import.meta.glob to dynamically import all PNG files
+// Vite handles import.meta.glob at build time, even though TypeScript doesn't recognize it with commonjs module setting
+// @ts-ignore - import.meta.glob is a Vite feature
+const logosModules = import.meta.glob<{ default: string }>('../../../static/logos/*.png', { eager: true })
 
 const logos: Record<string, string> = fromPairs(
-  logosContext.keys().map((key: string) => {
-    const name = key.replace('./', '')
-    return [name, logosContext(key)]
+  Object.entries(logosModules).map(([path, module]) => {
+    const name = path.split('/').pop() || ''
+    return [name, (module as { default: string }).default]
   })
 )
 

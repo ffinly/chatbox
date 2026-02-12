@@ -1,10 +1,10 @@
 import { Button, Flex, Group, Menu, Text } from '@mantine/core'
+import type { KnowledgeBase } from '@shared/types'
 import { IconCheck, IconFile, IconSettings2 } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 import { PlusIcon } from 'lucide-react'
 import type { FC } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { KnowledgeBase } from 'src/shared/types'
 import { useKnowledgeBases } from '@/hooks/knowledge-base'
 
 type Props = {

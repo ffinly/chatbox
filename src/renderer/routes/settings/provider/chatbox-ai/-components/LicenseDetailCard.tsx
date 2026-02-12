@@ -1,7 +1,7 @@
 import { Flex, Progress, Stack, Text } from '@mantine/core'
 import { IconExternalLink } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
-import type { ChatboxAILicenseDetail } from 'src/shared/types'
+import type { ChatboxAILicenseDetail } from '@shared/types'
 import { ScalableIcon } from '@/components/ScalableIcon'
 import platform from '@/platform'
 import { formatUsage } from '@/utils/format'

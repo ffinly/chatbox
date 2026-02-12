@@ -1,5 +1,5 @@
+import type { Session } from '@shared/types'
 import { atom, getDefaultStore, type SetStateAction, type WritableAtom } from 'jotai'
-import type { Session } from '@/../shared/types'
 import storage from '@/storage'
 import { StorageKeyGenerator } from '@/storage/StoreStorage'
 

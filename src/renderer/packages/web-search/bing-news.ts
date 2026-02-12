@@ -1,5 +1,5 @@
+import type { SearchResult } from '@shared/types'
 import WebSearch from './base'
-import { SearchResult } from '@/../shared/types'
 
 export class BingNewsSearch extends WebSearch {
   async search(query: string, signal?: AbortSignal): Promise<SearchResult> {

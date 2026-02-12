@@ -2,6 +2,13 @@ import NiceModal from '@ebay/nice-modal-react'
 import { ActionIcon, Box, Button, Flex, Menu, Stack, Text, Textarea, Tooltip } from '@mantine/core'
 import { useViewportSize } from '@mantine/hooks'
 import {
+  getFileAcceptConfig,
+  getFileAcceptString,
+  getUnsupportedFileType,
+  isSupportedFile,
+} from '@shared/file-extensions'
+import { formatNumber } from '@shared/utils'
+import {
   IconAdjustmentsHorizontal,
   IconAlertCircle,
   IconArrowBackUp,
@@ -23,13 +30,6 @@ import _, { pick } from 'lodash'
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useTranslation } from 'react-i18next'
-import {
-  getFileAcceptConfig,
-  getFileAcceptString,
-  getUnsupportedFileType,
-  isSupportedFile,
-} from 'src/shared/file-extensions'
-import { formatNumber } from 'src/shared/utils'
 import useInputBoxHistory from '@/hooks/useInputBoxHistory'
 import { useKnowledgeBase } from '@/hooks/useKnowledgeBase'
 import { useMessageInput } from '@/hooks/useMessageInput'

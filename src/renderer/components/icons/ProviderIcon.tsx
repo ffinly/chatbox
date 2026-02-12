@@ -1,4 +1,4 @@
-import { type ModelProvider, ModelProviderEnum } from 'src/shared/types';
+import { type ModelProvider, ModelProviderEnum } from '@shared/types';
 
 export default function ProviderIcon(props: { className?: string; size?: number; provider: ModelProvider | string }) {
   const { className, size = 24, provider } = props

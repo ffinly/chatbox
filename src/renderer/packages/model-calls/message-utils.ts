@@ -1,8 +1,8 @@
+import type { Message, MessageContentParts } from '@shared/types'
+import type { ModelDependencies } from '@shared/types/adapters'
 import type { FilePart, ImagePart, ModelMessage, TextPart } from 'ai'
 import dayjs from 'dayjs'
 import { compact } from 'lodash'
-import type { Message, MessageContentParts } from 'src/shared/types'
-import type { ModelDependencies } from 'src/shared/types/adapters'
 import { createModelDependencies } from '@/adapters'
 import { cloneMessage, getMessageText } from '@/utils/message'
 

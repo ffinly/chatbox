@@ -1,6 +1,6 @@
 import type { ComboboxProps } from '@mantine/core'
+import type { ModelProvider, ProviderModelInfo } from '@shared/types'
 import { forwardRef, type PropsWithChildren, useMemo, useState } from 'react'
-import type { ModelProvider, ProviderModelInfo } from 'src/shared/types'
 import { useProviders } from '@/hooks/useProviders'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { DesktopModelSelector } from './DesktopModelSelector'

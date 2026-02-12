@@ -1,6 +1,6 @@
+import type { SearchResult } from '@shared/types'
 import { ofetch } from 'ofetch'
 import WebSearch from './base'
-import { SearchResult } from 'src/shared/types'
 
 export class TavilySearch extends WebSearch {
   private readonly TAVILY_SEARCH_URL = 'https://api.tavily.com/search'

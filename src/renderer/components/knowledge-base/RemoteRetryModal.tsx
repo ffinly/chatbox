@@ -3,9 +3,9 @@ import { IconAlertTriangle, IconFile, IconInfoCircle, IconRefresh } from '@table
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ChatboxAIAPIError } from 'src/shared/models/errors'
-import type { KnowledgeBaseFile } from 'src/shared/types'
-import { formatFileSize } from 'src/shared/utils'
+import { ChatboxAIAPIError } from '@shared/models/errors'
+import type { KnowledgeBaseFile } from '@shared/types'
+import { formatFileSize } from '@shared/utils'
 import { Modal } from '@/components/Overlay'
 import platform from '@/platform'
 

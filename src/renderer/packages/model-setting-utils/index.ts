@@ -1,4 +1,4 @@
-import { SystemProviders } from 'src/shared/defaults'
+import { SystemProviders } from '@shared/defaults'
 import {
   type ModelProvider,
   ModelProviderEnum,
@@ -6,7 +6,7 @@ import {
   type SessionSettings,
   type SessionType,
   type Settings,
-} from 'src/shared/types'
+} from '@shared/types'
 import AzureSettingUtil from './azure-setting-util'
 import ChatboxAISettingUtil from './chatboxai-setting-util'
 import ChatGLMSettingUtil from './chatglm-setting-util'

@@ -1,6 +1,6 @@
+import type { KnowledgeBase } from '@shared/types'
 import { useAtomValue } from 'jotai'
 import { useCallback } from 'react'
-import type { KnowledgeBase } from 'src/shared/types'
 import * as atoms from '@/stores/atoms'
 import { useUIStore } from '@/stores/uiStore'
 

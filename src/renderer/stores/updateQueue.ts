@@ -1,4 +1,4 @@
-import type { UpdaterFn } from 'src/shared/types'
+import type { UpdaterFn } from '@shared/types'
 
 // 原子性执行update操作，避免数据竞态
 type QueueItem<T extends object> = {

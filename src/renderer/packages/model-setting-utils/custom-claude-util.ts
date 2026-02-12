@@ -1,11 +1,11 @@
-import CustomClaude from 'src/shared/models/custom-claude'
+import CustomClaude from '@shared/models/custom-claude'
 import {
   type ModelProvider,
   ModelProviderType,
   type ProviderBaseInfo,
   type ProviderSettings,
   type SessionType,
-} from 'src/shared/types'
+} from '@shared/types'
 import { createModelDependencies } from '@/adapters'
 import BaseConfig from './base-config'
 import type { ModelSettingUtil } from './interface'

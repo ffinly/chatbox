@@ -3,9 +3,11 @@ appId: xyz.chatboxapp.app
 asar: true
 asarUnpack: "**\\*.{node,dll}"
 files:
-  - dist
-  - node_modules
-  - package.json
+  - "dist"
+  # - "!dist/**/*.map"
+  # - "!dist/**/stats.html"
+  - "node_modules"
+  - "package.json"
 
 afterSign: .erb/scripts/notarize.js
 
@@ -78,4 +80,4 @@ publish:
     bucket: chatbox
     endpoint: https://208624959c9d215edea0720162a740c1.r2.cloudflarestorage.com
     path: /releases
-    channel: dev
+    channel: ${env.UPDATE_CHANNEL}

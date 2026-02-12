@@ -1,5 +1,5 @@
+import type { SearchResult } from '@shared/types'
 import WebSearch from './base'
-import { SearchResult } from 'src/shared/types'
 
 export class DuckDuckGoSearch extends WebSearch {
   async search(query: string, signal?: AbortSignal): Promise<SearchResult> {

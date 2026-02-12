@@ -13,6 +13,15 @@ import {
   Title,
   Tooltip,
 } from '@mantine/core'
+import { SystemProviders } from '@shared/defaults'
+import { ModelProviderEnum, ModelProviderType, type ProviderModelInfo } from '@shared/types'
+import {
+  normalizeAzureEndpoint,
+  normalizeClaudeHost,
+  normalizeGeminiHost,
+  normalizeOpenAIApiHostAndPath,
+  normalizeOpenAIResponsesHostAndPath,
+} from '@shared/utils'
 import {
   IconCircleCheck,
   IconDiscount2,
@@ -28,15 +37,6 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { uniq } from 'lodash'
 import { type ChangeEvent, useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { SystemProviders } from 'src/shared/defaults'
-import { ModelProviderEnum, ModelProviderType, type ProviderModelInfo } from 'src/shared/types'
-import {
-  normalizeAzureEndpoint,
-  normalizeClaudeHost,
-  normalizeGeminiHost,
-  normalizeOpenAIApiHostAndPath,
-  normalizeOpenAIResponsesHostAndPath,
-} from 'src/shared/utils'
 import { createModelDependencies } from '@/adapters'
 import { ModelList } from '@/components/ModelList'
 import { Modal } from '@/components/Overlay'

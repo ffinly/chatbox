@@ -1,13 +1,13 @@
 import { Box, Combobox, Flex, Input, InputBase, Kbd, Select, Table, Text, useCombobox } from '@mantine/core'
-import { IconAlertHexagon } from '@tabler/icons-react'
-import { useTranslation } from 'react-i18next'
 import {
   type Settings,
   type ShortcutName,
   type ShortcutSetting,
   shortcutSendValues,
   shortcutToggleWindowValues,
-} from '@/../shared/types'
+} from '@shared/types'
+import { IconAlertHexagon } from '@tabler/icons-react'
+import { useTranslation } from 'react-i18next'
 import { getOS } from '@/packages/navigator'
 import { ScalableIcon } from './ScalableIcon'
 

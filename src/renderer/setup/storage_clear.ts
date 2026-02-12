@@ -1,5 +1,5 @@
+import type { Message, Session } from '@shared/types'
 import { getDefaultStore } from 'jotai'
-import type { Message, Session } from 'src/shared/types'
 import { StorageKeyGenerator } from '@/storage/StoreStorage'
 import { listSessionsMeta } from '@/stores/chatStore'
 import { settingsStore } from '@/stores/settingsStore'

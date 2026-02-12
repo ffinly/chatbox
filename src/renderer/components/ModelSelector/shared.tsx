@@ -1,8 +1,8 @@
 import { Badge, Combobox, Flex, Text, Tooltip } from '@mantine/core'
+import type { ProviderModelInfo } from '@shared/types'
 import { IconBulb, IconEye, IconStar, IconStarFilled, IconTool } from '@tabler/icons-react'
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
-import type { ProviderModelInfo } from 'src/shared/types'
 import ProviderIcon from '../icons/ProviderIcon'
 import { ScalableIcon } from '../ScalableIcon'
 

@@ -1,7 +1,7 @@
+import { Combobox, type ComboboxProps, useCombobox } from '@mantine/core'
+import { type ModelProvider, ModelProviderEnum } from '@shared/types'
+import { forwardRef, type PropsWithChildren } from 'react'
 import { useProviders } from '@/hooks/useProviders'
-import { Combobox, ComboboxProps, useCombobox } from '@mantine/core'
-import { FC, PropsWithChildren } from 'react'
-import { ModelProvider, ModelProviderEnum } from 'src/shared/types'
 
 export type ImageModelSelectProps = PropsWithChildren<
   {

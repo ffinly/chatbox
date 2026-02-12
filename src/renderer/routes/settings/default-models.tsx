@@ -1,10 +1,10 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: <todo> */
 import { Flex, Stack, Text, Title } from '@mantine/core'
+import { SystemProviders } from '@shared/defaults'
 import { IconSelector } from '@tabler/icons-react'
 import { createFileRoute } from '@tanstack/react-router'
 import { forwardRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { SystemProviders } from 'src/shared/defaults'
 import ModelSelector from '@/components/ModelSelector'
 import { ScalableIcon } from '@/components/ScalableIcon'
 import { useSettingsStore } from '@/stores/settingsStore'

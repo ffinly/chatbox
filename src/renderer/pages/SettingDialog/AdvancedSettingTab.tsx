@@ -10,10 +10,10 @@ import {
   Typography,
   useTheme,
 } from '@mui/material'
+import type { Settings } from '@shared/types'
 import { uniqBy } from 'lodash'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { Settings } from 'src/shared/types'
 import { Accordion, AccordionDetails, AccordionSummary } from '@/components/Accordion'
 import { ShortcutConfig } from '@/components/Shortcut'
 import TextFieldReset from '@/components/TextFieldReset'

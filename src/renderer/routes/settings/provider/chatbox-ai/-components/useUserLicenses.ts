@@ -1,5 +1,5 @@
+import type { ChatboxAILicenseDetail } from '@shared/types'
 import { useCallback, useEffect, useState } from 'react'
-import type { ChatboxAILicenseDetail } from 'src/shared/types'
 import { getLicenseDetail, listLicensesByUser, type UserLicense } from '@/packages/remote'
 import type { LoginState } from './types'
 

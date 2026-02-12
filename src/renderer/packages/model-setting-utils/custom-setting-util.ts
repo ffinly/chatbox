@@ -1,12 +1,12 @@
-import { getModel } from 'src/shared/models'
-import CustomOpenAI from 'src/shared/models/custom-openai'
+import { getModel } from '@shared/models'
+import CustomOpenAI from '@shared/models/custom-openai'
 import {
   type ModelProvider,
   ModelProviderEnum,
   type ProviderBaseInfo,
   type ProviderSettings,
   type SessionType,
-} from 'src/shared/types'
+} from '@shared/types'
 import { createModelDependencies } from '@/adapters'
 import BaseConfig from './base-config'
 import type { ModelSettingUtil } from './interface'

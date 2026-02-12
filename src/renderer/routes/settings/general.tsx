@@ -13,14 +13,14 @@ import {
   TextInput,
   Title,
 } from '@mantine/core'
+import { type Language, type ProviderInfo, type Settings, Theme } from '@shared/types'
+import { formatFileSize } from '@shared/utils'
 import { IconInfoCircle } from '@tabler/icons-react'
 import { createFileRoute } from '@tanstack/react-router'
 import dayjs from 'dayjs'
 import { mapValues, uniqBy } from 'lodash'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { type Language, type ProviderInfo, type Settings, Theme } from 'src/shared/types'
-import { formatFileSize } from 'src/shared/utils'
 import LazySlider from '@/components/LazySlider'
 import { languageNameMap, languages } from '@/i18n/locales'
 import platform from '@/platform'

@@ -7,8 +7,8 @@
  * - 可导出会话结果到文件
  */
 
-import * as defaults from 'src/shared/defaults'
-import type { Config, Language, Settings, ShortcutSetting } from 'src/shared/types'
+import * as defaults from '@shared/defaults'
+import type { Config, Language, Settings, ShortcutSetting } from '@shared/types'
 import { v4 as uuidv4 } from 'uuid'
 import type { Exporter, Platform, PlatformType, Storage } from './interfaces'
 import type { KnowledgeBaseController } from './knowledge-base/interface'

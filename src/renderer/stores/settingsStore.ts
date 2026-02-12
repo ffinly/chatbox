@@ -1,10 +1,10 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: any */
 /** biome-ignore-all lint/suspicious/noFallthroughSwitchClause: migrate */
 
+import * as defaults from '@shared/defaults'
+import { type ProviderSettings, type Settings, SettingsSchema } from '@shared/types'
 import deepmerge from 'deepmerge'
 import type { WritableDraft } from 'immer'
-import * as defaults from 'src/shared/defaults'
-import { type ProviderSettings, type Settings, SettingsSchema } from 'src/shared/types'
 import { createStore, useStore } from 'zustand'
 import { createJSONStorage, persist, subscribeWithSelector } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'

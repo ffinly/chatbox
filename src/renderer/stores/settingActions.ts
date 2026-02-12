@@ -1,5 +1,5 @@
+import { ModelProviderEnum } from '@shared/types'
 import { getDefaultStore } from 'jotai'
-import { ModelProviderEnum } from 'src/shared/types'
 import * as atoms from './atoms'
 import { settingsStore } from './settingsStore'
 

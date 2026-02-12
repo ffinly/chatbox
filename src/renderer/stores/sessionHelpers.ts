@@ -1,4 +1,3 @@
-import { pick } from 'lodash'
 import type {
   ExportChatFormat,
   ExportChatScope,
@@ -8,8 +7,9 @@ import type {
   SessionThread,
   SessionThreadBrief,
   Settings,
-} from 'src/shared/types'
-import { getMessageText, migrateMessage } from 'src/shared/utils/message'
+} from '@shared/types'
+import { getMessageText, migrateMessage } from '@shared/utils/message'
+import { pick } from 'lodash'
 import i18n from '@/i18n'
 import { formatChatAsHtml, formatChatAsMarkdown, formatChatAsTxt } from '@/lib/format-chat'
 import { getLogger } from '@/lib/utils'

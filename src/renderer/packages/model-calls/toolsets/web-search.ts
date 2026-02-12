@@ -1,5 +1,5 @@
+import { ChatboxAIAPIError } from '@shared/models/errors'
 import { tool } from 'ai'
-import { ChatboxAIAPIError } from 'src/shared/models/errors'
 import z from 'zod'
 import * as remote from '@/packages/remote'
 import { webSearchExecutor } from '@/packages/web-search'

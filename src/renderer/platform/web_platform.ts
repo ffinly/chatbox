@@ -1,6 +1,6 @@
+import * as defaults from '@shared/defaults'
+import type { Config, Settings, ShortcutSetting } from '@shared/types'
 import localforage from 'localforage'
-import * as defaults from 'src/shared/defaults'
-import type { Config, Settings, ShortcutSetting } from 'src/shared/types'
 import { v4 as uuidv4 } from 'uuid'
 import { parseLocale } from '@/i18n/parser'
 import { getBrowser, getOS } from '../packages/navigator'

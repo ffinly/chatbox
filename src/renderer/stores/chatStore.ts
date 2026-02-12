@@ -3,10 +3,6 @@
  * It uses react-query for caching.
  * */
 
-import { useQuery } from '@tanstack/react-query'
-import compact from 'lodash/compact'
-import isEmpty from 'lodash/isEmpty'
-import { useMemo } from 'react'
 import {
   type Message,
   type Session,
@@ -15,7 +11,11 @@ import {
   SessionSettingsSchema,
   type Updater,
   type UpdaterFn,
-} from 'src/shared/types'
+} from '@shared/types'
+import { useQuery } from '@tanstack/react-query'
+import compact from 'lodash/compact'
+import isEmpty from 'lodash/isEmpty'
+import { useMemo } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import storage, { StorageKey } from '@/storage'
 import { StorageKeyGenerator } from '@/storage/StoreStorage'

@@ -1,22 +1,31 @@
+/// <reference types="vite/client" />
+
 import { Button, Flex, Image, Indicator, ScrollArea, Stack, Text } from '@mantine/core'
+import type { ProviderBaseInfo } from '@shared/types'
 import { IconChevronRight, IconFileImport, IconPlus } from '@tabler/icons-react'
 import { Link, useRouterState } from '@tanstack/react-router'
 import clsx from 'clsx'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { ProviderBaseInfo } from 'src/shared/types'
 import CustomProviderIcon from '@/components/CustomProviderIcon'
 import { ScalableIcon } from '@/components/ScalableIcon'
 import { useProviders } from '@/hooks/useProviders'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import platform from '@/platform'
 
-// @ts-ignore - Webpack require.context
-const iconContext = require.context('../../../static/icons/providers', false, /\.png$/)
-const icons: { name: string; src: string }[] = iconContext.keys().map((key: string) => ({
-  name: key.replace('./', '').replace('.png', ''),
-  src: iconContext(key),
-}))
+// Use Vite's import.meta.glob to dynamically import all PNG files
+// Vite handles import.meta.glob at build time, even though TypeScript doesn't recognize it with commonjs module setting
+// @ts-ignore - import.meta.glob is a Vite feature
+const iconsModules = import.meta.glob<{ default: string }>('../../../static/icons/providers/*.png', { eager: true })
+
+const icons: { name: string; src: string }[] = Object.entries(iconsModules).map(([path, module]) => {
+  const filename = path.split('/').pop() || ''
+  const name = filename.replace('.png', '') // 获取图片名称（不含扩展名）
+  return {
+    name,
+    src: (module as { default: string }).default, // 获取图片路径
+  }
+})
 
 interface ProviderListProps {
   providers: ProviderBaseInfo[]

@@ -1,13 +1,23 @@
+/// <reference types="vite/client" />
+
 import { Image } from '@mantine/core'
-import type { ModelProvider } from 'src/shared/types'
+import type { ModelProvider } from '@shared/types'
 import { useProviders } from '@/hooks/useProviders'
 import CustomProviderIcon from '../CustomProviderIcon'
 
-const iconContext = (require as any).context('../../static/icons/providers', false, /\.png$/)
-const icons: { name: string; src: string }[] = iconContext.keys().map((key: string) => ({
-  name: key.replace('./', '').replace('.png', ''), // 获取图片名称
-  src: iconContext(key), // 获取图片路径
-}))
+// Use Vite's import.meta.glob to dynamically import all PNG files
+// Vite handles import.meta.glob at build time, even though TypeScript doesn't recognize it with commonjs module setting
+// @ts-ignore - import.meta.glob is a Vite feature
+const iconsModules = import.meta.glob<{ default: string }>('../../static/icons/providers/*.png', { eager: true })
+
+const icons: { name: string; src: string }[] = Object.entries(iconsModules).map(([path, module]) => {
+  const filename = path.split('/').pop() || ''
+  const name = filename.replace('.png', '') // 获取图片名称（不含扩展名）
+  return {
+    name,
+    src: (module as { default: string }).default, // 获取图片路径
+  }
+})
 
 export default function ProviderImageIcon(props: {
   className?: string

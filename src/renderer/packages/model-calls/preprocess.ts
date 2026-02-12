@@ -1,6 +1,6 @@
+import type { ModelInterface } from '@shared/models/types'
 import type { ModelMessage } from 'ai'
 import pMap from 'p-map'
-import type { ModelInterface } from 'src/shared/models/types'
 import { createModelDependencies } from '@/adapters'
 import type { Message } from '../../../shared/types'
 

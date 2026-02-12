@@ -1,7 +1,7 @@
 import { ActionIcon, type ActionIconProps, Tooltip } from '@mantine/core'
+import { Theme } from '@shared/types'
 import { IconBrightnessAuto, IconMoon, IconSun } from '@tabler/icons-react'
 import { type FC, memo, useCallback } from 'react'
-import { Theme } from 'src/shared/types'
 import { settingsStore, useTheme } from '@/stores/settingsStore'
 import { ScalableIcon } from '../ScalableIcon'
 

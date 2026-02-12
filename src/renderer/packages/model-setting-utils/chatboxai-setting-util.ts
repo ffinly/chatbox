@@ -4,7 +4,7 @@ import {
   type ProviderModelInfo,
   type ProviderSettings,
   type SessionType,
-} from 'src/shared/types'
+} from '@shared/types'
 import BaseConfig from './base-config'
 import type { ModelSettingUtil } from './interface'
 

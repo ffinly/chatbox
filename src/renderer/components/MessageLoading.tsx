@@ -1,8 +1,8 @@
 import { Typography } from '@mui/material'
+import type { Message } from '@shared/types'
 import { useAtomValue } from 'jotai'
 import { Loader } from 'lucide-react'
 import { Trans, useTranslation } from 'react-i18next'
-import type { Message } from 'src/shared/types'
 import * as atoms from '../stores/atoms'
 import LinkTargetBlank from './Link'
 

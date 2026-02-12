@@ -1,4 +1,4 @@
-import { SearchResult } from '@/../shared/types'
+import type { SearchResult } from '@shared/types'
 import WebSearch from './base'
 
 export class BingSearch extends WebSearch {

@@ -1,4 +1,4 @@
-import type { Message } from 'src/shared/types'
+import type { Message } from '@shared/types'
 import { describe, expect, test } from 'vitest'
 import { sequenceMessages } from '../../shared/utils/message'
 

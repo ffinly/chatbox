@@ -1,5 +1,5 @@
+import type { KnowledgeBaseFile } from '@shared/types'
 import { useState } from 'react'
-import type { KnowledgeBaseFile } from 'src/shared/types'
 
 export const useChunksPreview = () => {
   const [isOpen, setIsOpen] = useState(false)

@@ -1,6 +1,6 @@
+import type { ModelProviderEnum, ProviderInfo, ProviderSettings } from '@shared/types'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { ModelProviderEnum, ProviderInfo, ProviderSettings } from 'src/shared/types'
 import { parseProviderFromJson } from '@/utils/provider-config'
 
 export function useProviderImport(providers: ProviderInfo[]) {

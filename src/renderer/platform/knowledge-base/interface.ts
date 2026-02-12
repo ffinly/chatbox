@@ -1,4 +1,4 @@
-import type { FileMeta, KnowledgeBase, KnowledgeBaseFile, KnowledgeBaseSearchResult } from 'src/shared/types'
+import type { FileMeta, KnowledgeBase, KnowledgeBaseFile, KnowledgeBaseSearchResult } from '@shared/types'
 
 export interface KnowledgeBaseController {
   list(): Promise<KnowledgeBase[]>

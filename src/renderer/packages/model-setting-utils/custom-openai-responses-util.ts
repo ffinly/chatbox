@@ -1,5 +1,5 @@
-import CustomOpenAIResponses from 'src/shared/models/custom-openai-responses'
-import type { ProviderSettings } from 'src/shared/types'
+import CustomOpenAIResponses from '@shared/models/custom-openai-responses'
+import type { ProviderSettings } from '@shared/types'
 import { createModelDependencies } from '@/adapters'
 import CustomModelSettingUtil from './custom-setting-util'
 

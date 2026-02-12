@@ -1,5 +1,5 @@
-import type { ElectronIPC } from 'src/shared/electron-types'
-import type { FileMeta } from 'src/shared/types'
+import type { ElectronIPC } from '@shared/electron-types'
+import type { FileMeta } from '@shared/types'
 import type { KnowledgeBaseController } from './interface'
 
 class DesktopKnowledgeBaseController implements KnowledgeBaseController {

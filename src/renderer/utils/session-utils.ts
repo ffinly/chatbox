@@ -1,6 +1,6 @@
+import type { Session, SessionMeta } from '@shared/types'
 import { mapValues } from 'lodash'
-import type { Session, SessionMeta } from 'src/shared/types'
-import { migrateMessage } from './message'
+import { migrateMessage } from '../../shared/utils/message'
 
 export function migrateSession(session: Session): Session {
   return {

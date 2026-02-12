@@ -1,10 +1,10 @@
 import NiceModal from '@ebay/nice-modal-react'
 import { ActionIcon, Flex, Text } from '@mantine/core'
+import type { SessionMeta } from '@shared/types'
 import { IconCopy, IconDots, IconEdit, IconStar, IconStarFilled, IconTrash } from '@tabler/icons-react'
 import clsx from 'clsx'
 import { memo, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { SessionMeta } from 'src/shared/types'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { router } from '@/router'
 import {

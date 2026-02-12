@@ -1,6 +1,6 @@
-import { ModelProvider, ModelProviderEnum, ProviderSettings } from 'src/shared/types'
+import { type ModelProvider, ModelProviderEnum, type ProviderSettings } from '@shared/types'
 import BaseConfig from './base-config'
-import { ModelSettingUtil } from './interface'
+import type { ModelSettingUtil } from './interface'
 
 export default class ChatGLMSettingUtil extends BaseConfig implements ModelSettingUtil {
   public provider: ModelProvider = ModelProviderEnum.ChatGLM6B

@@ -1,8 +1,8 @@
+import { getModel } from '@shared/models'
+import type { ModelInterface } from '@shared/models/types'
+import type { Config, Settings } from '@shared/types'
+import type { ModelDependencies } from '@shared/types/adapters'
 import { tool } from 'ai'
-import { getModel } from 'src/shared/models'
-import type { ModelInterface } from 'src/shared/models/types'
-import type { Config, Settings } from 'src/shared/types'
-import type { ModelDependencies } from 'src/shared/types/adapters'
 import { z } from 'zod'
 
 export type TestResult = {

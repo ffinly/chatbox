@@ -1,9 +1,4 @@
 import * as Sentry from '@sentry/react'
-import dayjs from 'dayjs'
-import { getDefaultStore } from 'jotai'
-import { difference, intersection, keyBy, uniq, uniqBy } from 'lodash'
-import oldStore from 'store'
-import { v4 as uuidv4 } from 'uuid'
 import {
   type ModelProvider,
   ModelProviderEnum,
@@ -11,7 +6,12 @@ import {
   type Session,
   type SessionMeta,
   type Settings,
-} from '@/../shared/types'
+} from '@shared/types'
+import dayjs from 'dayjs'
+import { getDefaultStore } from 'jotai'
+import { difference, intersection, keyBy, uniq, uniqBy } from 'lodash'
+import oldStore from 'store'
+import { v4 as uuidv4 } from 'uuid'
 import {
   artifactSessionCN,
   artifactSessionEN,

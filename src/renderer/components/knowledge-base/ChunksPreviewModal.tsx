@@ -1,7 +1,7 @@
 import { Center, Code, Group, Loader, Paper, ScrollArea, Stack, Text } from '@mantine/core'
+import type { KnowledgeBaseFile } from '@shared/types'
 import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { KnowledgeBaseFile } from 'src/shared/types'
 import platform from '@/platform'
 import { Modal } from '../Overlay'
 
