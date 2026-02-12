@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "engines": {
     "node": ">=20.0.0 <23.0.0",
-    "npm": ">=10.0.0"
+    "pnpm": ">=10.0.0"
   },
   "private": true,
   "description": "A desktop client for multiple cutting-edge AI models",
@@ -14,23 +14,23 @@
     "build:main": "electron-vite build",
     "build:preload": "electron-vite build",
     "build:renderer": "electron-vite build",
-    "build:web": "cross-env CHATBOX_BUILD_PLATFORM=web electron-vite build && npm run delete-sourcemaps",
+    "build:web": "cross-env CHATBOX_BUILD_PLATFORM=web electron-vite build && pnpm run delete-sourcemaps",
     "delete-sourcemaps": "ts-node ./.erb/scripts/delete-source-maps-runner.js",
-    "postinstall": "patch-package && ts-node .erb/scripts/check-native-dep.js && electron-builder install-app-deps",
-    "package": "ts-node ./.erb/scripts/clean.js && npm run build && electron-builder build --publish never",
-    "package:all": "ts-node ./.erb/scripts/clean.js && npm run build && electron-builder build --publish never --win --mac --linux",
+    "postinstall": "node .erb/scripts/postinstall.cjs",
+    "package": "ts-node ./.erb/scripts/clean.js && pnpm run build && electron-builder build --publish never",
+    "package:all": "ts-node ./.erb/scripts/clean.js && pnpm run build && electron-builder build --publish never --win --mac --linux",
     "release:web": "bash release-web.sh",
     "release:mac": "bash release-mac.sh",
     "release:linux": "bash release-linux.sh",
     "release:win": "bash release-win.sh",
-    "electron:publish-mac": "npm install && npm run postinstall && npm run build && electron-builder build --publish always --mac",
-    "electron:publish-linux": "npm install && npm run postinstall && npm run build && electron-builder build --publish always --linux",
-    "electron:publish-win": "npm install && npm run postinstall && npm run build && electron-builder build --publish always --win",
+    "electron:publish-mac": "pnpm run build && electron-builder build --publish always --mac",
+    "electron:publish-linux": "pnpm run build && electron-builder build --publish always --linux",
+    "electron:publish-win": "pnpm run build && electron-builder build --publish always --win",
     "rebuild": "electron-rebuild --parallel --types prod,dev,optional --module-dir release/app",
-    "dev": "npm start",
-    "dev:local": "cross-env USE_LOCAL_API=true npm start",
-    "dev:web": "cross-env DEV_WEB_ONLY=true CHATBOX_BUILD_PLATFORM=web npm start",
-    "dev:debug": "cross-env MAIN_ARGS=\"--inspect=5858\" npm start",
+    "dev": "pnpm start",
+    "dev:local": "cross-env USE_LOCAL_API=true pnpm start",
+    "dev:web": "cross-env DEV_WEB_ONLY=true CHATBOX_BUILD_PLATFORM=web pnpm start",
+    "dev:debug": "cross-env MAIN_ARGS=\"--inspect=5858\" pnpm start",
     "start": "electron-vite dev",
     "start:main": "cross-env NODE_ENV=development electronmon -r ts-node/register/transpile-only .",
     "start:preload": "electron-vite build --preload --watch",
@@ -49,13 +49,13 @@
     "format": "biome format --write",
     "check:biome": "biome check",
     "check:ci": "biome ci",
-    "mobile:sync": "npm run mobile:sync:ios && npm run mobile:sync:android",
-    "mobile:sync:ios": "cross-env CHATBOX_BUILD_TARGET=mobile_app CHATBOX_BUILD_PLATFORM=ios electron-vite build && npm run delete-sourcemaps && npx cap sync ios",
-    "mobile:sync:android": "cross-env CHATBOX_BUILD_TARGET=mobile_app CHATBOX_BUILD_PLATFORM=android electron-vite build && npm run delete-sourcemaps && npx cap sync android",
-    "mobile:ios": "npm run mobile:sync:ios && npx cap open ios",
-    "mobile:android": "npm run mobile:sync:android && npx cap open android",
+    "mobile:sync": "pnpm run mobile:sync:ios && pnpm run mobile:sync:android",
+    "mobile:sync:ios": "cross-env CHATBOX_BUILD_TARGET=mobile_app CHATBOX_BUILD_PLATFORM=ios electron-vite build && pnpm run delete-sourcemaps && npx cap sync ios",
+    "mobile:sync:android": "cross-env CHATBOX_BUILD_TARGET=mobile_app CHATBOX_BUILD_PLATFORM=android electron-vite build && pnpm run delete-sourcemaps && npx cap sync android",
+    "mobile:ios": "pnpm run mobile:sync:ios && npx cap open ios",
+    "mobile:android": "pnpm run mobile:sync:android && npx cap open android",
     "mobile:assets": "npx capacitor-assets generate --ios --android",
-    "prepare": "husky",
+    "prepare": "node -e \"try { require('husky') } catch(e) { process.exit(0) }\" && husky || true",
     "translate": "i18next && node script/translate.mjs"
   },
   "repository": {
@@ -218,7 +218,6 @@
     "optics-ts": "^2.4.0",
     "p-map": "^7.0.3",
     "p-timeout": "^6.1.4",
-    "patch-package": "^8.0.0",
     "photoswipe": "^5.4.4",
     "postcss": "^8.5.3",
     "postcss-loader": "^7.3.3",
@@ -318,5 +317,30 @@
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": "biome format --write"
-  }
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@parcel/watcher",
+      "@sentry/cli",
+      "core-js",
+      "core-js-pure",
+      "electron",
+      "esbuild",
+      "msw",
+      "protobufjs",
+      "sharp",
+      "zipfile"
+    ],
+    "overrides": {
+      "@tanstack/router-generator": "1.120.15",
+      "@tanstack/router-plugin": "1.120.15",
+      "@mastra/libsql": "0.13.2",
+      "@mastra/rag": "1.0.8",
+      "@napi-rs/canvas": "-"
+    },
+    "patchedDependencies": {
+      "libsql@0.5.22": "patches/libsql@0.5.22.patch"
+    }
+  },
+  "packageManager": "pnpm@10.15.1+sha512.34e538c329b5553014ca8e8f4535997f96180a1d0f614339357449935350d924e22f8614682191264ec33d1462ac21561aff97f6bb18065351c162c7e8f6de67"
 }

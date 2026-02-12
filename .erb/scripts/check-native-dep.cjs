@@ -1,8 +1,17 @@
-import chalk from 'chalk'
-import { execSync } from 'child_process'
-import fs from 'fs'
-import path from 'path'
-import { dependencies } from '../../package.json'
+const { execSync } = require('child_process')
+const fs = require('fs')
+const path = require('path')
+const { dependencies } = require('../../package.json')
+
+// Simple color helpers (chalk is ESM-only in newer versions)
+const colors = {
+    blue: (text) => `\x1b[34m${text}\x1b[0m`,
+    gray: (text) => `\x1b[90m${text}\x1b[0m`,
+    bold: (text) => `\x1b[1m${text}\x1b[0m`,
+    bgYellow: (text) => `\x1b[43m\x1b[97m${text}\x1b[0m`,
+    bgGreen: (text) => `\x1b[42m\x1b[97m${text}\x1b[0m`,
+    bgRed: (text) => `\x1b[41m\x1b[97m${text}\x1b[0m`,
+}
 
 // Helper function to recursively find .node files in a directory
 function findNodeFiles(dir) {
@@ -103,9 +112,9 @@ if (dependencies) {
         process.exit(0)
     }
     
-    console.debug(chalk.blue(`Found native dependencies: ${allNativeDeps.join(', ')}`))
-    console.debug(chalk.gray(`- With binding.gyp: ${nativeDepsByBindingGyp.join(', ') || 'none'}`))
-    console.debug(chalk.gray(`- With .node files: ${nativeDepsByNodeFiles.join(', ') || 'none'}`))
+    console.debug(colors.blue(`Found native dependencies: ${allNativeDeps.join(', ')}`))
+    console.debug(colors.gray(`- With binding.gyp: ${nativeDepsByBindingGyp.join(', ') || 'none'}`))
+    console.debug(colors.gray(`- With .node files: ${nativeDepsByNodeFiles.join(', ') || 'none'}`))
     
     try {
         // Find the reason for why the dependency is installed. If it is installed
@@ -126,18 +135,18 @@ if (dependencies) {
         if (filteredRootDependencies.length > 0) {
             const plural = filteredRootDependencies.length > 1
             console.log(`
- ${chalk.whiteBright.bgYellow.bold('Webpack does not work with native dependencies.')}
-${chalk.bold(filteredRootDependencies.join(', '))} ${
+ ${colors.bgYellow(colors.bold('Webpack does not work with native dependencies.'))}
+${colors.bold(filteredRootDependencies.join(', '))} ${
                 plural ? 'are native dependencies' : 'is a native dependency'
             } and should be installed inside of the "./release/app" folder.
  First, uninstall the packages from "./package.json":
-${chalk.whiteBright.bgGreen.bold('pnpm remove your-package')}
- ${chalk.bold('Then, instead of installing the package to the root "./package.json":')}
-${chalk.whiteBright.bgRed.bold('pnpm add your-package')}
- ${chalk.bold('Install the package to "./release/app/package.json"')}
-${chalk.whiteBright.bgGreen.bold('cd ./release/app && pnpm add your-package')}
+${colors.bgGreen(colors.bold('pnpm remove your-package'))}
+ ${colors.bold('Then, instead of installing the package to the root "./package.json":')}
+${colors.bgRed(colors.bold('pnpm add your-package'))}
+ ${colors.bold('Install the package to "./release/app/package.json"')}
+${colors.bgGreen(colors.bold('cd ./release/app && pnpm add your-package'))}
  Read more about native dependencies at:
-${chalk.bold('https://electron-react-boilerplate.js.org/docs/adding-dependencies/#module-structure')}
+${colors.bold('https://electron-react-boilerplate.js.org/docs/adding-dependencies/#module-structure')}
  `)
             process.exit(1)
         }

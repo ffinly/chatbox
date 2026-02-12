@@ -10,14 +10,11 @@
   },
   "main": "./dist/main/main.js",
   "scripts": {
-    "rebuild": "node -r ts-node/register ../../.erb/scripts/electron-rebuild.js",
-    "postinstall": "patch-package && npm run rebuild && npm run link-modules",
-    "link-modules": "node -r ts-node/register ../../.erb/scripts/link-modules.ts"
+    "rebuild": "node ../../.erb/scripts/electron-rebuild.cjs",
+    "postinstall": "pnpm run rebuild && pnpm run link-modules",
+    "link-modules": "node ../../.erb/scripts/link-modules.cjs"
   },
   "dependencies": {
     "@libsql/client": "^0.15.6"
-  },
-  "devDependencies": {
-    "patch-package": "^8.0.0"
   }
 }
