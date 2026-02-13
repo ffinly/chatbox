@@ -1,4 +1,14 @@
 const changelog = `
+## v1.19.0
+1. New context management: automatic context compression, token usage percentage display, and context length error detection
+2. Default max context messages changed to unlimited
+3. AI SDK upgraded from v5 to v6
+4. Image generation refactored into a standalone tool page
+5. Chatbox AI settings moved from provider level to top-level settings for easier access
+
+## v1.18.4 - 2026.01.16
+1. Fixed compatibility issues on some older devices
+
 ## v1.18.3 - 2026.01.13
 1. Added model icon display in model selector
 2. Added search functionality for conversation list
