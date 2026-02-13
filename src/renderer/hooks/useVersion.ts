@@ -31,6 +31,7 @@ export function isFirstDay(): boolean {
 export default function useVersion() {
   const [version, _setVersion] = useState('')
   const [needCheckUpdate, setNeedCheckUpdate] = useState(false)
+  const remoteConfig = useAtomValue(remoteConfigAtom)
   const isExceeded = useMemo(
     () =>
       CHATBOX_BUILD_PLATFORM === 'ios' &&
