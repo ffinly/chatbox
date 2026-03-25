@@ -20,6 +20,7 @@ import BrandWechat from '@/components/icons/BrandWechat'
 import Page from '@/components/layout/Page'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import useVersion from '@/hooks/useVersion'
+import { buildChatboxUrl } from '@/packages/remote'
 import platform from '@/platform'
 import iconPNG from '@/static/icon.png'
 import IMG_WECHAT_QRCODE from '@/static/wechat_qrcode.png'
@@ -52,7 +53,7 @@ function RouteComponent() {
                   variant="default"
                   radius="xl"
                   className="flex-shrink-0"
-                  onClick={() => platform.openLink(`https://chatboxai.app/redirect_app/check_update/${language}`)}
+                  onClick={() => platform.openLink(buildChatboxUrl(`/redirect_app/check_update/${language}`))}
                 >
                   {t('Check Update')}
                 </Button>
@@ -123,7 +124,7 @@ function RouteComponent() {
             <ListItem
               icon={<IconHome className="w-full h-full" />}
               title={t('Homepage')}
-              link={`https://chatboxai.app/redirect_app/homepage/${language}`}
+              link={buildChatboxUrl(`/redirect_app/homepage/${language}`)}
             />
             <ListItem
               icon={<IconClipboard className="w-full h-full" />}
@@ -133,7 +134,7 @@ function RouteComponent() {
             <ListItem
               icon={<IconPencil className="w-full h-full" />}
               title={t('Feedback')}
-              link={`https://chatboxai.app/redirect_app/feedback/${language}`}
+              link={buildChatboxUrl(`/redirect_app/feedback/${language}`)}
             />
             <ListItem
               icon={<IconFileText className="w-full h-full" />}

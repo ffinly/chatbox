@@ -1,8 +1,8 @@
+import path, { resolve } from 'node:path'
 import { sentryVitePlugin } from '@sentry/vite-plugin'
 import { TanStackRouterVite } from '@tanstack/router-plugin/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
-import path, { resolve } from 'path'
 import { visualizer } from 'rollup-plugin-visualizer'
 import type { Plugin } from 'vite'
 import packageJson from './release/app/package.json'
@@ -134,6 +134,7 @@ export default defineConfig(({ mode }) => {
       resolve: {
         alias: {
           '@': path.resolve(__dirname, './src/renderer'),
+          '@shared': path.resolve(__dirname, './src/shared'),
           'src/shared': path.resolve(__dirname, './src/shared'),
         },
       },
@@ -145,6 +146,8 @@ export default defineConfig(({ mode }) => {
         'process.env.CHATBOX_BUILD_CHANNEL': JSON.stringify(process.env.CHATBOX_BUILD_CHANNEL || 'unknown'),
         'process.env.USE_LOCAL_API': JSON.stringify(process.env.USE_LOCAL_API || ''),
         'process.env.USE_BETA_API': JSON.stringify(process.env.USE_BETA_API || ''),
+        'process.env.USE_LOCAL_CHATBOX': JSON.stringify(process.env.USE_LOCAL_CHATBOX || ''),
+        'process.env.USE_BETA_CHATBOX': JSON.stringify(process.env.USE_BETA_CHATBOX || ''),
       },
     },
     preload: {
@@ -166,6 +169,7 @@ export default defineConfig(({ mode }) => {
       resolve: {
         alias: {
           '@': path.resolve(__dirname, './src/renderer'),
+          '@shared': path.resolve(__dirname, './src/shared'),
           'src/shared': path.resolve(__dirname, './src/shared'),
         },
       },
@@ -257,8 +261,7 @@ export default defineConfig(({ mode }) => {
         postcss: './postcss.config.cjs',
       },
       server: {
-        port: 1212,
-        strictPort: true,
+        port: Number(process.env.DEV_PORT) || 1212,
       },
       define: {
         'process.type': '"renderer"',
@@ -268,6 +271,8 @@ export default defineConfig(({ mode }) => {
         'process.env.CHATBOX_BUILD_CHANNEL': JSON.stringify(process.env.CHATBOX_BUILD_CHANNEL || 'unknown'),
         'process.env.USE_LOCAL_API': JSON.stringify(process.env.USE_LOCAL_API || ''),
         'process.env.USE_BETA_API': JSON.stringify(process.env.USE_BETA_API || ''),
+        'process.env.USE_LOCAL_CHATBOX': JSON.stringify(process.env.USE_LOCAL_CHATBOX || ''),
+        'process.env.USE_BETA_CHATBOX': JSON.stringify(process.env.USE_BETA_CHATBOX || ''),
       },
       optimizeDeps: {
         include: ['mermaid'],
