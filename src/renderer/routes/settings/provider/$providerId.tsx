@@ -95,11 +95,6 @@ const OAUTH_PROVIDER_FALLBACKS: Record<string, OAuthProviderInfo> = {
     name: 'Claude',
     flowType: 'code-paste',
   },
-  gemini: {
-    providerId: 'gemini',
-    name: 'Gemini',
-    flowType: 'callback',
-  },
   'github-copilot': {
     providerId: 'github-copilot',
     name: 'GitHub Copilot',
