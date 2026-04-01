@@ -275,6 +275,12 @@ export class ChatboxAIAPIError extends BaseError {
       i18nKey:
         'This file type requires a document parser. Please go to <OpenDocumentParserSettingButton>Settings</OpenDocumentParserSettingButton> and enable Chatbox AI document parsing.',
     },
+    bocha_api_key_required: {
+      name: 'bocha_api_key_required',
+      code: 20035,
+      i18nKey:
+        'You have selected BoCha as the search provider, but an API key has not been entered yet. Please <OpenExtensionSettingButton>click here to open Settings</OpenExtensionSettingButton> and enter your API key, or choose a different search provider.',
+    },
   }
   static fromCodeName(response: string, codeName: string) {
     if (!codeName) {

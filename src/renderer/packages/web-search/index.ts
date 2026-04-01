@@ -9,6 +9,7 @@ import { BingNewsSearch } from './bing-news'
 import { ChatboxSearch } from './chatbox-search'
 import { QueritSearch } from './querit'
 import { TavilySearch } from './tavily'
+import { BochaSearch } from './bocha'
 
 const MAX_CONTEXT_ITEMS = 10
 
@@ -62,6 +63,12 @@ function getSearchProviders() {
           settings.webSearch.queritTimeRange
         )
       )
+      break
+    case 'bocha':
+      if (!settings.webSearch.bochaApiKey) {
+        throw ChatboxAIAPIError.fromCodeName('bocha_api_key_required', 'bocha_api_key_required')
+      }
+      selectedProviders.push(new BochaSearch(settings.webSearch.bochaApiKey))
       break
     default:
       throw new Error(`Unsupported search provider: ${provider}`)
