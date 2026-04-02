@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { loginOrSignupWithEmailCode, sendEmailLoginCode } from '@/packages/remote'
 import { EMAIL_CODE_RESEND_SECONDS } from './constants'
+import { getLoginCodeVerificationErrorMessage } from './loginErrorMessage'
 import type { LoginState } from './types'
 
 interface UseLoginParams {
@@ -176,7 +177,7 @@ export function useLogin({ language, onLoginSuccess }: UseLoginParams) {
       }
 
       console.error('Failed to verify login code:', error)
-      const errorMsg = getReadableErrorMessage(error, t('Failed to login with verification code'))
+      const errorMsg = getLoginCodeVerificationErrorMessage(error, t)
       setLoginError(errorMsg)
       setLoginState('error')
       return false
