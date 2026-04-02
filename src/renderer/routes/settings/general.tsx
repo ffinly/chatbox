@@ -378,9 +378,9 @@ const ImportExportDataSection = () => {
                         cleanedSettings.providers = mapValues(cleanedSettings.providers, (provider: ProviderInfo) => {
                           const cleanedProvider = { ...provider }
                           delete cleanedProvider.apiKey
-                          delete cleanedProvider.awsAccessKeyId
-                          delete cleanedProvider.awsSecretAccessKey
-                          delete cleanedProvider.awsSessionToken
+                          delete cleanedProvider.accessKey
+                          delete cleanedProvider.secretKey
+                          delete cleanedProvider.sessionToken
                           return cleanedProvider
                         }) as unknown as { [key: string]: ProviderInfo }
                       }

@@ -857,11 +857,11 @@ function ProviderSettings({ providerId }: { providerId: string }) {
               </Text>
               <PasswordInput
                 flex={1}
-                value={providerSettings?.awsAccessKeyId || ''}
+                value={providerSettings?.accessKey || ''}
                 placeholder="AKIAIOSFODNN7EXAMPLE"
                 onChange={(e) =>
                   setProviderSettings({
-                    awsAccessKeyId: e.currentTarget.value,
+                    accessKey: e.currentTarget.value,
                   })
                 }
               />
@@ -873,11 +873,11 @@ function ProviderSettings({ providerId }: { providerId: string }) {
               </Text>
               <PasswordInput
                 flex={1}
-                value={providerSettings?.awsSecretAccessKey || ''}
+                value={providerSettings?.secretKey || ''}
                 placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
                 onChange={(e) =>
                   setProviderSettings({
-                    awsSecretAccessKey: e.currentTarget.value,
+                    secretKey: e.currentTarget.value,
                   })
                 }
               />
@@ -889,11 +889,11 @@ function ProviderSettings({ providerId }: { providerId: string }) {
               </Text>
               <TextInput
                 flex={1}
-                value={providerSettings?.awsRegion || ''}
+                value={providerSettings?.region || ''}
                 placeholder="us-east-1"
                 onChange={(e) =>
                   setProviderSettings({
-                    awsRegion: e.currentTarget.value,
+                    region: e.currentTarget.value,
                   })
                 }
               />
@@ -902,12 +902,12 @@ function ProviderSettings({ providerId }: { providerId: string }) {
             <Flex gap="xs" align="center">
               <Tooltip
                 disabled={
-                  !!providerSettings?.awsAccessKeyId &&
-                  !!providerSettings?.awsSecretAccessKey &&
+                  !!providerSettings?.accessKey &&
+                  !!providerSettings?.secretKey &&
                   displayModels.length > 0
                 }
                 label={
-                  !providerSettings?.awsAccessKeyId || !providerSettings?.awsSecretAccessKey
+                  !providerSettings?.accessKey || !providerSettings?.secretKey
                     ? t('AWS Access Key ID and Secret Access Key are required to check connection')
                     : displayModels.length === 0
                       ? t('Add at least one model to check connection')
@@ -917,8 +917,8 @@ function ProviderSettings({ providerId }: { providerId: string }) {
                 <Button
                   size="sm"
                   disabled={
-                    !providerSettings?.awsAccessKeyId ||
-                    !providerSettings?.awsSecretAccessKey ||
+                    !providerSettings?.accessKey ||
+                    !providerSettings?.secretKey ||
                     displayModels.length === 0
                   }
                   loading={modelTestResult?.testing || false}

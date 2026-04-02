@@ -20,8 +20,8 @@ export function needEditSetting() {
     }
     // Bedrock configured with AWS credentials
     if (
-      providers[ModelProviderEnum.Bedrock]?.awsAccessKeyId &&
-      providers[ModelProviderEnum.Bedrock]?.awsSecretAccessKey
+      providers[ModelProviderEnum.Bedrock]?.accessKey &&
+      providers[ModelProviderEnum.Bedrock]?.secretKey
     ) {
       return false
     }

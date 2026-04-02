@@ -11,7 +11,7 @@ export const bedrockProvider = defineProvider({
     docs: 'https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference.html',
   },
   defaultSettings: {
-    awsRegion: 'us-east-1',
+    region: 'us-east-1',
     models: [
       {
         modelId: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
@@ -50,10 +50,10 @@ export const bedrockProvider = defineProvider({
   createModel: (config) => {
     return new Bedrock(
       {
-        awsAccessKeyId: config.providerSetting.awsAccessKeyId || '',
-        awsSecretAccessKey: config.providerSetting.awsSecretAccessKey || '',
-        awsSessionToken: config.providerSetting.awsSessionToken,
-        awsRegion: config.providerSetting.awsRegion || 'us-east-1',
+        accessKey: config.providerSetting.accessKey || '',
+        secretKey: config.providerSetting.secretKey || '',
+        sessionToken: config.providerSetting.sessionToken,
+        region: config.providerSetting.region || 'us-east-1',
         model: config.model,
         temperature: config.settings.temperature,
         topP: config.settings.topP,

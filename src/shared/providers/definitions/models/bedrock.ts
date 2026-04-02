@@ -5,10 +5,10 @@ import type { ProviderModelInfo } from '../../../types'
 import type { ModelDependencies } from '../../../types/adapters'
 
 interface Options {
-  awsAccessKeyId: string
-  awsSecretAccessKey: string
-  awsSessionToken?: string
-  awsRegion: string
+  accessKey: string
+  secretKey: string
+  sessionToken?: string
+  region: string
   model: ProviderModelInfo
   temperature?: number
   topP?: number
@@ -32,13 +32,13 @@ export default class Bedrock extends AbstractAISDKModel {
       secretAccessKey: string
       sessionToken?: string
     } = {
-      region: this.options.awsRegion,
-      accessKeyId: this.options.awsAccessKeyId,
-      secretAccessKey: this.options.awsSecretAccessKey,
+      region: this.options.region,
+      accessKeyId: this.options.accessKey,
+      secretAccessKey: this.options.secretKey,
     }
 
-    if (this.options.awsSessionToken) {
-      config.sessionToken = this.options.awsSessionToken
+    if (this.options.sessionToken) {
+      config.sessionToken = this.options.sessionToken
     }
 
     return createAmazonBedrock(config)
