@@ -27,16 +27,18 @@ export class TavilySearch extends WebSearch {
         signal,
       })
 
-      const items = (response.results || []).map((result: any) => ({
-        title: result.title,
-        link: result.url,
-        snippet: result.content,
-      }))
+      const items = (response.results || []).map(
+        (result: { title: string; url: string; content: string }) => ({
+          title: result.title,
+          link: result.url,
+          snippet: result.content,
+        })
+      )
 
       return { items }
     } catch (error) {
       console.error('Tavily search error:', error)
-      return { items: [] }
+      throw error
     }
   }
 }

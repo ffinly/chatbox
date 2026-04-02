@@ -52,16 +52,18 @@ export class QueritSearch extends WebSearch {
       }
 
       // Extract result
-      const items = response.results.result.map((result: any) => ({
-        title: result.title,
-        link: result.url,
-        snippet: result.snippet,
-      }))
+      const items = response.results.result.map(
+        (result: { title: string; url: string; snippet: string }) => ({
+          title: result.title,
+          link: result.url,
+          snippet: result.snippet,
+        })
+      )
 
       return { items }
     } catch (error) {
       console.error('Querit search error:', error)
-      return { items: [] }
+      throw error
     }
   }
 }
