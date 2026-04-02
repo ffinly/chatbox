@@ -57,6 +57,24 @@ export function replacePlausibleDomain(): Plugin {
 }
 
 /**
+ * Vite plugin to inject platform-appropriate viewport meta content.
+ * Desktop builds omit `height=device-height` and `viewport-fit=cover` which trigger
+ * Chromium's Virtual Keyboard API on macOS, causing an empty bottom margin on input focus.
+ * See: https://github.com/chatboxai/chatbox/issues/2023
+ */
+export function injectViewportContent(isDesktop: boolean): Plugin {
+  const content = isDesktop
+    ? 'width=device-width, initial-scale=1, user-scalable=no'
+    : 'height=device-height, width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover'
+  return {
+    name: 'inject-viewport-content',
+    transformIndexHtml(html) {
+      return html.replace('%VIEWPORT_CONTENT%', content)
+    },
+  }
+}
+
+/**
  * Vite plugin to replace dvh units with vh units
  * This replaces the webpack string-replace-loader functionality
  */
@@ -86,6 +104,8 @@ if (inferredDist) {
 export default defineConfig(({ mode }) => {
   const isProduction = mode === 'production'
   const isWeb = process.env.CHATBOX_BUILD_PLATFORM === 'web'
+  const isMobile = process.env.CHATBOX_BUILD_TARGET === 'mobile_app'
+  const isDesktop = !isWeb && !isMobile
 
   return {
     main: {
@@ -190,6 +210,7 @@ export default defineConfig(({ mode }) => {
         }),
         react({}),
         dvhToVh(),
+        injectViewportContent(isDesktop),
         isWeb ? injectBaseTag() : undefined,
         injectReleaseDate(),
         isWeb ? replacePlausibleDomain() : undefined,
