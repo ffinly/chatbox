@@ -238,15 +238,22 @@ export default defineConfig(({ mode }) => {
             },
             // Optimize chunk splitting to reduce memory usage during build
             manualChunks(id) {
-              if (id.includes('node_modules')) {
+              const normalizedId = id.split(path.sep).join('/')
+              const isNodeModulePackage = (pkg: string) => normalizedId.includes(`/node_modules/${pkg}/`)
+
+              if (normalizedId.includes('/node_modules/')) {
                 // Split large vendor chunks
-                if (id.includes('@ai-sdk') || id.includes('ai/')) {
+                if (isNodeModulePackage('@ai-sdk') || isNodeModulePackage('ai')) {
                   return 'vendor-ai'
                 }
-                if (id.includes('@mantine') || id.includes('@tabler')) {
+                if (isNodeModulePackage('@mantine') || isNodeModulePackage('@tabler')) {
                   return 'vendor-ui'
                 }
-                if (id.includes('mermaid') || id.includes('d3')) {
+                if (
+                  isNodeModulePackage('mermaid') ||
+                  isNodeModulePackage('d3') ||
+                  /\/node_modules\/d3-[^/]+\//.test(normalizedId)
+                ) {
                   return 'vendor-charts'
                 }
               }
