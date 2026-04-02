@@ -34,11 +34,26 @@ export function buildImportedProviderSettingsUpdate(params: {
     ModelProviderType.OpenAI
   const uniqueModels = dedupeModels(importedConfig, existingProvider)
 
+  const awsFields: Record<string, string> = {}
+  if ('awsAccessKeyId' in importedConfig && importedConfig.awsAccessKeyId) {
+    awsFields.awsAccessKeyId = importedConfig.awsAccessKeyId as string
+  }
+  if ('awsSecretAccessKey' in importedConfig && importedConfig.awsSecretAccessKey) {
+    awsFields.awsSecretAccessKey = importedConfig.awsSecretAccessKey as string
+  }
+  if ('awsSessionToken' in importedConfig && importedConfig.awsSessionToken) {
+    awsFields.awsSessionToken = importedConfig.awsSessionToken as string
+  }
+  if ('awsRegion' in importedConfig && importedConfig.awsRegion) {
+    awsFields.awsRegion = importedConfig.awsRegion as string
+  }
+
   const providerSettings = {
     ...providers?.[providerId],
     apiHost,
     apiPath,
     apiKey,
+    ...awsFields,
     models: uniqueModels,
   }
 

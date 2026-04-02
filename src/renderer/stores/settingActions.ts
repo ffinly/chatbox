@@ -18,6 +18,13 @@ export function needEditSetting() {
     if (keys.filter((key) => !!providers[key].apiKey).length > 0) {
       return false
     }
+    // Bedrock configured with AWS credentials
+    if (
+      providers[ModelProviderEnum.Bedrock]?.awsAccessKeyId &&
+      providers[ModelProviderEnum.Bedrock]?.awsSecretAccessKey
+    ) {
+      return false
+    }
     // Ollama / LMStudio/ custom provider 配置了至少一个模型
     if (
       keys.filter(
