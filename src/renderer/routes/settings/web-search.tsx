@@ -1,9 +1,11 @@
-import { Button, Flex, PasswordInput, Stack, Text, Title, Tooltip } from '@mantine/core'
+import { Button, Flex, PasswordInput, Select, Stack, Text, Title, Tooltip } from '@mantine/core'
 import { createFileRoute } from '@tanstack/react-router'
 import { ofetch } from 'ofetch'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AdaptiveSelect } from '@/components/AdaptiveSelect'
+import { BochaSearch } from '@/packages/web-search/bocha'
+import { QUERIT_SEARCH_URL } from '@/packages/web-search/querit'
 import platform from '@/platform'
 import { trackJkClickEvent } from '@/analytics/jk'
 import { JK_EVENTS, JK_PAGE_NAMES } from '@/analytics/jk-events'
@@ -19,6 +21,30 @@ export function RouteComponent() {
   const extension = useSettingsStore((state) => state.extension)
   const licenseKey = useSettingsStore((state) => state.licenseKey)
 
+  const [checkingQuerit, setCheckingQuerit] = useState(false)
+  const [queritAvailable, setQueritAvailable] = useState<boolean>()
+  const checkQuerit = async () => {
+    if (extension.webSearch.queritApiKey) {
+      setCheckingQuerit(true)
+      setQueritAvailable(undefined)
+      try {
+        await ofetch(QUERIT_SEARCH_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${extension.webSearch.queritApiKey}`,
+          },
+          body: { query: 'Chatbox' },
+        })
+        setQueritAvailable(true)
+      } catch (e) {
+        setQueritAvailable(false)
+      } finally {
+        setCheckingQuerit(false)
+      }
+    }
+  }
+
   const [checkingBocha, setCheckingBocha] = useState(false)
   const [bochaAvailable, setBochaAvailable] = useState<boolean>()
   const checkBocha = async () => {
@@ -26,14 +52,7 @@ export function RouteComponent() {
       setCheckingBocha(true)
       setBochaAvailable(undefined)
       try {
-        await ofetch('https://api.bochaai.com/v1/web-search', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${extension.webSearch.bochaApiKey}`,
-          },
-          body: { query: 'Chatbox' },
-        })
+        await new BochaSearch(extension.webSearch.bochaApiKey).search('Chatbox')
         setBochaAvailable(true)
       } catch (e) {
         setBochaAvailable(false)
@@ -83,6 +102,7 @@ export function RouteComponent() {
           { value: 'bing', label: 'Bing Search (Free)' },
           { value: 'tavily', label: 'Tavily' },
           { value: 'bocha', label: 'BoCha' },
+          { value: 'querit', label: 'Querit' },
         ]}
         value={extension.webSearch.provider}
         onChange={(e) =>
@@ -92,7 +112,7 @@ export function RouteComponent() {
               ...extension,
               webSearch: {
                 ...extension.webSearch,
-                provider: e as 'build-in' | 'bing' | 'tavily' | 'bocha',
+                provider: e as 'build-in' | 'bing' | 'tavily' | 'bocha' | 'querit',
               },
             },
           })
@@ -222,6 +242,142 @@ export function RouteComponent() {
           >
             {t('Get API Key')}
           </Button>
+        </Stack>
+      )}
+      {/* Querit API Key */}
+      {extension.webSearch.provider === 'querit' && (
+        <Stack gap="xs">
+          <Text fw="600">{t('Querit API Key')}</Text>
+          <Flex align="center" gap="xs">
+            <PasswordInput
+              flex={1}
+              maw={320}
+              value={extension.webSearch.queritApiKey}
+              onChange={(e) => {
+                setQueritAvailable(undefined)
+                setSettings({
+                  extension: {
+                    ...extension,
+                    webSearch: {
+                      ...extension.webSearch,
+                      queritApiKey: e.currentTarget.value,
+                    },
+                  },
+                })
+              }}
+              placeholder={t('Enter your Querit API Key') || 'Enter your Querit API Key'}
+              error={queritAvailable === false}
+            />
+            <Button
+              color="blue"
+              variant="light"
+              onClick={checkQuerit}
+              loading={checkingQuerit}
+              disabled={!extension.webSearch.queritApiKey?.trim()}
+            >
+              {t('Check')}
+            </Button>
+          </Flex>
+
+          {typeof queritAvailable === 'boolean' ? (
+            queritAvailable ? (
+              <Text size="xs" c="chatbox-success">
+                {t('Connection successful!')}
+              </Text>
+            ) : (
+              <Text size="xs" c="chatbox-error">
+                {t('API key invalid!')}
+              </Text>
+            )
+          ) : null}
+
+          <Button
+            variant="transparent"
+            size="compact-xs"
+            px={0}
+            className="self-start"
+            onClick={() => platform.openLink('https://www.querit.ai')}
+          >
+            {t('Get API Key')}
+          </Button>
+
+          {/* Querit Configuration Options */}
+          <Stack mt="md" gap="sm">
+            <Title order={6}>{t('Querit Search Options')}</Title>
+
+            {/* Max Results */}
+            <Stack gap="xs">
+              <Flex align="center" gap="xs">
+                <Text size="sm">{t('Max Results')}</Text>
+                <Tooltip label={t('Maximum number of results to return.')}>
+                  <Text size="sm" c="gray">ⓘ</Text>
+                </Tooltip>
+              </Flex>
+              <Select
+                comboboxProps={{ withinPortal: true, withArrow: true }}
+                data={[
+                  { value: '1', label: '1' },
+                  { value: '2', label: '2' },
+                  { value: '3', label: '3' },
+                  { value: '4', label: '4' },
+                  { value: '5', label: '5' },
+                  { value: '6', label: '6' },
+                  { value: '7', label: '7' },
+                  { value: '8', label: '8' },
+                  { value: '9', label: '9' },
+                  { value: '10', label: '10' },
+                ]}
+                value={String(extension.webSearch.queritMaxResults || 5)}
+                onChange={(e) =>
+                  e &&
+                  setSettings({
+                    extension: {
+                      ...extension,
+                      webSearch: {
+                        ...extension.webSearch,
+                        queritMaxResults: parseInt(e),
+                      },
+                    },
+                  })
+                }
+                maw={320}
+              />
+            </Stack>
+
+            {/* Time Range */}
+            <Stack gap="xs">
+              <Flex align="center" gap="xs">
+                <Text size="sm">{t('Time Range')}</Text>
+                <Tooltip label={t('Time range of the search. For example, the last month.')}>
+                  <Text size="sm" c="gray">ⓘ</Text>
+                </Tooltip>
+              </Flex>
+              <Select
+                comboboxProps={{ withinPortal: true, withArrow: true }}
+                data={[
+                  { value: 'none', label: 'None' },
+                  { value: 'd1', label: 'Day' },
+                  { value: 'w1', label: 'Week' },
+                  { value: 'm1', label: 'Month' },
+                  { value: 'y1', label: 'Year' },
+                ]}
+                value={extension.webSearch.queritTimeRange || 'none'}
+                onChange={(e) =>
+                  e &&
+                  setSettings({
+                    extension: {
+                      ...extension,
+                      webSearch: {
+                        ...extension.webSearch,
+                        queritTimeRange: e,
+                      },
+                    },
+                  })
+                }
+                maw={320}
+              />
+            </Stack>
+          </Stack>
         </Stack>
       )}
       {extension.webSearch.provider !== 'build-in' && !licenseKey && (
