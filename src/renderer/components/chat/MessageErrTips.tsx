@@ -3,6 +3,7 @@ import { Link } from '@mui/material'
 import { aiProviderNameHash } from '@shared/models'
 import { ChatboxAIAPIError } from '@shared/models/errors'
 import type { Message } from '@shared/types'
+import { ModelProviderEnum } from '@shared/types/provider'
 import { IconCheck, IconChevronDown, IconChevronUp, IconCopy, IconReload } from '@tabler/icons-react'
 import type React from 'react'
 import { useState } from 'react'
@@ -162,6 +163,25 @@ export default function MessageErrTips(props: { msg: Message; onRetry?: () => vo
             aiProvider: msg.aiProvider
               ? aiProviderNameHash[msg.aiProvider as keyof typeof aiProviderNameHash]
               : 'AI Provider',
+          }}
+        />
+      )
+    } else if (msg.aiProvider === ModelProviderEnum.ChatboxAI) {
+      tips.push(
+        <Trans
+          i18nKey="Connection to {{aiProvider}} failed. This typically occurs due to a temporary service issue. Please try again later or <buttonOpenSettings>check your settings</buttonOpenSettings>."
+          values={{
+            aiProvider: aiProviderNameHash[ModelProviderEnum.ChatboxAI],
+          }}
+          components={{
+            buttonOpenSettings: (
+              <a
+                className="cursor-pointer underline font-bold hover:text-blue-600 transition-colors"
+                onClick={() => {
+                  navigateToSettings(`/provider/${ModelProviderEnum.ChatboxAI}`)
+                }}
+              />
+            ),
           }}
         />
       )
@@ -389,8 +409,8 @@ export default function MessageErrTips(props: { msg: Message; onRetry?: () => vo
           )}
         </>
       )}
-      {/* Free trial suggestion for users without license */}
-      {!licenseKey && (
+      {/* Free trial suggestion for users without license (skip for ChatboxAI errors) */}
+      {!licenseKey && msg.aiProvider !== ModelProviderEnum.ChatboxAI && (
         <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-800/30 text-right">
           <Tooltip
             label={t(
