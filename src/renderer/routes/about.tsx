@@ -1,7 +1,18 @@
-import { Anchor, Box, Button, Container, Divider, Flex, Image, Popover, Stack, Text, Title } from '@mantine/core'
+import {
+  Anchor,
+  Box,
+  Button,
+  Container,
+  Divider,
+  Flex,
+  Image,
+  Popover,
+  Stack,
+  Text,
+  Title,
+} from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import {
-  IconAlertTriangle,
   IconChevronRight,
   IconClipboard,
   IconFileText,
@@ -83,20 +94,6 @@ function RouteComponent() {
               </Flex>
             </Stack>
           </Flex>
-
-          {_i18n.language === 'zh-Hans' ? (
-            <Stack gap="xs" p="md" className="rounded-lg bg-chatbox-background-warning-secondary">
-              <Flex align="center" gap="xxs" c="chatbox-error">
-                <ScalableIcon icon={IconAlertTriangle} size={24} className="!text-inherit" />
-                <Title order={5}>正版提示</Title>
-              </Flex>
-              <Text>
-                近期出现了附带 Chatbox 的所谓一键本地部署 DeepSeek 的付费捆绑软件安装包。
-                Chatbox客户端本身是开源免费软件，只在官网(chatboxai.app)销售托管AI服务。
-                如果发现上当受骗，请尽快在对应支付平台如微信、支付宝申请退款。
-              </Text>
-            </Stack>
-          ) : null}
 
           <List>
             <ListItem
@@ -241,3 +238,4 @@ function ListItem({
     </Flex>
   )
 }
+
