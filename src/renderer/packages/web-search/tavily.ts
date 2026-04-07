@@ -65,9 +65,19 @@ export class TavilySearch extends WebSearch {
       throw ChatboxAIAPIError.fromCodeName(technical, 'parse_link_failed') ?? new Error(technical)
     }
 
+    // Tavily Extract API does not return a `title` field — only `url` and `raw_content`.
+    // Fall back to the URL hostname so consumers always get a non-empty label.
+    // See https://docs.tavily.com/documentation/api-reference/endpoint/extract
+    const resultUrl = typeof result.url === 'string' && result.url.trim() ? result.url : url
+    let fallbackTitle = resultUrl
+    try {
+      const hostname = new URL(resultUrl).hostname
+      if (hostname) fallbackTitle = hostname
+    } catch {}
+
     return {
-      url: result.url,
-      title: result.title || '',
+      url: resultUrl,
+      title: fallbackTitle,
       content: result.raw_content || '',
     }
   }

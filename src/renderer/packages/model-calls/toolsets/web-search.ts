@@ -58,7 +58,12 @@ export const parseLinkTool = tool({
         )
       }
       const parsed = await remote.parseUserLinkPro({ licenseKey, url: input.url, abortSignal })
-      const content = ((await platform.getStoreBlob(parsed.storageKey)) || '').trim()
+      const storedContent = await platform.getStoreBlob(parsed.storageKey)
+      if (storedContent == null) {
+        const technical = `parse_link storage blob missing for URL ${input.url} (storageKey: ${parsed.storageKey})`
+        throw ChatboxAIAPIError.fromCodeName(technical, 'parse_link_failed') ?? new Error(technical)
+      }
+      const content = storedContent.trim()
       const truncatedContent = content.slice(0, normalizedMaxLength)
       return {
         url: input.url,

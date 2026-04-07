@@ -40,6 +40,7 @@ function extractToolError(part: MessageToolCallPart): { errorCode?: number; erro
 }
 
 const ToolCallErrorDetails: FC<{ part: MessageToolCallPart }> = ({ part }) => {
+  const { t } = useTranslation()
   const { errorCode, errorText } = extractToolError(part)
   // Only render the rich i18n message if the code is one we know about — unknown
   // codes (e.g. NetworkError, generic ApiError) would render as null and silently
@@ -53,7 +54,7 @@ const ToolCallErrorDetails: FC<{ part: MessageToolCallPart }> = ({ part }) => {
   }
   return (
     <Text size="sm" c="chatbox-error">
-      {errorText || 'Tool call failed'}
+      {errorText || t('Tool call failed')}
     </Text>
   )
 }
