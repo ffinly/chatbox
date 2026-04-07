@@ -397,7 +397,11 @@ export async function uploadAndCreateUserFile(licenseKey: string, file: File) {
   return storageKey
 }
 
-export async function parseUserLinkPro(params: { licenseKey: string; url: string }) {
+export async function parseUserLinkPro(params: {
+  licenseKey: string
+  url: string
+  abortSignal?: AbortSignal
+}) {
   type Response = {
     data: {
       uuid: string
@@ -405,20 +409,23 @@ export async function parseUserLinkPro(params: { licenseKey: string; url: string
       content: string
     }
   }
+  const { licenseKey, url, abortSignal } = params
   const afetch = await getAfetch()
   const res = await afetch(
     `${getAPIOrigin()}/api/links/parse`,
     {
       method: 'POST',
       headers: {
-        Authorization: params.licenseKey,
+        Authorization: licenseKey,
         'Content-Type': 'application/json',
         ...(await getChatboxHeaders()),
       },
       body: JSON.stringify({
-        ...params,
+        licenseKey,
+        url,
         returnContent: true,
       }),
+      signal: abortSignal,
     },
     {
       parseChatboxRemoteError: true,
@@ -426,7 +433,7 @@ export async function parseUserLinkPro(params: { licenseKey: string; url: string
     }
   )
   const json: Response = await res.json()
-  const storageKey = `parseUrl-${params.url}_${json['data']['uuid']}.txt`
+  const storageKey = `parseUrl-${url}_${json['data']['uuid']}.txt`
   if (json['data']['content']) {
     await platform.setStoreBlob(storageKey, json['data']['content'])
   }

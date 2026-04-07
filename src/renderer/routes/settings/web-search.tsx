@@ -1,9 +1,11 @@
 import { Button, Flex, PasswordInput, Select, Stack, Text, Title, Tooltip } from '@mantine/core'
+import { IconCheck, IconX } from '@tabler/icons-react'
 import { createFileRoute } from '@tanstack/react-router'
 import { ofetch } from 'ofetch'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AdaptiveSelect } from '@/components/AdaptiveSelect'
+import { PROVIDERS_WITH_PARSE_LINK } from '@/packages/web-search'
 import { BochaSearch } from '@/packages/web-search/bocha'
 import { QUERIT_SEARCH_URL } from '@/packages/web-search/querit'
 import platform from '@/platform'
@@ -120,6 +122,30 @@ export function RouteComponent() {
         label={t('Search Provider')}
         maw={320}
       />
+      <Stack gap={4}>
+        <Text size="xs" c="chatbox-gray">
+          {t('Provided tools')}
+        </Text>
+        {(() => {
+          const supportsParseLink = PROVIDERS_WITH_PARSE_LINK.has(extension.webSearch.provider)
+          const tools: { label: string; supported: boolean }[] = [
+            { label: t('Web Search'), supported: true },
+            { label: t('Read Webpage'), supported: supportsParseLink },
+          ]
+          return tools.map(({ label, supported }) => (
+            <Flex key={label} align="center" gap="xs">
+              {supported ? (
+                <IconCheck size={14} color="var(--mantine-color-chatbox-success-6)" />
+              ) : (
+                <IconX size={14} color="var(--mantine-color-chatbox-gray-5)" />
+              )}
+              <Text size="xs" c={supported ? undefined : 'chatbox-gray'}>
+                {label}
+              </Text>
+            </Flex>
+          ))
+        })()}
+      </Stack>
       {extension.webSearch.provider === 'build-in' && (
         <Text size="xs" c="chatbox-gray">
           {t('Chatbox Search is a paid feature with advanced capabilities and better performance.')}

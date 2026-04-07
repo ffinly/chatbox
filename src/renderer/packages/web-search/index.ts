@@ -135,4 +135,19 @@ export const webSearchExecutor = async (
   return { query, searchResults }
 }
 
+/**
+ * Single source of truth: which configured providers offer the parse_link tool.
+ * Keep in sync with the provider classes' `supportsParseLink` flags.
+ */
+export const PROVIDERS_WITH_PARSE_LINK: ReadonlySet<string> = new Set(['build-in', 'tavily'])
+
+/**
+ * Returns the first configured search provider that supports parseLink.
+ * Throws the underlying provider error (e.g. missing API key) — caller decides how to handle.
+ */
+export function getParseLinkProvider(): WebSearch | null {
+  const providers = getSearchProviders()
+  return providers.find((p) => p.supportsParseLink) ?? null
+}
+
 export type { SearchResultItem }

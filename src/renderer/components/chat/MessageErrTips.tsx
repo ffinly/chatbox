@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { trackJkClickEvent } from '@/analytics/jk'
 import { JK_EVENTS, JK_PAGE_NAMES } from '@/analytics/jk-events'
+import { ChatboxAIErrorMessage } from '@/components/common/ChatboxAIErrorMessage'
 import { useCopied } from '@/hooks/useCopied'
 import { navigateToSettings } from '@/modals/Settings'
 import { trackingEvent } from '@/packages/event'
@@ -305,75 +306,8 @@ export default function MessageErrTips(props: { msg: Message; onRetry?: () => vo
       />
     )
   } else if (msg.errorCode && ChatboxAIAPIError.getDetail(msg.errorCode)) {
-    const chatboxAIErrorDetail = ChatboxAIAPIError.getDetail(msg.errorCode)
-    if (chatboxAIErrorDetail) {
-      onlyShowTips = true
-      tips.push(
-        <Trans
-          i18nKey={chatboxAIErrorDetail.i18nKey}
-          values={{
-            model: msg.model,
-            supported_web_browsing_models: 'gemini-2.0-flash(API), perplexity API',
-          }}
-          components={{
-            OpenSettingButton: (
-              <Link
-                className="cursor-pointer italic"
-                onClick={() => {
-                  navigateToSettings()
-                }}
-              ></Link>
-            ),
-            OpenExtensionSettingButton: (
-              <Link
-                className="cursor-pointer italic"
-                onClick={() => {
-                  navigateToSettings('/web-search')
-                }}
-              ></Link>
-            ),
-            OpenMorePlanButton: (
-              <Link
-                className="cursor-pointer italic"
-                onClick={() => {
-                  platform.openLink(
-                    buildChatboxUrl(
-                      `/redirect_app/view_more_plans/${settingActions.getLanguage()}?utm_source=app&utm_content=msg_upgrade_required`
-                    )
-                  )
-                  trackingEvent('click_view_more_plans_button_from_upgrade_error_tips', {
-                    event_category: 'user',
-                  })
-                }}
-              ></Link>
-            ),
-            LinkToHomePage: <LinkTargetBlank href="https://chatboxai.app"></LinkTargetBlank>,
-            LinkToAdvancedFileProcessing: (
-              <LinkTargetBlank
-                href={buildChatboxUrl(
-                  `/redirect_app/advanced_file_processing/${settingActions.getLanguage()}?utm_source=app&utm_content=msg_upgrade_required`
-                )}
-              ></LinkTargetBlank>
-            ),
-            LinkToAdvancedUrlProcessing: (
-              <LinkTargetBlank
-                href={buildChatboxUrl(
-                  `/redirect_app/advanced_url_processing/${settingActions.getLanguage()}?utm_source=app&utm_content=msg_upgrade_required`
-                )}
-              ></LinkTargetBlank>
-            ),
-            OpenDocumentParserSettingButton: (
-              <Link
-                className="cursor-pointer italic"
-                onClick={() => {
-                  navigateToSettings('/document-parser')
-                }}
-              ></Link>
-            ),
-          }}
-        />
-      )
-    }
+    onlyShowTips = true
+    tips.push(<ChatboxAIErrorMessage errorCode={msg.errorCode} model={msg.model} />)
   } else {
     tips.push(
       <Trans
