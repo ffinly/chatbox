@@ -60,6 +60,7 @@ function RouteComponent() {
   const licenseDetail = useSettingsStore((s) => s.licenseDetail)
   const licensePlanName = useSettingsStore((s) => s.licensePlanName)
   const hasExpiredLicense = useSettingsStore((s) => s.hasExpiredLicense)
+  const autoScrollNewMessagesToTop = useSettingsStore((s) => s.autoScrollNewMessagesToTop)
   const isLoggedIn = useAuthInfoStore((s) => Boolean(s.accessToken && s.refreshToken))
   const { isExceeded, isExceededResolved } = useVersion()
   const widthFull = useUIStore((s) => s.widthFull)
@@ -188,7 +189,7 @@ function RouteComponent() {
 
   const onSubmit = useCallback(
     async ({ constructedMessage, needGenerating = true, onUserMessageReady }: InputBoxPayload) => {
-      messageListRef.current?.setIsNewMessage(true)
+      messageListRef.current?.setIsNewMessage(autoScrollNewMessagesToTop)
 
       if (!currentSession) {
         return
@@ -212,7 +213,7 @@ function RouteComponent() {
         onUserMessageReady,
       })
     },
-    [currentSession, currentSessionWithDefaultModel]
+    [autoScrollNewMessagesToTop, currentSession, currentSessionWithDefaultModel]
   )
 
   const onClickSessionSettings = useCallback(() => {

@@ -302,6 +302,16 @@ export function RouteComponent() {
           />
 
           <Switch
+            label={t('Auto-scroll new messages to top')}
+            checked={settings.autoScrollNewMessagesToTop}
+            onChange={() =>
+              setSettings({
+                autoScrollNewMessagesToTop: !settings.autoScrollNewMessagesToTop,
+              })
+            }
+          />
+
+          <Switch
             label={t('show message word count')}
             checked={settings.showWordCount}
             onChange={() =>

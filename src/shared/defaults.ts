@@ -77,6 +77,7 @@ export function settings(): Settings {
     showFirstTokenLatency: false,
     showAvatar: true,
     messageLayout: 'bubble',
+    autoScrollNewMessagesToTop: false,
     userAvatarKey: '',
     defaultAssistantAvatarKey: '',
     backgroundImageKey: '',

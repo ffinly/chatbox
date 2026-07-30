@@ -43,6 +43,15 @@ describe('SettingsSchema background image opacity', () => {
   })
 })
 
+describe('SettingsSchema new message scroll behavior', () => {
+  test('defaults new message auto-scroll to top to disabled for existing settings', () => {
+    const legacySettings = { ...defaultSettings() }
+    delete legacySettings.autoScrollNewMessagesToTop
+
+    expect(SettingsSchema.parse(legacySettings).autoScrollNewMessagesToTop).toBe(false)
+  })
+})
+
 describe('SettingsSchema shortcut compatibility', () => {
   test('adds the new thread shortcut when loading settings without the historical key', () => {
     const shortcuts: Record<string, unknown> = { ...defaultSettings().shortcuts }

@@ -501,6 +501,7 @@ export const SettingsSchema = GlobalSessionSettingsSchema.extend({
 
   showAvatar: z.boolean().optional().catch(undefined),
   messageLayout: z.enum(['left', 'bubble']).optional().catch(undefined),
+  autoScrollNewMessagesToTop: z.boolean().default(false),
 
   theme: z.nativeEnum(Theme),
   interfaceColors: InterfaceColorsSchema,
