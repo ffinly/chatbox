@@ -317,7 +317,8 @@ export class ChatboxAIAPIError extends BaseError {
       name: 'file_storage_quota_exceeded',
       // 20036 reserved by searxng_base_url_required (PR #794, unmerged)
       code: 20042,
-      i18nKey: 'Device storage is full. Free up some space, then try attaching the file again.',
+      i18nKey:
+        'Storage is full. Delete some old conversations or large attachments, or free up device space, then try again.',
     },
     bocha_api_key_required: {
       name: 'bocha_api_key_required',

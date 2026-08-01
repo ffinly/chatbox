@@ -146,7 +146,41 @@ function createSafeReportedError(error: unknown, errorCode: string): Error {
   return reportedError
 }
 
-function reportFilePreprocessFailure(file: File, failure: FilePreprocessFailure): void {
+/**
+ * Order-of-magnitude buckets for navigator.storage.estimate() values. Coarse
+ * enough to be anonymous, precise enough to tell "device disk full" from
+ * "browser per-origin quota reached" when triaging quota reports.
+ */
+function getStorageEstimateBucket(bytes: number | undefined): string {
+  if (bytes === undefined) return 'unknown'
+  if (bytes < 100 * 1024 * 1024) return 'under_100_mb'
+  if (bytes < 1024 * 1024 * 1024) return '100_mb_to_1_gb'
+  if (bytes < 10 * 1024 * 1024 * 1024) return '1_gb_to_10_gb'
+  return 'over_10_gb'
+}
+
+async function getStorageEstimateTags(): Promise<Record<string, string>> {
+  try {
+    const estimate = await navigator.storage?.estimate?.()
+    if (!estimate) return {}
+    const quota = estimate.quota ?? 0
+    const usage = estimate.usage ?? 0
+    return {
+      storage_quota_bucket: getStorageEstimateBucket(estimate.quota),
+      storage_usage_bucket: getStorageEstimateBucket(estimate.usage),
+      storage_usage_ratio: quota > 0 ? String(Math.min(100, Math.round((usage / quota) * 100))) : 'unknown',
+    }
+  } catch {
+    return {}
+  }
+}
+
+async function reportFilePreprocessFailure(
+  file: File,
+  failure: FilePreprocessFailure,
+  extraTags?: Record<string, string | number>
+): Promise<void> {
+  const storageTags = failure.code === FILE_STORAGE_QUOTA_EXCEEDED_ERROR ? await getStorageEstimateTags() : {}
   reportError(createSafeReportedError(failure.originalError, failure.code), {
     domain: 'file-attachment',
     operation: 'preprocess-file',
@@ -158,6 +192,8 @@ function reportFilePreprocessFailure(file: File, failure: FilePreprocessFailure)
       platform_type: platform.type,
       preprocess_stage: failure.stage,
       user_error_code: failure.code,
+      ...storageTags,
+      ...extraTags,
     },
   })
 }
@@ -364,9 +400,17 @@ async function parseFileWithLocalParser(
   // Get content from temporary storage
   const content = (await storage.getBlob(result.key).catch(() => '')) || ''
 
-  // Store content to unique key
-  if (content) {
-    await storage.setBlob(uniqKey, content)
+  try {
+    // Store content to unique key
+    if (content) {
+      await storage.setBlob(uniqKey, content)
+    }
+  } finally {
+    // The temporary parse blob has served its purpose once read into memory.
+    // Reclaim it eagerly and await the deletion: on quota failures the retry
+    // depends on this space being freed first, and cleanup deliberately skips
+    // the key as a recent write. Best effort — deletion failures are ignored.
+    await storage.delBlob(result.key).catch(() => undefined)
   }
 
   return { content, storageKey: uniqKey, tokenCountMap: {}, parserType: 'local' }
@@ -471,12 +515,18 @@ async function parseFileWithChatboxAI(
   // Get uploaded file content
   const content = (await storage.getBlob(uploadedKey).catch(() => '')) || ''
 
-  if (!hasParsedText(content)) {
-    throw new Error(EMPTY_ATTACHMENT_CONTENT_ERROR)
-  }
+  try {
+    if (!hasParsedText(content)) {
+      throw new Error(EMPTY_ATTACHMENT_CONTENT_ERROR)
+    }
 
-  // Store content to unique key
-  await storage.setBlob(uniqKey, content)
+    // Store content to unique key
+    await storage.setBlob(uniqKey, content)
+  } finally {
+    // Same as the local path: reclaim the temporary parse blob eagerly and
+    // await the deletion so a quota retry starts only after the space is freed.
+    await storage.delBlob(uploadedKey).catch(() => undefined)
+  }
 
   return { content, storageKey: uniqKey, tokenCountMap: {}, parserType: 'chatbox-ai' }
 }
@@ -514,13 +564,7 @@ async function parseFileWithMineruService(
   return { content, storageKey: uniqKey, tokenCountMap: {}, parserType: 'mineru' }
 }
 
-/**
- * 预处理文件以获取内容和存储键
- * @param file 文件对象
- * @param settings 会话设置
- * @returns 预处理后的文件信息
- */
-export async function prepareFileAttachment(
+async function prepareFileAttachmentOnce(
   file: File,
   _settings: SessionSettings,
   options?: AttachmentPreparationOptions
@@ -660,6 +704,11 @@ export async function prepareFileAttachment(
             result = await parseFileWithMineruService(file, uniqKey, apiToken)
           } catch (error) {
             log.error(`MinerU parsing failed for "${file.name}":`, error)
+            // Quota failures while persisting parsed content must reach the outer
+            // recovery path (cleanup + retry) instead of masquerading as parser errors.
+            if (isStorageQuotaError(error)) {
+              throw new FilePreprocessFailure(FILE_STORAGE_QUOTA_EXCEEDED_ERROR, 'parse', error)
+            }
             if (
               error instanceof Error &&
               (error.message === EMPTY_ATTACHMENT_CONTENT_ERROR || error.message.startsWith('third_party_parser'))
@@ -726,15 +775,83 @@ export async function prepareFileAttachment(
     }
   } catch (error) {
     log.error(`${SESSION_ATTACHMENT_RAG_LOG_PREFIX} Failed to preprocess file "${file.name}":`, error)
-    const failure = normalizeFilePreprocessFailure(error, stage)
-    if (failure) {
-      reportFilePreprocessFailure(file, failure)
+    throw normalizeFilePreprocessFailure(error, stage) ?? error
+  }
+}
+
+function buildFilePreprocessErrorResult(file: File, error: unknown): AttachmentPreparationResult {
+  const failure = error instanceof FilePreprocessFailure ? error : undefined
+  return {
+    file,
+    content: '',
+    storageKey: '',
+    error: failure?.code ?? (error instanceof Error ? error.message : FILE_PREPROCESS_FAILED_ERROR),
+  }
+}
+
+async function tryFreeOrphanedBlobs(): Promise<number | undefined> {
+  try {
+    // Dynamic import to avoid a static cycle: storage_clear → chatStore → sessionHelpers.
+    const { cleanupOrphanedBlobs } = await import('@/setup/storage_clear')
+    return await cleanupOrphanedBlobs()
+  } catch (cleanupError) {
+    log.warn('Orphaned blob cleanup after a storage quota failure did not complete:', cleanupError)
+    return undefined
+  }
+}
+
+/**
+ * 预处理文件以获取内容和存储键。
+ * 存储配额耗尽时会先清理孤儿附件数据，再自动重试一次。
+ * @param file 文件对象
+ * @param _settings 会话设置（当前未使用，保留以兼容调用方）
+ * @returns 预处理后的文件信息；失败时 error 字段携带稳定错误码，不会 reject
+ */
+export async function prepareFileAttachment(
+  file: File,
+  _settings: SessionSettings,
+  options?: { agentMode?: boolean }
+): Promise<AttachmentPreparationResult> {
+  try {
+    return await prepareFileAttachmentOnce(file, options)
+  } catch (error) {
+    const failure = error instanceof FilePreprocessFailure ? error : undefined
+    if (failure?.code !== FILE_STORAGE_QUOTA_EXCEEDED_ERROR) {
+      if (failure) {
+        await reportFilePreprocessFailure(file, failure)
+      }
+      return buildFilePreprocessErrorResult(file, error)
     }
-    return {
-      file,
-      content: '',
-      storageKey: '',
-      error: failure?.code ?? (error instanceof Error ? error.message : FILE_PREPROCESS_FAILED_ERROR),
+
+    // Storage quota exhausted: free orphaned blobs (attachments of deleted
+    // conversations, stale parse caches, …) and retry once before surfacing
+    // the error. This is the only self-service recovery available on Web,
+    // where the per-origin quota cannot be fixed by freeing device disk space.
+    //
+    // The retry is unconditional: space may have been freed outside the
+    // cleanup's own accounting — e.g. the temporary parse blob reclaimed in
+    // parseFileWithLocalParser / parseFileWithChatboxAI is as large as the
+    // durable copy that just failed — so a zero cleanup count does not mean no
+    // space became available.
+    const freedBlobCount = await tryFreeOrphanedBlobs()
+    const cleanupTags: Record<string, string | number> =
+      freedBlobCount === undefined ? { cleanup_outcome: 'cleanup_failed' } : { freed_blob_count: freedBlobCount }
+
+    try {
+      const result = await prepareFileAttachmentOnce(file, options)
+      await reportFilePreprocessFailure(file, failure, {
+        quota_recovery: 'recovered',
+        ...cleanupTags,
+      })
+      return result
+    } catch (retryError) {
+      if (retryError instanceof FilePreprocessFailure) {
+        await reportFilePreprocessFailure(file, retryError, {
+          quota_recovery: 'retry_failed',
+          ...cleanupTags,
+        })
+      }
+      return buildFilePreprocessErrorResult(file, retryError)
     }
   }
 }

@@ -105,7 +105,7 @@ function _errorI18nKeys(t: (key: string) => string) {
   t(
     'This file type requires a document parser. Please go to <OpenDocumentParserSettingButton>Settings</OpenDocumentParserSettingButton> and enable Chatbox AI document parsing.'
   )
-  t('Device storage is full. Free up some space, then try attaching the file again.')
+  t('Storage is full. Delete some old conversations or large attachments, or free up device space, then try again.')
   t(
     'You have selected BoCha as the search provider, but an API key has not been entered yet. Please <OpenExtensionSettingButton>click here to open Settings</OpenExtensionSettingButton> and enter your API key, or choose a different search provider.'
   )
