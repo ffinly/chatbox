@@ -35,9 +35,9 @@ export default function Header(props: { session: Session }) {
 
     const action = getAutoTitleGenerationAction(currentSession)
     if (action === 'session-and-thread') {
-      scheduleGenerateNameAndThreadName(currentSession.id)
+      scheduleGenerateNameAndThreadName(currentSession.id, { messages: currentSession.messages })
     } else if (action === 'thread') {
-      scheduleGenerateThreadName(currentSession.id)
+      scheduleGenerateThreadName(currentSession.id, { messages: currentSession.messages })
     }
   }, [currentSession])
 

@@ -19,7 +19,11 @@ import {
   markFirstSuccessfulChatCompleted,
   resetFirstSuccessfulChatForDebug,
 } from './firstSuccessfulChat'
-import { hasSuccessfulUserAssistantTurn, isSuccessfulAssistantReply } from './session/message-success'
+import {
+  hasContentForAutoTitle,
+  hasSuccessfulUserAssistantTurn,
+  isSuccessfulAssistantReply,
+} from './session/message-success'
 
 class MemoryStorage implements Storage {
   private data = new Map<string, string>()
@@ -225,6 +229,65 @@ describe('firstSuccessfulChat', () => {
   it('requires a previous user message in the same message list', () => {
     expect(hasSuccessfulUserAssistantTurn([textMessage('assistant', 'hi')])).toBe(false)
     expect(hasSuccessfulUserAssistantTurn([textMessage('user', 'hello'), textMessage('assistant', 'hi')])).toBe(true)
+  })
+
+  it('allows auto-title content while an assistant reply is still generating', () => {
+    expect(
+      hasContentForAutoTitle([textMessage('user', 'hello'), textMessage('assistant', '', { generating: true })])
+    ).toBe(true)
+    expect(
+      hasSuccessfulUserAssistantTurn([
+        textMessage('user', 'hello'),
+        textMessage('assistant', 'working on it', { generating: true }),
+      ])
+    ).toBe(false)
+  })
+
+  it('allows auto-title content for a resumed reply carrying a stale paused finish reason', () => {
+    // Resuming a paused tool call flips generating back to true without clearing
+    // finishReason: 'tool-call-paused'; the stale reason must not block naming.
+    expect(
+      hasContentForAutoTitle([
+        textMessage('user', 'hello'),
+        textMessage('assistant', '', {
+          generating: true,
+          finishReason: 'tool-call-paused',
+          contentParts: [
+            {
+              type: 'tool-call',
+              state: 'call',
+              toolCallId: 'tool-1',
+              toolName: 'test_tool',
+            },
+          ],
+        }),
+      ])
+    ).toBe(true)
+    // A settled paused reply (not generating) stays ineligible.
+    expect(
+      hasContentForAutoTitle([
+        textMessage('user', 'hello'),
+        textMessage('assistant', 'partial', { finishReason: 'tool-call-paused' }),
+      ])
+    ).toBe(false)
+  })
+
+  it('rejects auto-title content for failed or suggestion-only replies', () => {
+    expect(
+      hasContentForAutoTitle([
+        textMessage('user', 'hello'),
+        textMessage('assistant', 'partial', { finishReason: 'canceled' }),
+      ])
+    ).toBe(false)
+    expect(
+      hasContentForAutoTitle([
+        textMessage('user', 'hello'),
+        textMessage('assistant', '', {
+          finishReason: 'agent-mode-suggested',
+          contentParts: [{ type: 'agent-mode-suggestion', reason: 'test' }],
+        }),
+      ])
+    ).toBe(false)
   })
 
   it('checks current session messages and thread messages', () => {

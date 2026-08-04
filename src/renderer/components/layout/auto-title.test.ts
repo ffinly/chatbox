@@ -51,7 +51,17 @@ describe('automatic title generation', () => {
     ).toBe('session-and-thread')
   })
 
-  it('waits for a later in-progress reply even when an earlier turn succeeded', () => {
+  it('generates a title while the first agent-mode reply is still generating', () => {
+    expect(
+      getAutoTitleGenerationAction(
+        session({
+          messages: [message('user', 'refactor the auth module'), message('assistant', '', { generating: true })],
+        })
+      )
+    ).toBe('session-and-thread')
+  })
+
+  it('generates a title from an earlier successful turn even if a later reply is still generating', () => {
     expect(
       getAutoTitleGenerationAction(
         session({
@@ -63,7 +73,7 @@ describe('automatic title generation', () => {
           ],
         })
       )
-    ).toBeNull()
+    ).toBe('session-and-thread')
   })
 
   it('generates only a missing thread title for an already named session', () => {

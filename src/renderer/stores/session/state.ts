@@ -5,6 +5,25 @@
 export const pendingNameGenerations = new Map<string, ReturnType<typeof setTimeout>>()
 export const activeNameGenerations = new Set<string>()
 
+/** Failed while a reply was still streaming — allow one retry after generation settles. */
+export const nameGenerationsDeferredUntilIdle = new Set<string>()
+
+/** Failed while idle — cooldown before another attempt (ms since epoch). */
+export const nameGenerationCooldownUntil = new Map<string, number>()
+
+/** Drop a session's naming state when it is deleted. */
+export function clearSessionNameGenerationState(sessionId: string) {
+  for (const key of [`name-${sessionId}`, `thread-${sessionId}`]) {
+    const timeout = pendingNameGenerations.get(key)
+    if (timeout !== undefined) {
+      clearTimeout(timeout)
+      pendingNameGenerations.delete(key)
+    }
+    nameGenerationsDeferredUntilIdle.delete(key)
+    nameGenerationCooldownUntil.delete(key)
+  }
+}
+
 /**
  * Streams whose Stop left a tool execution that ignores its abortSignal still running.
  * Generation entry points must wait for these to settle before executing tools — including

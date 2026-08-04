@@ -35,6 +35,7 @@ const log = getLogger('chat-store')
 
 import { clearScrollPositionCache } from '@/components/chat/MessageList'
 import { cleanupSessionAtomCache } from './atoms/throttleWriteSessionAtom'
+import { clearSessionNameGenerationState } from './session/state'
 import {
   assertNoMessageDataUpdate,
   getSessionMetadataSnapshot,
@@ -477,6 +478,7 @@ function cleanupDeletedSessionRuntimeState(id: string) {
   cleanupSessionAtomCache(id)
   clearScrollPositionCache(id)
   clearSessionActivity(id)
+  clearSessionNameGenerationState(id)
   delete sessionUpdateQueues[id]
   // Remove persisted download artifacts so deleted session references do not leak files on disk.
   platform.sandboxReset?.({ sessionId: id }).catch(() => {})
