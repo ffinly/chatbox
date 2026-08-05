@@ -23,6 +23,10 @@ describe('automation test ID contract', () => {
         TestId.message.actionBar,
         TestId.message.actionMenu,
         TestId.message.actionDeleteConfirm,
+        TestId.message.forkGroup,
+        TestId.message.forkPrevious,
+        TestId.message.forkCounter,
+        TestId.message.forkNext,
       ])
     )
   })

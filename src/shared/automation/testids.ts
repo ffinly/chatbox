@@ -7,7 +7,7 @@
  */
 
 export const AUTOMATION_CONTRACT_ID = 'chatbox-ui'
-export const AUTOMATION_CONTRACT_VERSION = '1.1.0'
+export const AUTOMATION_CONTRACT_VERSION = '1.2.0'
 export const AUTOMATION_CONTRACT_VERSION_ATTRIBUTE = 'data-automation-contract-version'
 
 export type AutomationReasoningLevel = 'default' | 'off' | 'low' | 'medium' | 'high'
@@ -70,6 +70,10 @@ export const TestId = {
     actionQuote: 'message-action-quote',
     actionDelete: 'message-action-delete',
     actionDeleteConfirm: 'message-action-delete-confirm',
+    forkGroup: 'message-fork-group',
+    forkPrevious: 'message-fork-previous',
+    forkCounter: 'message-fork-counter',
+    forkNext: 'message-fork-next',
   },
   toolCall: {
     approvalCard: 'tool-call-approval-card',

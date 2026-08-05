@@ -1,4 +1,5 @@
 import { ActionIcon, Box, Button, Flex, Stack, Text, Tooltip } from '@mantine/core'
+import { TestId } from '@shared/automation/testids'
 import type { Session, SessionType } from '@shared/types'
 import { IconAlignRight, IconChevronLeft, IconChevronRight, IconFold, IconTrash } from '@tabler/icons-react'
 import { useAtomValue } from 'jotai'
@@ -153,6 +154,7 @@ export default function ForkGroup(props: ForkGroupProps) {
   const navigation = (
     <Flex gap="xs" align="center">
       <ActionIcon
+        data-testid={TestId.message.forkPrevious}
         variant="subtle"
         size={20}
         radius="lg"
@@ -200,11 +202,17 @@ export default function ForkGroup(props: ForkGroupProps) {
           },
         ]}
       >
-        <Text c={flash ? 'chatbox-secondary' : 'chatbox-tertiary'} size="xs" className="cursor-pointer">
+        <Text
+          data-testid={TestId.message.forkCounter}
+          c={flash ? 'chatbox-secondary' : 'chatbox-tertiary'}
+          size="xs"
+          className="cursor-pointer"
+        >
           {forks.position + 1} / {forks.lists.length}
         </Text>
       </ActionMenu>
       <ActionIcon
+        data-testid={TestId.message.forkNext}
         variant="subtle"
         size={20}
         radius="lg"
@@ -220,7 +228,7 @@ export default function ForkGroup(props: ForkGroupProps) {
   )
 
   return (
-    <Stack gap="xs">
+    <Stack data-testid={TestId.message.forkGroup} data-message-id={msgId} gap="xs">
       <Flex justify="flex-end" pr="md" mr="md" className="self-end">
         {forkControlsLocked && !isSmallScreen ? (
           <Tooltip label={lockReason} withArrow>

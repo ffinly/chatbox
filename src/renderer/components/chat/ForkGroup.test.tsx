@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 
 import { MantineProvider } from '@mantine/core'
+import { TestId } from '@shared/automation/testids'
 import type { Message, Session } from '@shared/types'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { getDefaultStore } from 'jotai'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { compactionUIStateMapAtom } from '@/stores/atoms/compactionAtoms'
@@ -100,6 +101,64 @@ describe('ForkGroup', () => {
     })
   })
 
+  test('exposes stable test IDs for fork navigation', () => {
+    renderGroup({
+      position: 1,
+      lists: [
+        { id: 'first', messages: [] },
+        { id: 'current', messages: [] },
+      ],
+      createdAt: 1,
+    })
+
+    expect(screen.getByTestId(TestId.message.forkGroup).getAttribute('data-message-id')).toBe('user-1')
+    expect(screen.getByTestId(TestId.message.forkPrevious)).toBeTruthy()
+    expect(screen.getByTestId(TestId.message.forkCounter).textContent).toBe('2 / 2')
+    expect(screen.getByTestId(TestId.message.forkNext)).toBeTruthy()
+  })
+
+  test('scopes repeated fork navigation IDs by message ID', () => {
+    const forks: ForkEntry = {
+      position: 0,
+      lists: [
+        { id: 'current', messages: [] },
+        { id: 'alternative', messages: [] },
+      ],
+      createdAt: 1,
+    }
+
+    render(
+      <MantineProvider>
+        <ForkGroup
+          sessionId="session-1"
+          sessionType="chat"
+          msgId="message-a"
+          forks={forks}
+          generatingReplyCount={0}
+          generationLocked={false}
+        />
+        <ForkGroup
+          sessionId="session-1"
+          sessionType="chat"
+          msgId="message-b"
+          forks={forks}
+          generatingReplyCount={0}
+          generationLocked={false}
+        />
+      </MantineProvider>
+    )
+
+    const groups = screen.getAllByTestId(TestId.message.forkGroup)
+    expect(groups).toHaveLength(2)
+
+    const groupA = groups.find((group) => group.getAttribute('data-message-id') === 'message-a')
+    const groupB = groups.find((group) => group.getAttribute('data-message-id') === 'message-b')
+    expect(groupA).toBeTruthy()
+    expect(groupB).toBeTruthy()
+    expect(within(groupA!).getByTestId(TestId.message.forkNext)).toBeTruthy()
+    expect(within(groupB!).getByTestId(TestId.message.forkPrevious)).toBeTruthy()
+  })
+
   test('keeps saved replies collapsed until the user expands them', () => {
     renderGroup({
       position: 0,
@@ -189,7 +248,7 @@ describe('ForkGroup', () => {
     const replyLabels = screen.getAllByText(/Reply \d+/).map((node) => node.textContent)
     expect(replyLabels).toEqual(['Reply 3', 'Reply 2'])
 
-    const messages = screen.getAllByTestId(/^message-/)
+    const messages = screen.getAllByTestId(/^message-(generating-reply|older-reply)$/)
     expect(messages.map((node) => node.getAttribute('data-testid'))).toEqual([
       'message-generating-reply',
       'message-older-reply',
