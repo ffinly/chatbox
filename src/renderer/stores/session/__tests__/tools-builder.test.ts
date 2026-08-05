@@ -16,6 +16,7 @@ const {
   requestUserExecApprovalMock,
   cancelUserExecMock,
   userExecMock,
+  readWorkspaceInstructionsMock,
 } = vi.hoisted(() => ({
   discoverSkillsMock: vi.fn(),
   installFromSandboxMock: vi.fn(),
@@ -36,6 +37,7 @@ const {
   requestUserExecApprovalMock: vi.fn(),
   cancelUserExecMock: vi.fn(),
   userExecMock: vi.fn(),
+  readWorkspaceInstructionsMock: vi.fn(),
 }))
 
 vi.hoisted(() => {
@@ -55,7 +57,7 @@ vi.hoisted(() => {
 })
 
 vi.mock('@/platform', () => ({
-  default: { type: 'web' },
+  default: { type: 'web', readWorkspaceInstructions: readWorkspaceInstructionsMock },
 }))
 
 const trackAgentModeFullAccessBypassMock = vi.fn()
@@ -233,6 +235,12 @@ beforeEach(() => {
   })
   requestUserExecApprovalMock.mockResolvedValue('ai')
   userExecMock.mockResolvedValue({ success: true, exitCode: 0, stdout: 'ok', stderr: '' })
+  readWorkspaceInstructionsMock.mockResolvedValue({
+    directories: [],
+    files: [],
+    skippedDirectoryCount: 0,
+    budgetExhausted: false,
+  })
   cancelUserExecMock.mockResolvedValue({ killed: true })
   installFromSandboxMock.mockResolvedValue({ success: true, skillName: 'new-skill' })
   discoverSkillsMock.mockResolvedValue([
@@ -267,6 +275,9 @@ describe('buildToolsForSession', () => {
     expect(result.instructions).not.toContain('## Skills')
     expect(result.instructions).not.toContain('Chatbox Account CLI')
     expect(result.instructions).not.toContain('## Tool-use Communication')
+    expect(result.instructions).not.toContain('## Workspace Instructions')
+    expect(result.instructions).not.toContain('Co-authored-by: Chatbox <chatbox@chatboxai.com>')
+    expect(readWorkspaceInstructionsMock).not.toHaveBeenCalled()
     expect(discoverSkillsMock).not.toHaveBeenCalled()
     for (const name of sandboxToolNames) {
       expect(result.tools[name]).toBeUndefined()
@@ -331,6 +342,8 @@ describe('buildToolsForSession', () => {
       expect(result.tools[name]).toBeUndefined()
     }
     expect(result.tools.code_execution).toBeDefined()
+    expect(result.instructions).toContain('## Git Commits')
+    expect(result.instructions).toContain('Co-authored-by: Chatbox <chatbox@chatboxai.com>')
   })
 
   test('agentMode="on" keeps Knowledge Base alongside Work Mode tools', async () => {
@@ -346,6 +359,66 @@ describe('buildToolsForSession', () => {
     expect(result.tools.mcp_tool).toBeDefined()
     expect(result.tools.load_skill).toBeDefined()
     expect(result.tools.list_files).toBeDefined()
+  })
+
+  test('agentMode="on" proactively injects root AGENTS.md from selected working directories', async () => {
+    readWorkspaceInstructionsMock.mockResolvedValue({
+      directories: ['/workspace/alpha', 'C:\\workspace\\beta'],
+      files: [
+        { filePath: '/workspace/alpha/AGENTS.md', content: 'Use pnpm for checks.', truncated: false },
+        {
+          filePath: 'C:\\workspace\\beta\\AGENTS.md',
+          content: 'Keep Windows paths portable.',
+          truncated: false,
+        },
+      ],
+      skippedDirectoryCount: 0,
+      budgetExhausted: false,
+    })
+
+    const result = await buildToolsForSession(createMockModel(), {
+      webBrowsing: false,
+      messages: [],
+      agentMode: 'on',
+      sessionSettings: {
+        workingDirectories: ['/workspace/alpha/', 'C:\\workspace\\beta', '/workspace/alpha/'],
+      },
+    })
+
+    expect(result.instructions).toContain('## Workspace Instructions')
+    expect(result.instructions).toContain('Chatbox automatically checks each user-selected working directory')
+    expect(result.instructions).toContain('check whether a closer AGENTS.md applies')
+    expect(result.instructions).toContain('- /workspace/alpha')
+    expect(result.instructions).toContain('- C:/workspace/beta')
+    expect(result.instructions).toContain('<AGENTS_MD path="/workspace/alpha/AGENTS.md">')
+    expect(result.instructions).toContain('Use pnpm for checks.')
+    expect(result.instructions).toContain('<AGENTS_MD path="C:/workspace/beta/AGENTS.md">')
+    expect(result.instructions).toContain('Keep Windows paths portable.')
+    expect(readWorkspaceInstructionsMock).toHaveBeenCalledWith([
+      '/workspace/alpha/',
+      'C:\\workspace\\beta',
+      '/workspace/alpha/',
+    ])
+  })
+
+  test('reports shared-budget truncation and skipped unsafe directories', async () => {
+    readWorkspaceInstructionsMock.mockResolvedValue({
+      directories: ['/workspace/large'],
+      files: [{ filePath: '/workspace/large/AGENTS.md', content: 'partial instructions', truncated: true }],
+      skippedDirectoryCount: 2,
+      budgetExhausted: true,
+    })
+
+    const result = await buildToolsForSession(createMockModel(), {
+      webBrowsing: false,
+      messages: [],
+      agentMode: 'on',
+      sessionSettings: { workingDirectories: ['/workspace/large', '/unsafe', '/overflow'] },
+    })
+
+    expect(result.instructions).toContain('partial instructions')
+    expect(result.instructions).toContain('truncated or omitted to stay within the shared context budget')
+    expect(result.instructions).toContain('2 working directories were skipped')
   })
 
   test('normalizes Windows paths and prefers PowerShell without redundant directory changes', async () => {

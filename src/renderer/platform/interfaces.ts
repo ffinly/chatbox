@@ -6,6 +6,7 @@ import type {
   SandboxReadResult,
 } from '@shared/sandbox-provider'
 import type { Config, Language, Settings, ShortcutSetting } from '@shared/types'
+import type { WorkspaceInstructionsResult } from '@shared/types/workspace-instructions'
 import type { ImageGenerationStorage } from '@/storage/ImageGenerationStorage'
 import type { SessionMetaStorage } from '@/storage/SessionMetaStorage'
 import type { KnowledgeBaseController } from './knowledge-base/interface'
@@ -105,6 +106,7 @@ export interface Platform extends Storage {
     totalLines?: number
     error?: string
   }>
+  readWorkspaceInstructions?(directories: string[]): Promise<WorkspaceInstructionsResult>
   fsList?(params: { dirPath: string }): Promise<{ success: boolean; content?: string; error?: string }>
   fsSearch?(params: {
     pattern: string

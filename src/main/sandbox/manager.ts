@@ -35,6 +35,7 @@ import { getLogger } from '../util'
 import { resolveWindowsPowerShell } from '../windows-powershell'
 import { buildSandboxStdinScript, stripCodesignNoise } from './exec-script'
 import { buildSandboxReadScript } from './file-read'
+import { isUnsafeResolvedPath } from './path-safety'
 import { headTruncate, tailTruncate } from './truncate'
 
 export { resetWindowsPowerShellResolutionCache, resolveWindowsPowerShell } from '../windows-powershell'
@@ -273,45 +274,6 @@ export function resolveWindowsBash(): WindowsBashResolution | null {
 export function normalizeWindowsShellPath(p: string): string {
   if (process.platform !== 'win32') return p
   return normalizeWindowsAbsolutePath(p) ?? p
-}
-
-// True when a resolved absolute path is the filesystem root, the user's home, an ancestor
-// of home, or a system dir — granting no-approval sandbox write to any of these would
-// defeat the agent-mode approval model.
-function isUnsafeResolvedPath(resolved: string): boolean {
-  if (!resolved || resolved === path.parse(resolved).root) return true
-  const home = homedir()
-  // candidate is home itself or an ancestor of home (e.g. /Users, /home)
-  if (home && (resolved === home || pathContains(resolved, home))) return true
-  if (process.platform === 'win32') {
-    const windowsSystemRoots = [
-      process.env.SystemRoot,
-      process.env.ProgramFiles,
-      process.env['ProgramFiles(x86)'],
-      process.env.ProgramData,
-    ]
-    for (const systemRoot of windowsSystemRoots) {
-      if (!systemRoot) continue
-      const normalizedRoot = path.resolve(systemRoot)
-      if (resolved === normalizedRoot || pathContains(normalizedRoot, resolved)) return true
-    }
-  }
-  const systemRoots = [
-    '/etc',
-    '/usr',
-    '/bin',
-    '/sbin',
-    '/var',
-    '/System',
-    '/Library',
-    '/private',
-    '/boot',
-    '/dev',
-    '/proc',
-    '/opt',
-    '/root',
-  ]
-  return systemRoots.some((sys) => resolved === sys || pathContains(sys, resolved))
 }
 
 function createWritePathGrant(root: string): WritePathGrant {

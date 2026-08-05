@@ -2,6 +2,10 @@ import type { ModelInterface } from '@shared/models/types'
 import type { SandboxProvider } from '@shared/sandbox-provider'
 import type { KnowledgeBase, Message, SessionSettings } from '@shared/types'
 import type { UserExecApprovalSource } from '@shared/types/user-exec'
+import {
+  WORKSPACE_INSTRUCTIONS_MAX_DIRECTORIES,
+  type WorkspaceInstructionsResult,
+} from '@shared/types/workspace-instructions'
 import { getMessageText } from '@shared/utils/message'
 import { jsonSchema, type ToolSet } from 'ai'
 import { trackAgentModeFullAccessBypass } from '@/analytics/agent-mode'
@@ -19,6 +23,7 @@ import { getToolSetDescription, parseLinkTool, webSearchTool } from '@/packages/
 import { skillsController, subscribeSkillsChanged } from '@/packages/skills/controller'
 import { type ExplanationContext, requestUserExecApproval } from '@/packages/user-exec-approval'
 import { PROVIDERS_WITH_PARSE_LINK } from '@/packages/web-search'
+import platform from '@/platform'
 import * as settingActions from '@/stores/settingActions'
 import { settingsStore } from '@/stores/settingsStore'
 
@@ -106,6 +111,68 @@ When you are about to call one or more tools, first include one short visible se
 - Keep it action-oriented and concise.
 - If several tool calls are part of the same immediate action, one sentence for the batch is enough.
 - You may skip this sentence for trivial single-tool lookups such as reading, listing, or searching.
+`
+}
+
+function normalizeWorkspaceDirectory(directory: string): string {
+  const normalized = directory.trim().replace(/\\/g, '/')
+  if (normalized === '/' || /^[A-Za-z]:\/$/.test(normalized)) return normalized
+  return normalized.replace(/\/+$/, '')
+}
+
+async function buildWorkspaceInstructions(userWorkingDirectories?: string[]): Promise<string> {
+  const directories = [
+    ...new Set(
+      userWorkingDirectories?.map(normalizeWorkspaceDirectory).filter((directory) => directory.length > 0) ?? []
+    ),
+  ]
+  if (directories.length === 0) return ''
+
+  let result: WorkspaceInstructionsResult = {
+    directories: directories.slice(0, WORKSPACE_INSTRUCTIONS_MAX_DIRECTORIES),
+    files: [],
+    skippedDirectoryCount: Math.max(0, directories.length - WORKSPACE_INSTRUCTIONS_MAX_DIRECTORIES),
+    budgetExhausted: false,
+  }
+  try {
+    if (platform.readWorkspaceInstructions) {
+      result = await platform.readWorkspaceInstructions(userWorkingDirectories ?? [])
+    }
+  } catch {
+    // Workspace instruction discovery is best-effort and must not block generation.
+  }
+
+  const displayDirectories = result.directories.map(normalizeWorkspaceDirectory)
+  const files = result.files.filter((file) => file.content.trim().length > 0)
+  const loadedInstructions = files.length
+    ? `\nAutomatically loaded workspace instructions:\n\n${files
+        .map(
+          ({ filePath, content, truncated }) =>
+            `<AGENTS_MD path="${filePath.replace(/\\/g, '/').replace(/"/g, '&quot;')}">\n${content}\n</AGENTS_MD>${
+              truncated
+                ? '\nThis AGENTS.md was truncated for context safety. Read the remaining content before changing files whose instructions may appear later.'
+                : ''
+            }`
+        )
+        .join('\n\n')}\n`
+    : '\nNo root AGENTS.md was found while preparing this turn.\n'
+  const safetyNotices = [
+    result.budgetExhausted
+      ? 'Some workspace instruction content was truncated or omitted to stay within the shared context budget.'
+      : '',
+    result.skippedDirectoryCount > 0
+      ? `${result.skippedDirectoryCount} working director${result.skippedDirectoryCount === 1 ? 'y was' : 'ies were'} skipped because the safe directory limit was reached or the path could not be validated.`
+      : '',
+  ].filter(Boolean)
+
+  return `
+## Workspace Instructions
+Chatbox automatically checks each user-selected working directory for a root AGENTS.md and injects its content below. Follow those instructions for every file in their scope. When working in a nested directory, check whether a closer AGENTS.md applies and follow the most specific instructions. System and user instructions take precedence.
+
+User-selected working directories:
+${displayDirectories.map((directory) => `- ${directory}`).join('\n')}
+${loadedInstructions}
+${safetyNotices.join('\n')}
 `
 }
 
@@ -261,11 +328,21 @@ export async function buildToolsForSession(
     }
   }
 
+  const userWorkingDirectories = options.sessionSettings?.workingDirectories?.filter((dir) => dir.trim().length > 0)
   let instructions = includeAgentTools
     ? `## Context Management
 In long conversations, earlier tool call results may be automatically compressed or summarized to stay within the context window. When you receive important results from tool calls, always include the key findings and essential data in your text response — do not rely on being able to re-read previous tool outputs later.
 `
     : ''
+  if (includeAgentTools) {
+    instructions += await buildWorkspaceInstructions(userWorkingDirectories)
+    instructions += `
+## Git Commits
+When you create a Git commit that includes code changes, append this exact trailer to the commit message:
+
+\`Co-authored-by: Chatbox <chatbox@chatboxai.com>\`
+`
+  }
   if (kbToolSet && kbSupported) {
     instructions += kbToolSet.description
   }
@@ -283,7 +360,6 @@ In long conversations, earlier tool call results may be automatically compressed
   if (includeAgentTools && codeExecution) {
     codeExecToolSet = buildCodeExecutionTools(codeExecution)
     const workingDir = await codeExecution.provider.resolveWorkingDirectory(codeExecution.sessionId).catch(() => null)
-    const userWorkingDirectories = options.sessionSettings?.workingDirectories?.filter((dir) => dir.trim().length > 0)
     instructions += buildWorkingDirectoryInstruction(workingDir, userWorkingDirectories)
     instructions += codeExecToolSet.description
   }

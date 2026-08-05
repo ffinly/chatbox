@@ -156,8 +156,9 @@ export function computeEffectiveAgentMode(agentModeValue, agentModeSupported) {
 4. Agent 工具：有效模式为 `on` 且模型支持 `agent` scope 时注入。
 5. Code execution：存在 `codeExecution` provider 时注入 `code_execution/read_file/create_download`。
 6. Filesystem tools：注入真实文件系统读写编辑工具；沙箱和绑定目录直接写入，其他路径按审批和 Full Access 设置处理。
-7. Skills 与命令：注入启用 Skill 元数据、`load_skill`、`chatbox_cli`、On 模式可直接使用的 `user_exec`，以及 code execution 可用时的 `install_skill`。
-8. MCP 和知识库：按会话配置和模型 scope 注入。
+7. 工作目录约束：绑定用户工作目录时，每轮构建上下文都会通过 Main 进程专用接口读取并注入 workspace 根目录的 `AGENTS.md`。读取前校验真实目录边界，拒绝符号链接文件和不安全根目录；所有 workspace 共用 80,000 字符预算。进入子目录时提示模型检查并遵循作用域更具体的 `AGENTS.md`。
+8. Skills 与命令：注入启用 Skill 元数据、`load_skill`、`chatbox_cli`、On 模式可直接使用的 `user_exec`，以及 code execution 可用时的 `install_skill`。
+9. MCP 和知识库：按会话配置和模型 scope 注入。
 
 Chat Agent 不再 fallback 注入底层 `sandbox_*` 工具。
 

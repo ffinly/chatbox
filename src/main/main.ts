@@ -53,6 +53,7 @@ import {
   store,
 } from './store-node'
 import * as windowState from './window_state'
+import { loadWorkspaceInstructions } from './workspace-instructions'
 
 function reportMainProcessError(
   error: unknown,
@@ -895,6 +896,10 @@ ipcMain.handle('fs:read', async (_event, params: { filePath: string; offset?: nu
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
+})
+
+ipcMain.handle('workspace:read-instructions', async (_event, directories: string[]) => {
+  return loadWorkspaceInstructions(directories)
 })
 
 ipcMain.handle('fs:list', async (_event, params: { dirPath: string }) => {

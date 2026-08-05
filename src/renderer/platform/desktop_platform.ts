@@ -8,6 +8,7 @@ import type {
   SandboxReadResult,
 } from '@shared/sandbox-provider'
 import type { Config, Settings, ShortcutSetting } from '@shared/types'
+import type { WorkspaceInstructionsResult } from '@shared/types/workspace-instructions'
 import { cache } from '@shared/utils/cache'
 import localforage from 'localforage'
 import { v4 as uuidv4 } from 'uuid'
@@ -280,6 +281,10 @@ export default class DesktopPlatform implements Platform {
 
   async fsRead(params: { filePath: string; offset?: number; limit?: number }) {
     return this.ipc.invoke('fs:read', params)
+  }
+
+  async readWorkspaceInstructions(directories: string[]): Promise<WorkspaceInstructionsResult> {
+    return this.ipc.invoke('workspace:read-instructions', directories)
   }
 
   async fsList(params: { dirPath: string }) {
