@@ -181,7 +181,7 @@ describe('Context Management Integration Tests', () => {
       expect(result[1].contentParts[0]).toEqual({ type: 'text', text: 'New message' })
     })
 
-    it('should handle missing summary message gracefully', () => {
+    it('should skip a compaction point whose summary is missing and fall back to all messages', () => {
       const msg1 = createTestMessage('user', 'Old message')
       const msg2 = createTestMessage('assistant', 'Old response')
       const msg3 = createTestMessage('user', 'New message')
@@ -194,12 +194,13 @@ describe('Context Management Integration Tests', () => {
 
       const result = buildContextForAI({ messages, compactionPoints })
 
-      // Should still slice correctly, just without summary
-      expect(result).toHaveLength(2)
-      expect(result[0].contentParts[0]).toEqual({ type: 'text', text: 'New message' })
+      // A point is a paired contract (boundary + summary); with the summary
+      // missing it must not be applied, so the full history is used
+      expect(result).toHaveLength(4)
+      expect(result[0].contentParts[0]).toEqual({ type: 'text', text: 'Old message' })
     })
 
-    it('should handle missing boundary message by falling back to all messages', () => {
+    it('should skip a compaction point whose boundary is missing without leaking the orphaned summary', () => {
       const messages = [createTestMessage('user', 'Message 1'), createTestMessage('assistant', 'Response 1')]
       const summary = createTestMessage('assistant', 'Summary', { isSummary: true })
       messages.push(summary)
@@ -209,8 +210,10 @@ describe('Context Management Integration Tests', () => {
 
       const result = buildContextForAI({ messages, compactionPoints })
 
-      // Should fall back to all messages with tool cleanup
-      expect(result).toHaveLength(3)
+      // Falls back to all messages, but the summary of the torn point may only
+      // enter context as the stand-in of an applied compaction point
+      expect(result).toHaveLength(2)
+      expect(result.some((m) => m.isSummary)).toBe(false)
     })
 
     it('should filter out summary messages from messagesAfterBoundary', () => {
