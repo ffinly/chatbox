@@ -12,6 +12,7 @@ import { getLogger } from './lib/utils'
 import platform from './platform'
 import reportWebVitals from './reportWebVitals'
 import { router } from './router'
+import { initSessionPresentationBindings } from './session-bootstrap'
 import './static/globals.css'
 import './static/index.css'
 import { initLogAtom, migrationProcessAtom } from './stores/atoms/utilAtoms'
@@ -181,6 +182,7 @@ initializeApp()
       initUpdateListeners()
       initSessionAttachmentRagMaintenance()
     }
+    initSessionPresentationBindings()
     // Cleanup is intentionally not captured — listeners persist for the app lifetime
 
     // 初始化完成，可以开始渲染

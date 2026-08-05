@@ -7,7 +7,8 @@ import { useTranslation } from 'react-i18next'
 import { AssistantAvatar } from '@/components/common/Avatar'
 import { ScalableIcon } from '@/components/common/ScalableIcon'
 import { AppTooltip as Tooltip } from '@/components/ui/tooltip'
-import { confirmSessionDeletion, deleteSession, restoreSession, useArchivedSessionList } from '@/stores/chatStore'
+import { confirmSessionDeletion } from '@/presentation/session/session-deletion-confirmation'
+import { deleteSession, restoreSession, useArchivedSessionList } from '@/stores/chatStore'
 
 export const Route = createFileRoute('/settings/archive')({
   component: RouteComponent,

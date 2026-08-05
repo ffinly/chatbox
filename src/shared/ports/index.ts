@@ -1,3 +1,5 @@
+import type { LoggerPort } from './logger'
+
 export type RuntimePlatform = 'ios' | 'android' | 'desktop' | 'web' | 'unknown'
 
 export interface KeyValueStoragePort {
@@ -35,10 +37,6 @@ export interface AnalyticsPort {
   event(name: string, params: Record<string, string>): Promise<void> | void
 }
 
-export interface LoggerPort {
-  log(level: 'debug' | 'info' | 'warn' | 'error', message: string): Promise<void> | void
-}
-
 export interface FileExportPort {
   exportBlob(filename: string, blob: Blob, encoding?: 'utf8' | 'ascii' | 'utf16'): Promise<void>
   exportTextFile(filename: string, content: string): Promise<void>
@@ -57,4 +55,11 @@ export interface CoreRuntimePorts {
   fileExport?: FileExportPort
 }
 
-export type { SessionDataRepositoryPort, SessionMetaRepositoryPort, SessionRepositoryPort } from './session-repository'
+export type { LoggerPort, LogLevel } from './logger'
+export {
+  type SessionDataRepositoryPort,
+  type SessionMetaRepositoryPort,
+  SessionRepositoryError,
+  type SessionRepositoryOperation,
+  type SessionRepositoryPort,
+} from './session-repository'

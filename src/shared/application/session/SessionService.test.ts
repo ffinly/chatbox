@@ -1,0 +1,170 @@
+import { describe, expect, test, vi } from 'vitest'
+import { createTestRecord, createTestSession, MemorySessionRepository } from './__tests__/memory-session-repository'
+import { SessionService } from './SessionService'
+import { SessionWriteCoordinator } from './SessionWriteCoordinator'
+import { type SessionApplicationEvent, SessionEventBus } from './session-events'
+
+function createHarness() {
+  const repository = new MemorySessionRepository()
+  const events = new SessionEventBus()
+  const published: SessionApplicationEvent[] = []
+  events.subscribe((event) => {
+    published.push(event)
+  })
+  const writes = new SessionWriteCoordinator(repository)
+  const log = vi.fn()
+  const service = new SessionService(repository, writes, events, {
+    createId: () => 'created-session',
+    logger: { log },
+    now: () => 100,
+    getLastUsedModels: () => ({
+      chat: { provider: 'openai', modelId: 'last-used-model' },
+    }),
+  })
+  return { repository, events, log, published, service }
+}
+
+describe('SessionService', () => {
+  test('logs session read failures before rethrowing the repository error', async () => {
+    const harness = createHarness()
+    const error = new Error('read failed')
+    vi.spyOn(harness.repository, 'getSession').mockRejectedValue(error)
+
+    await expect(harness.service.getSession('session-1')).rejects.toBe(error)
+    expect(harness.log).toHaveBeenCalledWith(
+      'error',
+      'Failed to read session from repository',
+      expect.objectContaining({
+        sessionId: 'session-1',
+        error: expect.objectContaining({ name: 'Error', message: 'read failed' }),
+      })
+    )
+  })
+
+  test('logs session-list page read failures before rethrowing', async () => {
+    const harness = createHarness()
+    const error = new Error('page failed')
+    vi.spyOn(harness.repository.meta, 'getPage').mockRejectedValue(error)
+
+    await expect(harness.service.listSessionsMetaPage(20, 10)).rejects.toBe(error)
+    expect(harness.log).toHaveBeenCalledWith(
+      'error',
+      'Failed to read session list page from repository',
+      expect.objectContaining({ cursor: 20, limit: 10 })
+    )
+  })
+
+  test('logs each unreadable session and a recovery summary', async () => {
+    const harness = createHarness()
+    const readable = createTestSession('readable')
+    vi.spyOn(harness.repository, 'getAllSessionIds').mockResolvedValue(['unreadable', 'readable'])
+    vi.spyOn(harness.repository, 'getSession').mockImplementation((sessionId) => {
+      if (sessionId === 'unreadable') return Promise.reject(new Error('large IndexedDB value'))
+      return Promise.resolve(readable)
+    })
+
+    await expect(harness.service.recoverSessionList()).resolves.toEqual({ recovered: 1, failed: 1 })
+    expect(harness.log).toHaveBeenCalledWith(
+      'error',
+      'Failed to read session during session-list recovery',
+      expect.objectContaining({ sessionId: 'unreadable' })
+    )
+    expect(harness.log).toHaveBeenCalledWith('warn', 'Failed to recover sessions due to read errors', {
+      failed: 1,
+      sessionIds: ['unreadable'],
+    })
+  })
+
+  test('creates full session data and meta before publishing a precise event', async () => {
+    const harness = createHarness()
+
+    const created = await harness.service.createSession({
+      name: 'Created',
+      type: 'chat',
+      messages: [],
+      settings: { temperature: 0.3 },
+    })
+
+    expect(created.settings).toEqual({
+      provider: 'openai',
+      modelId: 'last-used-model',
+      temperature: 0.3,
+    })
+    expect(harness.repository.sessions.get(created.id)).toBe(created)
+    expect(harness.repository.records.get(created.id)).toMatchObject({
+      id: created.id,
+      sortOrder: 100,
+      createdAt: 100,
+    })
+    expect(harness.published.at(-1)).toMatchObject({ type: 'session-created', session: created })
+  })
+
+  test('does not report a committed create as failed when a post-event listener rejects', async () => {
+    const harness = createHarness()
+    harness.events.subscribe((event) => {
+      if (event.type === 'session-created') {
+        return Promise.reject(new Error('subscriber failed'))
+      }
+    })
+
+    const created = await harness.service.createSession({
+      name: 'Created',
+      type: 'chat',
+      messages: [],
+      settings: {},
+    })
+
+    expect(harness.repository.sessions.get(created.id)).toBe(created)
+    expect(harness.repository.records.has(created.id)).toBe(true)
+  })
+
+  test('archives and restores full data and meta together', async () => {
+    const harness = createHarness()
+    const session = createTestSession('session-1')
+    harness.repository.sessions.set(session.id, session)
+    harness.repository.records.set(session.id, createTestRecord(session, 1))
+
+    await harness.service.archiveSession(session.id)
+    expect(harness.repository.sessions.get(session.id)).toMatchObject({ hidden: true, archivedAt: 100 })
+    expect(harness.repository.records.get(session.id)).toMatchObject({ hidden: true, archivedAt: 100 })
+
+    await harness.service.restoreSession(session.id)
+    expect(harness.repository.sessions.get(session.id)?.hidden).toBe(false)
+    expect(harness.repository.sessions.get(session.id)?.archivedAt).toBeUndefined()
+    expect(harness.repository.records.get(session.id)?.hidden).toBe(false)
+    expect(harness.repository.records.get(session.id)?.archivedAt).toBeUndefined()
+  })
+
+  test('deletes persistence only after awaited pre-delete effects', async () => {
+    const harness = createHarness()
+    const session = createTestSession('session-1')
+    harness.repository.sessions.set(session.id, session)
+    harness.repository.records.set(session.id, createTestRecord(session, 1))
+    const order: string[] = []
+    harness.events.subscribe((event) => {
+      if (event.type === 'session-will-delete') {
+        throw new Error('best-effort cleanup failed')
+      }
+    })
+    harness.events.subscribe(async (event) => {
+      if (event.type === 'session-will-delete') {
+        await Promise.resolve()
+        order.push('effect')
+      }
+      if (event.type === 'session-deleted') {
+        order.push('deleted')
+      }
+    })
+    const deleteSpy = vi.spyOn(harness.repository, 'deleteSession').mockImplementation((id) => {
+      order.push('storage')
+      harness.repository.sessions.delete(id)
+      return Promise.resolve()
+    })
+
+    await harness.service.deleteSession(session.id)
+
+    expect(deleteSpy).toHaveBeenCalledWith(session.id)
+    expect(order).toEqual(['effect', 'storage', 'deleted'])
+    expect(harness.repository.records.has(session.id)).toBe(false)
+  })
+})

@@ -1,5 +1,1 @@
-import { QueryClient } from '@tanstack/react-query'
-
-export const queryClient = new QueryClient()
-
-export default queryClient
+export { queryClient, queryClient as default } from '@/react-bindings/query/query-client'

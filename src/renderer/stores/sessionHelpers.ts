@@ -1,3 +1,4 @@
+import { projectSessionMeta } from '@shared/application/session'
 import { isSessionAttachmentRagSupportedFilePath, isSupportedFile, isTextFilePath } from '@shared/file-extensions'
 import { EMPTY_ATTACHMENT_CONTENT_ERROR, NON_RECOVERABLE_LOCAL_PARSER_ERROR_CODES } from '@shared/file-parse-errors'
 import { searchSessionMessages } from '@shared/services/native-session-search'
@@ -13,7 +14,6 @@ import type {
 } from '@shared/types'
 import type { DocumentParserConfig } from '@shared/types/settings'
 import { getMessageText, migrateMessage } from '@shared/utils/message'
-import { pick } from 'lodash'
 import i18n from '@/i18n'
 import { formatChatAsHtml, formatChatAsMarkdown, formatChatAsTxt } from '@/lib/format-chat'
 import { getLogger } from '@/lib/utils'
@@ -1144,17 +1144,7 @@ export function initEmptyPictureSession(): Omit<Session, 'id'> {
 }
 
 export function getSessionMeta(session: SessionMeta) {
-  return pick(session, [
-    'id',
-    'name',
-    'starred',
-    'hidden',
-    'archivedAt',
-    'assistantAvatarKey',
-    'picUrl',
-    'backgroundImage',
-    'type',
-  ])
+  return projectSessionMeta(session)
 }
 
 function _searchSessions(query: string, s: Session) {

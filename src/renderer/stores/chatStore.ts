@@ -3,562 +3,78 @@
  * It uses react-query for caching.
  * */
 
-import NiceModal from '@ebay/nice-modal-react'
+import type { SessionMetadataUpdate } from '@shared/application/session'
+import type { SessionMetaRepositoryPort } from '@shared/ports'
 import {
   type Message,
   type Session,
-  type SessionMeta,
-  type SessionMetaPage,
   type SessionMetaRecord,
   type SessionSettings,
   SessionSettingsSchema,
   type Updater,
-  type UpdaterFn,
 } from '@shared/types'
-import { type InfiniteData, useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import compact from 'lodash/compact'
-import isEmpty from 'lodash/isEmpty'
 import { useMemo } from 'react'
-import { v4 as uuidv4 } from 'uuid'
-import i18n from '@/i18n'
-import platform from '@/platform'
-import storage, { StorageKey } from '@/storage'
-import type { SessionMetaStorage } from '@/storage/SessionMetaStorage'
-import { sortSessionRecords } from '@/storage/SessionMetaStorage'
-import { StorageKeyGenerator } from '@/storage/StoreStorage'
+import { QueryKeys } from '@/react-bindings/query/query-keys'
+import { sessionHooks, sessionQueryBridge, sessionRepository, sessionService } from '@/session-runtime'
 import * as defaults from '../../shared/defaults'
-import { getLogger } from '../lib/utils'
-import { migrateSession } from '../utils/session-utils'
-import { uiStore } from './uiStore'
-
-const log = getLogger('chat-store')
-
-import { clearScrollPositionCache } from '@/components/chat/MessageList'
-import { cleanupSessionAtomCache } from './atoms/throttleWriteSessionAtom'
-import { clearSessionNameGenerationState } from './session/state'
-import {
-  assertNoMessageDataUpdate,
-  getSessionMetadataSnapshot,
-  mergeCachedGeneratingMessages,
-  type SessionMetadataUpdate,
-} from './chatStore-cache'
-import { lastUsedModelStore } from './lastUsedModelStore'
-import queryClient from './queryClient'
-import { clearSessionActivity } from './sessionActivityStore'
-import { getSessionMeta } from './sessionHelpers'
 import { settingsStore, useSettingsStore } from './settingsStore'
-import { UpdateQueue } from './updateQueue'
 
-export const QueryKeys = {
-  ChatSessionsList: ['chat-sessions-list'],
-  ArchivedChatSessionsList: ['archived-chat-sessions-list'],
-  ChatSession: (id: string) => ['chat-session', id],
-  ChatSessionSettings: (id: string) => ['chat-session-settings', id],
+export { QueryKeys }
+
+// Compatibility facade: existing imports stay stable while implementation lives
+// in the application service and React Query binding.
+export async function getMetaStorage(): Promise<SessionMetaRepositoryPort> {
+  await sessionService.initialize()
+  return sessionRepository.meta
 }
 
-// MARK: session meta storage
+export const listSessionsMetaPage = sessionService.listSessionsMetaPage.bind(sessionService)
+export const listArchivedSessionsMetaPage = sessionService.listArchivedSessionsMetaPage.bind(sessionService)
+export const countSessionsMeta = sessionService.countSessionsMeta.bind(sessionService)
+export const countArchivedSessionsMeta = sessionService.countArchivedSessionsMeta.bind(sessionService)
+export const listAllSessionsMeta = sessionService.listAllSessionsMeta.bind(sessionService)
+export const listArchivedSessionsMeta = sessionService.listArchivedSessionsMeta.bind(sessionService)
+export const getCachedSessionsMeta = sessionQueryBridge.getCachedSessionsMeta.bind(sessionQueryBridge)
+export const listSessionsMeta = sessionQueryBridge.listSessionsMeta.bind(sessionQueryBridge)
+export const useSession = sessionHooks.useSession
+export const useSessionList = sessionHooks.useSessionList
+export const useArchivedSessionList = sessionHooks.useArchivedSessionList
 
-let _metaStorage: SessionMetaStorage | null = null
-
-export async function getMetaStorage(): Promise<SessionMetaStorage> {
-  if (!_metaStorage) {
-    _metaStorage = platform.getSessionMetaStorage()
-    await _metaStorage.initialize()
-  }
-  return _metaStorage
+export function updateSessionListData(updater: (items: SessionMetaRecord[]) => SessionMetaRecord[]): void {
+  sessionQueryBridge.updateSessionListData(updater)
 }
 
-// MARK: session list operations
-
-type InfiniteSessionData = InfiniteData<SessionMetaPage, number>
-
-async function _listSessionsMetaPage(cursor: number): Promise<SessionMetaPage> {
-  console.debug('chatStore', 'listSessionsMetaPage', cursor)
-  try {
-    const metaStorage = await getMetaStorage()
-    return await metaStorage.getPage(cursor)
-  } catch (error) {
-    log.error('Failed to read session list page from DB:', error)
-    throw error
-  }
-}
-
-export async function listSessionsMetaPage(cursor: number, limit?: number): Promise<SessionMetaPage> {
-  const metaStorage = await getMetaStorage()
-  return await metaStorage.getPage(cursor, limit)
-}
-
-const listSessionsMetaQueryOptions = {
-  queryKey: QueryKeys.ChatSessionsList,
-  queryFn: ({ pageParam }: { pageParam: number }) => _listSessionsMetaPage(pageParam),
-  getNextPageParam: (lastPage: SessionMetaPage) => lastPage.nextCursor,
-  initialPageParam: 0,
-  staleTime: Infinity,
-}
-
-/** Get all currently cached session metas (flattened from loaded pages). */
-export function getCachedSessionsMeta(): SessionMetaRecord[] {
-  const data = queryClient.getQueryData<InfiniteSessionData>(QueryKeys.ChatSessionsList)
-  if (!data) return []
-  return data.pages.flatMap((p) => p.items)
-}
-
-/** Get all session metas. Returns cached data if available, otherwise fetches first page. */
-export async function listSessionsMeta(): Promise<SessionMetaRecord[]> {
-  const cached = getCachedSessionsMeta()
-  if (cached.length > 0) return cached
-  const data = await queryClient.fetchInfiniteQuery(listSessionsMetaQueryOptions)
-  return data.pages.flatMap((p) => p.items)
-}
-
-/** Get all session metas from storage, bypassing the paginated cache. */
-export async function listAllSessionsMeta(): Promise<SessionMetaRecord[]> {
-  const items: SessionMetaRecord[] = []
-  let cursor: number | null = 0
-  while (cursor !== null) {
-    const page = await listSessionsMetaPage(cursor)
-    items.push(...page.items)
-    cursor = page.nextCursor
-  }
-  return items
-}
-
-async function _listArchivedSessionsMetaPage(cursor: number): Promise<SessionMetaPage> {
-  const metaStorage = await getMetaStorage()
-  return await metaStorage.getArchivedPage(cursor)
-}
-
-export async function listArchivedSessionsMetaPage(cursor: number, limit?: number): Promise<SessionMetaPage> {
-  const metaStorage = await getMetaStorage()
-  return await metaStorage.getArchivedPage(cursor, limit)
-}
-
-export async function countSessionsMeta(): Promise<number> {
-  const metaStorage = await getMetaStorage()
-  return await metaStorage.getTotal()
-}
-
-export async function countArchivedSessionsMeta(): Promise<number> {
-  const metaStorage = await getMetaStorage()
-  return await metaStorage.getArchivedTotal()
-}
-
-const listArchivedSessionsMetaQueryOptions = {
-  queryKey: QueryKeys.ArchivedChatSessionsList,
-  queryFn: ({ pageParam }: { pageParam: number }) => _listArchivedSessionsMetaPage(pageParam),
-  getNextPageParam: (lastPage: SessionMetaPage) => lastPage.nextCursor,
-  initialPageParam: 0,
-  staleTime: Infinity,
-}
-
-export async function listArchivedSessionsMeta(): Promise<SessionMetaRecord[]> {
-  const items: SessionMetaRecord[] = []
-  let cursor: number | null = 0
-  while (cursor !== null) {
-    const page = await listArchivedSessionsMetaPage(cursor)
-    items.push(...page.items)
-    cursor = page.nextCursor
-  }
-  return items
-}
-
-export function useSessionList() {
-  const result = useInfiniteQuery(listSessionsMetaQueryOptions)
-  const sessionMetaList = useMemo(() => result.data?.pages.flatMap((p) => p.items), [result.data])
-  return {
-    sessionMetaList,
-    refetch: result.refetch,
-    fetchNextPage: result.fetchNextPage,
-    hasNextPage: result.hasNextPage,
-    isFetchingNextPage: result.isFetchingNextPage,
-  }
-}
-
-export function useArchivedSessionList() {
-  const result = useInfiniteQuery(listArchivedSessionsMetaQueryOptions)
-  const archivedSessionMetaList = useMemo(() => result.data?.pages.flatMap((p) => p.items), [result.data])
-  return {
-    archivedSessionMetaList,
-    refetch: result.refetch,
-    fetchNextPage: result.fetchNextPage,
-    hasNextPage: result.hasNextPage,
-    isFetchingNextPage: result.isFetchingNextPage,
-    isLoading: result.isLoading,
-  }
-}
-
-/**
- * Update the paginated session list cache.
- * Flattens all loaded pages, applies the updater, then re-packs into a single page
- * preserving the nextCursor for further pagination.
- */
-export function updateSessionListData(updater: (items: SessionMetaRecord[]) => SessionMetaRecord[]) {
-  queryClient.setQueryData<InfiniteSessionData>(QueryKeys.ChatSessionsList, (old) => {
-    if (!old || !old.pages.length) return old
-    const allItems = old.pages.flatMap((p) => p.items)
-    const updated = updater(allItems)
-    const lastPage = old.pages[old.pages.length - 1]
-    const delta = updated.length - allItems.length
-    return {
-      pages: [
-        {
-          items: updated,
-          nextCursor: lastPage.nextCursor !== null ? lastPage.nextCursor + delta : null,
-          total: (lastPage.total || 0) + delta,
-        },
-      ],
-      pageParams: [0],
-    }
-  })
-}
-
-/** Re-read the first session list page from DB and update cache. Use for bulk operations only. */
-export async function refreshSessionListCache() {
-  const firstPage = await _listSessionsMetaPage(0)
-  queryClient.setQueryData<InfiniteSessionData>(QueryKeys.ChatSessionsList, {
-    pages: [firstPage],
-    pageParams: [0],
-  })
-}
-
-async function refreshArchivedSessionListCache() {
-  const firstPage = await _listArchivedSessionsMetaPage(0)
-  queryClient.setQueryData<InfiniteSessionData>(QueryKeys.ArchivedChatSessionsList, {
-    pages: [firstPage],
-    pageParams: [0],
-  })
-}
-
-function updateArchivedSessionListData(updater: (items: SessionMetaRecord[]) => SessionMetaRecord[]) {
-  queryClient.setQueryData<InfiniteSessionData>(QueryKeys.ArchivedChatSessionsList, (old) => {
-    if (!old || !old.pages.length) return old
-    const allItems = old.pages.flatMap((p) => p.items)
-    const updated = updater(allItems)
-    const lastPage = old.pages[old.pages.length - 1]
-    const delta = updated.length - allItems.length
-    return {
-      pages: [
-        {
-          items: updated,
-          nextCursor: lastPage.nextCursor !== null ? lastPage.nextCursor + delta : null,
-          total: (lastPage.total || 0) + delta,
-        },
-      ],
-      pageParams: [0],
-    }
-  })
+export async function refreshSessionListCache(): Promise<void> {
+  sessionQueryBridge.resetSessionList(await sessionService.listSessionsMetaPage(0))
 }
 
 // MARK: session operations
 
-// get session
-async function _getSessionById(id: string): Promise<Session | null> {
-  console.debug('chatStore', 'getSessionById', id)
-  const storageKey = StorageKeyGenerator.session(id)
-  try {
-    const session = await storage.getItem<Session | null>(storageKey, null)
-    if (!session) {
-      return null
-    }
-    return migrateSession(session)
-  } catch (error) {
-    log.error(`Failed to read session from storage (key: ${storageKey}, sessionId: ${id}):`, error)
-    // Re-throw to prevent incorrect state
-    throw error
-  }
-}
-
-const getSessionQueryOptions = (sessionId: string) => ({
-  queryKey: QueryKeys.ChatSession(sessionId),
-  queryFn: () => _getSessionById(sessionId),
-  staleTime: Infinity,
-})
-
-export async function getSession(sessionId: string) {
-  return await queryClient.fetchQuery(getSessionQueryOptions(sessionId))
-}
-
-export function useSession(sessionId: string | null) {
-  const { data: session, ...rest } = useQuery({
-    ...getSessionQueryOptions(sessionId!),
-    enabled: !!sessionId,
-  })
-  return { session, ...rest }
-}
-
-function _setSessionCache(
+export const getSession = sessionQueryBridge.getSession.bind(sessionQueryBridge)
+export const createSession = sessionService.createSession.bind(sessionService)
+export const updateSessionWithMessages = sessionService.updateSessionWithMessages.bind(sessionService)
+export const updateSession = sessionService.updateSession.bind(sessionService) as (
   sessionId: string,
-  updated: Session | null,
-  options?: { preserveCachedGeneratingMessages?: boolean }
-) {
-  // 1. update session cache 2. session settings do not use cache now
-  if (!options?.preserveCachedGeneratingMessages || !updated) {
-    queryClient.setQueryData(QueryKeys.ChatSession(sessionId), updated)
-    return
-  }
-  queryClient.setQueryData(QueryKeys.ChatSession(sessionId), (cached: Session | null | undefined) =>
-    mergeCachedGeneratingMessages(updated, cached)
-  )
-}
+  updater: Updater<SessionMetadataUpdate>
+) => Promise<Session>
 
-async function runInChunks<T>(items: T[], chunkSize: number, worker: (item: T) => Promise<void>) {
-  for (let i = 0; i < items.length; i += chunkSize) {
-    await Promise.all(items.slice(i, i + chunkSize).map((item) => worker(item)))
-  }
-}
-
-// create session
-export async function createSession(newSession: Omit<Session, 'id'>, previousId?: string) {
-  console.debug('chatStore', 'createSession', newSession)
-  const { chat: lastUsedChatModel, picture: lastUsedPictureModel } = lastUsedModelStore.getState()
-  const session = {
-    ...newSession,
-    id: uuidv4(),
-    settings: {
-      ...(newSession.type === 'picture' ? lastUsedPictureModel : lastUsedChatModel),
-      ...newSession.settings,
-    },
-  }
-  await storage.setItemNow(StorageKeyGenerator.session(session.id), session)
-
-  const metaStorage = await getMetaStorage()
-  let sortOrder = Date.now()
-  if (previousId) {
-    const currentList = getCachedSessionsMeta()
-    const prevIndex = currentList.findIndex((s) => s.id === previousId)
-    if (prevIndex >= 0) {
-      const prevSortOrder = currentList[prevIndex].sortOrder
-      const nextSortOrder =
-        prevIndex + 1 < currentList.length ? currentList[prevIndex + 1].sortOrder : prevSortOrder - 2000
-      sortOrder = (prevSortOrder + nextSortOrder) / 2
-    }
-  }
-
-  const record: SessionMetaRecord = {
-    ...getSessionMeta(session),
-    sortOrder,
-    createdAt: Date.now(),
-  }
-  await metaStorage.create(record)
-  _setSessionCache(session.id, session)
-
-  updateSessionListData((items) => sortSessionRecords([...items, record]))
-
-  return session
-}
-
-const sessionUpdateQueues: Record<string, UpdateQueue<Session>> = {}
-
-export async function updateSessionWithMessages(
-  sessionId: string,
-  updater: Updater<Session>,
-  options?: { preserveCachedGeneratingMessages?: boolean }
-) {
-  if (!sessionUpdateQueues[sessionId]) {
-    // do not use await here to avoid data race
-    sessionUpdateQueues[sessionId] = new UpdateQueue<Session>(
-      () => getSession(sessionId),
-      async (session) => {
-        if (session) {
-          console.debug('chatStore', 'persist session', sessionId)
-          await storage.setItemNow(StorageKeyGenerator.session(sessionId), session)
-        }
-      }
-    )
-  }
-  let needUpdateSessionList = true
-  const updated = await sessionUpdateQueues[sessionId].set((prev) => {
-    if (!prev) {
-      throw new Error(`Session ${sessionId} not found`)
-    }
-    if (typeof updater === 'function') {
-      return updater(prev)
-    } else {
-      if (isEmpty(getSessionMeta(updater as SessionMeta))) {
-        needUpdateSessionList = false
-      }
-      return { ...prev, ...updater }
-    }
-  })
-  if (needUpdateSessionList) {
-    const newMeta = getSessionMeta(updated)
-    const metaStorage = await getMetaStorage()
-    await metaStorage.update(sessionId, newMeta)
-    updateSessionListData((items) =>
-      sortSessionRecords(items.map((s) => (s.id === sessionId ? { ...s, ...newMeta } : s)))
-    )
-  }
-  _setSessionCache(sessionId, updated, options)
-  return updated
-}
-
-// 这里只能修改messages之外的字段
-export async function updateSession(sessionId: string, updater: Updater<SessionMetadataUpdate>) {
-  return await updateSessionWithMessages(
-    sessionId,
-    (session) => {
-      if (!session) {
-        throw new Error(`Session ${sessionId} not found`)
-      }
-      const updated = typeof updater === 'function' ? updater(getSessionMetadataSnapshot(session)) : updater
-      assertNoMessageDataUpdate(updated)
-      return {
-        ...session,
-        ...updated,
-      }
-    },
-    { preserveCachedGeneratingMessages: true }
-  )
-}
-
-// only update session cache without touching storage, for performance sensitive usage
-export async function updateSessionCache(sessionId: string, updater: Updater<Session>) {
+// Cache-only writes remain a React Query read-model concern.
+export async function updateSessionCache(sessionId: string, updater: Updater<Session>): Promise<void> {
   const session = await getSession(sessionId)
-  if (!session) {
-    throw new Error(`Session ${sessionId} not found`)
-  }
+  if (!session) throw new Error(`Session ${sessionId} not found`)
   updateSessionCacheSync(sessionId, updater)
 }
 
-export function updateSessionCacheSync(sessionId: string, updater: Updater<Session>) {
-  queryClient.setQueryData(QueryKeys.ChatSession(sessionId), (old: Session | undefined | null) => {
-    if (!old) {
-      return old
-    }
-    if (typeof updater === 'function') {
-      return updater(old)
-    } else {
-      return { ...old, ...updater }
-    }
-  })
+export function updateSessionCacheSync(sessionId: string, updater: Updater<Session>): void {
+  sessionQueryBridge.updateSessionCache(sessionId, updater)
 }
 
-/**
- * If a session has persisted download artifacts, ask the user to confirm deletion, since
- * those downloadable files will be permanently removed along with the session. Returns
- * false if the user cancels; true otherwise (including when there are no artifacts).
- */
-export async function confirmSessionDeletion(id: string): Promise<boolean> {
-  if (platform.type !== 'desktop' || !platform.sandboxHasArtifacts) return true
-  try {
-    const { has } = await platform.sandboxHasArtifacts({ sessionId: id })
-    if (!has) return true
-    const confirmed = await NiceModal.show('confirm', {
-      title: i18n.t('Delete this chat?'),
-      message: i18n.t(
-        'This chat has downloadable files generated in the sandbox. Deleting it will permanently remove those files.'
-      ),
-      confirmText: i18n.t('Delete'),
-      danger: true,
-    })
-    return confirmed === true
-  } catch {
-    return true
-  }
-}
-
-async function cleanupSessionAttachmentRagEntries(ids: string[], operation: string) {
-  if (platform.type !== 'desktop') {
-    return
-  }
-  await runInChunks(ids, 10, async (id) => {
-    try {
-      await platform.getSessionAttachmentRagController().deleteSessionAttachments(id)
-    } catch (error) {
-      console.warn(`Failed to cleanup session attachment RAG entries for ${operation}:`, error)
-    }
-  })
-}
-
-function cleanupDeletedSessionRuntimeState(id: string) {
-  _setSessionCache(id, null)
-  uiStore.getState().clearSessionWebBrowsing(id)
-  uiStore.getState().removeSessionKnowledgeBase(id)
-  uiStore.getState().clearSessionAgentMode(id)
-  cleanupSessionAtomCache(id)
-  clearScrollPositionCache(id)
-  clearSessionActivity(id)
-  clearSessionNameGenerationState(id)
-  delete sessionUpdateQueues[id]
-  // Remove persisted download artifacts so deleted session references do not leak files on disk.
-  platform.sandboxReset?.({ sessionId: id }).catch(() => {})
-  platform.sandboxRemoveArtifacts?.({ sessionId: id }).catch(() => {})
-}
-
-export async function deleteSession(id: string) {
-  console.debug('chatStore', 'deleteSession', id)
-  await cleanupSessionAttachmentRagEntries([id], 'session deletion')
-  await storage.removeItem(StorageKeyGenerator.session(id))
-  const metaStorage = await getMetaStorage()
-  await metaStorage.delete(id)
-  updateSessionListData((items) => items.filter((session) => session.id !== id))
-  updateArchivedSessionListData((items) => items.filter((session) => session.id !== id))
-  cleanupDeletedSessionRuntimeState(id)
-}
-
-export async function archiveSession(id: string) {
-  await updateSession(id, { hidden: true, archivedAt: Date.now() })
-  await refreshArchivedSessionListCache()
-}
-
-// 这里刻意逐个走 updateSession，保证完整 session 存储和 meta 存储一致。
-// 该实现不针对超大批量归档做性能优化。
-export async function archiveSessions(ids: string[]) {
-  const uniqueIds = [...new Set(ids)]
-  if (uniqueIds.length === 0) return
-
-  const archivedAt = Date.now()
-  const missingSessionIds: string[] = []
-  await runInChunks(uniqueIds, 20, async (id) => {
-    try {
-      await updateSession(id, { hidden: true, archivedAt })
-    } catch (error) {
-      if (error instanceof Error && error.message === `Session ${id} not found`) {
-        missingSessionIds.push(id)
-        return
-      }
-      throw error
-    }
-  })
-
-  if (missingSessionIds.length > 0) {
-    await cleanupSessionAttachmentRagEntries(missingSessionIds, 'stale session meta cleanup')
-    const metaStorage = await getMetaStorage()
-    await metaStorage.deleteMany(missingSessionIds)
-    for (const id of missingSessionIds) {
-      cleanupDeletedSessionRuntimeState(id)
-    }
-  }
-
-  await refreshSessionListCache()
-  await refreshArchivedSessionListCache()
-}
-
-export async function restoreSession(id: string) {
-  await updateSession(id, { hidden: false, archivedAt: undefined })
-  await refreshSessionListCache()
-  updateArchivedSessionListData((items) => items.filter((session) => session.id !== id))
-}
-
-export async function deleteSessions(ids: string[]) {
-  const uniqueIds = [...new Set(ids)]
-  if (uniqueIds.length === 0) return
-
-  await cleanupSessionAttachmentRagEntries(uniqueIds, 'session deletion')
-
-  await runInChunks(uniqueIds, 20, async (id) => {
-    await storage.removeItem(StorageKeyGenerator.session(id))
-  })
-
-  const metaStorage = await getMetaStorage()
-  await metaStorage.deleteMany(uniqueIds)
-  await refreshSessionListCache()
-  updateArchivedSessionListData((items) => items.filter((session) => !uniqueIds.includes(session.id)))
-
-  for (const id of uniqueIds) {
-    cleanupDeletedSessionRuntimeState(id)
-  }
-}
+export const deleteSession = sessionService.deleteSession.bind(sessionService)
+export const archiveSession = sessionService.archiveSession.bind(sessionService)
+export const archiveSessions = sessionService.archiveSessions.bind(sessionService)
+export const restoreSession = sessionService.restoreSession.bind(sessionService)
+export const deleteSessions = sessionService.deleteSessions.bind(sessionService)
 
 // MARK: session settings operations
 
@@ -603,7 +119,6 @@ export async function getSessionSettings(sessionId: string) {
 
 // list messages
 export async function listMessages(sessionId?: string | null): Promise<Message[]> {
-  console.debug('chatStore', 'listMessages', sessionId)
   if (!sessionId) {
     return []
   }
@@ -974,62 +489,6 @@ function cleanupEmptyForkBranches(
  * Recover session list by scanning all session: prefixed keys in storage
  * This will clear the current session list and rebuild it from all found sessions
  */
-export async function recoverSessionList() {
-  console.debug('chatStore', 'recoverSessionList')
-
-  // Get all storage keys
-  const allKeys = await storage.getAllKeys()
-
-  // Filter keys that match the session: prefix
-  const sessionKeys = allKeys.filter((key) => key.startsWith('session:'))
-
-  // Fetch all sessions with their first message timestamp
-  const sessionsWithTimestamp: Array<{ meta: SessionMeta; timestamp: number }> = []
-  const failedKeys: string[] = []
-
-  for (const key of sessionKeys) {
-    try {
-      const session = await storage.getItem<Session | null>(key, null)
-      // Skip junk session entries (e.g. empty `{}` objects or `session:undefined`)
-      // that have no id — they cannot become valid meta records.
-      if (session && session.id) {
-        const migratedSession = migrateSession(session)
-        const firstMessageTimestamp = migratedSession.messages[0]?.timestamp || 0
-        sessionsWithTimestamp.push({
-          meta: getSessionMeta(migratedSession),
-          timestamp: firstMessageTimestamp,
-        })
-      }
-    } catch (error) {
-      // Handle cases where IndexedDB fails to read large values
-      // This can happen with "DataError: Failed to read large IndexedDB value" in some browsers
-      console.error(`Failed to read session "${key}":`, error)
-      failedKeys.push(key)
-    }
-  }
-
-  if (failedKeys.length > 0) {
-    console.warn(`chatStore: Failed to recover ${failedKeys.length} sessions due to read errors`)
-  }
-
-  // Sort by first message timestamp (older first)
-  sessionsWithTimestamp.sort((a, b) => a.timestamp - b.timestamp)
-
-  // Build SessionMetaRecord entries with sortOrder based on message timestamp
-  const now = Date.now()
-  const records: SessionMetaRecord[] = sessionsWithTimestamp.map((item, i) => ({
-    ...item.meta,
-    sortOrder: item.timestamp || now - (sessionsWithTimestamp.length - i) * 1000,
-    createdAt: item.timestamp || now - (sessionsWithTimestamp.length - i) * 1000,
-  }))
-
-  // Write to new DB (clear first to remove orphaned records)
-  const metaStorage = await getMetaStorage()
-  await metaStorage.clear()
-  await metaStorage.createMany(records)
-  await refreshSessionListCache()
-
-  console.debug('chatStore', 'recoverSessionList', `Recovered ${records.length} sessions, ${failedKeys.length} failed`)
-
-  return { recovered: records.length, failed: failedKeys.length }
+export function recoverSessionList() {
+  return sessionService.recoverSessionList()
 }
