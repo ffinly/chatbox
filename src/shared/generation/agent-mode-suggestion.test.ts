@@ -5,7 +5,7 @@ import {
   getLastUserMessage,
   isFirstUserTurn,
   parseAgentModeSuggestionDecision,
-} from '../agent-mode-suggestion'
+} from './agent-mode-suggestion'
 
 function userMessage(text: string, extra?: Partial<Message>): Message {
   return {

@@ -1,28 +1,17 @@
 import type { Message } from '@shared/types'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { wakeBackgroundTaskFollowUpsMock, withSessionGenerationLockMock } = vi.hoisted(() => {
-  const storage = {
-    getItem: () => null,
-    setItem: () => undefined,
-    removeItem: () => undefined,
-    clear: () => undefined,
-  }
-  ;(globalThis as unknown as { localStorage: typeof storage }).localStorage = storage
-  ;(globalThis as unknown as { window: { localStorage: typeof storage } }).window = { localStorage: storage }
+const serviceMocks = vi.hoisted(() => {
   return {
-    wakeBackgroundTaskFollowUpsMock: vi.fn(),
-    withSessionGenerationLockMock: vi.fn(() => Promise.resolve()),
+    stopPausedToolCall: vi.fn(() => Promise.resolve()),
+    continuePausedToolCall: vi.fn(() => Promise.resolve()),
+    retryFromLastToolCallAfterApiError: vi.fn(() => Promise.resolve()),
   }
 })
 
-vi.mock('@/packages/chatbox-cli/background-follow-up', () => ({
-  wakeBackgroundTaskFollowUps: wakeBackgroundTaskFollowUpsMock,
+vi.mock('@/adapters/CurrentGenerationService', () => ({
+  currentGenerationService: serviceMocks,
 }))
-vi.mock('./generation-lock', () => ({
-  withSessionGenerationLock: withSessionGenerationLockMock,
-}))
-vi.mock('../chatStore', () => ({}))
 
 import {
   applyPersistentToolCallPause,
@@ -43,31 +32,20 @@ const approvalDetails = {
   billing: 'chatbox_quota' as const,
 }
 
-describe('paused tool-call generation entry-point locking', () => {
+describe('paused tool-call compatibility facade', () => {
   beforeEach(() => {
-    wakeBackgroundTaskFollowUpsMock.mockClear()
-    withSessionGenerationLockMock.mockClear()
+    vi.clearAllMocks()
   })
 
   it.each([
-    ['approval denial', stopPausedToolCall],
-    ['approval continuation', continuePausedToolCall],
-    ['API retry', retryFromLastToolCallAfterApiError],
-  ])('serializes %s with other generation work', async (_name, run) => {
+    ['approval denial', stopPausedToolCall, serviceMocks.stopPausedToolCall],
+    ['approval continuation', continuePausedToolCall, serviceMocks.continuePausedToolCall],
+    ['API retry', retryFromLastToolCallAfterApiError, serviceMocks.retryFromLastToolCallAfterApiError],
+  ])('delegates %s to the shared GenerationService composition', async (_name, run, serviceMethod) => {
     await run('session-1', 'message-1', 'tool-1')
 
-    expect(withSessionGenerationLockMock).toHaveBeenCalledOnce()
-    expect(withSessionGenerationLockMock).toHaveBeenCalledWith('session-1', expect.any(Function))
-  })
-
-  it.each([
-    ['approval denial', stopPausedToolCall],
-    ['approval continuation', continuePausedToolCall],
-  ])('wakes deferred background follow-ups after %s releases the generation lock', async (_name, run) => {
-    await run('session-1', 'message-1', 'tool-1')
-
-    expect(wakeBackgroundTaskFollowUpsMock).toHaveBeenCalledOnce()
-    expect(wakeBackgroundTaskFollowUpsMock).toHaveBeenCalledWith('session-1')
+    expect(serviceMethod).toHaveBeenCalledOnce()
+    expect(serviceMethod).toHaveBeenCalledWith('session-1', 'message-1', 'tool-1')
   })
 })
 

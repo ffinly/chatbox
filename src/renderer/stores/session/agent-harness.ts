@@ -1,4 +1,5 @@
 import { buildContext } from '@shared/context'
+import type { AttachmentResolver } from '@shared/context/types'
 import { ChatboxAIAPIError, OCRError } from '@shared/models/errors'
 import type { ChatStreamOptions, ModelInterface } from '@shared/models/types'
 import type { SandboxProvider } from '@shared/sandbox-provider'
@@ -67,6 +68,7 @@ export interface PrepareAgentGenerationHarnessOptions {
    */
   compactionPoints?: CompactionPoint[]
   preserveLastPromptMessageToolCalls?: boolean
+  attachmentResolver?: AttachmentResolver
   sideEffects?: AgentGenerationSideEffects
   sandboxProviderFactory?: () => SandboxProvider | null
   isPro?: () => boolean
@@ -198,6 +200,7 @@ export async function prepareAgentGenerationHarness(
     providerOptions,
     compactionPoints = session.compactionPoints,
     preserveLastPromptMessageToolCalls = false,
+    attachmentResolver = createAttachmentResolver(),
     sideEffects,
     sandboxProviderFactory = createSandboxProvider,
     isPro = () => true,
@@ -233,7 +236,6 @@ export async function prepareAgentGenerationHarness(
     }
   }
 
-  const attachmentResolver = createAttachmentResolver()
   const messagesForPrompt = (await refreshSessionAttachmentStatuses(messages.slice(0, targetMsgIx))).map((message) =>
     // A resumed continuation keeps its target message flagged `generating` for the UI,
     // but its tool calls/results are exactly the context the follow-up request must

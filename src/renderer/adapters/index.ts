@@ -3,7 +3,7 @@ import type { SessionSettings } from '@shared/types'
 import type { ModelDependencies } from '@shared/types/adapters'
 import { currentModelFactory } from './CurrentModelFactory'
 
-export { CurrentModelFactory, currentModelFactory } from './CurrentModelFactory'
+export { currentModelFactory } from './CurrentModelFactory'
 export {
   type CreateModelDependenciesOptions,
   createModelDependencies,
