@@ -1,35 +1,10 @@
-import type { ModelInterface } from '../models/types'
 import { enrichModelFromRegistry } from '../model-registry/enrich'
+import type { ModelInterface } from '../models/types'
 import { mergeSharedOAuthProviderSettings, resolveEffectiveApiKey } from '../oauth'
-import type { Config, ProviderModelInfo, ProviderSettings, SessionSettings, Settings } from '../types'
+import type { Config, ProviderModelInfo, SessionSettings, Settings } from '../types'
 import type { ModelDependencies } from '../types/adapters'
 import { apiStyleFromProviderType } from './api-style'
-// ChatboxAI must be imported first to ensure it appears at the top of provider lists
-// Import order determines display order in UI (side-effect registration into Map)
-import './definitions/chatboxai'
-import './definitions/openai'
-import './definitions/openai-responses'
-import './definitions/gemini'
-import './definitions/claude'
-import './definitions/deepseek'
-import './definitions/qwen'
-import './definitions/qwen-portal'
-import './definitions/minimax'
-import './definitions/moonshot'
-import './definitions/siliconflow'
-import './definitions/openrouter'
-import './definitions/ollama'
-import './definitions/lmstudio'
-import './definitions/azure'
-import './definitions/groq'
-import './definitions/xai'
-import './definitions/mistral-ai'
-import './definitions/perplexity'
-import './definitions/volcengine'
-import './definitions/chatglm'
-import './definitions/github-copilot'
-import './definitions/bedrock'
-import './definitions/vercel-ai-gateway'
+import './builtin-registration'
 import {
   clearProviderRegistry,
   defineProvider,
@@ -37,6 +12,7 @@ import {
   getProviderDefinition,
   getSystemProviders,
   hasProvider,
+  isProviderAvailableOnPlatform,
 } from './registry'
 import type { CreateModelConfig, ProviderDefinition, ProviderDefinitionInput } from './types'
 import { createCustomProviderModel } from './utils'
@@ -48,6 +24,7 @@ export {
   getProviderDefinition,
   getSystemProviders,
   hasProvider,
+  isProviderAvailableOnPlatform,
 }
 export type { CreateModelConfig, ProviderDefinition, ProviderDefinitionInput }
 

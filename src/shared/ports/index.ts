@@ -56,6 +56,7 @@ export interface CoreRuntimePorts {
 }
 
 export type { LoggerPort, LogLevel } from './logger'
+export type { ModelFactoryPort } from './model-factory'
 export {
   type SessionDataRepositoryPort,
   type SessionMetaRepositoryPort,
@@ -63,3 +64,5 @@ export {
   type SessionRepositoryOperation,
   type SessionRepositoryPort,
 } from './session-repository'
+export type { SettingsRepositoryPort, SettingsUpdate } from './settings-repository'
+export type { SettingsStoragePort } from './settings-storage'

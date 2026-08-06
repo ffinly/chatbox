@@ -374,7 +374,10 @@ export default abstract class AbstractAISDKModel implements ModelInterface {
         let next: { type: 'chunk'; iteration: IteratorResult<TextStreamPart<T>> } | { type: 'status' }
         try {
           next = await Promise.race([
-            nextChunk.then((iteration) => ({ type: 'chunk' as const, iteration })),
+            nextChunk.then((iteration: IteratorResult<TextStreamPart<T>>) => ({
+              type: 'chunk' as const,
+              iteration,
+            })),
             statusWait.promise.then(() => ({ type: 'status' as const })),
           ])
         } finally {
