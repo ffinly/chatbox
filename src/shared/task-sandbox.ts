@@ -1,4 +1,14 @@
-export const TASK_SANDBOX_DENY_READ_PATHS = ['~/.ssh', '~/.gnupg', '~/.aws', '~/.config/gh']
+export const TASK_SANDBOX_DENY_READ_PATHS = [
+  '~/.ssh',
+  '~/.gnupg',
+  '~/.aws',
+  '~/.config/gh',
+  '~/.kube',
+  '~/.npmrc',
+  '~/.netrc',
+  '~/.docker',
+  '~/.config/gcloud',
+]
 
 export const TASK_SANDBOX_DENY_WRITE_PATHS = ['.env', '.env.local', '.env.production']
 

@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import type { MarketplaceSkill } from '@shared/types/skills'
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { getLoginShellPath } from '../sandbox/login-shell-env'
 import { getLogger } from '../util'
 import { discoverBuiltinSkills, ensureBuiltinSeeded, syncBuiltinSkills } from './builtin-sync'
 import { discoverAgentSkills, discoverClaudeSkills, discoverSkills } from './discovery'
@@ -66,6 +67,9 @@ function getOrBuildSkillCache(): Map<string, string> {
 }
 
 export function registerSkillsHandlers() {
+  // Warm the login-shell PATH probe at startup so user_exec's non-blocking read
+  // (getLoginShellPathIfReady) is settled well before the first approved command.
+  void getLoginShellPath()
   // 确保打包种子已落地，保证内置 skill 立即可用（含离线）
   ensureBuiltinSeeded()
   // 后台静默从后端同步内置 skill，有更新则覆盖快照并通知 renderer 刷新

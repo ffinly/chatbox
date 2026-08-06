@@ -4,6 +4,7 @@ import type { UserExecApprovalSource } from '@shared/types/user-exec'
 import { buildOperationFinishLog, buildOperationStartLog, createOperationId } from '../operation-log'
 import { killProcessTree } from '../process-tree'
 import { buildPowerShellStdinScript } from '../sandbox/exec-script'
+import { getLoginShellPathIfReady } from '../sandbox/login-shell-env'
 import { getLogger } from '../util'
 import { resolveWindowsPowerShell } from '../windows-powershell'
 
@@ -111,6 +112,13 @@ export async function executeUserExecCommand(params: UserExecParams): Promise<Us
     const shellCommand = powershell?.cmd ?? 'bash'
     const shellArgs = powershell?.args ?? ['-lc', command]
 
+    // GUI-launched Electron inherits launchd's minimal PATH; `bash -l` alone doesn't recover
+    // it on macOS (Homebrew configures zsh's ~/.zprofile, which bash never sources). Read the
+    // cached value synchronously: an await here would delay spawn and open a window in which
+    // cancellation cannot find the child.
+    const loginShellPath = getLoginShellPathIfReady()
+    const spawnEnv = loginShellPath ? { ...process.env, PATH: loginShellPath } : process.env
+
     return await new Promise((resolve) => {
       let stdout = ''
       let stderr = ''
@@ -145,7 +153,7 @@ export async function executeUserExecCommand(params: UserExecParams): Promise<Us
       const child = spawn(shellCommand, shellArgs, {
         cwd,
         stdio: [isWindows ? 'pipe' : 'ignore', 'pipe', 'pipe'],
-        env: process.env,
+        env: spawnEnv,
         shell: false,
         // Keep the command in its own POSIX process group so cancellation also
         // terminates descendants. Windows uses taskkill /T in killProcessTree.

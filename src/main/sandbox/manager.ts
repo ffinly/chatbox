@@ -35,6 +35,7 @@ import { getLogger } from '../util'
 import { resolveWindowsPowerShell } from '../windows-powershell'
 import { buildSandboxStdinScript, stripCodesignNoise } from './exec-script'
 import { buildSandboxReadScript } from './file-read'
+import { getLoginShellPath } from './login-shell-env'
 import { isUnsafeResolvedPath } from './path-safety'
 import { headTruncate, tailTruncate } from './truncate'
 
@@ -566,6 +567,9 @@ export async function initSandbox(
     return { success: true, acceptedWorkingDirectories: safeUserWriteGrants.map((grant) => grant.root) }
   }
 
+  // Warm the login-shell PATH cache so the first exec doesn't pay the shell-fork latency.
+  void getLoginShellPath()
+
   try {
     // Initialize the global SandboxManager once (shared across sessions).
     // Per-session config is passed via customConfig to wrapWithSandbox().
@@ -728,6 +732,10 @@ export async function execCode(params: {
     spawnArgs = argv.slice(1)
     // On macOS/Linux wrappedEnv is process.env with proxy vars baked in; layer overrides on top.
     spawnEnv = { ...wrappedEnv, ...envOverrides }
+    // GUI-launched Electron inherits launchd's minimal PATH (missing /opt/homebrew/bin,
+    // ~/.local/bin, version-manager shims, …), so user-installed commands would not resolve.
+    const loginShellPath = await getLoginShellPath()
+    if (loginShellPath) spawnEnv.PATH = loginShellPath
   }
 
   // Windows Bash (especially WSL) must keep resolving `node` from its own PATH; a Windows
