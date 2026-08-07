@@ -317,13 +317,20 @@ describe('cloneMessage', () => {
     })
 
     const cloned = cloneMessage(original)
+    const clonedFile = cloned.files?.[0]
+    const clonedLink = cloned.links?.[0]
+    const originalFile = original.files?.[0]
+    const originalLink = original.links?.[0]
+    if (!clonedFile || !clonedLink || !originalFile || !originalLink) {
+      throw new Error('Expected cloned message attachments')
+    }
     cloned.contentParts[0] = { type: 'text', text: 'changed' }
-    cloned.files![0].name = 'b.txt'
-    cloned.links![0].title = 'Changed'
+    clonedFile.name = 'b.txt'
+    clonedLink.title = 'Changed'
 
     expect(original.contentParts[0]).toEqual({ type: 'text', text: 'source' })
-    expect(original.files![0].name).toBe('a.txt')
-    expect(original.links![0].title).toBe('Example')
+    expect(originalFile.name).toBe('a.txt')
+    expect(originalLink.title).toBe('Example')
   })
 
   it('deep clones nested fields', () => {
@@ -635,6 +642,46 @@ describe('sequenceMessages', () => {
       { type: 'text', text: 'a2' },
     ])
     expect(result[2].contentParts).toEqual([{ type: 'text', text: 'u3' }])
+  })
+
+  it('restores steered users before the assistant they affected instead of replaying them', () => {
+    // Shape produced by steering: user → assistant(tool calls) → steered user → queued user
+    const toolCallPart = {
+      type: 'tool-call' as const,
+      state: 'result' as const,
+      toolCallId: 'tool-1',
+      toolName: 'search',
+      args: {},
+      result: { ok: true },
+    }
+    const input = [
+      createMessage({ id: 'u1', role: 'user', contentParts: [{ type: 'text', text: 'do the task' }] }),
+      createMessage({ id: 'a1', role: 'assistant', contentParts: [toolCallPart, { type: 'text', text: 'done' }] }),
+      createMessage({
+        id: 'steered-1',
+        role: 'user',
+        steered: true,
+        contentParts: [{ type: 'text', text: 'also check X' }],
+      }),
+      createMessage({
+        id: 'steered-2',
+        role: 'user',
+        steered: true,
+        contentParts: [{ type: 'text', text: 'then check Z' }],
+      }),
+      createMessage({ id: 'queued', role: 'user', contentParts: [{ type: 'text', text: 'and Y' }] }),
+    ]
+
+    const result = sequenceMessages(input)
+
+    expect(result.map((m) => m.role)).toEqual(['user', 'assistant', 'user'])
+    expect(result[0].contentParts).toEqual([
+      { type: 'text', text: 'do the task' },
+      { type: 'text', text: 'also check X' },
+      { type: 'text', text: 'then check Z' },
+    ])
+    expect(result[1].contentParts).toEqual([toolCallPart, { type: 'text', text: 'done' }])
+    expect(result[2].contentParts).toEqual([{ type: 'text', text: 'and Y' }])
   })
 
   it('quotes first assistant message into first user message', () => {

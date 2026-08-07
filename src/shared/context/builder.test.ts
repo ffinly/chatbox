@@ -74,6 +74,22 @@ describe('buildContext', () => {
   })
 
   describe('message limit', () => {
+    it('orders a persisted steered user before the assistant reply prior to limiting', async () => {
+      const messages: Message[] = [
+        createMessage({ id: 'original', role: 'user' }),
+        createMessage({ id: 'reply', role: 'assistant' }),
+        createMessage({ id: 'steered', role: 'user', steered: true }),
+        createMessage({ id: 'next', role: 'user' }),
+      ]
+
+      const result = await buildContext(messages, {
+        attachmentResolver: createMockResolver(),
+        maxContextMessageCount: 2,
+      })
+
+      expect(result.map((message) => message.id)).toEqual(['steered', 'reply', 'next'])
+    })
+
     it('should limit messages to maxContextMessageCount', async () => {
       const messages: Message[] = [
         createMessage({ id: '1', role: 'user', contentParts: [{ type: 'text', text: 'First' }] }),

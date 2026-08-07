@@ -23,6 +23,7 @@ import type {
 import { getMessageText } from '@shared/utils/message'
 import {
   IconArrowDown,
+  IconArrowUp,
   IconChevronDown,
   IconClockHour3,
   IconCode,
@@ -1138,6 +1139,14 @@ const _Message: FC<Props> = (props) => {
           className="overflow-hidden"
         >
           {tipsElements}
+        </Flex>
+      )}
+      {msg.steered && (
+        <Flex align="center" gap={4} justify={isRightAlignedMessage ? 'flex-end' : 'flex-start'}>
+          <IconArrowUp size={11} className="text-[var(--mantine-color-chatbox-brand-filled)] flex-shrink-0" />
+          <Text size="xs" c="chatbox-brand">
+            {t('Interjected · seen by the model')}
+          </Text>
         </Flex>
       )}
     </Flex>

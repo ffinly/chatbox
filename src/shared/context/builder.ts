@@ -1,5 +1,6 @@
 import { isTextFilePath } from '../file-extensions'
 import type { CompactionPoint, Message, MessageContentParts } from '../types'
+import { orderSteeredMessagesForModel } from '../utils/message'
 import { findLatestApplicableCompactionPoint } from './compaction-points'
 import { isContextEligibleMessage } from './message-eligibility'
 import type { AttachmentResolver, ContextBuilderOptions } from './types'
@@ -26,7 +27,11 @@ export async function buildContext(messages: Message[], options: ContextBuilderO
     return []
   }
 
-  const completedMessages = messages.filter(isContextEligibleMessage)
+  // Steered users are stored after the assistant reply for transcript display,
+  // but the model consumed them before that reply completed. Restore causal
+  // order before compaction and message limits so they are never replayed as an
+  // unanswered trailing turn (including with a small context-message limit).
+  const completedMessages = orderSteeredMessagesForModel(messages).filter(isContextEligibleMessage)
 
   if (completedMessages.length === 0) {
     return []

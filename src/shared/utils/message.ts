@@ -187,13 +187,14 @@ function isEmptyForModelRequest(message: Message): boolean {
  * @returns
  */
 export function sequenceMessages(msgs: Message[]): Message[] {
+  const orderedMessages = orderSteeredMessagesForModel(msgs)
   // Merge all system messages first
   let system: Message = {
     id: '',
     role: 'system',
     contentParts: [],
   }
-  for (const msg of msgs) {
+  for (const msg of orderedMessages) {
     if (msg.role === 'system') {
       system = mergeMessages(system, msg)
     }
@@ -206,7 +207,7 @@ export function sequenceMessages(msgs: Message[]): Message[] {
     contentParts: [],
   }
   let isFirstUserMsg = true // Special handling for the first user message
-  for (const msg of msgs) {
+  for (const msg of orderedMessages) {
     // Skip the already processed system messages or empty messages
     if (msg.role === 'system' || isEmptyForModelRequest(msg)) {
       continue
@@ -258,4 +259,29 @@ export function sequenceMessages(msgs: Message[]): Message[] {
     ret[0].role = 'user'
   }
   return ret
+}
+
+/**
+ * Steering messages are stored after the assistant message they interrupted so
+ * the transcript follows the queue UI's visual order. For future model calls,
+ * restore the causal order: the model saw those user messages before completing
+ * that assistant reply, so they must not remain as unanswered trailing turns.
+ *
+ * Multiple consecutive steered messages keep their original order. The
+ * transform is idempotent, which lets both context construction (before message
+ * limits/compaction) and final request sequencing apply it safely.
+ */
+export function orderSteeredMessagesForModel(messages: Message[]): Message[] {
+  const ordered = [...messages]
+  for (let index = 1; index < ordered.length; index += 1) {
+    const message = ordered[index]
+    if (message.role !== 'user' || !message.steered) continue
+
+    const previous = ordered[index - 1]
+    if (previous.role !== 'assistant') continue
+
+    ordered.splice(index, 1)
+    ordered.splice(index - 1, 0, message)
+  }
+  return ordered
 }

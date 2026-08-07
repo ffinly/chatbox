@@ -24,7 +24,14 @@ import { getSessionAgentModeEntry, lockSessionAgentMode, setSessionAgentMode } f
 import { findMessageLocation } from '@/stores/session/forks'
 import { withSessionGenerationLock } from '@/stores/session/generation-lock'
 import { generationRuntimeStore } from '@/stores/session/generation-runtime'
-import { modifyMessage, persistStreamingMessage, updateStreamingCache } from '@/stores/session/messages'
+import { wakeQueuedUserMessages } from '@/stores/session/message-queue'
+import {
+  insertMessageAfter,
+  modifyMessage,
+  persistStreamingMessage,
+  updateStreamingCache,
+} from '@/stores/session/messages'
+import { registerSteeringConsumer } from '@/stores/session/steering'
 import { buildToolsForSession } from '@/stores/session/tools-builder'
 import {
   findTargetMessageIndex,
@@ -207,6 +214,13 @@ const dependencies: GenerationServiceDependencies<ModelDependencies> = {
   coordination: {
     runExclusive: (sessionId, operation) => withSessionGenerationLock(sessionId, operation),
     wakeBackgroundTaskFollowUps: (sessionId) => wakeBackgroundTaskFollowUps(sessionId),
+  },
+  steering: {
+    register: (sessionId, anchorMessageId, conversationMessageIds) =>
+      registerSteeringConsumer(sessionId, anchorMessageId, conversationMessageIds, (message, afterMessageId) =>
+        insertMessageAfter(sessionId, message, afterMessageId)
+      ),
+    wake: (sessionId) => wakeQueuedUserMessages(sessionId),
   },
   runtime: generationRuntimeStore,
   blobs: new CurrentBlobStorage(),

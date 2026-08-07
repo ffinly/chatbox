@@ -13,7 +13,7 @@ import { KNOWLEDGE_BASE_MAX_FILE_SIZE, KNOWLEDGE_BASE_MAX_FILE_SIZE_LABEL } from
 import { listPendingApprovalToolCalls } from '@shared/message-approval'
 import { isDeepSeekWeakToolUse } from '@shared/models/utils/deepseek'
 import { getModel } from '@shared/providers'
-import { getSessionActionGate, getSubmitAvailability } from '@shared/session/action-gates'
+import { getSubmitAvailability } from '@shared/session/action-gates'
 import { formatNumber } from '@shared/utils'
 import { resolveReasoningProviderOptions } from '@shared/utils/reasoning-control'
 import {
@@ -99,6 +99,7 @@ import {
   type ShortcutSendValue,
 } from '../../../shared/types'
 import * as dom from '../../hooks/dom'
+import { enqueueUserMessage, messageQueueStore, resumeQueueAndDrain } from '../../stores/session/message-queue'
 import { startPreparedSessionAttachmentIndexing } from '../../stores/sessionAttachmentRagIndexing'
 import * as sessionHelpers from '../../stores/sessionHelpers'
 import * as toastActions from '../../stores/toastActions'
@@ -116,8 +117,10 @@ import { getAgentModeUIState } from './agentModeState'
 import { ImageUploadInput } from './ImageUploadInput'
 import { MessageInputField, type MessageInputFieldRef } from './MessageInputField'
 import { cleanupFile, markFileProcessing, onFileProcessed, storeFilePromise } from './preprocessState'
+import { QueuedMessagesBar } from './QueuedMessagesBar'
 import ReasoningControlButton from './ReasoningControlButton'
 import { getTrailingSkillCommand, insertSkillCommandText } from './skillCommand'
+import { getSubmitAction } from './submitAction'
 import TokenCountMenu from './TokenCountMenu'
 import { useReasoningControlState } from './useReasoningControlState'
 
@@ -836,24 +839,26 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
     const insertFilesRef = useRef<(files: File[], options?: InsertFilesOptions) => void>(() => {})
 
     const handleSubmit = async (needGenerating = true, options: SubmitOptions = {}) => {
-      // Streaming replies stay a silent no-op: the Stop button is the
-      // affordance, and the textarea is intentionally editable for drafting,
-      // so Enter must not toast on every press.
-      if (submitAvailability.control === 'stop') {
-        return
-      }
-      // The remaining session-level blocks (compaction, pending approval) get
-      // the standard notice — the textarea is read-only but Enter still fires.
-      const sessionGate = getSessionActionGate('submit-message', sessionLocks)
-      if (!sessionGate.allowed) {
-        void notifySessionLockBlocked(sessionGate.reason, t)
-        return
-      }
-      if (disableSubmit || isSubmitting || isPreprocessing || hasPreprocessErrors || hasBlockedSessionRagFiles) {
-        return
-      }
-
-      if (!model) {
+      const submitAction = getSubmitAction({
+        generating,
+        needGenerating,
+        sessionType,
+        queueLength: currentSessionId ? (messageQueueStore.getState().queues[currentSessionId]?.length ?? 0) : 0,
+        blockedForOtherReasons:
+          disableSubmit ||
+          isSubmitting ||
+          isPreprocessing ||
+          submitAvailability.blockReason !== undefined ||
+          hasPreprocessErrors ||
+          hasBlockedSessionRagFiles,
+        hasModel: Boolean(model),
+      })
+      if (submitAction === 'block' || (submitAction !== 'send' && !currentSessionId)) {
+        // Compaction and approval blocks keep the standard notice. A generating
+        // reply is intentionally handled by the queue action instead.
+        if (submitAvailability.blockReason) {
+          void notifySessionLockBlocked(submitAvailability.blockReason, t)
+        }
         return
       }
 
@@ -904,37 +909,60 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
 
         const messageTextForHistory = latestMessage.contentParts.find((p) => p.type === 'text')?.text || ''
 
+        const finalizeUserMessageDraft = () => {
+          messageInputFieldRef.current?.clearDraft()
+          draftMessageIdRef.current = undefined
+          setPreConstructedMessage({
+            draftMessageId: undefined,
+            text: '',
+            pictureKeys: [],
+            attachments: [],
+            links: [],
+            preprocessedFiles: [],
+            preprocessedLinks: [],
+            preprocessingStatus: {
+              files: {},
+              links: {},
+            },
+            preprocessingPromises: {
+              files: new Map(),
+              links: new Map(),
+            },
+            message: undefined,
+          })
+          setShowRollbackThreadButton(false)
+          markReasoningSettingsCommitted()
+          if (platform.type !== 'mobile' && messageTextForHistory) {
+            addInputBoxHistory(messageTextForHistory)
+          }
+        }
+
+        if (submitAction === 'queue' || submitAction === 'queue-resume') {
+          if (!currentSessionId) {
+            return
+          }
+          // Queued delivery reads session settings later; a dirty reasoning-level
+          // change must land before finalize clears its state (same as the send path).
+          await waitForReasoningPersist()
+          const enqueueResult = enqueueUserMessage(currentSessionId, latestMessage, currentSession?.messages.at(-1)?.id)
+          if (enqueueResult !== 'queued') {
+            // The draft is kept in both failure cases — it is the only copy of the text.
+            toastActions.add(enqueueResult === 'full' ? t('Message queue is full') : t('Failed to queue the message'))
+            return
+          }
+          finalizeUserMessageDraft()
+          if (submitAction === 'queue-resume') {
+            resumeQueueAndDrain(currentSessionId)
+          }
+          trackingEvent('send_message', { event_category: 'user' })
+          return
+        }
+
         const params = {
           constructedMessage: latestMessage,
           needGenerating,
           settingsPatch: reasoningSettingsPatch,
-          onUserMessageReady: () => {
-            messageInputFieldRef.current?.clearDraft()
-            draftMessageIdRef.current = undefined
-            setPreConstructedMessage({
-              draftMessageId: undefined,
-              text: '',
-              pictureKeys: [],
-              attachments: [],
-              links: [],
-              preprocessedFiles: [],
-              preprocessedLinks: [],
-              preprocessingStatus: {
-                files: {},
-                links: {},
-              },
-              preprocessingPromises: {
-                files: new Map(),
-                links: new Map(),
-              },
-              message: undefined,
-            })
-            setShowRollbackThreadButton(false)
-            markReasoningSettingsCommitted()
-            if (platform.type !== 'mobile' && messageTextForHistory) {
-              addInputBoxHistory(messageTextForHistory)
-            }
-          },
+          onUserMessageReady: finalizeUserMessageDraft,
         }
 
         // Ensure an in-flight reasoning-level persist has landed before generation reads session settings
@@ -1407,6 +1435,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
         <input className="hidden" {...getInputProps()} />
         <Stack className={cn('overflow-visible', widthFull ? 'w-full' : 'max-w-4xl mx-auto')} gap="xs">
           {currentSessionId && <CompactionStatus sessionId={currentSessionId} />}
+          {currentSessionId && !isNewSession && <QueuedMessagesBar sessionId={currentSessionId} />}
           <Box
             ref={skillMenuAnchorRef}
             className={cn(
@@ -1478,9 +1507,11 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                 viewportHeight={viewportHeight}
                 isReadOnly={submitAvailability.blockReason !== undefined}
                 placeholder={
-                  submitAvailability.blockReason === 'awaiting-approval'
+                  submitAvailability.blockReason !== undefined
                     ? getSessionLockNotice(submitAvailability.blockReason, t)
-                    : t('Type your question here...') || ''
+                    : generating
+                      ? t('Type a message, press Enter to queue it') || ''
+                      : t('Type your question here...') || ''
                 }
                 ariaLabel={t('Type your question here...') || ''}
                 autoFocus={!isSmallScreen}
@@ -1489,6 +1520,24 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                 onKeyDown={onKeyDown}
                 onPaste={onPaste}
               />
+
+              {/* Queue Button: the only touch-accessible enqueue path (mobile Enter
+                  inserts a newline, and the send button below becomes Stop). */}
+              {generating && (
+                <Tooltip label={t('Will send after the current response finishes')} withArrow>
+                  <ActionIcon
+                    data-testid={TestId.chat.queuedMessageEnqueue}
+                    disabled={submitBlocked}
+                    size={32}
+                    variant="light"
+                    color="chatbox-brand"
+                    radius="lg"
+                    onClick={() => handleSubmit()}
+                  >
+                    <ScalableIcon icon={IconArrowUp} size={16} />
+                  </ActionIcon>
+                </Tooltip>
+              )}
 
               {/* Send Button */}
               <Tooltip

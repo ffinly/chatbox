@@ -1,6 +1,6 @@
-import type { ModelInterface, ModelStreamPart } from '@shared/models/types'
+import type { ChatStreamOptions, ModelInterface, ModelStreamPart } from '@shared/models/types'
 import type { Config, Message, Session, SessionSettings, Settings } from '@shared/types'
-import type { ToolSet } from 'ai'
+import type { ModelMessage, ToolSet } from 'ai'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { generationStreamFixture } from './__fixtures__/generation-stream'
 import { GenerationService, type GenerationServiceDependencies, type GenerationSessionPort } from './GenerationService'
@@ -43,8 +43,16 @@ interface Harness {
   session: Session
   globalSettings: Settings
   trackPauseAction: ReturnType<typeof vi.fn>
+  steeringInject: ReturnType<typeof vi.fn>
+  steeringRegister: ReturnType<typeof vi.fn>
+  steeringRelease: ReturnType<typeof vi.fn>
+  steeringWake: ReturnType<typeof vi.fn>
   model: ModelInterface
   setStreamFactory(factory: () => AsyncGenerator<ModelStreamPart<ToolSet>>): void
+  setChatStreamFactory(
+    factory: (messages: ModelMessage[], options: ChatStreamOptions) => AsyncGenerator<ModelStreamPart<ToolSet>>
+  ): void
+  setPrepareStep(prepareStep: ChatStreamOptions['prepareStep']): void
   setTools(tools: ToolSet): void
   failSessionSettingsUpdate(error: Error): void
   enableAgentModeSuggestion(result: Message['contentParts']): void
@@ -64,11 +72,17 @@ function createHarness(): Harness {
   const runtime = new GenerationRuntimeStore()
   let now = 1_000
   let streamFactory = () => stream([])
+  let chatStreamFactory = (_messages: ModelMessage[], _options: ChatStreamOptions) => streamFactory()
+  let prepareStep: ChatStreamOptions['prepareStep']
   let pausedTools: ToolSet = {}
   let agentModeSuggestionEnabled = false
   let suggestionResult: Message['contentParts'] = []
   let sessionSettingsUpdateError: Error | undefined
   const trackPauseAction = vi.fn()
+  const steeringInject = vi.fn((_messages: ModelMessage[]) => Promise.resolve(undefined as ModelMessage[] | undefined))
+  const steeringRelease = vi.fn()
+  const steeringRegister = vi.fn(() => ({ inject: steeringInject, release: steeringRelease }))
+  const steeringWake = vi.fn()
 
   const model = {
     name: 'Test',
@@ -79,7 +93,7 @@ function createHarness(): Harness {
     isSupportSystemMessage: () => true,
     normalizeCompletedResponse: (parts: Message['contentParts']) => parts,
     chat: () => Promise.resolve({ contentParts: suggestionResult }),
-    chatStream: () => streamFactory(),
+    chatStream: (messages: ModelMessage[], options: ChatStreamOptions) => chatStreamFactory(messages, options),
   } as unknown as ModelInterface
 
   const sessions: GenerationSessionPort = {
@@ -156,7 +170,7 @@ function createHarness(): Harness {
           promptMessages: request.messages.slice(0, request.targetMessageIndex),
           coreMessages: [],
           tools: {},
-          chatOptions: { signal: request.signal },
+          chatOptions: { signal: request.signal, prepareStep },
           infoParts: [],
           fallbackToolCallPart: undefined,
         }),
@@ -172,6 +186,10 @@ function createHarness(): Harness {
       wakeBackgroundTaskFollowUps: (sessionId) => {
         coordinationEvents.push(`wake:${sessionId}`)
       },
+    },
+    steering: {
+      register: steeringRegister,
+      wake: steeringWake,
     },
     runtime,
     blobs: {
@@ -219,9 +237,19 @@ function createHarness(): Harness {
     session,
     globalSettings,
     trackPauseAction,
+    steeringInject,
+    steeringRegister,
+    steeringRelease,
+    steeringWake,
     model,
     setStreamFactory(factory) {
       streamFactory = factory
+    },
+    setChatStreamFactory(factory) {
+      chatStreamFactory = factory
+    },
+    setPrepareStep(nextPrepareStep) {
+      prepareStep = nextPrepareStep
     },
     setTools(tools) {
       pausedTools = tools
@@ -274,6 +302,48 @@ describe('GenerationService', () => {
     expect(finalMessage.cancel).toBeUndefined()
     expect(harness.persisted.filter(({ refreshCounting }) => refreshCounting)).toHaveLength(1)
     expect(harness.runtime.get('session-1')).toBeUndefined()
+  })
+
+  it('wires steering into prepareStep and releases it when generation settles', async () => {
+    const basePrepareStep = vi.fn(() => Promise.resolve({ activeTools: ['tool_a'] }))
+    harness.setPrepareStep(basePrepareStep)
+    harness.steeringInject
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce([{ role: 'user', content: 'steered' }])
+
+    const stepResults: unknown[] = []
+    harness.setChatStreamFactory((_messages, options) =>
+      (async function* streamWithSteering() {
+        const prepareStep = options.prepareStep
+        if (!prepareStep) throw new Error('Expected prepareStep to be wired')
+        const prepareOptions = {
+          steps: [],
+          stepNumber: 0,
+          model: {},
+          messages: [{ role: 'user', content: 'Hello' }] as ModelMessage[],
+          experimental_context: undefined,
+        } as unknown as Parameters<NonNullable<ChatStreamOptions['prepareStep']>>[0]
+        stepResults.push(await prepareStep(prepareOptions))
+        stepResults.push(await prepareStep(prepareOptions))
+        yield { type: 'finish', finishReason: 'stop' } as ModelStreamPart<ToolSet>
+      })()
+    )
+
+    await harness.service.orchestrate('session-1', targetMessage())
+
+    // Steered messages anchor after the target assistant message: the send
+    // order in the conversation follows the reply the user interjected below.
+    expect(harness.steeringRegister).toHaveBeenCalledWith(
+      'session-1',
+      'assistant-1',
+      new Set(['user-1', 'assistant-1'])
+    )
+    expect(stepResults).toEqual([
+      { activeTools: ['tool_a'] },
+      { activeTools: ['tool_a'], messages: [{ role: 'user', content: 'steered' }] },
+    ])
+    expect(harness.steeringRelease).toHaveBeenCalledOnce()
+    expect(harness.steeringWake).toHaveBeenCalledWith('session-1')
   })
 
   it('persists a tool-call checkpoint immediately instead of waiting for the periodic interval', async () => {

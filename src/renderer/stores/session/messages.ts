@@ -21,8 +21,8 @@ import { getSessionWebBrowsing } from './utils'
 
 const log = getLogger('session-messages')
 
-async function attachLargeFileRagMetadata(sessionId: string, message: Message): Promise<Message> {
-  if (platform.type !== 'desktop' || !message.files?.length) {
+export async function attachLargeFileRagMetadata(sessionId: string, message: Message): Promise<Message> {
+  if (!platform.isDesktopLike || !message.files?.length) {
     return message
   }
 
@@ -204,7 +204,7 @@ export function submitNewUserMessage(
   })
 }
 
-async function submitNewUserMessageUnlocked(
+export async function submitNewUserMessageUnlocked(
   sessionId: string,
   params: { newUserMsg: Message; needGenerating: boolean; onUserMessageReady?: () => void }
 ) {

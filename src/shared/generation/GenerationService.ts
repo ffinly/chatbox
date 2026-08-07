@@ -175,6 +175,20 @@ export interface GenerationCoordinationPort {
   wakeBackgroundTaskFollowUps(sessionId: string): Promise<void> | void
 }
 
+export interface GenerationSteeringConsumer {
+  inject(messages: ModelMessage[]): Promise<ModelMessage[] | undefined>
+  release(): void
+}
+
+export interface GenerationSteeringPort {
+  register(
+    sessionId: string,
+    anchorMessageId: string,
+    conversationMessageIds: ReadonlySet<string>
+  ): GenerationSteeringConsumer | null
+  wake(sessionId: string): void
+}
+
 export interface GenerationHostPort {
   getConfig(): Promise<Config>
   getKnowledgeBase(sessionId: string): Pick<KnowledgeBase, 'id' | 'name'> | undefined
@@ -235,6 +249,7 @@ export interface GenerationServiceDependencies<TContext> {
   preparation: GenerationPreparationPort<TContext>
   tools: GenerationToolExecutionPort
   coordination: GenerationCoordinationPort
+  steering?: GenerationSteeringPort
   runtime: GenerationRuntimeStore
   blobs: Pick<BlobStoragePort, 'set'>
   attachments: AttachmentContentPort
@@ -333,6 +348,16 @@ export class GenerationService<TContext> {
         return
       }
     }
+
+    // User-requested queue jumps are persisted AFTER the target assistant
+    // message: the user interjected below the reply they were watching, and the
+    // send order in the conversation must follow it (queue UI design decision).
+    const steering =
+      this.dependencies.steering?.register(
+        sessionId,
+        targetMessage.id,
+        new Set(messages.map((message) => message.id))
+      ) ?? null
 
     let processorState = createInitialState()
     const infoParts: MessageContentParts = []
@@ -454,6 +479,17 @@ export class GenerationService<TContext> {
       }
 
       const chatOptions = { ...prepared.chatOptions }
+      if (steering) {
+        const basePrepareStep = chatOptions.prepareStep
+        chatOptions.prepareStep = async (prepareStepOptions) => {
+          const base = await basePrepareStep?.(prepareStepOptions)
+          const injectedMessages = await steering.inject(prepareStepOptions.messages).catch((error) => {
+            this.dependencies.logger.log('error', 'Steering injection failed', { error })
+            return undefined
+          })
+          return injectedMessages ? { ...(base ?? {}), messages: injectedMessages } : (base ?? {})
+        }
+      }
       if (Object.keys(prepared.tools).length > 0) {
         chatOptions.tools = shouldPauseOnToolCallLimit(settings, globalSettings)
           ? withToolCallLimitPause(prepared.tools, MAX_TOOL_CALLS_BEFORE_CONFIRMATION)
@@ -647,19 +683,27 @@ export class GenerationService<TContext> {
       await sessions.persistStreamingMessage(sessionId, targetMessage, { refreshCounting: true })
     } finally {
       this.dependencies.runtime.finishActive(sessionId, generationMessageId, runtimeState)
+      steering?.release()
+      this.dependencies.steering?.wake(sessionId)
     }
   }
 
   stopPausedToolCall(sessionId: string, messageId: string, toolCallId: string): Promise<void> {
     return this.dependencies.coordination
       .runExclusive(sessionId, () => this.stopPausedToolCallUnlocked(sessionId, messageId, toolCallId))
-      .finally(() => this.dependencies.coordination.wakeBackgroundTaskFollowUps(sessionId))
+      .finally(() => {
+        this.dependencies.coordination.wakeBackgroundTaskFollowUps(sessionId)
+        this.dependencies.steering?.wake(sessionId)
+      })
   }
 
   continuePausedToolCall(sessionId: string, messageId: string, toolCallId: string): Promise<void> {
     return this.dependencies.coordination
       .runExclusive(sessionId, () => this.continuePausedToolCallUnlocked(sessionId, messageId, toolCallId))
-      .finally(() => this.dependencies.coordination.wakeBackgroundTaskFollowUps(sessionId))
+      .finally(() => {
+        this.dependencies.coordination.wakeBackgroundTaskFollowUps(sessionId)
+        this.dependencies.steering?.wake(sessionId)
+      })
   }
 
   /** Persist a tool-limit opt-out, then resume the paused batch in the background. */
@@ -695,7 +739,10 @@ export class GenerationService<TContext> {
             skipPauseActionTracking: true,
           })
         )
-        .finally(() => coordination.wakeBackgroundTaskFollowUps(sessionId))
+        .finally(() => {
+          coordination.wakeBackgroundTaskFollowUps(sessionId)
+          this.dependencies.steering?.wake(sessionId)
+        })
         .catch((error) => logger.log('error', 'Failed to continue the paused tool call', { error }))
     }
   }

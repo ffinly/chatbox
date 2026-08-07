@@ -70,11 +70,25 @@ export function updateSessionCacheSync(sessionId: string, updater: Updater<Sessi
   sessionQueryBridge.updateSessionCache(sessionId, updater)
 }
 
-export const deleteSession = sessionService.deleteSession.bind(sessionService)
+// Lazy import: message-queue.ts imports this module, so a static import would be circular.
+async function clearMessageQueues(sessionIds: string[]): Promise<void> {
+  const { clearQueue } = await import('./session/message-queue')
+  for (const sessionId of sessionIds) clearQueue(sessionId)
+}
+
+export async function deleteSession(sessionId: string): Promise<void> {
+  // Clear only after the deletion succeeded: queued messages are the sole copy
+  // of the user's text, and a failed deletion leaves the session (and queue) alive.
+  await sessionService.deleteSession(sessionId)
+  await clearMessageQueues([sessionId])
+}
 export const archiveSession = sessionService.archiveSession.bind(sessionService)
 export const archiveSessions = sessionService.archiveSessions.bind(sessionService)
 export const restoreSession = sessionService.restoreSession.bind(sessionService)
-export const deleteSessions = sessionService.deleteSessions.bind(sessionService)
+export async function deleteSessions(sessionIds: string[]): Promise<void> {
+  await sessionService.deleteSessions(sessionIds)
+  await clearMessageQueues(sessionIds)
+}
 
 // MARK: session settings operations
 

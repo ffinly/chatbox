@@ -316,6 +316,8 @@ export const MessageSchema = z.object({
   status: z.array(MessageStatusSchema).optional(),
   /** App-generated wake-up metadata. The message remains user-role for model turn sequencing. */
   backgroundTask: MessageBackgroundTaskSchema.optional(),
+  /** User message injected mid-generation via queue jumping (steering). */
+  steered: z.boolean().optional(),
   wordCount: z.number().optional(),
   tokenCount: z.number().optional(), // output token count
   tokensUsed: z.number().optional(), // deprecated, use `usage` instead

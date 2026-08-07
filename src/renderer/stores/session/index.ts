@@ -52,6 +52,15 @@ export {
 } from './generation'
 export type { GenerationCancellationPersistence } from './generation-cancellation'
 export { stopGeneratingMessages } from './generation-cancellation'
+// Message queue (queue user messages while a generation is running)
+export type { QueuedUserMessage, QueuePausedReason } from './message-queue'
+export {
+  clearQueue,
+  enqueueUserMessage,
+  messageQueueStore,
+  removeQueuedMessage,
+  resumeQueueAndDrain,
+} from './message-queue'
 export { hasContentForAutoTitle, hasSuccessfulUserAssistantTurn, isSuccessfulAssistantReply } from './message-success'
 // Message operations (5 functions)
 export {
