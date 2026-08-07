@@ -23,6 +23,7 @@ export interface GenerationRuntimeStoreOptions {
 export class GenerationRuntimeStore {
   private readonly states = new Map<string, Map<string, GenerationRuntimeState>>()
   private readonly unsettledStreamDrains = new Map<string, Set<Promise<void>>>()
+  private readonly listeners = new Set<() => void>()
   private readonly createAbortController: () => AbortController
 
   constructor(options: GenerationRuntimeStoreOptions = {}) {
@@ -39,6 +40,7 @@ export class GenerationRuntimeStore {
       abortController: this.createAbortController(),
     }
     sessionStates.set(messageId, state)
+    this.notify()
     return state
   }
 
@@ -59,6 +61,7 @@ export class GenerationRuntimeStore {
     if (!current) return undefined
     const next = { ...current, phase }
     this.states.get(sessionId)?.set(messageId, next)
+    this.notify()
     return next
   }
 
@@ -68,12 +71,14 @@ export class GenerationRuntimeStore {
       if (!sessionStates) return false
       for (const state of sessionStates.values()) state.abortController.abort(reason)
       this.states.delete(sessionId)
+      this.notify()
       return true
     }
     const current = this.getMatchingState(sessionId, messageId, expected)
     if (!current) return false
     current.abortController.abort(reason)
     this.deleteState(sessionId, messageId)
+    this.notify()
     return true
   }
 
@@ -85,16 +90,20 @@ export class GenerationRuntimeStore {
     const current = this.getMatchingState(sessionId, messageId, expected)
     if (!current || current.phase === 'paused') return false
     this.deleteState(sessionId, messageId)
+    this.notify()
     return true
   }
 
   clear(sessionId: string, messageId?: string, expected?: GenerationRuntimeState): boolean {
     if (messageId === undefined) {
-      return this.states.delete(sessionId)
+      const deleted = this.states.delete(sessionId)
+      if (deleted) this.notify()
+      return deleted
     }
     const current = this.getMatchingState(sessionId, messageId, expected)
     if (!current) return false
     this.deleteState(sessionId, messageId)
+    this.notify()
     return true
   }
 
@@ -126,12 +135,20 @@ export class GenerationRuntimeStore {
     return Promise.all([...drains]).then(() => {})
   }
 
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener)
+    return () => this.listeners.delete(listener)
+  }
+
   dispose(): void {
+    const hadStates = this.states.size > 0
     for (const sessionStates of this.states.values()) {
       for (const state of sessionStates.values()) state.abortController.abort()
     }
     this.states.clear()
     this.unsettledStreamDrains.clear()
+    if (hadStates) this.notify()
+    this.listeners.clear()
   }
 
   private getOrCreateSessionStates(sessionId: string): Map<string, GenerationRuntimeState> {
@@ -157,5 +174,9 @@ export class GenerationRuntimeStore {
     if (!sessionStates) return
     sessionStates.delete(messageId)
     if (sessionStates.size === 0) this.states.delete(sessionId)
+  }
+
+  private notify(): void {
+    for (const listener of this.listeners) listener()
   }
 }

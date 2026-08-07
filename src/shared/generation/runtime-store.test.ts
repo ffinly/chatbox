@@ -115,6 +115,22 @@ describe('GenerationRuntimeStore', () => {
     expect(store.waitForUnsettledStreamDrains('session-1')).toBeUndefined()
   })
 
+  it('notifies React bindings only for successful state changes', () => {
+    const store = createStore()
+    const listener = vi.fn()
+    const unsubscribe = store.subscribe(listener)
+
+    store.start('session-1', 'message-1')
+    store.setPhase('session-1', 'stale-message', 'streaming')
+    store.setPhase('session-1', 'message-1', 'streaming')
+    store.clear('session-1', 'message-1')
+
+    expect(listener).toHaveBeenCalledTimes(3)
+    unsubscribe()
+    store.start('session-2', 'message-2')
+    expect(listener).toHaveBeenCalledTimes(3)
+  })
+
   it('aborts all retained controllers when disposed', () => {
     const store = createStore()
     const first = store.start('session-1', 'message-1')

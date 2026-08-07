@@ -1,4 +1,5 @@
 import { SplashScreen } from '@capacitor/splash-screen'
+import { ChatboxProvider } from '@shared/react-bindings'
 import '@mantine/core/styles.css'
 import '@mantine/spotlight/styles.css'
 import { RouterProvider } from '@tanstack/react-router'
@@ -19,15 +20,13 @@ import { initLogAtom, migrationProcessAtom } from './stores/atoms/utilAtoms'
 import * as migration from './stores/migration'
 import { getMigrationErrorContext } from './stores/migration-error'
 import queryClient from './stores/queryClient'
+import { createRendererQueryLifecycle } from './react-bindings/renderer-query-lifecycle'
 import { CHATBOX_BUILD_PLATFORM, CHATBOX_BUILD_TARGET } from './variables'
 
 const log = getLogger('index')
 
 // 按需加载 polyfill
 import './setup/load_polyfill'
-
-// GA4 初始化
-import './setup/ga_init'
 
 // Show native scrollbars only while scrolling
 import './setup/scrollbar_visibility'
@@ -36,16 +35,18 @@ import './setup/scrollbar_visibility'
 import './setup/automation_contract'
 // 引入保护代码
 import './setup/protect'
-import { QueryClientProvider } from '@tanstack/react-query'
+import { initGoogleAnalyticsTracking } from './setup/ga_init'
+import { initHarmonyLocalModelSync, syncHarmonyLocalModels } from './setup/harmony_local_models'
 import { initJkTracking } from './setup/jk_analytics_init'
 import { initPlausibleTracking } from './setup/plausible_init'
 import { initSentry } from './setup/sentry_init'
 import { initSessionAttachmentRagMaintenance } from './setup/session_attachment_rag_maintenance'
-import { initLastUsedModelStore } from './stores/lastUsedModelStore'
+import { authInfoStore } from './stores/authInfoStore'
+import { initLastUsedModelStore, lastUsedModelStore } from './stores/lastUsedModelStore'
 import { initOnboardingStore } from './stores/onboardingStore'
 import { initLoginLicenseStateReconciliation } from './stores/premiumActions'
 import { initRecentDirectoriesStore } from './stores/recentDirectoriesStore'
-import { initSettingsStore } from './stores/settingsStore'
+import { initSettingsStore, settingsStore } from './stores/settingsStore'
 import { initUpdateListeners } from './stores/updateStore'
 import { reportError } from './utils/sentry'
 
@@ -63,6 +64,14 @@ if (CHATBOX_BUILD_TARGET === 'mobile_app' && CHATBOX_BUILD_PLATFORM === 'ios') {
 }
 
 // ==========执行初始化==============
+const rendererReactApplication = {
+  authInfoStore,
+  lastUsedModelStore,
+  queryClient,
+  queryLifecycle: createRendererQueryLifecycle(),
+  settingsStore,
+}
+
 async function initializeApp() {
   log.info('initializeApp')
 
@@ -78,6 +87,7 @@ async function initializeApp() {
 
   // Migrate persisted consent before any settings-backed telemetry initializes.
   await initSentry()
+  void initGoogleAnalyticsTracking()
   void initPlausibleTracking((onResolved) => {
     router.subscribe('onResolved', ({ hrefChanged }) => onResolved(hrefChanged))
   })
@@ -174,12 +184,17 @@ initializeApp()
       initRecentDirectoriesStore(),
     ])
 
+    await syncHarmonyLocalModels()
+    initHarmonyLocalModelSync()
+
     i18n.changeLanguage(settings.language)
     initLoginLicenseStateReconciliation()
 
     // Initialize auto-updater event listeners (desktop only, idempotent)
     if (platform.type === 'desktop') {
       initUpdateListeners()
+    }
+    if (platform.type === 'desktop') {
       initSessionAttachmentRagMaintenance()
     }
     initSessionPresentationBindings()
@@ -189,9 +204,9 @@ initializeApp()
     ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
       <StrictMode>
         <ErrorBoundary>
-          <QueryClientProvider client={queryClient}>
+          <ChatboxProvider application={rendererReactApplication}>
             <RouterProvider router={router} />
-          </QueryClientProvider>
+          </ChatboxProvider>
         </ErrorBoundary>
       </StrictMode>
     )
@@ -201,10 +216,12 @@ initializeApp()
     }
     const el = document.querySelector('.splash-screen')
     if (el) {
-      el.addEventListener('animationend', () => {
-        el.parentNode?.removeChild(el)
-      })
+      const removeSplashScreen = () => el.remove()
+      el.addEventListener('animationend', removeSplashScreen, { once: true })
       el.classList.add('splash-screen-fade-out')
+      // Some embedded WebEngines apply the class but never dispatch animationend.
+      // Never leave the initialized application permanently covered by the splash screen.
+      setTimeout(removeSplashScreen, 600)
     }
 
     if (window?.navigator?.storage) {
