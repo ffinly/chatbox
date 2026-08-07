@@ -1287,5 +1287,12 @@
   "Pause after every {{count}} steps": "Alle {{count}} Schritte pausieren",
   "Long tasks pause for confirmation after every {{count}} steps so you can check they're on track. Turn off to let them run uninterrupted.": "Lange Aufgaben pausieren alle {{count}} Schritte zur Bestätigung, damit du prüfen kannst, ob alles auf Kurs ist. Deaktiviere dies, damit sie ohne Unterbrechung laufen.",
   "Long tasks pause for confirmation after every {{count}} steps so you can check they're on track. Individual chats can override this in their conversation settings.": "Lange Aufgaben pausieren alle {{count}} Schritte zur Bestätigung, damit du prüfen kannst, ob alles auf Kurs ist. Einzelne Chats können dies in ihren Konversationseinstellungen überschreiben.",
-  "{{count}} operation(s) awaiting approval": "{{count}} Vorgang/Vorgänge warten auf Genehmigung"
+  "{{count}} operation(s) awaiting approval": "{{count}} Vorgang/Vorgänge warten auf Genehmigung",
+  "Your data was created by a newer version of Chatbox": "Ihre Daten wurden von einer neueren Version von Chatbox erstellt",
+  "This version of Chatbox cannot read data created by a newer version. Your data is safe — update Chatbox to the latest version to continue.": "Diese Version von Chatbox kann Daten, die von einer neueren Version erstellt wurden, nicht lesen. Ihre Daten sind sicher – aktualisieren Sie Chatbox auf die neueste Version, um fortzufahren.",
+  "Chatbox was updated in another window": "Chatbox wurde in einem anderen Fenster aktualisiert",
+  "Reload this page to continue.": "Laden Sie diese Seite neu, um fortzufahren.",
+  "Reload": "Neu laden",
+  "Waiting for other Chatbox windows": "Warten auf andere Chatbox-Fenster",
+  "Close other Chatbox windows or tabs to finish updating the local database.": "Schließen Sie andere Chatbox-Fenster oder -Tabs, um die Aktualisierung der lokalen Datenbank abzuschließen."
 }

@@ -1287,5 +1287,12 @@
   "Pause after every {{count}} steps": "الإيقاف المؤقت كل {{count}} خطوة",
   "Long tasks pause for confirmation after every {{count}} steps so you can check they're on track. Turn off to let them run uninterrupted.": "تتوقف المهام الطويلة مؤقتًا كل {{count}} خطوة للتأكيد، حتى تتحقق من أنها تسير على المسار الصحيح. أوقِف هذا الخيار لتعمل دون انقطاع.",
   "Long tasks pause for confirmation after every {{count}} steps so you can check they're on track. Individual chats can override this in their conversation settings.": "تتوقف المهام الطويلة مؤقتًا كل {{count}} خطوة للتأكيد، حتى تتحقق من أنها تسير على المسار الصحيح. يمكن لكل محادثة تجاوز هذا الخيار من إعدادات المحادثة الخاصة بها.",
-  "{{count}} operation(s) awaiting approval": "{{count}} عملية (عمليات) بانتظار الموافقة"
+  "{{count}} operation(s) awaiting approval": "{{count}} عملية (عمليات) بانتظار الموافقة",
+  "Your data was created by a newer version of Chatbox": "تم إنشاء بياناتك بواسطة إصدار أحدث من Chatbox",
+  "This version of Chatbox cannot read data created by a newer version. Your data is safe — update Chatbox to the latest version to continue.": "لا يمكن لهذا الإصدار من Chatbox قراءة البيانات التي أنشأها إصدار أحدث. بياناتك آمنة — قم بتحديث Chatbox إلى أحدث إصدار للمتابعة.",
+  "Chatbox was updated in another window": "تم تحديث Chatbox في نافذة أخرى",
+  "Reload this page to continue.": "أعد تحميل هذه الصفحة للمتابعة.",
+  "Reload": "إعادة التحميل",
+  "Waiting for other Chatbox windows": "في انتظار نوافذ Chatbox الأخرى",
+  "Close other Chatbox windows or tabs to finish updating the local database.": "أغلق نوافذ أو علامات تبويب Chatbox الأخرى لإكمال تحديث قاعدة البيانات المحلية."
 }

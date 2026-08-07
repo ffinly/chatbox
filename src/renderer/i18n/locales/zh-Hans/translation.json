@@ -1287,5 +1287,12 @@
   "Pause after every {{count}} steps": "每 {{count}} 步暂停确认",
   "Long tasks pause for confirmation after every {{count}} steps so you can check they're on track. Turn off to let them run uninterrupted.": "长任务每执行 {{count}} 步会暂停等待确认，方便你检查任务是否在正轨上。关闭后任务将不间断运行。",
   "Long tasks pause for confirmation after every {{count}} steps so you can check they're on track. Individual chats can override this in their conversation settings.": "长任务每执行 {{count}} 步会暂停等待确认，方便你检查任务是否在正轨上。各对话可在其对话设置中单独覆盖此设置。",
-  "{{count}} operation(s) awaiting approval": "{{count}} 个操作等待批准"
+  "{{count}} operation(s) awaiting approval": "{{count}} 个操作等待批准",
+  "Your data was created by a newer version of Chatbox": "您的数据由更新版本的 Chatbox 创建",
+  "This version of Chatbox cannot read data created by a newer version. Your data is safe — update Chatbox to the latest version to continue.": "当前版本的 Chatbox 无法读取由更新版本创建的数据。您的数据没有丢失——将 Chatbox 升级到最新版本即可继续使用。",
+  "Chatbox was updated in another window": "Chatbox 已在其他窗口中更新",
+  "Reload this page to continue.": "刷新此页面以继续。",
+  "Reload": "刷新",
+  "Waiting for other Chatbox windows": "正在等待其他 Chatbox 窗口",
+  "Close other Chatbox windows or tabs to finish updating the local database.": "请关闭其他 Chatbox 窗口或标签页，以完成本地数据库更新。"
 }

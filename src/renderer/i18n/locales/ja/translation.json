@@ -1287,5 +1287,12 @@
   "Pause after every {{count}} steps": "{{count}} ステップごとに一時停止",
   "Long tasks pause for confirmation after every {{count}} steps so you can check they're on track. Turn off to let them run uninterrupted.": "長時間のタスクは {{count}} ステップごとに一時停止して確認を求めるため、順調に進んでいるかチェックできます。オフにすると中断なしで実行されます。",
   "Long tasks pause for confirmation after every {{count}} steps so you can check they're on track. Individual chats can override this in their conversation settings.": "長時間のタスクは {{count}} ステップごとに一時停止して確認を求めるため、順調に進んでいるかチェックできます。チャットごとに会話設定で個別に上書きできます。",
-  "{{count}} operation(s) awaiting approval": "{{count}}件の操作が承認待ち"
+  "{{count}} operation(s) awaiting approval": "{{count}}件の操作が承認待ち",
+  "Your data was created by a newer version of Chatbox": "データは新しいバージョンの Chatbox で作成されています",
+  "This version of Chatbox cannot read data created by a newer version. Your data is safe — update Chatbox to the latest version to continue.": "現在のバージョンの Chatbox では、新しいバージョンで作成されたデータを読み込めません。データは失われていません。Chatbox を最新バージョンに更新すると続行できます。",
+  "Chatbox was updated in another window": "Chatbox は別のウィンドウで更新されました",
+  "Reload this page to continue.": "続行するには、このページを再読み込みしてください。",
+  "Reload": "再読み込み",
+  "Waiting for other Chatbox windows": "他の Chatbox ウィンドウを待機しています",
+  "Close other Chatbox windows or tabs to finish updating the local database.": "ローカルデータベースの更新を完了するには、他の Chatbox のウィンドウやタブを閉じてください。"
 }

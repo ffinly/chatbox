@@ -47,6 +47,7 @@ import useScreenChange, { useSidebarWidth } from '@/hooks/useScreenChange'
 import useShortcut from '@/hooks/useShortcut'
 import useVersion from '@/hooks/useVersion'
 import '@/modals'
+import DbSchemaGuardDialog from '@/components/DbSchemaGuardDialog'
 import SettingsModal, { navigateToSettings } from '@/modals/Settings'
 import { prefetchModelRegistry } from '@/packages/model-registry'
 import { getOS } from '@/packages/navigator'
@@ -405,6 +406,8 @@ function Root() {
       <PictureDialog />
       {/* 似乎是从后端拉一个弹窗的配置 */}
       <RemoteDialogWindow />
+      {/* IndexedDB schema 与当前版本不匹配时的升级/刷新引导 */}
+      <DbSchemaGuardDialog />
       {/* 手机端举报内容 */}
       {/* <ReportContentDialog /> */}
       {/* 搜索 */}

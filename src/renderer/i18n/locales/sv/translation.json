@@ -1287,5 +1287,12 @@
   "Pause after every {{count}} steps": "Pausa var {{count}}:e steg",
   "Long tasks pause for confirmation after every {{count}} steps so you can check they're on track. Turn off to let them run uninterrupted.": "Långa uppgifter pausas var {{count}}:e steg för bekräftelse, så att du kan kontrollera att de är på rätt spår. Stäng av för att låta dem köra utan avbrott.",
   "Long tasks pause for confirmation after every {{count}} steps so you can check they're on track. Individual chats can override this in their conversation settings.": "Långa uppgifter pausas var {{count}}:e steg för bekräftelse, så att du kan kontrollera att de är på rätt spår. Enskilda chattar kan åsidosätta detta i sina konversationsinställningar.",
-  "{{count}} operation(s) awaiting approval": "{{count}} åtgärd(er) väntar på godkännande"
+  "{{count}} operation(s) awaiting approval": "{{count}} åtgärd(er) väntar på godkännande",
+  "Your data was created by a newer version of Chatbox": "Dina data skapades av en nyare version av Chatbox",
+  "This version of Chatbox cannot read data created by a newer version. Your data is safe — update Chatbox to the latest version to continue.": "Den här versionen av Chatbox kan inte läsa data som skapats av en nyare version. Dina data är säkra – uppdatera Chatbox till den senaste versionen för att fortsätta.",
+  "Chatbox was updated in another window": "Chatbox uppdaterades i ett annat fönster",
+  "Reload this page to continue.": "Ladda om den här sidan för att fortsätta.",
+  "Reload": "Ladda om",
+  "Waiting for other Chatbox windows": "Väntar på andra Chatbox-fönster",
+  "Close other Chatbox windows or tabs to finish updating the local database.": "Stäng andra Chatbox-fönster eller flikar för att slutföra uppdateringen av den lokala databasen."
 }

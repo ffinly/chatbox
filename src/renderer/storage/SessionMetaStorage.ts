@@ -1,8 +1,16 @@
 import type { SessionMetaRepositoryPort } from '@shared/ports'
 import type { SessionMetaPage, SessionMetaRecord } from '@shared/types'
 import { sortSessionRecords } from '@shared/utils/session-sort'
+import { reportDbOpenSucceeded, toDbOpenError, watchDbOpenBlocked, watchDbVersionChange } from './db-schema-guard'
 
 const DB_NAME = 'chatbox-session-meta'
+// 数据契约版本（见 docs/technical/storage.md「IndexedDB 版本策略」）：一律 pin，让跨越 schema
+// 变更的旧版本 fail loud（VersionError → 升级墙），而不是静默打开新数据后在整表重建/恢复/
+// 备份导入等路径把新字段写丢。
+// 为什么是 2 不是 1：PR 852 时代的 early-1.22 已把部分用户磁盘写到 v2；pin 1 会让这些磁盘
+// 在最新版本上直接撞墙。v1 磁盘会经条件式 onupgradeneeded 升到 2 并补齐缺失索引。
+// 下一次 schema 变更 pin 3。
+const DB_VERSION = 2
 const STORE_NAME = 'records'
 const DEFAULT_PAGE_SIZE = 50
 
@@ -39,26 +47,32 @@ export class IndexedDBSessionMetaStorage implements SessionMetaStorage {
   private initPromise: Promise<void> | null = null
 
   initialize(): Promise<void> {
-    if (this.initPromise) {
-      return this.initPromise
+    if (!this.initPromise) {
+      this.initPromise = this.openDatabase().catch((error) => {
+        // Do not cache the failure: after the user updates/reloads (or a transient
+        // open error clears), the next call must be able to retry instead of
+        // replaying a stale rejection until restart.
+        this.initPromise = null
+        throw error
+      })
     }
-    this.initPromise = this.openDatabase()
     return this.initPromise
   }
 
   private openDatabase(): Promise<void> {
     return new Promise((resolve, reject) => {
-      // 这些索引只是性能优化，没有很强的 schema 迁移理由，去掉了强制指定 version。
-      // bump 后用户回退版本会因 VersionError 打不开 session meta DB，导致降级使用失败：
-      // `The requested version (X) is less than the existing version (Y)` —— 例如 1.22 → 1.21 降级后无法发消息。
-      // 如确需引入 version/schema 变更：只做加法式变更（新 store/索引，keyPath 不变），
-      // 并捕获 VersionError 后以不带 version 的 `indexedDB.open(DB_NAME)` 重试，让旧版本客户端仍能打开新 schema。
-      const request = indexedDB.open(DB_NAME)
+      const request = indexedDB.open(DB_NAME, DB_VERSION)
+      watchDbOpenBlocked(DB_NAME, request)
 
-      request.onerror = () => reject(request.error)
+      request.onerror = () => reject(toDbOpenError(DB_NAME, request.error))
 
       request.onsuccess = () => {
         this.db = request.result
+        reportDbOpenSucceeded(DB_NAME)
+        watchDbVersionChange(DB_NAME, this.db, () => {
+          this.db = null
+          this.initPromise = null
+        })
         resolve()
       }
 

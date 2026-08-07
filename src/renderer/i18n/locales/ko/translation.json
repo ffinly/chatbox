@@ -1287,5 +1287,12 @@
   "Pause after every {{count}} steps": "{{count}}단계마다 일시 중지",
   "Long tasks pause for confirmation after every {{count}} steps so you can check they're on track. Turn off to let them run uninterrupted.": "긴 작업은 {{count}}단계마다 일시 중지되어 확인을 요청하므로 작업이 올바르게 진행되고 있는지 확인할 수 있습니다. 끄면 중단 없이 실행됩니다.",
   "Long tasks pause for confirmation after every {{count}} steps so you can check they're on track. Individual chats can override this in their conversation settings.": "긴 작업은 {{count}}단계마다 일시 중지되어 확인을 요청하므로 작업이 올바르게 진행되고 있는지 확인할 수 있습니다. 각 채팅의 대화 설정에서 개별적으로 변경할 수 있습니다.",
-  "{{count}} operation(s) awaiting approval": "{{count}}개의 작업이 승인 대기 중"
+  "{{count}} operation(s) awaiting approval": "{{count}}개의 작업이 승인 대기 중",
+  "Your data was created by a newer version of Chatbox": "데이터가 최신 버전의 Chatbox에서 생성되었습니다",
+  "This version of Chatbox cannot read data created by a newer version. Your data is safe — update Chatbox to the latest version to continue.": "현재 버전의 Chatbox에서는 더 새로운 버전에서 생성된 데이터를 읽을 수 없습니다. 데이터는 안전합니다. Chatbox를 최신 버전으로 업데이트하면 계속 사용할 수 있습니다.",
+  "Chatbox was updated in another window": "Chatbox가 다른 창에서 업데이트되었습니다",
+  "Reload this page to continue.": "계속하려면 이 페이지를 새로고침하세요.",
+  "Reload": "새로고침",
+  "Waiting for other Chatbox windows": "다른 Chatbox 창을 기다리는 중",
+  "Close other Chatbox windows or tabs to finish updating the local database.": "로컬 데이터베이스 업데이트를 완료하려면 다른 Chatbox 창이나 탭을 닫아 주세요."
 }
