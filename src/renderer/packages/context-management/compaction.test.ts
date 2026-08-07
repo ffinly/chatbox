@@ -14,8 +14,8 @@ vi.mock('@/stores/chatStore', () => ({
   getSessionSettings: vi.fn(async () => ({})),
   updateSessionWithMessages: updateSessionWithMessagesMock,
 }))
-vi.mock('@/stores/settingsStore', () => ({
-  settingsStore: { getState: () => ({ getSettings: () => ({ defaultChatModel: { model: 'test-model' } }) }) },
+vi.mock('@/settings-runtime', () => ({
+  settingsService: { getSettings: () => ({ defaultChatModel: { model: 'test-model' } }) },
 }))
 vi.mock('@/stores/queryClient', () => ({ default: { getQueryData: vi.fn(), setQueryData: vi.fn() } }))
 vi.mock('@/packages/token-estimation', () => ({ getTokenizerType: () => 'estimate' }))

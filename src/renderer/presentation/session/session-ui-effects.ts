@@ -2,7 +2,7 @@ import type { SessionApplicationEvent, SessionEventBus } from '@shared/applicati
 import { clearScrollPositionCache } from '@/components/chat/MessageList'
 import platform from '@/platform'
 import { cleanupSessionAtomCache } from '@/stores/atoms/throttleWriteSessionAtom'
-import { clearSessionNameGenerationState } from '@/stores/session/state'
+import { clearSessionNameGenerationState } from '@/stores/session/naming'
 import { uiStore } from '@/stores/uiStore'
 
 async function runInChunks<T>(items: T[], chunkSize: number, worker: (item: T) => Promise<void>): Promise<void> {

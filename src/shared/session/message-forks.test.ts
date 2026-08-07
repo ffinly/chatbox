@@ -18,6 +18,12 @@ function summaryMessage(id: string): Message {
   return { ...message(id, 'assistant'), isSummary: true }
 }
 
+let identitySequence = 0
+const identity = {
+  createId: () => `test-fork-${++identitySequence}`,
+  now: () => 1,
+}
+
 describe('buildCreateInactiveForkPatch', () => {
   test('adds an alternative without changing the active conversation', () => {
     const pivot = message('user-1', 'user')
@@ -29,7 +35,7 @@ describe('buildCreateInactiveForkPatch', () => {
       messages: [pivot, currentReply],
     }
 
-    const patch = buildCreateInactiveForkPatch(session, pivot.id, [candidate])
+    const patch = buildCreateInactiveForkPatch(session, pivot.id, [candidate], identity)
 
     expect(patch?.messages).toEqual(session.messages)
     const fork = patch?.messageForksHash?.[pivot.id]
@@ -61,7 +67,7 @@ describe('buildCreateInactiveForkPatch', () => {
       },
     }
 
-    const patch = buildCreateInactiveForkPatch(session, pivot.id, [candidate])
+    const patch = buildCreateInactiveForkPatch(session, pivot.id, [candidate], identity)
     const fork = patch?.messageForksHash?.[pivot.id]
 
     expect(patch?.messages).toEqual(session.messages)
@@ -78,9 +84,12 @@ describe('buildCreateInactiveForkPatch', () => {
     }
 
     expect(
-      buildCreateInactiveForkPatch(session, pivot.id, [
-        { ...message('assistant-candidate', 'assistant'), generating: true },
-      ])
+      buildCreateInactiveForkPatch(
+        session,
+        pivot.id,
+        [{ ...message('assistant-candidate', 'assistant'), generating: true }],
+        identity
+      )
     ).toBeNull()
   })
 
@@ -206,7 +215,7 @@ describe('compaction summaries anchored to the fork pivot', () => {
       messages: [pivot, summary, currentReply],
     }
 
-    const patch = buildCreateForkPatch(session, pivot.id)
+    const patch = buildCreateForkPatch(session, pivot.id, identity)
 
     expect(patch?.messages).toEqual([pivot, summary])
     const fork = patch?.messageForksHash?.[pivot.id]
@@ -252,7 +261,7 @@ describe('compaction summaries anchored to the fork pivot', () => {
       messages: [pivot, summary, currentReply],
     }
 
-    const patch = buildCreateInactiveForkPatch(session, pivot.id, [candidate])
+    const patch = buildCreateInactiveForkPatch(session, pivot.id, [candidate], identity)
 
     expect(patch?.messages).toEqual(session.messages)
     expect(patch?.messageForksHash?.[pivot.id]?.lists[1].messages).toEqual([candidate])
@@ -268,7 +277,7 @@ describe('compaction summaries anchored to the fork pivot', () => {
       messages: [pivot, summary],
     }
 
-    expect(buildCreateInactiveForkPatch(session, pivot.id, [candidate])).toBeNull()
+    expect(buildCreateInactiveForkPatch(session, pivot.id, [candidate], identity)).toBeNull()
   })
 
   test('findMessageContext reconstructs branch paths with the summary in the prefix', () => {

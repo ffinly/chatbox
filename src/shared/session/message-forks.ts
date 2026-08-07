@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid'
 import type { Message, Session, SessionThread } from '../types/session'
 
 /**
@@ -18,6 +17,11 @@ import type { Message, Session, SessionThread } from '../types/session'
 
 export type MessageForkEntry = NonNullable<Session['messageForksHash']>[string]
 export type MessageLocation = { list: Message[]; index: number }
+
+export interface ForkIdentityPort {
+  createId(): string
+  now(): number
+}
 
 /**
  * Fork tails start after the pivot message and any compaction summaries
@@ -324,7 +328,11 @@ function switchForkInMessages(
   }
 }
 
-export function buildCreateForkPatch(session: Session, forkMessageId: string): Partial<Session> | null {
+export function buildCreateForkPatch(
+  session: Session,
+  forkMessageId: string,
+  identity: ForkIdentityPort
+): Partial<Session> | null {
   return applyForkTransform(
     session,
     forkMessageId,
@@ -333,11 +341,11 @@ export function buildCreateForkPatch(session: Session, forkMessageId: string): P
         position: 0,
         lists: [
           {
-            id: `fork_list_${uuidv4()}`,
+            id: `fork_list_${identity.createId()}`,
             messages: [],
           },
         ],
-        createdAt: Date.now(),
+        createdAt: identity.now(),
       },
     (messages, forkEntry) => {
       const forkMessageIndex = messages.findIndex((m) => m.id === forkMessageId)
@@ -351,8 +359,8 @@ export function buildCreateForkPatch(session: Session, forkMessageId: string): P
         return null
       }
 
-      const storedListId = `fork_list_${uuidv4()}`
-      const newBranchId = `fork_list_${uuidv4()}`
+      const storedListId = `fork_list_${identity.createId()}`
+      const newBranchId = `fork_list_${identity.createId()}`
       const lists = forkEntry.lists.map((list, index) =>
         index === forkEntry.position
           ? {
@@ -391,7 +399,8 @@ export function buildCreateForkPatch(session: Session, forkMessageId: string): P
 export function buildCreateInactiveForkPatch(
   session: Session,
   forkMessageId: string,
-  branchMessages: Message[]
+  branchMessages: Message[],
+  identity: ForkIdentityPort
 ): Partial<Session> | null {
   if (branchMessages.length === 0) {
     return null
@@ -405,11 +414,11 @@ export function buildCreateInactiveForkPatch(
         position: 0,
         lists: [
           {
-            id: `fork_list_${uuidv4()}`,
+            id: `fork_list_${identity.createId()}`,
             messages: [],
           },
         ],
-        createdAt: Date.now(),
+        createdAt: identity.now(),
       },
     (messages, forkEntry) => {
       const forkMessageIndex = messages.findIndex((message) => message.id === forkMessageId)
@@ -433,7 +442,7 @@ export function buildCreateInactiveForkPatch(
           lists: [
             ...forkEntry.lists,
             {
-              id: `fork_list_${uuidv4()}`,
+              id: `fork_list_${identity.createId()}`,
               messages: branchMessages,
             },
           ],

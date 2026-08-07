@@ -1,20 +1,29 @@
+import { ForkService } from '@shared/application/session'
 import {
-  buildCreateForkPatch,
   buildCreateInactiveForkPatch,
-  buildDeleteForkPatch,
-  buildExpandForkPatch,
-  buildSwitchForkPatch,
   buildSwitchForkToPatch,
   findMessageLocation,
   forkTailStartIndex,
 } from '@shared/session/message-forks'
 import type { Message } from '@shared/types'
+import { v4 as uuidv4 } from 'uuid'
 import * as chatStore from '../chatStore'
 import { guardSessionAction } from './action-guard'
 
-// The pure fork transforms live in `@shared/session/message-forks` so the
-// mobile-native app reuses the exact same branching logic. This module only
-// wraps them in the renderer's `chatStore.updateSessionWithMessages` queue.
+const forkIdentity = {
+  createId: uuidv4,
+  now: Date.now,
+}
+
+const forkService = new ForkService(
+  {
+    updateSessionWithMessages: (sessionId, updater) =>
+      chatStore.updateSessionWithMessages(sessionId, updater, { preserveCachedGeneratingMessages: true }),
+  },
+  forkIdentity
+)
+
+// Keep the existing lookup export stable for generation and message callers.
 export { findMessageLocation }
 
 // Every fork mutation is a full-session write and must pass
@@ -22,27 +31,9 @@ export { findMessageLocation }
 // session generation lock with cache-only chunk updates, so a plain write would
 // roll their visible content back to the last 2s persistence snapshot.
 
-/**
- * Create a new fork branch at the specified message
- */
-export async function createNewFork(sessionId: string, forkMessageId: string) {
-  await chatStore.updateSessionWithMessages(
-    sessionId,
-    (session) => {
-      if (!session) {
-        throw new Error('Session not found')
-      }
-      const patch = buildCreateForkPatch(session, forkMessageId)
-      if (!patch) {
-        return session
-      }
-      return {
-        ...session,
-        ...patch,
-      }
-    },
-    { preserveCachedGeneratingMessages: true }
-  )
+/** Create a new fork branch at the specified message. */
+export function createNewFork(sessionId: string, forkMessageId: string) {
+  return forkService.create(sessionId, forkMessageId)
 }
 
 /**
@@ -69,19 +60,13 @@ export async function createInactiveFork(
         return session
       }
 
-      const patch = buildCreateInactiveForkPatch(session, forkMessageId, branchMessages)
+      const patch = buildCreateInactiveForkPatch(session, forkMessageId, branchMessages, forkIdentity)
       if (!patch) {
         return session
       }
 
-      // Include compaction summaries anchored to the fork point: they belong
-      // to the shared prefix, so the new candidate generates with the
-      // compacted context instead of the full (or empty) history.
       branchContext = [...location.list.slice(0, forkTailStartIndex(location.list, location.index)), ...branchMessages]
-      return {
-        ...session,
-        ...patch,
-      }
+      return { ...session, ...patch }
     },
     { preserveCachedGeneratingMessages: true }
   )
@@ -89,35 +74,15 @@ export async function createInactiveFork(
   return branchContext
 }
 
-/**
- * Switch between fork branches
- */
+/** Switch between fork branches. */
 export async function switchFork(sessionId: string, forkMessageId: string, direction: 'next' | 'prev') {
   if (!(await guardSessionAction(sessionId, 'switch-fork'))) {
     return
   }
-  await chatStore.updateSessionWithMessages(
-    sessionId,
-    (session) => {
-      if (!session) {
-        throw new Error('Session not found')
-      }
-      const patch = buildSwitchForkPatch(session, forkMessageId, direction)
-      if (!patch) {
-        return session
-      }
-      return {
-        ...session,
-        ...patch,
-      } as typeof session
-    },
-    { preserveCachedGeneratingMessages: true }
-  )
+  return forkService.switch(sessionId, forkMessageId, direction)
 }
 
-/**
- * Switch directly to a saved fork branch by its position.
- */
+/** Switch directly to a saved fork branch by its position. */
 export async function switchForkTo(sessionId: string, forkMessageId: string, position: number) {
   if (!(await guardSessionAction(sessionId, 'switch-fork'))) {
     return
@@ -129,64 +94,21 @@ export async function switchForkTo(sessionId: string, forkMessageId: string, pos
         throw new Error('Session not found')
       }
       const patch = buildSwitchForkToPatch(session, forkMessageId, position)
-      if (!patch) {
-        return session
-      }
-      return {
-        ...session,
-        ...patch,
-      } as typeof session
+      return patch ? { ...session, ...patch } : session
     },
     { preserveCachedGeneratingMessages: true }
   )
 }
 
-/**
- * Delete the current fork branch
- */
+/** Delete the current fork branch. */
 export async function deleteFork(sessionId: string, forkMessageId: string) {
   if (!(await guardSessionAction(sessionId, 'delete-fork'))) {
     return
   }
-  await chatStore.updateSessionWithMessages(
-    sessionId,
-    (session) => {
-      if (!session) {
-        throw new Error('Session not found')
-      }
-      const patch = buildDeleteForkPatch(session, forkMessageId)
-      if (!patch) {
-        return session
-      }
-      return {
-        ...session,
-        ...patch,
-      }
-    },
-    { preserveCachedGeneratingMessages: true }
-  )
+  return forkService.delete(sessionId, forkMessageId)
 }
 
-/**
- * Expand all fork branches into the current message list
- * @deprecated
- */
-export async function expandFork(sessionId: string, forkMessageId: string) {
-  await chatStore.updateSessionWithMessages(
-    sessionId,
-    (session) => {
-      if (!session) {
-        throw new Error('Session not found')
-      }
-      const patch = buildExpandForkPatch(session, forkMessageId)
-      if (!patch) {
-        return session
-      }
-      return {
-        ...session,
-        ...patch,
-      }
-    },
-    { preserveCachedGeneratingMessages: true }
-  )
+/** Expand all fork branches into the current message list. @deprecated */
+export function expandFork(sessionId: string, forkMessageId: string) {
+  return forkService.expand(sessionId, forkMessageId)
 }
