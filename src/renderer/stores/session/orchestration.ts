@@ -1,6 +1,7 @@
 import type { Message } from '@shared/types'
 import { currentGenerationService } from '@/adapters/CurrentGenerationService'
 import type { AgentModeEntrySource } from '@/analytics/agent-mode'
+import { guardSessionAction } from './action-guard'
 
 export {
   applyPersistentToolCallPause,
@@ -50,6 +51,11 @@ export function disableToolCallLimitPauseAndContinue(
   return currentGenerationService.disableToolCallLimitPauseAndContinue(sessionId, messageId, toolCallId, scope)
 }
 
-export function retryFromLastToolCallAfterApiError(sessionId: string, messageId: string, toolCallId: string) {
+export async function retryFromLastToolCallAfterApiError(sessionId: string, messageId: string, toolCallId: string) {
+  // Regenerate-class entry: enforce the session action gate before delegating
+  // to the shared service so a stale caller cannot race a streaming reply.
+  if (!(await guardSessionAction(sessionId, 'regenerate'))) {
+    return
+  }
   return currentGenerationService.retryFromLastToolCallAfterApiError(sessionId, messageId, toolCallId)
 }

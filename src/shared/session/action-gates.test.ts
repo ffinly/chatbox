@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { Message, Session } from '../types'
 import {
+  assertSessionActionAllowed,
   deriveSessionLockState,
   getSessionActionGate,
+  getSubmitAvailability,
   IDLE_SESSION_LOCK_STATE,
   isGenerationLocked,
+  SessionActionBlockedError,
   type SessionLockState,
   shouldShowConcurrentReplyStop,
 } from './action-gates'
@@ -125,6 +128,70 @@ describe('getSessionActionGate', () => {
       reason: 'awaiting-approval',
     })
     expect(getSessionActionGate('submit-message', IDLE_SESSION_LOCK_STATE)).toEqual({ allowed: true })
+  })
+})
+
+describe('assertSessionActionAllowed', () => {
+  it('throws a typed error carrying the action and reason when blocked', () => {
+    const streaming = locks({ generatingReplyCount: 1, anyReplyGenerating: true })
+
+    expect(() => assertSessionActionAllowed('regenerate', streaming)).toThrowError(SessionActionBlockedError)
+    try {
+      assertSessionActionAllowed('switch-fork', locks({ compactionRunning: true }))
+      expect.unreachable('should have thrown')
+    } catch (error) {
+      const blockedError = error as SessionActionBlockedError
+      expect(blockedError.action).toBe('switch-fork')
+      expect(blockedError.reason).toBe('compaction')
+    }
+
+    expect(() => assertSessionActionAllowed('regenerate', IDLE_SESSION_LOCK_STATE)).not.toThrow()
+  })
+})
+
+describe('getSubmitAvailability', () => {
+  it('keeps the control axis and the hard-block axis independent', () => {
+    expect(getSubmitAvailability(IDLE_SESSION_LOCK_STATE)).toEqual({ control: 'send', blockReason: undefined })
+    expect(getSubmitAvailability(locks({ anyReplyGenerating: true }))).toEqual({
+      control: 'stop',
+      blockReason: undefined,
+    })
+    expect(getSubmitAvailability(locks({ compactionRunning: true }))).toEqual({
+      control: 'send',
+      blockReason: 'compaction',
+    })
+    expect(getSubmitAvailability(locks({ awaitingToolApproval: true }))).toEqual({
+      control: 'send',
+      blockReason: 'awaiting-approval',
+    })
+    // A pending approval must keep its cue even while a reply streams.
+    expect(getSubmitAvailability(locks({ anyReplyGenerating: true, awaitingToolApproval: true }))).toEqual({
+      control: 'stop',
+      blockReason: 'awaiting-approval',
+    })
+    // Compaction outranks approval on the block axis, matching the gate order.
+    expect(getSubmitAvailability(locks({ compactionRunning: true, awaitingToolApproval: true }))).toEqual({
+      control: 'send',
+      blockReason: 'compaction',
+    })
+  })
+
+  it('agrees with the submit-message gate on every lock combination', () => {
+    for (const anyReplyGenerating of [false, true]) {
+      for (const compactionRunning of [false, true]) {
+        for (const awaitingToolApproval of [false, true]) {
+          const state = locks({
+            anyReplyGenerating,
+            generatingReplyCount: anyReplyGenerating ? 1 : 0,
+            compactionRunning,
+            awaitingToolApproval,
+          })
+          const availability = getSubmitAvailability(state)
+          const gate = getSessionActionGate('submit-message', state)
+          expect(gate.allowed).toBe(availability.control === 'send' && availability.blockReason === undefined)
+        }
+      }
+    }
   })
 })
 

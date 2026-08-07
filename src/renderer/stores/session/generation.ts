@@ -4,6 +4,7 @@ import { findMessageContext } from '@shared/session/message-forks'
 import { type CompactionPoint, createMessage, type Message, type SessionSettings } from '@shared/types'
 import type { AgentModeEntrySource } from '@/analytics/agent-mode'
 import * as chatStore from '../chatStore'
+import { guardSessionAction } from './action-guard'
 import { createAttachmentResolver } from './attachment-resolver'
 import { createInactiveFork, createNewFork, findMessageLocation } from './forks'
 import { withSessionGenerationLock } from './generation-lock'
@@ -93,7 +94,13 @@ export async function generateMore(sessionId: string, msgId: string) {
 }
 
 export function generateMoreInNewFork(sessionId: string, msgId: string) {
+  // Regenerate-class entry (Save & Resend). The gate runs inside the session
+  // lock so it reads the freshest state: lock-free alternative replies can
+  // start streaming between a pre-lock check and lock acquisition.
   return withSessionGenerationLock(sessionId, async () => {
+    if (!(await guardSessionAction(sessionId, 'regenerate'))) {
+      return
+    }
     await createNewFork(sessionId, msgId)
     await generateActiveReplyWithoutSessionLock(sessionId, msgId)
   })
@@ -102,7 +109,12 @@ export function generateMoreInNewFork(sessionId: string, msgId: string) {
 type GenerateMoreFn = (sessionId: string, msgId: string) => Promise<void>
 
 export function regenerateInNewFork(sessionId: string, msg: Message, options?: { runGenerateMore?: GenerateMoreFn }) {
-  return withSessionGenerationLock(sessionId, () => regenerateInNewForkWithoutSessionLock(sessionId, msg, options))
+  return withSessionGenerationLock(sessionId, async () => {
+    if (!(await guardSessionAction(sessionId, 'regenerate'))) {
+      return
+    }
+    return regenerateInNewForkWithoutSessionLock(sessionId, msg, options)
+  })
 }
 
 async function regenerateInNewForkWithoutSessionLock(

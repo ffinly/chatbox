@@ -17,7 +17,6 @@ import Page from '@/components/layout/Page'
 import ThreadHistoryDrawer from '@/components/session/ThreadHistoryDrawer'
 import { useProviders } from '@/hooks/useProviders'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
-import { useSessionLockState } from '@/hooks/useSessionLockState'
 import useVersion from '@/hooks/useVersion'
 import { defaultSessionsForCN, defaultSessionsForEN } from '@/packages/initial_data'
 import * as remote from '@/packages/remote'
@@ -104,7 +103,6 @@ function RouteComponent() {
     () => generationControlMessages.filter((message) => message.generating),
     [generationControlMessages]
   )
-  const sessionLocks = useSessionLockState(currentSession)
 
   const messageListRef = useRef<MessageListRef>(null)
 
@@ -287,8 +285,6 @@ function RouteComponent() {
             onRollbackThread={onRollbackThread}
             onSelectModel={onSelectModel}
             onClickSessionSettings={onClickSessionSettings}
-            generating={sessionLocks.anyReplyGenerating}
-            generatingCount={sessionLocks.generatingReplyCount}
             onSubmit={onSubmit}
             onStopGenerating={onStopGenerating}
           />

@@ -13,7 +13,7 @@ import { KNOWLEDGE_BASE_MAX_FILE_SIZE, KNOWLEDGE_BASE_MAX_FILE_SIZE_LABEL } from
 import { listPendingApprovalToolCalls } from '@shared/message-approval'
 import { isDeepSeekWeakToolUse } from '@shared/models/utils/deepseek'
 import { getModel } from '@shared/providers'
-import { getSessionActionGate } from '@shared/session/action-gates'
+import { getSessionActionGate, getSubmitAvailability } from '@shared/session/action-gates'
 import { formatNumber } from '@shared/utils'
 import { resolveReasoningProviderOptions } from '@shared/utils/reasoning-control'
 import {
@@ -85,6 +85,7 @@ import { useSession, useSessionSettings } from '@/stores/chatStore'
 import { useSessionAgentMode } from '@/stores/session/agent-mode'
 import { settingsStore, useSettingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
+import { getSessionLockNotice, notifySessionLockBlocked } from '@/utils/session-lock-copy'
 import { trackEvent } from '@/utils/track'
 import {
   type KnowledgeBase,
@@ -134,9 +135,6 @@ export type InputBoxRef = {
 export type InputBoxProps = {
   sessionId?: string
   sessionType?: SessionType
-  generating?: boolean
-  /** Number of active replies with a cancellation controller in this runtime. */
-  generatingCount?: number
   model?: {
     provider: string
     modelId: string
@@ -225,8 +223,6 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
     {
       sessionId,
       sessionType = 'chat',
-      generating = false,
-      generatingCount = 0,
       model,
       fullWidth = false,
       onSelectModel,
@@ -400,6 +396,12 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
     const { session: currentSession } = useSession(sessionId || null)
     const { sessionSettings: currentSessionMergedSettings } = useSessionSettings(sessionId || null)
     const sessionLocks = useSessionLockState(currentSession)
+    const submitAvailability = getSubmitAvailability(sessionLocks)
+    // While replies stream, the send button becomes a Stop button. The hard
+    // block (compaction/approval) is an independent axis so its cue stays
+    // visible even during concurrent streaming.
+    const generating = submitAvailability.control === 'stop'
+    const generatingCount = sessionLocks.generatingReplyCount
     const isAwaitingToolApproval = sessionLocks.awaitingToolApproval
     // The approval nudge needs the concrete tool call id, not just the lock bit.
     const pendingApprovalToolCallId = useMemo(
@@ -723,13 +725,13 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
     const globalAutoCompaction = useSettingsStore((state) => state.autoCompaction)
     const [isCompacting, setIsCompacting] = useState(false)
 
-    const isCompactionRunning = sessionLocks.compactionRunning
+    // The session-level share of the submit gate comes from the shared
+    // availability model; the remaining flags are renderer-local draft state.
     const submitBlocked =
       disableSubmit ||
       isPreprocessing ||
       isSubmitting ||
-      isCompactionRunning ||
-      isAwaitingToolApproval ||
+      submitAvailability.blockReason !== undefined ||
       hasPreprocessErrors ||
       hasBlockedSessionRagFiles
 
@@ -834,18 +836,20 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
     const insertFilesRef = useRef<(files: File[], options?: InsertFilesOptions) => void>(() => {})
 
     const handleSubmit = async (needGenerating = true, options: SubmitOptions = {}) => {
-      // Session-level blocking (streaming replies, compaction, pending tool
-      // approval) is decided by the shared gate; the remaining flags are
-      // renderer-local draft state.
-      if (
-        disableSubmit ||
-        generating ||
-        isSubmitting ||
-        isPreprocessing ||
-        hasPreprocessErrors ||
-        hasBlockedSessionRagFiles ||
-        !getSessionActionGate('submit-message', sessionLocks).allowed
-      ) {
+      // Streaming replies stay a silent no-op: the Stop button is the
+      // affordance, and the textarea is intentionally editable for drafting,
+      // so Enter must not toast on every press.
+      if (submitAvailability.control === 'stop') {
+        return
+      }
+      // The remaining session-level blocks (compaction, pending approval) get
+      // the standard notice — the textarea is read-only but Enter still fires.
+      const sessionGate = getSessionActionGate('submit-message', sessionLocks)
+      if (!sessionGate.allowed) {
+        void notifySessionLockBlocked(sessionGate.reason, t)
+        return
+      }
+      if (disableSubmit || isSubmitting || isPreprocessing || hasPreprocessErrors || hasBlockedSessionRagFiles) {
         return
       }
 
@@ -1472,9 +1476,11 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                 ref={messageInputFieldRef}
                 isNewSession={isNewSession}
                 viewportHeight={viewportHeight}
-                isReadOnly={isCompactionRunning || isAwaitingToolApproval}
+                isReadOnly={submitAvailability.blockReason !== undefined}
                 placeholder={
-                  isAwaitingToolApproval ? t('Waiting for approval') || '' : t('Type your question here...') || ''
+                  submitAvailability.blockReason === 'awaiting-approval'
+                    ? getSessionLockNotice(submitAvailability.blockReason, t)
+                    : t('Type your question here...') || ''
                 }
                 ariaLabel={t('Type your question here...') || ''}
                 autoFocus={!isSmallScreen}

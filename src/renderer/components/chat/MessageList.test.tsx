@@ -123,13 +123,24 @@ vi.mock('@/lib/utils', () => ({
   getLogger: () => ({ debug: vi.fn(), error: vi.fn(), info: vi.fn(), warn: vi.fn() }),
 }))
 
-// Partially mock jotai: ForkGroup imports compactionAtoms, which calls the
-// real `atom()` at module scope; only the hooks need stubbing here.
-vi.mock('jotai', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('jotai')>()),
-  useAtomValue: () => 'darwin',
-  useSetAtom: () => vi.fn(),
-}))
+// Partially mock jotai: platformTypeAtom is stubbed as a plain object (see
+// above), so useAtomValue answers 'darwin' for it; real atoms — like the
+// compaction selectAtom inside useSessionLockState, which must stay a real
+// boolean — go through the actual implementation on the default store.
+vi.mock('jotai', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('jotai')>()
+  const isRealAtom = (candidate: unknown): boolean =>
+    typeof (candidate as { read?: unknown } | null | undefined)?.read === 'function'
+  return {
+    ...actual,
+    useAtomValue: ((anAtom: unknown, options?: unknown) =>
+      isRealAtom(anAtom)
+        ? // biome-ignore lint/correctness/useHookAtTopLevel: mock delegates to the real hook; per render the branch is stable for a given atom identity
+          actual.useAtomValue(anAtom as Parameters<typeof actual.useAtomValue>[0], options as never)
+        : 'darwin') as typeof actual.useAtomValue,
+    useSetAtom: () => vi.fn(),
+  }
+})
 
 vi.mock('@/stores/atoms', () => ({
   showThreadHistoryDrawerAtom: {},

@@ -12,6 +12,10 @@ const serviceMocks = vi.hoisted(() => {
 vi.mock('@/adapters/CurrentGenerationService', () => ({
   currentGenerationService: serviceMocks,
 }))
+// The retry entry point consults the session action guard, which reads the
+// session; resolving null keeps the guard permissive so the delegation
+// behavior under test is exercised.
+vi.mock('../chatStore', () => ({ getSession: vi.fn(() => Promise.resolve(null)) }))
 
 import {
   applyPersistentToolCallPause,

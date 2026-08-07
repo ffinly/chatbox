@@ -5,14 +5,13 @@ import { findMessageLocation } from '@shared/session/message-forks'
 import { type Message, type MessageContentParts, type MessageRole, MessageRoleEnum } from '@shared/types'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { getSessionLockNotice } from '@/components/chat/session-lock-copy'
 import { AdaptiveModal } from '@/components/common/AdaptiveModal'
 import { AssistantAvatar, SystemAvatar, UserAvatar } from '@/components/common/Avatar'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
-import { useSessionLockState } from '@/hooks/useSessionLockState'
-import { useSession } from '@/stores/chatStore'
-import { generateMoreInNewFork, modifyMessage } from '@/stores/sessionActions'
+import { getSession } from '@/stores/chatStore'
+import { generateMoreInNewFork, getSessionLockStateNow, modifyMessage } from '@/stores/sessionActions'
 import * as toastActions from '@/stores/toastActions'
+import { notifySessionLockBlocked } from '@/utils/session-lock-copy'
 
 const MessageEdit = NiceModal.create((props: { sessionId: string; msg: Message; hideSaveAndResend?: boolean }) => {
   const modal = useModal()
@@ -53,12 +52,6 @@ const MessageEditModal = ({
 }) => {
   const { t } = useTranslation()
   const isSmallScreen = useIsSmallScreen()
-
-  // Live locks for re-checking the gate at execution time: the snapshot taken
-  // when the modal opened goes stale while it stays open (e.g. another reply
-  // starts streaming, or a placeholder gains its cancel controller).
-  const { session: liveSession } = useSession(sessionId)
-  const sessionLocks = useSessionLockState(liveSession)
 
   // Store initial content for dirty checking
   const [initialMsg] = useState<Message>(() => ({
@@ -129,34 +122,74 @@ const MessageEditModal = ({
     onClose()
   }, [onClose])
 
-  const onSave = () => {
+  // The modal can stay open long enough for the world to change (another
+  // reply starts streaming, the message gets deleted from another surface),
+  // so both actions read the live state at click time instead of holding a
+  // subscription for their whole lifetime.
+  const findLiveMessage = async (): Promise<Message | null | 'missing'> => {
+    const session = await getSession(sessionId)
+    if (!session) {
+      return 'missing'
+    }
+    const location = findMessageLocation(session, msg.id)
+    return location ? (location.list[location.index] ?? 'missing') : 'missing'
+  }
+
+  // Deleted elsewhere while the modal was open: there is nothing to save onto
+  // or resend into. Both buttons converge here — tell the user and close
+  // (skipping the dirty-check dialog on purpose: the edit has no target left,
+  // so "continue editing" could never lead to a save).
+  const closeForMissingMessage = () => {
+    toastActions.add(t('This message has been deleted'), 2500)
+    onClose()
+  }
+
+  const onSave = async () => {
     if (!msg) {
+      return
+    }
+    const liveMessage = await findLiveMessage()
+    if (liveMessage === 'missing') {
+      closeForMissingMessage()
+      return
+    }
+    if (liveMessage?.generating) {
+      // Saving a snapshot of a streaming message would be silently
+      // overwritten by the next chunk; keep the modal open so the edit
+      // survives until the stream finishes.
+      void notifySessionLockBlocked('message-streaming', t)
       return
     }
     void modifyMessage(sessionId, msg, true)
     onClose()
   }
-  const onSaveAndReply = () => {
+  const onSaveAndReply = async () => {
     if (!msg) {
       return
     }
     // hideSaveAndResend only reflects the locks at modal-open; re-check with
-    // the live locks so a generation started meanwhile still blocks the
-    // regenerate-class action.
-    const liveLocation = liveSession ? findMessageLocation(liveSession, msg.id) : null
-    const liveMessage = liveLocation?.list[liveLocation.index]
-    const gate = getSessionActionGate('save-and-resend', sessionLocks, {
+    // live state so a generation started meanwhile still blocks the
+    // regenerate-class action. Blocking keeps the modal open — the edit and
+    // the resend intent both survive instead of being silently downgraded.
+    // (A stream that starts in the instant after this check is caught by the
+    // store-side guard inside generateMoreInNewFork; in that residual race
+    // the edit is saved and only the resend is stopped, with the standard
+    // notice.)
+    const liveMessage = await findLiveMessage()
+    const locks = liveMessage === 'missing' ? null : await getSessionLockStateNow(sessionId)
+    if (liveMessage === 'missing' || !locks) {
+      closeForMissingMessage()
+      return
+    }
+    const gate = getSessionActionGate('save-and-resend', locks, {
       messageGenerating: liveMessage?.generating === true,
     })
     if (!gate.allowed) {
-      toastActions.add(getSessionLockNotice(gate.reason, t), 2500)
-      if (gate.reason !== 'message-streaming') {
-        // The plain save is still safe; only the resend is blocked.
-        onSave()
-      }
+      void notifySessionLockBlocked(gate.reason, t)
       return
     }
-    onSave()
+    void modifyMessage(sessionId, msg, true)
+    onClose()
     void generateMoreInNewFork(sessionId, msg.id)
   }
 
@@ -234,13 +267,13 @@ const MessageEditModal = ({
     // ctrl + shift + enter 保存并生成 (skip if hideSaveAndResend is true)
     if (event.key === 'Enter' && ctrlOrCmd && shift && !hideSaveAndResend) {
       event.preventDefault()
-      onSaveAndReply()
+      void onSaveAndReply()
       return
     }
     // ctrl + enter 保存
     if (event.key === 'Enter' && ctrlOrCmd && !shift) {
       event.preventDefault()
-      onSave()
+      void onSave()
       return
     }
   }

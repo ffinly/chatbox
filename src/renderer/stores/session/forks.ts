@@ -10,6 +10,7 @@ import {
 } from '@shared/session/message-forks'
 import type { Message } from '@shared/types'
 import * as chatStore from '../chatStore'
+import { guardSessionAction } from './action-guard'
 
 // The pure fork transforms live in `@shared/session/message-forks` so the
 // mobile-native app reuses the exact same branching logic. This module only
@@ -92,6 +93,9 @@ export async function createInactiveFork(
  * Switch between fork branches
  */
 export async function switchFork(sessionId: string, forkMessageId: string, direction: 'next' | 'prev') {
+  if (!(await guardSessionAction(sessionId, 'switch-fork'))) {
+    return
+  }
   await chatStore.updateSessionWithMessages(
     sessionId,
     (session) => {
@@ -115,6 +119,9 @@ export async function switchFork(sessionId: string, forkMessageId: string, direc
  * Switch directly to a saved fork branch by its position.
  */
 export async function switchForkTo(sessionId: string, forkMessageId: string, position: number) {
+  if (!(await guardSessionAction(sessionId, 'switch-fork'))) {
+    return
+  }
   await chatStore.updateSessionWithMessages(
     sessionId,
     (session) => {
@@ -138,6 +145,9 @@ export async function switchForkTo(sessionId: string, forkMessageId: string, pos
  * Delete the current fork branch
  */
 export async function deleteFork(sessionId: string, forkMessageId: string) {
+  if (!(await guardSessionAction(sessionId, 'delete-fork'))) {
+    return
+  }
   await chatStore.updateSessionWithMessages(
     sessionId,
     (session) => {

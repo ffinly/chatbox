@@ -1,3 +1,5 @@
+// Re-export action gating from session/action-guard.ts
+export { getSessionLockStateNow, guardSessionAction } from './session/action-guard'
 // Re-export CRUD operations from session/crud.ts
 export {
   _copySession,

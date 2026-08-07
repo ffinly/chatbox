@@ -105,12 +105,10 @@ export function isGenerationLocked(locks: SessionLockState): boolean {
  * when nothing changed, keeping memoized consumers stable.
  */
 export function sessionLockStatesEqual(a: SessionLockState, b: SessionLockState): boolean {
-  return (
-    a.generatingReplyCount === b.generatingReplyCount &&
-    a.anyReplyGenerating === b.anyReplyGenerating &&
-    a.compactionRunning === b.compactionRunning &&
-    a.awaitingToolApproval === b.awaitingToolApproval
-  )
+  // Key-driven so a future lock field cannot be silently left out of the
+  // comparison: adding a field forces an IDLE_SESSION_LOCK_STATE entry, which
+  // this loop picks up automatically.
+  return (Object.keys(IDLE_SESSION_LOCK_STATE) as (keyof SessionLockState)[]).every((key) => a[key] === b[key])
 }
 
 export function getSessionActionGate(
@@ -153,6 +151,59 @@ export function getSessionActionGate(
       }
       return locks.awaitingToolApproval ? blocked('awaiting-approval') : ALLOWED
   }
+}
+
+/**
+ * Thrown by `assertSessionActionAllowed` when an action is blocked. Hosts
+ * without a toast layer (a CLI, tests, background jobs) catch this and map
+ * `reason` to their own error reporting.
+ */
+export class SessionActionBlockedError extends Error {
+  constructor(
+    readonly action: SessionAction,
+    readonly reason: SessionActionBlockReason
+  ) {
+    super(`Session action "${action}" is blocked: ${reason}`)
+    this.name = 'SessionActionBlockedError'
+  }
+}
+
+export function assertSessionActionAllowed(
+  action: SessionAction,
+  locks: SessionLockState,
+  context: SessionActionContext = {}
+): void {
+  const gate = getSessionActionGate(action, locks, context)
+  if (!gate.allowed) {
+    throw new SessionActionBlockedError(action, gate.reason)
+  }
+}
+
+/**
+ * The submit affordance has two independent axes, not one ordered state:
+ * streaming replies swap the Send control for Stop (the control stays
+ * active), while compaction and pending approval hard-block the composer
+ * (disabled send, read-only input) regardless of whether something is also
+ * streaming — an approval can be pending while an alternative reply streams,
+ * and its cue must not be shadowed.
+ *
+ * Invariant (pinned by tests): the submit-message gate allows exactly when
+ * `control === 'send'` and `blockReason` is unset.
+ */
+export type SubmitAvailability = {
+  /** Which control the send slot shows. */
+  control: 'send' | 'stop'
+  /** Why the composer is hard-blocked, independent of streaming. */
+  blockReason?: Extract<SessionActionBlockReason, 'compaction' | 'awaiting-approval'>
+}
+
+export function getSubmitAvailability(locks: SessionLockState): SubmitAvailability {
+  const blockReason = locks.compactionRunning
+    ? ('compaction' as const)
+    : locks.awaitingToolApproval
+      ? ('awaiting-approval' as const)
+      : undefined
+  return { control: locks.anyReplyGenerating ? 'stop' : 'send', blockReason }
 }
 
 export function shouldShowConcurrentReplyStop(options: {

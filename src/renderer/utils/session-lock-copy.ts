@@ -13,3 +13,14 @@ export function getSessionLockNotice(reason: SessionActionBlockReason, t: TFunct
       return t('Waiting for approval')
   }
 }
+
+/**
+ * The single blocked-action notification: every surface that rejects a gated
+ * action routes through here so duration and presentation cannot drift.
+ * Async because toastActions pulls in uiStore (browser globals), which must
+ * not load in node-environment tests that never hit a blocked path.
+ */
+export async function notifySessionLockBlocked(reason: SessionActionBlockReason, t: TFunction): Promise<void> {
+  const toastActions = await import('@/stores/toastActions')
+  toastActions.add(getSessionLockNotice(reason, t), 2500)
+}

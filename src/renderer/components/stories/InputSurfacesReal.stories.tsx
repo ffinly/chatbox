@@ -332,7 +332,7 @@ export const AttachmentParserTypeStates: StoryObj = {
 }
 
 export const InputBoxComposerStates: StoryObj = {
-  name: 'InputBox composer ready selected model generating and missing model states',
+  name: 'InputBox composer ready selected model and missing model states',
   parameters: {
     uiInventoryTargets: ['src/renderer/components/InputBox/InputBox'],
   },
@@ -355,18 +355,8 @@ export const InputBoxComposerStates: StoryObj = {
             onClickSessionSettings={() => true}
           />
         </Paper>
-        <Paper withBorder radius="md" p="md" maw={780}>
-          <Text size="xs" c="dimmed" mb={8}>
-            Generating response
-          </Text>
-          <InputBox
-            sessionId="new"
-            model={{ provider: ModelProviderEnum.OpenAI, modelId: 'gpt-4.1' }}
-            generating
-            onStopGenerating={() => true}
-            onSelectModel={() => undefined}
-          />
-        </Paper>
+        {/* The stop state now derives from session lock state (streaming replies
+            in the session), so it can no longer be forced via props here. */}
         <Paper withBorder radius="md" p="md" maw={780}>
           <Text size="xs" c="dimmed" mb={8}>
             Model not selected

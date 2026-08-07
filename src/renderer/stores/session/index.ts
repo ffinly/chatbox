@@ -14,6 +14,8 @@
  * - Export (1): Export functionality
  */
 
+// Action gating (2 functions)
+export { getSessionLockStateNow, guardSessionAction } from './action-guard'
 export {
   createDefaultAgentModeEntry,
   getSessionAgentModeEntry,

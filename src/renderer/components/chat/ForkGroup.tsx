@@ -7,10 +7,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { deleteFork, switchFork, switchForkTo } from '@/stores/sessionActions'
-import * as toastActions from '@/stores/toastActions'
+import { getSessionLockNotice, notifySessionLockBlocked } from '@/utils/session-lock-copy'
 import ActionMenu from '../ActionMenu'
 import Message from './Message'
-import { getSessionLockNotice } from './session-lock-copy'
 
 type ForkGroupProps = {
   sessionId: string
@@ -105,8 +104,10 @@ export default function ForkGroup(props: ForkGroupProps) {
   ].reverse()
 
   const notifyControlsLocked = useCallback(() => {
-    toastActions.add(lockReason, 2500)
-  }, [lockReason])
+    if (!forkGate.allowed) {
+      void notifySessionLockBlocked(forkGate.reason, t)
+    }
+  }, [forkGate, t])
 
   const handleSwitch = useCallback(
     (direction: 'next' | 'prev') => {
@@ -119,14 +120,17 @@ export default function ForkGroup(props: ForkGroupProps) {
     [forkControlsLocked, msgId, notifyControlsLocked, sessionId]
   )
 
+  // delete-fork shares the switch-fork policy by design (one fallthrough case
+  // in action-gates), so the menu item's disabled state and this handler stay
+  // on the same component-level gate; the store-side deleteFork guard is the
+  // per-action backstop.
   const handleDelete = useCallback(() => {
-    const gate = getSessionActionGate('delete-fork', sessionLocks)
-    if (!gate.allowed) {
-      toastActions.add(getSessionLockNotice(gate.reason, t), 2500)
+    if (forkControlsLocked) {
+      notifyControlsLocked()
       return
     }
     void deleteFork(sessionId, msgId)
-  }, [sessionLocks, msgId, sessionId, t])
+  }, [forkControlsLocked, msgId, notifyControlsLocked, sessionId])
 
   const handleSwitchTo = useCallback(
     (position: number) => {

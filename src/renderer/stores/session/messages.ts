@@ -1,5 +1,6 @@
 import { isExpectedGenerationError } from '@shared/models/error-classification'
 import { BaseError, ChatboxAIAPIError } from '@shared/models/errors'
+import { findMessageLocation } from '@shared/session/message-forks'
 import { createMessage, type Message } from '@shared/types'
 import { countMessageWords } from '@shared/utils/message'
 import { createModel } from '@/adapters'
@@ -14,6 +15,7 @@ import * as chatStore from '../chatStore'
 import { ensureMessageFileSessionAttachment } from '../sessionAttachmentRagIndexing'
 import * as settingActions from '../settingActions'
 import { settingsStore } from '../settingsStore'
+import { guardSessionAction } from './action-guard'
 import { withSessionGenerationLock } from './generation-lock'
 import { getSessionWebBrowsing } from './utils'
 
@@ -160,7 +162,20 @@ export async function persistStreamingMessage(
  * @param messageId
  */
 export async function removeMessage(sessionId: string, messageId: string) {
-  if (platform.type === 'desktop') {
+  // Deleting ordinary messages is always allowed (streaming targets are
+  // stopped by the caller first), but removing a compaction summary while
+  // replies stream would yank the compacted context out from under them.
+  // The fetched session is handed to the guard so the summary case doesn't
+  // read it twice.
+  const session = await chatStore.getSession(sessionId)
+  const location = session ? findMessageLocation(session, messageId) : null
+  if (
+    location?.list[location.index]?.isSummary &&
+    !(await guardSessionAction(sessionId, 'delete-summary', {}, session))
+  ) {
+    return
+  }
+  if (platform.isDesktopLike) {
     try {
       await platform.getSessionAttachmentRagController().deleteMessageAttachments(messageId)
     } catch (error) {
@@ -178,7 +193,15 @@ export function submitNewUserMessage(
   sessionId: string,
   params: { newUserMsg: Message; needGenerating: boolean; onUserMessageReady?: () => void }
 ) {
-  return withSessionGenerationLock(sessionId, () => submitNewUserMessageUnlocked(sessionId, params))
+  // The gate runs inside the session lock so it reads the freshest state:
+  // lock-free alternative replies can start streaming between a pre-lock
+  // check and lock acquisition.
+  return withSessionGenerationLock(sessionId, async () => {
+    if (!(await guardSessionAction(sessionId, 'submit-message'))) {
+      return
+    }
+    return submitNewUserMessageUnlocked(sessionId, params)
+  })
 }
 
 async function submitNewUserMessageUnlocked(

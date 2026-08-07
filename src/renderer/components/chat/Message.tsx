@@ -82,6 +82,7 @@ import {
   stopGeneratingMessages,
 } from '@/stores/sessionActions'
 import * as toastActions from '@/stores/toastActions'
+import { getSessionLockNotice, notifySessionLockBlocked } from '@/utils/session-lock-copy'
 import ActionMenu, { type ActionMenuItemProps } from '../ActionMenu'
 import { AssistantAvatar, SystemAvatar, UserAvatar } from '../common/Avatar'
 import { ScalableIcon } from '../common/ScalableIcon'
@@ -102,7 +103,6 @@ import { getMessageRoleClass } from './message-role-class'
 import { createMessageTimelineLayout } from './message-timeline'
 import { getMessageTokenDisplay } from './message-token-display'
 import { PictureGallery } from './PictureGallery'
-import { getSessionLockNotice } from './session-lock-copy'
 
 // Reset an assistant message back to a clean generating state, reusing the same
 // message slot (e.g. when acting on an agent-mode suggestion callout).
@@ -239,7 +239,7 @@ const _Message: FC<Props> = (props) => {
 
   const notifyActionBlocked = useCallback(
     (reason: SessionActionBlockReason) => {
-      toastActions.add(getSessionLockNotice(reason, t), 2500)
+      void notifySessionLockBlocked(reason, t)
     },
     [t]
   )

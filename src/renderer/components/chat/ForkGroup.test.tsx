@@ -252,7 +252,7 @@ describe('ForkGroup', () => {
     ])
   })
 
-  test('blocks branch switching during generation and explains why', () => {
+  test('blocks branch switching during generation and explains why', async () => {
     renderGroup(
       {
         position: 0,
@@ -271,12 +271,13 @@ describe('ForkGroup', () => {
     fireEvent.click(screen.getAllByLabelText('Wait for the current replies to finish')[0])
 
     expect(switchForkMock).not.toHaveBeenCalled()
-    expect(toastMock).toHaveBeenCalledWith('Wait for the current replies to finish', 2500)
+    // The lock notice loads toastActions lazily, so the call lands a tick later.
+    await vi.waitFor(() => expect(toastMock).toHaveBeenCalledWith('Wait for the current replies to finish', 2500))
     expect((screen.getByRole('button', { name: 'Switch to this branch' }) as HTMLButtonElement).disabled).toBe(true)
     expect(switchForkToMock).not.toHaveBeenCalled()
   })
 
-  test('explains the disabled direct switch when tapped on mobile', () => {
+  test('explains the disabled direct switch when tapped on mobile', async () => {
     isSmallScreenMock.mockReturnValue(true)
     renderGroup(
       {
@@ -296,10 +297,10 @@ describe('ForkGroup', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Switch to this branch' }))
 
     expect(switchForkToMock).not.toHaveBeenCalled()
-    expect(toastMock).toHaveBeenCalledWith('Wait for the current replies to finish', 2500)
+    await vi.waitFor(() => expect(toastMock).toHaveBeenCalledWith('Wait for the current replies to finish', 2500))
   })
 
-  test('blocks branch switching while compaction is running and explains why', () => {
+  test('blocks branch switching while compaction is running and explains why', async () => {
     renderGroup(
       {
         position: 0,
@@ -315,6 +316,6 @@ describe('ForkGroup', () => {
     fireEvent.click(screen.getAllByLabelText('Wait for compaction to finish')[0])
 
     expect(switchForkMock).not.toHaveBeenCalled()
-    expect(toastMock).toHaveBeenCalledWith('Wait for compaction to finish', 2500)
+    await vi.waitFor(() => expect(toastMock).toHaveBeenCalledWith('Wait for compaction to finish', 2500))
   })
 })

@@ -37,10 +37,9 @@ import * as atoms from '@/stores/atoms'
 import { moveThreadToConversations, removeMessage, removeThread, switchThread } from '@/stores/sessionActions'
 import { getAllMessageList, getCurrentThreadHistoryHash } from '@/stores/sessionHelpers'
 import { settingsStore } from '@/stores/settingsStore'
-import * as toastActions from '@/stores/toastActions'
 import { useUIStore } from '@/stores/uiStore'
+import { notifySessionLockBlocked } from '@/utils/session-lock-copy'
 import ActionMenu from '../ActionMenu'
-
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { ScalableIcon } from '../common/ScalableIcon'
 import { BlockCodeCollapsedStateProvider } from '../Markdown'
@@ -51,7 +50,6 @@ import MessageMinimapRail, { type MessageMinimapAnchor } from './MessageMinimapR
 import MessageNavigation, { ScrollToBottomButton } from './MessageNavigation'
 import { areMinimapAnchorsEqual, getMessagePreviewText, isUserNavigationMessage } from './message-navigation-utils'
 import SummaryMessage from './SummaryMessage'
-import { getSessionLockNotice } from './session-lock-copy'
 import { createSmoothFollowOutputController } from './smooth-follow-output'
 
 const EMPTY_MINIMAP_ANCHORS: MessageMinimapAnchor[] = []
@@ -408,7 +406,7 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
                 onDelete={() => {
                   const gate = getSessionActionGate('delete-summary', sessionLocks)
                   if (!gate.allowed) {
-                    toastActions.add(getSessionLockNotice(gate.reason, t), 2500)
+                    void notifySessionLockBlocked(gate.reason, t)
                     return
                   }
                   void removeMessage(currentSession.id, msg.id)
