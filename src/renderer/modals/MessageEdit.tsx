@@ -1,12 +1,18 @@
 import NiceModal, { useModal } from '@ebay/nice-modal-react'
 import { Button, Combobox, Input, InputBase, Stack, Text, Textarea, useCombobox } from '@mantine/core'
+import { getSessionActionGate } from '@shared/session/action-gates'
+import { findMessageLocation } from '@shared/session/message-forks'
 import { type Message, type MessageContentParts, type MessageRole, MessageRoleEnum } from '@shared/types'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { getSessionLockNotice } from '@/components/chat/session-lock-copy'
 import { AdaptiveModal } from '@/components/common/AdaptiveModal'
 import { AssistantAvatar, SystemAvatar, UserAvatar } from '@/components/common/Avatar'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
+import { useSessionLockState } from '@/hooks/useSessionLockState'
+import { useSession } from '@/stores/chatStore'
 import { generateMoreInNewFork, modifyMessage } from '@/stores/sessionActions'
+import * as toastActions from '@/stores/toastActions'
 
 const MessageEdit = NiceModal.create((props: { sessionId: string; msg: Message; hideSaveAndResend?: boolean }) => {
   const modal = useModal()
@@ -47,6 +53,12 @@ const MessageEditModal = ({
 }) => {
   const { t } = useTranslation()
   const isSmallScreen = useIsSmallScreen()
+
+  // Live locks for re-checking the gate at execution time: the snapshot taken
+  // when the modal opened goes stale while it stays open (e.g. another reply
+  // starts streaming, or a placeholder gains its cancel controller).
+  const { session: liveSession } = useSession(sessionId)
+  const sessionLocks = useSessionLockState(liveSession)
 
   // Store initial content for dirty checking
   const [initialMsg] = useState<Message>(() => ({
@@ -126,6 +138,22 @@ const MessageEditModal = ({
   }
   const onSaveAndReply = () => {
     if (!msg) {
+      return
+    }
+    // hideSaveAndResend only reflects the locks at modal-open; re-check with
+    // the live locks so a generation started meanwhile still blocks the
+    // regenerate-class action.
+    const liveLocation = liveSession ? findMessageLocation(liveSession, msg.id) : null
+    const liveMessage = liveLocation?.list[liveLocation.index]
+    const gate = getSessionActionGate('save-and-resend', sessionLocks, {
+      messageGenerating: liveMessage?.generating === true,
+    })
+    if (!gate.allowed) {
+      toastActions.add(getSessionLockNotice(gate.reason, t), 2500)
+      if (gate.reason !== 'message-streaming') {
+        // The plain save is still safe; only the resend is blocked.
+        onSave()
+      }
       return
     }
     onSave()

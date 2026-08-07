@@ -1,5 +1,6 @@
 import NiceModal from '@ebay/nice-modal-react'
 import { Box, Button } from '@mantine/core'
+import { getGenerationControlMessages } from '@shared/session/generation-state'
 import type { ModelProvider } from '@shared/types'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
@@ -16,6 +17,7 @@ import Page from '@/components/layout/Page'
 import ThreadHistoryDrawer from '@/components/session/ThreadHistoryDrawer'
 import { useProviders } from '@/hooks/useProviders'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
+import { useSessionLockState } from '@/hooks/useSessionLockState'
 import useVersion from '@/hooks/useVersion'
 import { defaultSessionsForCN, defaultSessionsForEN } from '@/packages/initial_data'
 import * as remote from '@/packages/remote'
@@ -24,10 +26,6 @@ import { updateSession as updateSessionStore, useSession } from '@/stores/chatSt
 import { applyChatboxLicenseDefaultModelToSession } from '@/stores/defaultChatModel'
 import { lastUsedModelStore } from '@/stores/lastUsedModelStore'
 import * as scrollActions from '@/stores/scrollActions'
-import {
-  countCancellableGeneratingAssistantMessages,
-  getGenerationControlMessages,
-} from '@/stores/session/generation-state'
 import {
   modifyMessage,
   removeCurrentThread,
@@ -106,10 +104,7 @@ function RouteComponent() {
     () => generationControlMessages.filter((message) => message.generating),
     [generationControlMessages]
   )
-  const cancellableGeneratingReplyCount = useMemo(
-    () => countCancellableGeneratingAssistantMessages(generationControlMessages),
-    [generationControlMessages]
-  )
+  const sessionLocks = useSessionLockState(currentSession)
 
   const messageListRef = useRef<MessageListRef>(null)
 
@@ -292,8 +287,8 @@ function RouteComponent() {
             onRollbackThread={onRollbackThread}
             onSelectModel={onSelectModel}
             onClickSessionSettings={onClickSessionSettings}
-            generating={generatingMessages.length > 0}
-            generatingCount={cancellableGeneratingReplyCount}
+            generating={sessionLocks.anyReplyGenerating}
+            generatingCount={sessionLocks.generatingReplyCount}
             onSubmit={onSubmit}
             onStopGenerating={onStopGenerating}
           />

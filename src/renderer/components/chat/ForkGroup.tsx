@@ -1,39 +1,29 @@
 import { ActionIcon, Box, Button, Flex, Stack, Text, Tooltip } from '@mantine/core'
 import { TestId } from '@shared/automation/testids'
+import { getSessionActionGate, type SessionLockState } from '@shared/session/action-gates'
 import type { Session, SessionType } from '@shared/types'
 import { IconAlignRight, IconChevronLeft, IconChevronRight, IconFold, IconTrash } from '@tabler/icons-react'
-import { useAtomValue } from 'jotai'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
-import { compactionUIStateMapAtom } from '@/stores/atoms/compactionAtoms'
 import { deleteFork, switchFork, switchForkTo } from '@/stores/sessionActions'
 import * as toastActions from '@/stores/toastActions'
 import ActionMenu from '../ActionMenu'
 import Message from './Message'
+import { getSessionLockNotice } from './session-lock-copy'
 
 type ForkGroupProps = {
   sessionId: string
   sessionType: SessionType
   msgId: string
   forks: NonNullable<Session['messageForksHash']>[string]
-  generatingReplyCount: number
-  generationLocked: boolean
+  sessionLocks: SessionLockState
   assistantAvatarKey?: string
   sessionPicUrl?: string
 }
 
 export default function ForkGroup(props: ForkGroupProps) {
-  const {
-    sessionId,
-    sessionType,
-    msgId,
-    forks,
-    generatingReplyCount,
-    generationLocked,
-    assistantAvatarKey,
-    sessionPicUrl,
-  } = props
+  const { sessionId, sessionType, msgId, forks, sessionLocks, assistantAvatarKey, sessionPicUrl } = props
   const [flash, setFlash] = useState(false)
   const prevLength = useRef(forks.lists.length)
   const previousPosition = useRef(forks.position)
@@ -52,14 +42,11 @@ export default function ForkGroup(props: ForkGroupProps) {
   const { t } = useTranslation()
   const isSmallScreen = useIsSmallScreen()
 
-  // Switching or deleting branches while a compaction summary streams would
-  // move the pending boundary off the active path and waste the summary run
-  // (commit would route it back to the stored branch). Lock the fork controls
-  // for the few seconds the compaction takes, like during generation.
-  const compactionStateMap = useAtomValue(compactionUIStateMapAtom)
-  const compactionRunning = compactionStateMap[sessionId]?.status === 'running'
-  const forkControlsLocked = generationLocked || compactionRunning
-  const lockReason = generationLocked ? t('Wait for the current replies to finish') : t('Wait for compaction to finish')
+  // The shared gate locks fork controls while replies stream or a compaction
+  // summary runs (see getSessionActionGate for the rationale).
+  const forkGate = getSessionActionGate('switch-fork', sessionLocks)
+  const forkControlsLocked = !forkGate.allowed
+  const lockReason = forkGate.allowed ? '' : getSessionLockNotice(forkGate.reason, t)
 
   useEffect(() => {
     if (forks.lists.length > prevLength.current) {
@@ -133,12 +120,13 @@ export default function ForkGroup(props: ForkGroupProps) {
   )
 
   const handleDelete = useCallback(() => {
-    if (forkControlsLocked) {
-      notifyControlsLocked()
+    const gate = getSessionActionGate('delete-fork', sessionLocks)
+    if (!gate.allowed) {
+      toastActions.add(getSessionLockNotice(gate.reason, t), 2500)
       return
     }
     void deleteFork(sessionId, msgId)
-  }, [forkControlsLocked, msgId, notifyControlsLocked, sessionId])
+  }, [sessionLocks, msgId, sessionId, t])
 
   const handleSwitchTo = useCallback(
     (position: number) => {
@@ -289,8 +277,7 @@ export default function ForkGroup(props: ForkGroupProps) {
               buttonGroup="none"
               readOnly
               allowGeneratingStop
-              generatingReplyCount={generatingReplyCount}
-              generationLocked={generationLocked}
+              sessionLocks={sessionLocks}
               assistantAvatarKey={assistantAvatarKey}
               sessionPicUrl={sessionPicUrl}
             />

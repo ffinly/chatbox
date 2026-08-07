@@ -13,6 +13,7 @@ import { KNOWLEDGE_BASE_MAX_FILE_SIZE, KNOWLEDGE_BASE_MAX_FILE_SIZE_LABEL } from
 import { listPendingApprovalToolCalls } from '@shared/message-approval'
 import { isDeepSeekWeakToolUse } from '@shared/models/utils/deepseek'
 import { getModel } from '@shared/providers'
+import { getSessionActionGate } from '@shared/session/action-gates'
 import { formatNumber } from '@shared/utils'
 import { resolveReasoningProviderOptions } from '@shared/utils/reasoning-control'
 import {
@@ -59,6 +60,7 @@ import { useKnowledgeBase } from '@/hooks/useKnowledgeBase'
 import { useProviders } from '@/hooks/useProviders'
 import { useSaveBlob } from '@/hooks/useSaveBlob'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
+import { useSessionLockState } from '@/hooks/useSessionLockState'
 import { cn } from '@/lib/utils'
 import {
   getContextMessageIds,
@@ -78,7 +80,6 @@ import platform from '@/platform'
 import { StorageKeyGenerator } from '@/storage/StoreStorage'
 import { notifyApprovalInputNudge } from '@/stores/approvalAttentionStore'
 import * as atoms from '@/stores/atoms'
-import { compactionUIStateMapAtom } from '@/stores/atoms/compactionAtoms'
 import * as chatStore from '@/stores/chatStore'
 import { useSession, useSessionSettings } from '@/stores/chatStore'
 import { useSessionAgentMode } from '@/stores/session/agent-mode'
@@ -398,11 +399,13 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
 
     const { session: currentSession } = useSession(sessionId || null)
     const { sessionSettings: currentSessionMergedSettings } = useSessionSettings(sessionId || null)
+    const sessionLocks = useSessionLockState(currentSession)
+    const isAwaitingToolApproval = sessionLocks.awaitingToolApproval
+    // The approval nudge needs the concrete tool call id, not just the lock bit.
     const pendingApprovalToolCallId = useMemo(
       () => listPendingApprovalToolCalls(currentSession?.messages ?? [])[0]?.toolCallId,
       [currentSession?.messages]
     )
-    const isAwaitingToolApproval = Boolean(pendingApprovalToolCallId)
 
     const skillMenuOpen = skillCommandQuery !== null && matchingInputSkills.length > 0 && !isAwaitingToolApproval
 
@@ -720,11 +723,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
     const globalAutoCompaction = useSettingsStore((state) => state.autoCompaction)
     const [isCompacting, setIsCompacting] = useState(false)
 
-    const compactionUIStateMap = useAtomValue(compactionUIStateMapAtom)
-    const isCompactionRunning = useMemo(() => {
-      if (!currentSessionId || isNewSession) return false
-      return compactionUIStateMap[currentSessionId]?.status === 'running'
-    }, [compactionUIStateMap, currentSessionId, isNewSession])
+    const isCompactionRunning = sessionLocks.compactionRunning
     const submitBlocked =
       disableSubmit ||
       isPreprocessing ||
@@ -835,14 +834,17 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
     const insertFilesRef = useRef<(files: File[], options?: InsertFilesOptions) => void>(() => {})
 
     const handleSubmit = async (needGenerating = true, options: SubmitOptions = {}) => {
+      // Session-level blocking (streaming replies, compaction, pending tool
+      // approval) is decided by the shared gate; the remaining flags are
+      // renderer-local draft state.
       if (
         disableSubmit ||
         generating ||
         isSubmitting ||
         isPreprocessing ||
-        isAwaitingToolApproval ||
         hasPreprocessErrors ||
-        hasBlockedSessionRagFiles
+        hasBlockedSessionRagFiles ||
+        !getSessionActionGate('submit-message', sessionLocks).allowed
       ) {
         return
       }

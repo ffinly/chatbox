@@ -2,11 +2,10 @@
 
 import { MantineProvider } from '@mantine/core'
 import { TestId } from '@shared/automation/testids'
+import { IDLE_SESSION_LOCK_STATE, type SessionLockState } from '@shared/session/action-gates'
 import type { Message, Session } from '@shared/types'
 import { fireEvent, render, screen, within } from '@testing-library/react'
-import { getDefaultStore } from 'jotai'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { compactionUIStateMapAtom } from '@/stores/atoms/compactionAtoms'
 
 const { deleteForkMock, isSmallScreenMock, switchForkMock, switchForkToMock, toastMock } = vi.hoisted(() => ({
   deleteForkMock: vi.fn(),
@@ -66,17 +65,18 @@ function message(id: string, overrides: Partial<Message> = {}): Message {
   }
 }
 
-function renderGroup(forks: ForkEntry, generationLocked = false) {
+function locks(overrides: Partial<SessionLockState> = {}): SessionLockState {
+  return { ...IDLE_SESSION_LOCK_STATE, ...overrides }
+}
+
+function generationLocks(): SessionLockState {
+  return locks({ generatingReplyCount: 2, anyReplyGenerating: true })
+}
+
+function renderGroup(forks: ForkEntry, sessionLocks: SessionLockState = locks()) {
   return render(
     <MantineProvider>
-      <ForkGroup
-        sessionId="session-1"
-        sessionType="chat"
-        msgId="user-1"
-        forks={forks}
-        generatingReplyCount={generationLocked ? 2 : 0}
-        generationLocked={generationLocked}
-      />
+      <ForkGroup sessionId="session-1" sessionType="chat" msgId="user-1" forks={forks} sessionLocks={sessionLocks} />
     </MantineProvider>
   )
 }
@@ -85,7 +85,6 @@ describe('ForkGroup', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     isSmallScreenMock.mockReturnValue(false)
-    getDefaultStore().set(compactionUIStateMapAtom, {})
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
       value: vi.fn().mockImplementation((query: string) => ({
@@ -134,16 +133,14 @@ describe('ForkGroup', () => {
           sessionType="chat"
           msgId="message-a"
           forks={forks}
-          generatingReplyCount={0}
-          generationLocked={false}
+          sessionLocks={IDLE_SESSION_LOCK_STATE}
         />
         <ForkGroup
           sessionId="session-1"
           sessionType="chat"
           msgId="message-b"
           forks={forks}
-          generatingReplyCount={0}
-          generationLocked={false}
+          sessionLocks={IDLE_SESSION_LOCK_STATE}
         />
       </MantineProvider>
     )
@@ -216,7 +213,7 @@ describe('ForkGroup', () => {
         ],
         createdAt: 1,
       },
-      true
+      generationLocks()
     )
 
     expect(screen.queryByTestId('message-older-reply')).toBeNull()
@@ -240,7 +237,7 @@ describe('ForkGroup', () => {
         ],
         createdAt: 1,
       },
-      true
+      generationLocks()
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'Expand view' }))
@@ -268,7 +265,7 @@ describe('ForkGroup', () => {
         ],
         createdAt: 1,
       },
-      true
+      generationLocks()
     )
 
     fireEvent.click(screen.getAllByLabelText('Wait for the current replies to finish')[0])
@@ -293,7 +290,7 @@ describe('ForkGroup', () => {
         ],
         createdAt: 1,
       },
-      true
+      generationLocks()
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'Switch to this branch' }))
@@ -303,39 +300,21 @@ describe('ForkGroup', () => {
   })
 
   test('blocks branch switching while compaction is running and explains why', () => {
-    getDefaultStore().set(compactionUIStateMapAtom, {
-      'session-1': { status: 'running', error: null, streamingText: '' },
-    })
-    renderGroup({
-      position: 0,
-      lists: [
-        { id: 'current', messages: [] },
-        { id: 'alternative', messages: [message('alternative-reply')] },
-      ],
-      createdAt: 1,
-    })
+    renderGroup(
+      {
+        position: 0,
+        lists: [
+          { id: 'current', messages: [] },
+          { id: 'alternative', messages: [message('alternative-reply')] },
+        ],
+        createdAt: 1,
+      },
+      locks({ compactionRunning: true })
+    )
 
     fireEvent.click(screen.getAllByLabelText('Wait for compaction to finish')[0])
 
     expect(switchForkMock).not.toHaveBeenCalled()
     expect(toastMock).toHaveBeenCalledWith('Wait for compaction to finish', 2500)
-  })
-
-  test('unlocks branch switching for other sessions during compaction', () => {
-    getDefaultStore().set(compactionUIStateMapAtom, {
-      'other-session': { status: 'running', error: null, streamingText: '' },
-    })
-    renderGroup({
-      position: 0,
-      lists: [
-        { id: 'current', messages: [] },
-        { id: 'alternative', messages: [message('alternative-reply')] },
-      ],
-      createdAt: 1,
-    })
-
-    fireEvent.click(screen.getByLabelText('Next reply'))
-
-    expect(switchForkMock).toHaveBeenCalledWith('session-1', 'user-1', 'next')
   })
 })

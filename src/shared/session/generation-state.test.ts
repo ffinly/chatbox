@@ -1,5 +1,5 @@
-import type { Message, Session } from '@shared/types'
 import { describe, expect, it } from 'vitest'
+import type { Message, Session } from '../types'
 import {
   countCancellableGeneratingAssistantMessages,
   getCurrentConversationMessages,

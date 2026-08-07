@@ -2,6 +2,15 @@ import NiceModal from '@ebay/nice-modal-react'
 import { ActionIcon, type ActionIconProps, Button, Flex, Loader, Modal, Stack, Text } from '@mantine/core'
 import { Box, Grid, useTheme } from '@mui/material'
 import { TestId } from '@shared/automation/testids'
+import {
+  getSessionActionGate,
+  IDLE_SESSION_LOCK_STATE,
+  isGenerationLocked,
+  type SessionActionBlockReason,
+  type SessionLockState,
+  shouldShowConcurrentReplyStop,
+} from '@shared/session/action-gates'
+import { isCancellableGeneratingAssistantMessage } from '@shared/session/generation-state'
 import { findMessageLocation } from '@shared/session/message-forks'
 import type {
   Message,
@@ -59,7 +68,6 @@ import { copyToClipboard } from '@/packages/navigator'
 import { countWord } from '@/packages/word-count'
 import { getSession } from '@/stores/chatStore'
 import { lockSessionAgentMode, setSessionAgentMode } from '@/stores/session/agent-mode'
-import { isCancellableGeneratingAssistantMessage } from '@/stores/session/generation-state'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
 import '../../static/Block.css'
@@ -87,17 +95,14 @@ import {
 import { MessageAttachmentGrid } from './MessageAttachmentGrid'
 import MessageErrTips from './MessageErrTips'
 import MessageStatuses, { PreparingToolCallStatus } from './MessageLoading'
-import {
-  getMessageActionVisibilityClass,
-  type MessageButtonGroup,
-  shouldShowConcurrentReplyStop,
-} from './message-action-state'
+import { getMessageActionVisibilityClass, type MessageButtonGroup } from './message-action-state'
 import { isMessageReminderPresentation, resolveMessageErrorPresentation } from './message-error-presentation'
 import { shouldRightAlignMessage } from './message-layout'
 import { getMessageRoleClass } from './message-role-class'
 import { createMessageTimelineLayout } from './message-timeline'
 import { getMessageTokenDisplay } from './message-token-display'
 import { PictureGallery } from './PictureGallery'
+import { getSessionLockNotice } from './session-lock-copy'
 
 // Reset an assistant message back to a clean generating state, reusing the same
 // message slot (e.g. when acting on an agent-mode suggestion callout).
@@ -123,8 +128,7 @@ interface Props {
   className?: string
   collapseThreshold?: number // 文本长度阀值, 超过这个长度则会被折叠
   buttonGroup?: MessageButtonGroup // 按钮组显示策略, auto: 只在 hover 时显示; always: 总是显示; none: 不显示
-  generatingReplyCount?: number
-  generationLocked?: boolean
+  sessionLocks?: SessionLockState
   readOnly?: boolean
   allowGeneratingStop?: boolean
   small?: boolean
@@ -169,8 +173,7 @@ const _Message: FC<Props> = (props) => {
     className,
     collapseThreshold,
     buttonGroup = 'auto',
-    generatingReplyCount = 0,
-    generationLocked = false,
+    sessionLocks = IDLE_SESSION_LOCK_STATE,
     readOnly = false,
     allowGeneratingStop = false,
     small,
@@ -232,18 +235,24 @@ const _Message: FC<Props> = (props) => {
     await modifyMessage(sessionId, { ...msg, generating: false, cancel: undefined }, true)
   }, [sessionId, msg])
 
-  const notifyGenerationLocked = useCallback(() => {
-    toastActions.add(t('Wait for the current replies to finish'), 2500)
-  }, [t])
+  const generationLocked = isGenerationLocked(sessionLocks)
+
+  const notifyActionBlocked = useCallback(
+    (reason: SessionActionBlockReason) => {
+      toastActions.add(getSessionLockNotice(reason, t), 2500)
+    },
+    [t]
+  )
 
   const handleRefresh = useCallback(async () => {
-    if (generationLocked) {
-      notifyGenerationLocked()
+    const gate = getSessionActionGate('regenerate', sessionLocks)
+    if (!gate.allowed) {
+      notifyActionBlocked(gate.reason)
       return
     }
     await handleStop()
     await regenerateInNewFork(sessionId, msg)
-  }, [generationLocked, handleStop, msg, notifyGenerationLocked, sessionId])
+  }, [sessionLocks, handleStop, msg, notifyActionBlocked, sessionId])
 
   // Tracking is best-effort and must never block or break the accept/decline
   // action, so this fetches the session on its own and swallows failures.
@@ -331,25 +340,27 @@ const _Message: FC<Props> = (props) => {
 
   const handleRetryLastStep = useCallback(async () => {
     if (!lastStepForRetry) return
-    if (generationLocked) {
-      notifyGenerationLocked()
+    const gate = getSessionActionGate('regenerate', sessionLocks)
+    if (!gate.allowed) {
+      notifyActionBlocked(gate.reason)
       return
     }
     setRetryChoiceOpened(false)
     await retryFromLastToolCallAfterApiError(sessionId, msg.id, lastStepForRetry.toolCallId)
-  }, [generationLocked, lastStepForRetry, msg.id, notifyGenerationLocked, sessionId])
+  }, [sessionLocks, lastStepForRetry, msg.id, notifyActionBlocked, sessionId])
 
   const handleErrorTipRetry = useCallback(async () => {
     if (lastStepForRetry) {
-      if (generationLocked) {
-        notifyGenerationLocked()
+      const gate = getSessionActionGate('regenerate', sessionLocks)
+      if (!gate.allowed) {
+        notifyActionBlocked(gate.reason)
         return
       }
       await retryFromLastToolCallAfterApiError(sessionId, msg.id, lastStepForRetry.toolCallId)
       return
     }
     await handleRefresh()
-  }, [generationLocked, handleRefresh, lastStepForRetry, msg.id, notifyGenerationLocked, sessionId])
+  }, [sessionLocks, handleRefresh, lastStepForRetry, msg.id, notifyActionBlocked, sessionId])
 
   const handleMessageRetry = useCallback(async () => {
     if (lastStepForRetry) {
@@ -395,15 +406,16 @@ const _Message: FC<Props> = (props) => {
   const onEditClick = useCallback(async () => {
     // The UI hides the edit entry for a streaming message, but guard anyway:
     // saving a snapshot of it would be silently overwritten by the next chunk.
-    if (msg.generating) {
-      notifyGenerationLocked()
+    const editGate = getSessionActionGate('edit-message', sessionLocks, { messageGenerating: msg.generating })
+    if (!editGate.allowed) {
+      notifyActionBlocked(editGate.reason)
       return
     }
-    // Plain saves are safe while replies stream (writes are serialized and the
-    // in-flight context was snapshotted at generation start), but Save & Resend
-    // is a regenerate-class action and stays locked like Retry.
-    await NiceModal.show('message-edit', { sessionId, msg, hideSaveAndResend: generationLocked })
-  }, [generationLocked, msg, notifyGenerationLocked, sessionId])
+    // Plain saves are safe while replies stream, but Save & Resend is a
+    // regenerate-class action and stays locked like Retry.
+    const resendGate = getSessionActionGate('save-and-resend', sessionLocks, { messageGenerating: msg.generating })
+    await NiceModal.show('message-edit', { sessionId, msg, hideSaveAndResend: !resendGate.allowed })
+  }, [sessionLocks, msg, notifyActionBlocked, sessionId])
 
   const onViewMessageJson = useCallback(async () => {
     await NiceModal.show('json-viewer', { title: t('Message Raw JSON'), data: msg })
@@ -1016,7 +1028,7 @@ const _Message: FC<Props> = (props) => {
   const showConcurrentReplyStop = shouldShowConcurrentReplyStop({
     allowStop: allowGeneratingStop,
     cancellable: isCancellableGeneratingAssistantMessage(msg),
-    generatingReplyCount,
+    generatingReplyCount: sessionLocks.generatingReplyCount,
     sessionType: props.sessionType,
   })
   const generatingActions = showConcurrentReplyStop && (
@@ -1058,7 +1070,7 @@ const _Message: FC<Props> = (props) => {
           <MessageActionIcon
             testId={TestId.message.actionBarRetry}
             icon={IconReload}
-            tooltip={generationLocked ? t('Wait for the current replies to finish') : t('Reply Again')}
+            tooltip={generationLocked ? getSessionLockNotice('generating', t) : t('Reply Again')}
             onClick={handleMessageRetry}
             disabled={generationLocked && !isSmallScreen}
           />

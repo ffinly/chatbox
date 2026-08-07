@@ -1,6 +1,7 @@
 import NiceModal from '@ebay/nice-modal-react'
 import { Button, Flex, Stack, Transition } from '@mantine/core'
 import { useThrottledCallback } from '@mantine/hooks'
+import { getSessionActionGate } from '@shared/session/action-gates'
 import type { Session, Message as SessionMessage, SessionThreadBrief } from '@shared/types'
 import {
   IconArrowBarToUp,
@@ -29,13 +30,10 @@ import { type StateSnapshot, Virtuoso, type VirtuosoHandle } from 'react-virtuos
 import { buildMessageRenderItems, type MessageRenderItem } from '@/components/chat/message-render-items'
 import { platformTypeAtom } from '@/hooks/useNeedRoomForWinControls'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
+import { useSessionLockState } from '@/hooks/useSessionLockState'
 import { cn } from '@/lib/utils'
 import platform from '@/platform'
 import * as atoms from '@/stores/atoms'
-import {
-  countCancellableGeneratingAssistantMessages,
-  getGenerationControlMessages,
-} from '@/stores/session/generation-state'
 import { moveThreadToConversations, removeMessage, removeThread, switchThread } from '@/stores/sessionActions'
 import { getAllMessageList, getCurrentThreadHistoryHash } from '@/stores/sessionHelpers'
 import { settingsStore } from '@/stores/settingsStore'
@@ -53,6 +51,7 @@ import MessageMinimapRail, { type MessageMinimapAnchor } from './MessageMinimapR
 import MessageNavigation, { ScrollToBottomButton } from './MessageNavigation'
 import { areMinimapAnchorsEqual, getMessagePreviewText, isUserNavigationMessage } from './message-navigation-utils'
 import SummaryMessage from './SummaryMessage'
+import { getSessionLockNotice } from './session-lock-copy'
 import { createSmoothFollowOutputController } from './smooth-follow-output'
 
 const EMPTY_MINIMAP_ANCHORS: MessageMinimapAnchor[] = []
@@ -103,12 +102,7 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
     [currentSession]
   )
   const currentMessageList = useMemo(() => getAllMessageList(currentSession), [currentSession])
-  const generationControlMessages = useMemo(() => getGenerationControlMessages(currentSession), [currentSession])
-  const generatingReplyCount = useMemo(
-    () => countCancellableGeneratingAssistantMessages(generationControlMessages),
-    [generationControlMessages]
-  )
-  const generationLocked = generatingReplyCount > 0
+  const sessionLocks = useSessionLockState(currentSession)
 
   const latestSummaryMessageId = useMemo(() => {
     for (let i = currentMessageList.length - 1; i >= 0; i--) {
@@ -412,8 +406,9 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
                 className={options.isFirstItem ? 'pt-4' : options.isLastItem ? '!pb-4' : ''}
                 isLatestSummary={msg.id === latestSummaryMessageId}
                 onDelete={() => {
-                  if (generationLocked) {
-                    toastActions.add(t('Wait for the current replies to finish'), 2500)
+                  const gate = getSessionActionGate('delete-summary', sessionLocks)
+                  if (!gate.allowed) {
+                    toastActions.add(getSessionLockNotice(gate.reason, t), 2500)
                     return
                   }
                   void removeMessage(currentSession.id, msg.id)
@@ -429,8 +424,7 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
                 className={options.isFirstItem ? 'pt-4' : options.isLastItem ? '!pb-4' : ''}
                 collapseThreshold={msg.role === 'system' ? 150 : undefined}
                 buttonGroup={options.isLastItem && msg.role === 'assistant' ? 'always' : 'auto'}
-                generatingReplyCount={generatingReplyCount}
-                generationLocked={generationLocked}
+                sessionLocks={sessionLocks}
                 assistantAvatarKey={currentSession.assistantAvatarKey}
                 sessionPicUrl={currentSession.picUrl}
               />
@@ -443,8 +437,7 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
               sessionType={currentSession.type || 'chat'}
               msgId={msg.id}
               forks={currentSession.messageForksHash[msg.id]}
-              generatingReplyCount={generatingReplyCount}
-              generationLocked={generationLocked}
+              sessionLocks={sessionLocks}
               assistantAvatarKey={currentSession.assistantAvatarKey}
               sessionPicUrl={currentSession.picUrl}
             />
@@ -452,7 +445,7 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
         </Stack>
       )
     },
-    [currentSession, currentThreadHash, generatingReplyCount, generationLocked, latestSummaryMessageId, t]
+    [currentSession, currentThreadHash, sessionLocks, latestSummaryMessageId, t]
   )
 
   useImperativeHandle(ref, () => ({

@@ -1,4 +1,4 @@
-import type { Message, Session } from '@shared/types'
+import type { Message, Session } from '../types'
 
 type GenerationStateMessage = Pick<Message, 'role' | 'generating' | 'cancel'>
 
@@ -50,6 +50,13 @@ export function getCurrentConversationMessages(session: Session): Message[] {
   return collectReachableMessages(session, [session.messages])
 }
 
+// Several consumers (route, message list, input box) derive lock state from
+// the same session snapshot in one render pass, and streaming hands them a
+// fresh session object per chunk — cache per session identity so the
+// threads/forks walk happens once per update (same pattern as
+// listPendingApprovalToolCalls).
+const generationControlMessagesCache = new WeakMap<Session, Message[]>()
+
 /**
  * Return messages that should control the session-level generating UI.
  *
@@ -58,6 +65,16 @@ export function getCurrentConversationMessages(session: Session): Message[] {
  * stale persisted `generating: true` flags cannot lock the session.
  */
 export function getGenerationControlMessages(session: Session): Message[] {
+  const cached = generationControlMessagesCache.get(session)
+  if (cached) {
+    return cached
+  }
+  const result = computeGenerationControlMessages(session)
+  generationControlMessagesCache.set(session, result)
+  return result
+}
+
+function computeGenerationControlMessages(session: Session): Message[] {
   const currentMessages = getCurrentConversationMessages(session)
   const currentMessageIds = new Set(currentMessages.map((message) => message.id))
   const visibleMessages = collectReachableMessages(session, [
