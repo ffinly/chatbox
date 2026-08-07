@@ -28,6 +28,7 @@ const {
   setSessionAgentModeMock,
   lockSessionAgentModeMock,
   clearSessionActivityMock,
+  toastMock,
 } = vi.hoisted(() => ({
   updateSessionWithMessages: vi.fn(),
   updateSessionMock: vi.fn(),
@@ -45,6 +46,7 @@ const {
   setSessionAgentModeMock: vi.fn(),
   lockSessionAgentModeMock: vi.fn(),
   clearSessionActivityMock: vi.fn(),
+  toastMock: vi.fn(),
 }))
 
 const { deleteSessionAttachmentsMock, platformMock } = vi.hoisted(() => {
@@ -112,6 +114,8 @@ vi.mock('./session/generation-runtime', () => ({
   beginSessionGeneration: vi.fn(),
   settleSessionGeneration: vi.fn(),
 }))
+
+vi.mock('./toastActions', () => ({ add: toastMock }))
 
 vi.mock('../platform', () => ({
   default: platformMock,
@@ -230,6 +234,7 @@ beforeEach(() => {
   clearSessionActivityMock.mockReset()
   deleteSessionAttachmentsMock.mockReset()
   platformMock.type = 'web'
+  toastMock.mockReset()
 })
 
 describe('conversation list cleanup', () => {
@@ -646,6 +651,52 @@ describe('fork actions', () => {
     // The anchored summary stays in the shared prefix, not in the fork tail.
     expect(updated?.messages.map((m) => m.id)).toEqual([pivot.id, anchoredSummary.id])
     expect(runGenerateMore).toHaveBeenCalledWith(session.id, pivot.id)
+  })
+
+  test('generateMoreInNewFork blocks Save & Resend when the target is in the pre-controller streaming window', async () => {
+    const pivot = makeMessage('pivot', 'user')
+    const target = { ...makeMessage('target', 'assistant'), generating: true }
+    const session: Session = {
+      id: 'session-save-resend-streaming',
+      name: 'Test',
+      messages: [pivot, target],
+    }
+
+    getSessionMock.mockResolvedValue(session)
+
+    await sessionActions.generateMoreInNewFork(session.id, target.id)
+
+    expect(getSessionMock).toHaveBeenCalledTimes(1)
+    expect(updateSessionWithMessages).not.toHaveBeenCalled()
+    expect(toastMock).toHaveBeenCalledWith('Wait for the current replies to finish', 2500)
+  })
+
+  test('generateMoreInNewFork stops when the Save & Resend target no longer exists', async () => {
+    const session: Session = {
+      id: 'session-save-resend-missing',
+      name: 'Test',
+      messages: [makeMessage('other', 'user')],
+    }
+
+    getSessionMock.mockResolvedValue(session)
+
+    await sessionActions.generateMoreInNewFork(session.id, 'deleted-target')
+
+    expect(getSessionMock).toHaveBeenCalledTimes(1)
+    expect(updateSessionWithMessages).not.toHaveBeenCalled()
+    expect(toastMock).not.toHaveBeenCalled()
+  })
+
+  test('generateMoreInNewFork stays rejection-free when the session read fails', async () => {
+    getSessionMock.mockRejectedValue(new Error('session read failed'))
+
+    await expect(
+      sessionActions.generateMoreInNewFork('session-save-resend-read-error', 'target')
+    ).resolves.toBeUndefined()
+
+    expect(getSessionMock).toHaveBeenCalledTimes(1)
+    expect(updateSessionWithMessages).not.toHaveBeenCalled()
+    expect(toastMock).not.toHaveBeenCalled()
   })
 
   test('moveThreadToConversations preserves thread forks and drops unrelated ones', async () => {

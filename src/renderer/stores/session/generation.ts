@@ -1,7 +1,7 @@
 import { buildContext } from '@shared/context'
 import type { AttachmentResolver } from '@shared/context/types'
 import { findMessageContext } from '@shared/session/message-forks'
-import { type CompactionPoint, createMessage, type Message, type SessionSettings } from '@shared/types'
+import { type CompactionPoint, createMessage, type Message, type Session, type SessionSettings } from '@shared/types'
 import type { AgentModeEntrySource } from '@/analytics/agent-mode'
 import * as chatStore from '../chatStore'
 import { guardSessionAction } from './action-guard'
@@ -94,11 +94,34 @@ export async function generateMore(sessionId: string, msgId: string) {
 }
 
 export function generateMoreInNewFork(sessionId: string, msgId: string) {
-  // Regenerate-class entry (Save & Resend). The gate runs inside the session
-  // lock so it reads the freshest state: lock-free alternative replies can
-  // start streaming between a pre-lock check and lock acquisition.
+  // Save & Resend resolves the target again inside the session lock. The
+  // target may have started streaming since the editor's pre-check, including
+  // the short window before its AbortController is registered.
   return withSessionGenerationLock(sessionId, async () => {
-    if (!(await guardSessionAction(sessionId, 'regenerate'))) {
+    let session: Session | null
+    try {
+      session = await chatStore.getSession(sessionId)
+    } catch {
+      // MessageEdit intentionally void-calls this action. Keep storage/query
+      // read failures from escaping as unhandled rejections.
+      return
+    }
+    if (!session) {
+      return
+    }
+    const location = findMessageLocation(session, msgId)
+    if (!location) {
+      return
+    }
+    const targetMessage = location.list[location.index]
+    if (
+      !(await guardSessionAction(
+        sessionId,
+        'save-and-resend',
+        { messageGenerating: targetMessage.generating === true },
+        session
+      ))
+    ) {
       return
     }
     await createNewFork(sessionId, msgId)
