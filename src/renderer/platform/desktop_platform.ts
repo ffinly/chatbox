@@ -499,6 +499,10 @@ export default class DesktopPlatform implements Platform {
     return this.ipc.invoke('dialog:openDirectory')
   }
 
+  public async scanLocalAgentMemories() {
+    return this.ipc.invoke('agent-persona:scan-local-memories')
+  }
+
   public minimize() {
     return this.ipc.invoke('window:minimize')
   }

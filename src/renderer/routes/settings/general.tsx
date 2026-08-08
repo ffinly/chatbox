@@ -52,6 +52,7 @@ import {
 import platform from '@/platform'
 import { canShareFile, shareFile } from '@/platform/web_file_share'
 import storage from '@/storage'
+import { withAgentPersonaLocks } from '@/stores/agentPersonaStore'
 import { getMetaStorage, recoverSessionList } from '@/stores/chatStore'
 import { migrateOnData } from '@/stores/migration'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -763,13 +764,18 @@ const ImportExportDataSection = () => {
     setProgress(null)
     try {
       if (await isZipBackupFile(file)) {
-        const result = await importBackupArchive(file, {
-          storage,
-          metaStorage: await getMetaStorage(),
-          signal: abortController.signal,
-          onProgress: setProgress,
-          rehydrateSession: rehydrateImportedSession,
-        })
+        // Restoring writes agent-soul/agent-memories directly through storage;
+        // holding the persona locks queues concurrent save_memory / Soul edits
+        // until the import transaction finishes so neither side is clobbered.
+        const result = await withAgentPersonaLocks(async () =>
+          importBackupArchive(file, {
+            storage,
+            metaStorage: await getMetaStorage(),
+            signal: abortController.signal,
+            onProgress: setProgress,
+            rehydrateSession: rehydrateImportedSession,
+          })
+        )
         if (result.warnings.length > 0) {
           const warningSummary = result.warnings
             .slice(0, 3)

@@ -20,7 +20,12 @@ import { StorageKeyGenerator } from '@/storage/StoreStorage'
 import * as chatStore from '@/stores/chatStore'
 import { markFirstSuccessfulChatCompleted } from '@/stores/firstSuccessfulChat'
 import { prepareAgentGenerationHarness, refreshSessionAttachmentStatuses } from '@/stores/session/agent-harness'
-import { getSessionAgentModeEntry, lockSessionAgentMode, setSessionAgentMode } from '@/stores/session/agent-mode'
+import {
+  getSessionAgentModeEntry,
+  lockSessionAgentMode,
+  persistAgentPromptSnapshotGuarded,
+  setSessionAgentMode,
+} from '@/stores/session/agent-mode'
 import { findMessageLocation } from '@/stores/session/forks'
 import { withSessionGenerationLock } from '@/stores/session/generation-lock'
 import { generationRuntimeStore } from '@/stores/session/generation-runtime'
@@ -195,6 +200,16 @@ const dependencies: GenerationServiceDependencies<ModelDependencies> = {
         compactionPoints: request.compactionPoints,
         sideEffects: {
           lockAgentMode: request.lockAgentMode,
+          persistAgentPromptSnapshot: (snapshot) => {
+            // A canceled generation (thread switch/new thread) must not write its
+            // late capture; the CAS guard inside handles the remaining races.
+            if (request.signal.aborted) return
+            persistAgentPromptSnapshotGuarded(
+              request.session.id,
+              snapshot,
+              request.settings.agentPromptSnapshot?.capturedAt
+            )
+          },
         },
         isPro: settingActions.isPro,
       })

@@ -12,6 +12,7 @@ import {
   IconInfoCircle,
   IconKeyboard,
   IconMessages,
+  IconRobotFace,
   IconSparkles,
   IconWand,
   IconWorldWww,
@@ -74,6 +75,12 @@ const ITEMS = [
           label: 'Skills',
           noTranslate: true,
           icon: <IconWand className="w-full h-full" />,
+        },
+        // Agent settings share the skills gate: both surface only where agent mode runs.
+        {
+          key: 'agent',
+          label: 'Agent',
+          icon: <IconRobotFace className="w-full h-full" />,
         },
       ]
     : []),

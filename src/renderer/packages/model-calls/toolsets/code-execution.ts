@@ -5,6 +5,7 @@ import { getLogger } from '@/lib/utils'
 import platform from '@/platform'
 import { asRecord, contentOrErrorText, numberField, stringField, toTextModelOutput } from './model-output'
 import { remapPhantomHomePath, remapPhantomHomePathForProvider } from './sandbox-paths'
+import { isSoulVirtualPath, readSoulVirtualFile } from './soul-file'
 
 const log = getLogger('toolset:code-execution')
 
@@ -260,6 +261,9 @@ export function buildCodeExecutionTools(context: CodeExecutionContext): { tools:
     }),
     execute: async (input) => {
       const readInput = input as { file_path: string; offset?: number; limit?: number }
+      if (isSoulVirtualPath(readInput.file_path)) {
+        return readSoulVirtualFile()
+      }
       readInput.file_path = await remapPhantomHomePathForProvider(readInput.file_path, provider)
       if (isAbsolutePath(readInput.file_path)) {
         const status = await provider.getStatus().catch(() => null)

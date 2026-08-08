@@ -1,3 +1,4 @@
+import { buildAgentPersonaPrompt, buildMemoriesSection } from '@shared/agent-persona/prompt'
 import { buildContext } from '@shared/context'
 import type { AttachmentResolver } from '@shared/context/types'
 import { ChatboxAIAPIError, OCRError } from '@shared/models/errors'
@@ -6,6 +7,7 @@ import type { SandboxProvider } from '@shared/sandbox-provider'
 import type {
   AgentModeLockReason,
   AgentModeValue,
+  AgentPromptSnapshot,
   CompactionPoint,
   Config,
   KnowledgeBase,
@@ -19,6 +21,7 @@ import { ModelProviderEnum } from '@shared/types'
 import type { ModelDependencies } from '@shared/types/adapters'
 import { sequenceMessages } from '@shared/utils/message'
 import type { ToolSet } from 'ai'
+import dayjs from 'dayjs'
 import { t } from 'i18next'
 import { getLogger } from '@/lib/utils'
 import {
@@ -26,12 +29,15 @@ import {
   hasAcceptedCallbackBackgroundTaskResult,
 } from '@/packages/chatbox-cli/background-task-result'
 import { convertToModelMessages, injectModelSystemPrompt } from '@/packages/model-calls/message-utils'
+import { getOS } from '@/packages/navigator'
 import platform from '@/platform'
 import { createSandboxProvider } from '@/sandbox'
+
 import { SESSION_ATTACHMENT_RAG_LOG_PREFIX } from '../../../shared/session-attachment-rag/logging'
 import { createAttachmentResolver } from './attachment-resolver'
 import { applyLegacyToolFallback } from './legacy-tool-fallback'
 import { getOCRModel, ocrImagesInMessages } from './ocr-helper'
+import { resolvePersonaSnapshot } from './persona-snapshot'
 import { buildToolsForSession } from './tools-builder'
 
 const log = getLogger('agent-generation-harness')
@@ -44,6 +50,8 @@ Unless the user requests otherwise, all visible assistant text must be in the sa
 
 export interface AgentGenerationSideEffects {
   lockAgentMode?: (reason: Exclude<AgentModeLockReason, null>) => void
+  /** Persist a freshly captured persona snapshot into the session settings. */
+  persistAgentPromptSnapshot?: (snapshot: AgentPromptSnapshot) => void
 }
 
 export interface PrepareAgentGenerationHarnessOptions {
@@ -216,6 +224,19 @@ export async function prepareAgentGenerationHarness(
   }
 
   const effectiveAgentMode = computeEffectiveAgentMode(agentModeValue, agentModeSupported)
+
+  // Global memory switch: when off, stored memories are neither injected nor
+  // maintained in either mode (Soul/identity are unaffected).
+  const memoryEnabled = globalSettings.memoryEnabled !== false
+  const personaSnapshot = await resolvePersonaSnapshot({
+    effectiveAgentMode,
+    memoryEnabled,
+    settings,
+    messages,
+    targetMsgIx,
+    persist: sideEffects?.persistAgentPromptSnapshot,
+  })
+
   const sandboxProvider = effectiveAgentMode !== 'off' ? sandboxProviderFactory() : null
   // Grant the sandbox read/write access to any user-bound working directories before it
   // initializes lazily on the first tool call (desktop only; cloud provider no-ops).
@@ -256,6 +277,13 @@ export async function prepareAgentGenerationHarness(
     preserveToolCallMessageIds,
     sandboxMode: canExecuteCode,
   })
+
+  // Agent mode owns its identity: session-level system prompts (legacy custom
+  // prompts, copilot personas) are dropped — the user expresses persona through
+  // the global Soul instead.
+  if (effectiveAgentMode === 'on') {
+    promptMsgs = promptMsgs.filter((message) => message.role !== 'system')
+  }
 
   const infoParts: MessageContentParts = []
 
@@ -316,16 +344,52 @@ export async function prepareAgentGenerationHarness(
     onAgentModeActivated: () => {
       sideEffects?.lockAgentMode?.('load_skill')
     },
+    workspaceInstructionsOverride: personaSnapshot?.workspaceInstructions,
+    globalSettings,
   })
   const hasTools = Object.keys(tools).length > 0
-  const instructions = hasTools ? `${GLOBAL_RESPONSE_LANGUAGE_INSTRUCTION}${toolInstructions}` : toolInstructions
+  let instructions = hasTools ? `${GLOBAL_RESPONSE_LANGUAGE_INSTRUCTION}${toolInstructions}` : toolInstructions
 
-  let injectedMessages = injectModelSystemPrompt(
-    model.modelId,
-    promptMsgs,
-    instructions,
-    model.isSupportSystemMessage() ? 'system' : 'user'
-  )
+  // Chat mode gets memories (no Soul/identity) from the same frozen snapshot,
+  // appended to the regular instruction path so the session system prompt stays
+  // authoritative. Tool guidance follows whether the memory tools were actually
+  // registered for this model.
+  if (effectiveAgentMode !== 'on' && memoryEnabled && personaSnapshot && personaSnapshot.memories.length > 0) {
+    const memoryToolsAvailable = 'save_memory' in tools
+    instructions = `${buildMemoriesSection(personaSnapshot.memories, { includeToolGuidance: memoryToolsAvailable })}${instructions}`
+  }
+
+  let injectedMessages: Message[]
+  if (effectiveAgentMode === 'on' && personaSnapshot) {
+    // Agent mode assembles its own system prompt, ordered by stability for prefix
+    // caching: fixed identity → frozen Soul/memories → tool instructions → runtime
+    // metadata. The date is the snapshot's capture date (not today) so the system
+    // prompt never drifts mid-session.
+    const personaPrompt = buildAgentPersonaPrompt({
+      soul: personaSnapshot.soul,
+      memories: memoryEnabled ? personaSnapshot.memories : [],
+      platformType: platform.type,
+      os: getOS(),
+    })
+    const runtimeMetadata = `\n## Runtime\nCurrent model: ${model.modelId}\nSession context captured: ${dayjs(personaSnapshot.capturedAt).format('YYYY-MM-DD')}`
+    const systemText = `${personaPrompt}\n${instructions}${runtimeMetadata}`
+    injectedMessages = [
+      {
+        id: `agent-system-prompt-${personaSnapshot.capturedAt}`,
+        role: model.isSupportSystemMessage() ? 'system' : 'user',
+        timestamp: personaSnapshot.capturedAt,
+        contentParts: [{ type: 'text', text: systemText }],
+      },
+      ...promptMsgs,
+    ]
+  } else {
+    injectedMessages = injectModelSystemPrompt(
+      model.modelId,
+      promptMsgs,
+      instructions,
+      model.isSupportSystemMessage() ? 'system' : 'user'
+    )
+  }
 
   if (!model.isSupportSystemMessage()) {
     injectedMessages = injectedMessages.map((message) => ({

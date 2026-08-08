@@ -274,7 +274,9 @@ describe('buildToolsForSession', () => {
     expect(result.tools.mcp_tool).toBeUndefined()
     expect(result.instructions).not.toContain('## Skills')
     expect(result.instructions).not.toContain('Chatbox Account CLI')
-    expect(result.instructions).not.toContain('## Tool-use Communication')
+    // Memory tools are mode-independent, so tool-use communication guidance stays.
+    expect(result.tools.save_memory).toBeDefined()
+    expect(result.instructions).toContain('## Persistent Memory')
     expect(result.instructions).not.toContain('## Workspace Instructions')
     expect(result.instructions).not.toContain('Co-authored-by: Chatbox <chatbox@chatboxai.com>')
     expect(readWorkspaceInstructionsMock).not.toHaveBeenCalled()

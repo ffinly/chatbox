@@ -58,6 +58,7 @@ async function copySession(
     threadName?: Session['threadName']
     messageForksHash?: Session['messageForksHash']
     compactionPoints?: Session['compactionPoints']
+    settings?: Session['settings']
   },
   options?: {
     appendForkMarker?: boolean
@@ -118,6 +119,9 @@ async function copySession(
     messageForksHash: newMessageForksHash,
     compactionPoints: newCompactionPoints?.length ? newCompactionPoints : undefined,
     ...(sourceMeta.threadName ? { threadName: sourceMeta.threadName } : {}),
+    // Explicit settings override (e.g. a promoted thread carrying its own
+    // frozen persona snapshot); otherwise the source session's settings apply.
+    ...('settings' in sourceMeta ? { settings: sourceMeta.settings } : {}),
   }
   return await chatStore.createSession(newSession, source.id)
 }

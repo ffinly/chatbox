@@ -1,4 +1,4 @@
-import type { AgentModeEntry, AgentModeLockReason, AgentModeValue, Session } from '@shared/types'
+import type { AgentModeEntry, AgentModeLockReason, AgentModeValue, AgentPromptSnapshot, Session } from '@shared/types'
 import { useMemo } from 'react'
 import * as chatStore from '../chatStore'
 import { uiStore, useUIStore } from '../uiStore'
@@ -96,6 +96,30 @@ function resolveSetAgentMode<T extends Pick<Session, 'settings'>>(
   }
   const entry: AgentModeEntry = { value, locked: current.locked, lockReason: current.lockReason }
   return { session: applyAgentMode(currentSession, entry), entry }
+}
+
+/**
+ * Persist a freshly captured persona snapshot with a compare-and-swap guard.
+ * Snapshot capture awaits disk I/O; a thread switch or new-thread action during
+ * that window re-owns the session's snapshot slot, so the write is skipped when
+ * the stored snapshot no longer matches what the capturing generation observed
+ * — a stale persona is never attached to a different conversation.
+ */
+export function persistAgentPromptSnapshotGuarded(
+  sessionId: string,
+  snapshot: AgentPromptSnapshot,
+  expectedCapturedAt: number | undefined
+): void {
+  const applySnapshot = <T extends Pick<Session, 'settings'>>(current: T | null | undefined): T => {
+    const session = requireSession(current)
+    if (session.settings?.agentPromptSnapshot?.capturedAt !== expectedCapturedAt) return session
+    return {
+      ...session,
+      settings: { ...(session.settings || {}), agentPromptSnapshot: snapshot },
+    } as T
+  }
+  chatStore.updateSessionCacheSync(sessionId, (current) => applySnapshot(current))
+  void chatStore.updateSession(sessionId, (current) => applySnapshot(current))
 }
 
 export async function setSessionAgentMode(sessionId: string, value: AgentModeValue): Promise<AgentModeEntry> {

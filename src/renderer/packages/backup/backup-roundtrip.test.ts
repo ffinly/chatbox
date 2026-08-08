@@ -227,6 +227,13 @@ describe('ZIP backup round trip', () => {
     source.values.set(BackupStorageKey.MyCopilots, copilots)
     source.values.set(BackupStorageKey.ChatSessionSettings, { model: 'model-a' })
     source.values.set(BackupStorageKey.PictureSessionSettings, { model: 'model-b' })
+    source.values.set(BackupStorageKey.AgentSoul, {
+      content: '# Soul\n\nDirect and concise.',
+      updatedAt: 1700000000000,
+    })
+    source.values.set(BackupStorageKey.AgentMemories, [
+      { id: 'm1', content: 'User prefers pnpm', createdAt: 1700000000000 },
+    ])
     source.blobs.set('picture:kept', 'data:image/png;base64,AAECAw==')
     const chunks: Uint8Array[] = []
 
@@ -265,6 +272,13 @@ describe('ZIP backup round trip', () => {
     ])
     expect(destination.values.get(BackupStorageKey.ChatSessionSettings)).toEqual({ model: 'model-a' })
     expect(destination.values.get(BackupStorageKey.PictureSessionSettings)).toEqual({ model: 'model-b' })
+    expect(destination.values.get(BackupStorageKey.AgentSoul)).toEqual({
+      content: '# Soul\n\nDirect and concise.',
+      updatedAt: 1700000000000,
+    })
+    expect(destination.values.get(BackupStorageKey.AgentMemories)).toEqual([
+      { id: 'm1', content: 'User prefers pnpm', createdAt: 1700000000000 },
+    ])
     expect(destination.blobs.get('picture:kept')).toBe('data:image/png;base64,AAECAw==')
   })
 

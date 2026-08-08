@@ -68,6 +68,9 @@ export class ThreadService {
         messages: currentTarget.messages,
         threadName: currentTarget.name,
         compactionPoints: currentTarget.compactionPoints,
+        settings: current.settings
+          ? { ...current.settings, agentPromptSnapshot: currentTarget.agentPromptSnapshot }
+          : current.settings,
       }
     })
     return true
@@ -93,6 +96,7 @@ export class ThreadService {
         ],
         threadName: '',
         compactionPoints: undefined,
+        settings: current.settings ? { ...current.settings, agentPromptSnapshot: undefined } : current.settings,
       }
     })
     return true
@@ -127,6 +131,7 @@ export class ThreadService {
         threadName: '',
         messageForksHash: undefined,
         compactionPoints: undefined,
+        settings: current.settings ? { ...current.settings, agentPromptSnapshot: undefined } : current.settings,
       }
     })
     return true
@@ -149,6 +154,9 @@ export class ThreadService {
       threadName: undefined,
       messageForksHash: session.messageForksHash,
       compactionPoints: target.compactionPoints,
+      settings: session.settings
+        ? { ...session.settings, agentPromptSnapshot: target.agentPromptSnapshot }
+        : session.settings,
     })
     await this.remove(sessionId, threadId)
     return copied.id
@@ -168,6 +176,7 @@ export class ThreadService {
       messages: session.messages,
       createdAt: this.dependencies.now(),
       compactionPoints: session.compactionPoints,
+      agentPromptSnapshot: session.settings?.agentPromptSnapshot,
     }
   }
 
@@ -190,6 +199,7 @@ export class ThreadService {
         messages: current.messages.filter((message) => message.role === 'system').slice(0, 1),
         threadName: undefined,
         compactionPoints: undefined,
+        settings: current.settings ? { ...current.settings, agentPromptSnapshot: undefined } : current.settings,
       }
       if (current.threads?.length) {
         const lastThread = current.threads[current.threads.length - 1]
@@ -197,6 +207,9 @@ export class ThreadService {
         update.threads = current.threads.slice(0, -1)
         update.threadName = lastThread.name
         update.compactionPoints = lastThread.compactionPoints
+        update.settings = current.settings
+          ? { ...current.settings, agentPromptSnapshot: lastThread.agentPromptSnapshot }
+          : current.settings
       }
       return update
     })

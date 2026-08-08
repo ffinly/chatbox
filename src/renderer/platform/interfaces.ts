@@ -1,4 +1,7 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: <any> */
+import type { LocalMemoryScanResult } from '@shared/agent-persona/memory-import'
+import type { AnalyticsEventParams } from '@shared/analytics'
+import type { PlatformType as SharedPlatformType } from '@shared/platform'
 import type {
   SandboxExecLanguage,
   SandboxExecResult,
@@ -223,6 +226,8 @@ export interface Platform extends Storage {
 
   // Directory dialog (Desktop only)
   openDirectoryDialog?(): Promise<{ canceled: boolean; path?: string }>
+  /** Scan local Claude/Codex memory files for import candidates (desktop only). */
+  scanLocalAgentMemories?(): Promise<LocalMemoryScanResult>
 
   // window controls
   minimize(): Promise<void>

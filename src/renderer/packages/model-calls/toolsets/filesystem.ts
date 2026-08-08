@@ -12,6 +12,7 @@ import { requestFileMutationApproval } from '@/packages/user-exec-approval'
 import platform from '@/platform'
 import { asRecord, contentOrErrorText, numberField, stringField, toTextModelOutput } from './model-output'
 import { remapPhantomHomePathForProvider } from './sandbox-paths'
+import { editSoulVirtualFile, isSoulVirtualPath, writeSoulVirtualFile } from './soul-file'
 
 interface FilesystemContext {
   sessionId?: string
@@ -427,6 +428,9 @@ export function buildFilesystemTools(context: FilesystemContext): { tools: ToolS
     }),
     execute: async (input, toolOptions) => {
       const writeInput = input as { file_path: string; content: string }
+      if (isSoulVirtualPath(writeInput.file_path)) {
+        return writeSoulVirtualFile(writeInput.content)
+      }
       writeInput.file_path = await remapPhantomHomePathForProvider(writeInput.file_path, context.provider)
       writeInput.file_path = normalizeToolPathForPlatform(writeInput.file_path)
       const alreadyApproved = (toolOptions as typeof toolOptions & { approved?: boolean }).approved
@@ -480,6 +484,12 @@ export function buildFilesystemTools(context: FilesystemContext): { tools: ToolS
     inputSchema: editFileInputSchema,
     execute: async (input, toolOptions) => {
       const editInput = input as EditFileInput
+      const validatedForSoul = isSoulVirtualPath(editInput.file_path) ? validateEditInput(editInput) : null
+      if (validatedForSoul) {
+        return 'error' in validatedForSoul
+          ? { error: validatedForSoul.error }
+          : editSoulVirtualFile(validatedForSoul.edits)
+      }
       editInput.file_path = await remapPhantomHomePathForProvider(editInput.file_path, context.provider)
       editInput.file_path = normalizeToolPathForPlatform(editInput.file_path)
       const alreadyApproved = (toolOptions as typeof toolOptions & { approved?: boolean }).approved

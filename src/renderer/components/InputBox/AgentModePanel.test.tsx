@@ -167,6 +167,12 @@ describe('AgentModePanel mode buttons', () => {
     expect(workMode.querySelector('[data-agent-mode-status="on"]')).toBeTruthy()
     expect(view.container.querySelectorAll('[data-agent-mode-status]')).toHaveLength(2)
   })
+
+  test('keeps global Agent settings out of the per-chat capability menu', () => {
+    renderPanel()
+
+    expect(screen.queryByRole('button', { name: 'Soul & Memories' })).toBeNull()
+  })
 })
 
 describe('AgentModePanel submenu hover behavior', () => {

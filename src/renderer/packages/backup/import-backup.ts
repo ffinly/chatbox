@@ -15,7 +15,7 @@ import {
   restoreSessionResourceKeys,
   restoreSettingsResourceKeys,
 } from './resources'
-import { BackupStorageKey, backupSessionStorageKey } from './storage-keys'
+import { AGENT_PERSONA_BACKUP_KEYS, BackupStorageKey, backupSessionStorageKey } from './storage-keys'
 import {
   type BackupManifest,
   BackupManifestSchema,
@@ -270,7 +270,7 @@ export async function importBackupArchive(file: File, options: BackupImportOptio
       ...(manifest.data.settings ? [BackupStorageKey.Settings] : []),
       ...(manifest.data.copilots ? [BackupStorageKey.MyCopilots] : []),
       ...(manifest.data.sessionSettings
-        ? [BackupStorageKey.ChatSessionSettings, BackupStorageKey.PictureSessionSettings]
+        ? [BackupStorageKey.ChatSessionSettings, BackupStorageKey.PictureSessionSettings, ...AGENT_PERSONA_BACKUP_KEYS]
         : []),
     ]
     for (const key of new Set(changedKeys)) {
@@ -357,7 +357,11 @@ export async function importBackupArchive(file: File, options: BackupImportOptio
       const value = stagedEntries.get(manifest.data.sessionSettings.path)?.value
       if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid session settings entry')
       const sessionSettings = value as Record<string, unknown>
-      for (const key of [BackupStorageKey.ChatSessionSettings, BackupStorageKey.PictureSessionSettings]) {
+      for (const key of [
+        BackupStorageKey.ChatSessionSettings,
+        BackupStorageKey.PictureSessionSettings,
+        ...AGENT_PERSONA_BACKUP_KEYS,
+      ]) {
         if (key in sessionSettings) await options.storage.setItemNow(key, sessionSettings[key])
       }
     }

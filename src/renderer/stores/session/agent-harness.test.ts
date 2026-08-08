@@ -43,12 +43,26 @@ vi.mock('@/platform', () => ({
   },
 }))
 
-vi.mock('@/storage', () => ({
-  default: {
-    getBlob: vi.fn().mockResolvedValue(null),
-    setBlob: vi.fn().mockResolvedValue(undefined),
-  },
-}))
+vi.mock('@/storage', () => {
+  // In-memory store: agentPersonaStore reads soul/memories through it when
+  // capturing the agent persona snapshot.
+  const values = new Map<string, unknown>()
+  return {
+    default: {
+      getBlob: vi.fn().mockResolvedValue(null),
+      setBlob: vi.fn().mockResolvedValue(undefined),
+      getItem: vi.fn((key: string, initialValue: unknown) => Promise.resolve(values.get(key) ?? initialValue)),
+      setItem: vi.fn((key: string, value: unknown) => {
+        values.set(key, value)
+        return Promise.resolve()
+      }),
+      setItemNow: vi.fn((key: string, value: unknown) => {
+        values.set(key, value)
+        return Promise.resolve()
+      }),
+    },
+  }
+})
 
 vi.mock('@/sandbox', () => ({
   createSandboxProvider: () => sandboxProviderMock,
@@ -293,13 +307,14 @@ describe('prepareAgentGenerationHarness', () => {
 
     expect(prepared.debug.effectiveAgentMode).toBe('off')
     expect(prepared.chatOptions.agentMode).toBe(false)
-    expect(prepared.debug.instructions).not.toContain('## Response Language')
     expect(prepared.tools.code_execution).toBeUndefined()
     expect(prepared.tools.load_skill).toBeUndefined()
+    // Memory tools are mode-independent: chat mode can save/recall too.
+    expect(prepared.tools.save_memory).toBeDefined()
     expect(prepared.chatOptions.prepareStep).toBeUndefined()
 
     const serializedCoreMessages = JSON.stringify(prepared.coreMessages)
-    expect(serializedCoreMessages).not.toContain('## Response Language')
+    expect(serializedCoreMessages).not.toContain('SANDBOX_MODE')
   })
 
   test('keeps legacy auto mode on the plain chat path for a single simple file', async () => {
@@ -382,7 +397,9 @@ describe('prepareAgentGenerationHarness', () => {
     expect(prepared.debug.canExecuteCode).toBe(false)
     expect(prepared.tools.code_execution).toBeUndefined()
     expect(prepared.tools.read_file).toBeUndefined()
-    expect(prepared.chatOptions.tools).toBeUndefined()
+    // Only the mode-independent memory tools remain in chat mode.
+    expect(prepared.tools.save_memory).toBeDefined()
+    expect(prepared.tools.delete_memory).toBeDefined()
     expect(JSON.stringify(prepared.coreMessages)).not.toContain('SANDBOX_MODE')
   })
 
@@ -498,5 +515,329 @@ describe('prepareAgentGenerationHarness', () => {
     const serialized = JSON.stringify(prepared.coreMessages)
     expect(serialized).toContain('tool-26')
     expect(serialized).toContain('console.log(26)')
+  })
+})
+
+describe('agent persona snapshot', () => {
+  function createUserMessage(text = 'Help me with a task.'): Message {
+    return {
+      id: 'msg-user-1',
+      role: MessageRoleEnum.User,
+      timestamp: Date.now(),
+      contentParts: [{ type: 'text', text }],
+    }
+  }
+
+  function createSystemMessage(text: string): Message {
+    return {
+      id: 'msg-system-1',
+      role: MessageRoleEnum.System,
+      timestamp: Date.now(),
+      contentParts: [{ type: 'text', text }],
+    }
+  }
+
+  function prepareWith(settings: SessionSettings, messages: Message[], sideEffects = {}) {
+    return prepareAgentGenerationHarness({
+      session: createSession(),
+      settings,
+      globalSettings: {} as Settings,
+      configs: { uuid: 'config-1' } as Config,
+      messages,
+      targetMsgIx: messages.length,
+      model: createMockModel(),
+      dependencies: createModelDependencies(),
+      webBrowsing: false,
+      agentModeValue: 'on',
+      agentModeLocked: true,
+      agentModeSupported: true,
+      signal: new AbortController().signal,
+      sandboxProviderFactory: () => sandboxProviderMock as unknown as SandboxProvider,
+      isPro: () => true,
+      sideEffects,
+    })
+  }
+
+  test('captures and persists a snapshot, drops session system prompts, and pins the capture date', async () => {
+    const persistAgentPromptSnapshot = vi.fn()
+    const prepared = await prepareWith(
+      { provider: ModelProviderEnum.ChatboxAI, modelId: 'test-model' } as SessionSettings,
+      [createSystemMessage('You are a pirate copilot.'), createUserMessage()],
+      { persistAgentPromptSnapshot }
+    )
+
+    expect(persistAgentPromptSnapshot).toHaveBeenCalledTimes(1)
+    const snapshot = persistAgentPromptSnapshot.mock.calls[0][0]
+    expect(snapshot.version).toBe(1)
+    expect(snapshot.workspaceDirectories).toEqual([])
+
+    const serialized = JSON.stringify(prepared.coreMessages)
+    expect(serialized).toContain('You are Chatbox agent')
+    expect(serialized).toContain('## Soul')
+    // Untouched template falls back to the default persona.
+    expect(serialized).toContain('Be genuinely helpful, not performatively helpful')
+    expect(serialized).toContain('Session context captured:')
+    // The legacy session system prompt is discarded in agent mode.
+    expect(serialized).not.toContain('You are a pirate copilot.')
+    // Memory tools are part of the agent tool set.
+    expect(prepared.tools.save_memory).toBeDefined()
+    expect(prepared.tools.delete_memory).toBeDefined()
+  })
+
+  test('reuses an existing snapshot verbatim without re-capturing', async () => {
+    const persistAgentPromptSnapshot = vi.fn()
+    const prepared = await prepareWith(
+      {
+        provider: ModelProviderEnum.ChatboxAI,
+        modelId: 'test-model',
+        agentPromptSnapshot: {
+          version: 1,
+          soul: 'My frozen custom persona content.',
+          memories: [{ id: 'm1', content: 'User prefers pnpm over npm', createdAt: 1700000000000 }],
+          workspaceInstructions: '\n## Workspace Instructions\nFROZEN-WORKSPACE-MARKER\n',
+          workspaceDirectories: [],
+          capturedAt: 1700000000000,
+        },
+      } as SessionSettings,
+      [createUserMessage()],
+      { persistAgentPromptSnapshot }
+    )
+
+    expect(persistAgentPromptSnapshot).not.toHaveBeenCalled()
+    const serialized = JSON.stringify(prepared.coreMessages)
+    expect(serialized).toContain('My frozen custom persona content.')
+    expect(serialized).toContain('[m1] User prefers pnpm over npm')
+    expect(serialized).toContain('FROZEN-WORKSPACE-MARKER')
+  })
+
+  test('re-captures when the working directories change', async () => {
+    const persistAgentPromptSnapshot = vi.fn()
+    await prepareWith(
+      {
+        provider: ModelProviderEnum.ChatboxAI,
+        modelId: 'test-model',
+        workingDirectories: ['/new/dir'],
+        agentPromptSnapshot: {
+          version: 1,
+          soul: 'Stale soul.',
+          memories: [],
+          workspaceInstructions: '',
+          workspaceDirectories: ['/old/dir'],
+          capturedAt: 1700000000000,
+        },
+      } as SessionSettings,
+      [createUserMessage()],
+      { persistAgentPromptSnapshot }
+    )
+
+    expect(persistAgentPromptSnapshot).toHaveBeenCalledTimes(1)
+    const snapshot = persistAgentPromptSnapshot.mock.calls[0][0]
+    expect(snapshot.workspaceDirectories).toEqual(['/new/dir'])
+  })
+
+  test('re-captures when the existing snapshot was chat-scoped', async () => {
+    const persistAgentPromptSnapshot = vi.fn()
+    await prepareWith(
+      {
+        provider: ModelProviderEnum.ChatboxAI,
+        modelId: 'test-model',
+        agentPromptSnapshot: {
+          version: 1,
+          soul: 'Chat-era soul that must not gate agent identity.',
+          memories: [],
+          workspaceInstructions: '',
+          workspaceDirectories: [],
+          capturedAt: 1700000000000,
+          scope: 'chat',
+        },
+      } as SessionSettings,
+      [createUserMessage()],
+      { persistAgentPromptSnapshot }
+    )
+
+    expect(persistAgentPromptSnapshot).toHaveBeenCalledTimes(1)
+    expect(persistAgentPromptSnapshot.mock.calls[0][0].scope).toBe('agent')
+  })
+
+  test('chat mode keeps the legacy system prompt path untouched', async () => {
+    const prepared = await prepareAgentGenerationHarness({
+      session: createSession(),
+      settings: { provider: ModelProviderEnum.ChatboxAI, modelId: 'test-model' } as SessionSettings,
+      globalSettings: {} as Settings,
+      configs: { uuid: 'config-1' } as Config,
+      messages: [createSystemMessage('You are a pirate copilot.'), createUserMessage()],
+      targetMsgIx: 2,
+      model: createMockModel(),
+      dependencies: createModelDependencies(),
+      webBrowsing: false,
+      agentModeValue: 'off',
+      agentModeLocked: false,
+      agentModeSupported: true,
+      signal: new AbortController().signal,
+      sandboxProviderFactory: () => sandboxProviderMock as unknown as SandboxProvider,
+      isPro: () => true,
+    })
+
+    const serialized = JSON.stringify(prepared.coreMessages)
+    expect(serialized).toContain('You are a pirate copilot.')
+    expect(serialized).not.toContain('You are Chatbox agent')
+  })
+})
+
+describe('chat mode memories', () => {
+  function chatPrepare(settings: SessionSettings, messages: Message[], sideEffects = {}) {
+    return prepareAgentGenerationHarness({
+      session: createSession(),
+      settings,
+      globalSettings: {} as Settings,
+      configs: { uuid: 'config-1' } as Config,
+      messages,
+      targetMsgIx: messages.length,
+      model: createMockModel(),
+      dependencies: createModelDependencies(),
+      webBrowsing: false,
+      agentModeValue: 'off',
+      agentModeLocked: false,
+      agentModeSupported: true,
+      signal: new AbortController().signal,
+      sandboxProviderFactory: () => sandboxProviderMock as unknown as SandboxProvider,
+      isPro: () => true,
+      sideEffects,
+    })
+  }
+
+  const userMessage: Message = {
+    id: 'msg-user-1',
+    role: MessageRoleEnum.User,
+    timestamp: Date.now(),
+    contentParts: [{ type: 'text', text: 'Hello there' }],
+  }
+
+  const systemMessage: Message = {
+    id: 'msg-system-1',
+    role: MessageRoleEnum.System,
+    timestamp: Date.now(),
+    contentParts: [{ type: 'text', text: 'You are a pirate copilot.' }],
+  }
+
+  test('injects snapshot memories read-only while keeping the session system prompt', async () => {
+    const prepared = await chatPrepare(
+      {
+        provider: ModelProviderEnum.ChatboxAI,
+        modelId: 'test-model',
+        agentPromptSnapshot: {
+          version: 1,
+          soul: 'Custom soul that must stay agent-only.',
+          memories: [{ id: 'm1', content: 'User prefers pnpm over npm', createdAt: 1700000000000 }],
+          workspaceInstructions: '',
+          workspaceDirectories: [],
+          capturedAt: 1700000000000,
+        },
+      } as SessionSettings,
+      [systemMessage, userMessage]
+    )
+
+    const serialized = JSON.stringify(prepared.coreMessages)
+    expect(serialized).toContain('You are a pirate copilot.')
+    expect(serialized).toContain('[m1] User prefers pnpm over npm')
+    // No Soul/identity leaks into chat mode.
+    expect(serialized).not.toContain('You are Chatbox agent')
+    expect(serialized).not.toContain('Custom soul that must stay agent-only.')
+    // Memory tools are registered, so the guidance references them.
+    expect(prepared.tools.save_memory).toBeDefined()
+    expect(serialized).toContain('save_memory')
+  })
+
+  test('captures a memories snapshot on first chat generation when memories exist', async () => {
+    const storage = (await import('@/storage')).default
+    await storage.setItemNow('agent-memories', [{ id: 'm2', content: 'Timezone is UTC+8', createdAt: 1700000000000 }])
+    const persistAgentPromptSnapshot = vi.fn()
+    const prepared = await chatPrepare(
+      { provider: ModelProviderEnum.ChatboxAI, modelId: 'test-model' } as SessionSettings,
+      [userMessage],
+      { persistAgentPromptSnapshot }
+    )
+    expect(persistAgentPromptSnapshot).toHaveBeenCalledTimes(1)
+    expect(JSON.stringify(prepared.coreMessages)).toContain('[m2] Timezone is UTC+8')
+  })
+
+  test('memory switch off removes tools and injection in both modes', async () => {
+    // tools-builder reads the switch from the settings store; the harness reads
+    // the same settings through the globalSettings parameter.
+    getSettingsMock.mockReturnValue({
+      skills: { enabledSkillNames: [] },
+      memoryEnabled: false,
+    })
+    const prepared = await prepareAgentGenerationHarness({
+      session: createSession(),
+      settings: {
+        provider: ModelProviderEnum.ChatboxAI,
+        modelId: 'test-model',
+        agentPromptSnapshot: {
+          version: 1,
+          soul: 'Persisted soul.',
+          memories: [{ id: 'm9', content: 'Should not appear', createdAt: 1700000000000 }],
+          workspaceInstructions: '',
+          workspaceDirectories: [],
+          capturedAt: 1700000000000,
+        },
+      } as SessionSettings,
+      globalSettings: { memoryEnabled: false } as Settings,
+      configs: { uuid: 'config-1' } as Config,
+      messages: [userMessage],
+      targetMsgIx: 1,
+      model: createMockModel(),
+      dependencies: createModelDependencies(),
+      webBrowsing: false,
+      agentModeValue: 'on',
+      agentModeLocked: true,
+      agentModeSupported: true,
+      signal: new AbortController().signal,
+      sandboxProviderFactory: () => sandboxProviderMock as unknown as SandboxProvider,
+      isPro: () => true,
+    })
+
+    expect(prepared.tools.save_memory).toBeUndefined()
+    expect(prepared.tools.delete_memory).toBeUndefined()
+    const serialized = JSON.stringify(prepared.coreMessages)
+    expect(serialized).not.toContain('Should not appear')
+    expect(serialized).not.toContain('## Memories')
+    // Soul is independent of the memory switch.
+    expect(serialized).toContain('Persisted soul.')
+  })
+
+  test('does not capture mid-conversation even when memories appear', async () => {
+    const storage = (await import('@/storage')).default
+    await storage.setItemNow('agent-memories', [
+      { id: 'm3', content: 'Appeared mid-conversation', createdAt: 1700000000000 },
+    ])
+    const persistAgentPromptSnapshot = vi.fn()
+    const assistantMessage: Message = {
+      id: 'msg-assistant-1',
+      role: MessageRoleEnum.Assistant,
+      timestamp: Date.now(),
+      contentParts: [{ type: 'text', text: 'Sure, done.' }],
+    }
+    const prepared = await chatPrepare(
+      { provider: ModelProviderEnum.ChatboxAI, modelId: 'test-model' } as SessionSettings,
+      [userMessage, assistantMessage, { ...userMessage, id: 'msg-user-2' }],
+      { persistAgentPromptSnapshot }
+    )
+    expect(persistAgentPromptSnapshot).not.toHaveBeenCalled()
+    expect(JSON.stringify(prepared.coreMessages)).not.toContain('Appeared mid-conversation')
+    await storage.setItemNow('agent-memories', [])
+  })
+
+  test('skips snapshot capture entirely when no memories exist', async () => {
+    const storage = (await import('@/storage')).default
+    await storage.setItemNow('agent-memories', [])
+    const persistAgentPromptSnapshot = vi.fn()
+    const prepared = await chatPrepare(
+      { provider: ModelProviderEnum.ChatboxAI, modelId: 'test-model' } as SessionSettings,
+      [userMessage],
+      { persistAgentPromptSnapshot }
+    )
+    expect(persistAgentPromptSnapshot).not.toHaveBeenCalled()
+    expect(JSON.stringify(prepared.coreMessages)).not.toContain('## Memories')
   })
 })

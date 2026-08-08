@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { DEFAULT_INTERFACE_COLORS, getDefaultInterfaceColors } from '../../theme-colors'
+import { AgentPromptSnapshotSchema } from '../../types/agent-persona'
 import { ModelProviderEnum, ModelProviderType } from '../../types/provider'
 import { DEFAULT_ENABLED_BUILTIN_SKILL_NAMES, SkillSettingsSchema } from '../../types/skills'
 
@@ -215,6 +216,10 @@ export const SessionSettingsSchema = GlobalSessionSettingsSchema.extend({
   // When enabled, Work Mode skips per-action approval for user_exec and real filesystem mutations.
   agentFullAccess: z.boolean().optional().catch(undefined),
   agentMode: AgentModeEntrySchema.optional().catch(undefined),
+  // Frozen agent persona prompt inputs (Soul + memories + workspace AGENTS.md),
+  // captured on the session's first agent-mode generation so the system prompt
+  // prefix stays byte-stable for provider prompt caches. Cleared on new thread.
+  agentPromptSnapshot: AgentPromptSnapshotSchema.optional().catch(undefined),
 })
 
 const UnifiedTokenUsageDetailSchema = z.object({
@@ -562,6 +567,11 @@ export const SettingsSchema = GlobalSessionSettingsSchema.extend({
   betaUpdate: z.boolean().default(false), // 是否自动检查 beta 更新
 
   shortcuts: ShortcutSettingSchema,
+
+  // Persistent agent memory feature switch. Undefined means enabled; when off,
+  // memory tools are not registered and stored memories are not injected in
+  // either mode (Soul is unaffected).
+  memoryEnabled: z.boolean().optional().catch(undefined),
 
   extension: ExtensionSettingsSchema,
   mcp: MCPSettingsSchema,
