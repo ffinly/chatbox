@@ -91,6 +91,7 @@ export interface GenerationOptions {
 }
 
 export interface GenerationSessionPort extends Pick<SessionRepositoryPort, 'getSession'> {
+  isSessionMissingError?(error: unknown): boolean
   getSessionSettings(sessionId: string): Promise<SessionSettings | null | undefined>
   updateSessionSettings(
     sessionId: string,
@@ -263,6 +264,19 @@ export class GenerationService<TContext> {
   constructor(private readonly dependencies: GenerationServiceDependencies<TContext>) {}
 
   async orchestrate(sessionId: string, initialTargetMessage: Message, options?: GenerationOptions): Promise<void> {
+    try {
+      await this.orchestrateExistingSession(sessionId, initialTargetMessage, options)
+    } catch (error) {
+      if (this.dependencies.sessions.isSessionMissingError?.(error)) return
+      throw error
+    }
+  }
+
+  private async orchestrateExistingSession(
+    sessionId: string,
+    initialTargetMessage: Message,
+    options?: GenerationOptions
+  ): Promise<void> {
     const { sessions, settings: settingsRepository, host, analytics } = this.dependencies
     const session = await sessions.getSession(sessionId)
     const settings = await sessions.getSessionSettings(sessionId)
@@ -583,7 +597,17 @@ export class GenerationService<TContext> {
             STREAM_PERSIST_INTERVAL_MS
           )
           if (shouldPersist) {
-            void sessions.persistStreamingMessage(sessionId, targetMessage)
+            void sessions.persistStreamingMessage(sessionId, targetMessage).catch((error: unknown) => {
+              if (sessions.isSessionMissingError?.(error)) return
+              try {
+                const logged = this.dependencies.logger.log('error', 'Failed to persist generation checkpoint', {
+                  errorType: error instanceof Error ? error.name : typeof error,
+                })
+                void Promise.resolve(logged).catch(() => {})
+              } catch {
+                // Logging must not turn a handled checkpoint failure into an unhandled rejection.
+              }
+            })
             lastPersistTimestamp = host.now()
           } else {
             sessions.updateStreamingCache(sessionId, targetMessage)
@@ -654,6 +678,7 @@ export class GenerationService<TContext> {
       }
       host.afterMessageGenerated()
     } catch (error: unknown) {
+      if (sessions.isSessionMissingError?.(error)) return
       const pause = getToolCallPause(error)
       if (pause) {
         targetMessage = {

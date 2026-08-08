@@ -38,7 +38,9 @@ export interface UpdateSessionOptions {
 
 async function runInChunks<T>(items: T[], chunkSize: number, worker: (item: T) => Promise<void>): Promise<void> {
   for (let index = 0; index < items.length; index += chunkSize) {
-    await Promise.all(items.slice(index, index + chunkSize).map((item) => worker(item)))
+    const results = await Promise.allSettled(items.slice(index, index + chunkSize).map((item) => worker(item)))
+    const failure = results.find((result): result is PromiseRejectedResult => result.status === 'rejected')
+    if (failure) throw failure.reason
   }
 }
 
@@ -197,15 +199,16 @@ export class SessionService {
 
   async deleteSession(sessionId: string): Promise<void> {
     await this.initialize()
-    await this.events.publish({
-      type: 'session-will-delete',
-      ids: [sessionId],
-      operation: 'session deletion',
+    await this.writes.delete(sessionId, async () => {
+      await this.events.publish({
+        type: 'session-will-delete',
+        ids: [sessionId],
+        operation: 'session deletion',
+      })
+      await this.repository.deleteSession(sessionId)
+      await this.repository.meta.delete(sessionId)
+      await this.events.publish({ type: 'session-deleted', ids: [sessionId] })
     })
-    await this.repository.deleteSession(sessionId)
-    await this.repository.meta.delete(sessionId)
-    this.writes.forget(sessionId)
-    await this.events.publish({ type: 'session-deleted', ids: [sessionId] })
   }
 
   async deleteSessions(sessionIds: string[]): Promise<void> {
@@ -213,17 +216,16 @@ export class SessionService {
     const uniqueIds = [...new Set(sessionIds)]
     if (uniqueIds.length === 0) return
 
-    await this.events.publish({
-      type: 'session-will-delete',
-      ids: uniqueIds,
-      operation: 'bulk session deletion',
+    await this.writes.deleteMany(uniqueIds, async () => {
+      await this.events.publish({
+        type: 'session-will-delete',
+        ids: uniqueIds,
+        operation: 'bulk session deletion',
+      })
+      await runInChunks(uniqueIds, 20, (sessionId) => this.repository.deleteSession(sessionId))
+      await this.repository.meta.deleteMany(uniqueIds)
+      await this.events.publish({ type: 'session-deleted', ids: uniqueIds })
     })
-    await runInChunks(uniqueIds, 20, (sessionId) => this.repository.deleteSession(sessionId))
-    await this.repository.meta.deleteMany(uniqueIds)
-    for (const sessionId of uniqueIds) {
-      this.writes.forget(sessionId)
-    }
-    await this.events.publish({ type: 'session-deleted', ids: uniqueIds })
     await this.publishListReset({ visible: true, archived: true })
   }
 
@@ -251,16 +253,15 @@ export class SessionService {
     })
 
     if (missingSessionIds.length > 0) {
-      await this.events.publish({
-        type: 'session-will-delete',
-        ids: missingSessionIds,
-        operation: 'stale session meta cleanup',
+      await this.writes.deleteMany(missingSessionIds, async () => {
+        await this.events.publish({
+          type: 'session-will-delete',
+          ids: missingSessionIds,
+          operation: 'stale session meta cleanup',
+        })
+        await this.repository.meta.deleteMany(missingSessionIds)
+        await this.events.publish({ type: 'session-deleted', ids: missingSessionIds })
       })
-      await this.repository.meta.deleteMany(missingSessionIds)
-      for (const sessionId of missingSessionIds) {
-        this.writes.forget(sessionId)
-      }
-      await this.events.publish({ type: 'session-deleted', ids: missingSessionIds })
     }
     await this.publishListReset({ visible: true, archived: true })
   }

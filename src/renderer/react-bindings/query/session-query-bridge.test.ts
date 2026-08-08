@@ -1,4 +1,9 @@
-import { SessionEventBus, SessionService, SessionWriteCoordinator } from '@shared/application/session'
+import {
+  SessionEventBus,
+  SessionNotFoundError,
+  SessionService,
+  SessionWriteCoordinator,
+} from '@shared/application/session'
 import {
   createTestRecord,
   createTestSession,
@@ -45,6 +50,38 @@ describe('session query definitions', () => {
 })
 
 describe('SessionQueryBridge', () => {
+  test('failed deletion evicts stale session data before writes reopen', async () => {
+    const repository = new MemorySessionRepository()
+    const session = createTestSession('session-1')
+    repository.sessions.set(session.id, session)
+    repository.records.set(session.id, createTestRecord(session, 1))
+    const events = new SessionEventBus()
+    const queryClient = new QueryClient()
+    let bridge: SessionQueryBridge | null = null
+    const writes = new SessionWriteCoordinator(repository, {
+      readCurrentSession: (sessionId) => (bridge ? bridge.getSession(sessionId) : repository.getSession(sessionId)),
+      discardCurrentSession: (sessionId) => bridge?.discardSessionCache(sessionId),
+    })
+    const service = new SessionService(repository, writes, events, {
+      createId: () => 'created',
+      now: () => 100,
+    })
+    bridge = new SessionQueryBridge(queryClient, service, events)
+    queryClient.setQueryData(QueryKeys.ChatSession(session.id), {
+      ...session,
+      name: 'Stale cached session',
+    })
+    repository.meta.delete = () => Promise.reject(new Error('metadata deletion failed'))
+
+    await expect(service.deleteSession(session.id)).rejects.toThrow('metadata deletion failed')
+
+    expect(queryClient.getQueryData(QueryKeys.ChatSession(session.id))).toBeUndefined()
+    await expect(service.updateSession(session.id, { name: 'Must not revive' })).rejects.toBeInstanceOf(
+      SessionNotFoundError
+    )
+    expect(repository.sessions.has(session.id)).toBe(false)
+  })
+
   test('bulk deletion resets every client from storage and includes unloaded pages', async () => {
     const repository = new MemorySessionRepository()
     for (let index = 1; index <= 4; index += 1) {

@@ -18,6 +18,20 @@ export interface SessionWriteCoordinatorOptions {
    * Other hosts can inject their own read model or use repository reads.
    */
   readCurrentSession?: (sessionId: string) => Promise<Session | null>
+  /**
+   * Evicts the external read model after a deletion fails. This must be
+   * synchronous so stale state cannot be read between eviction and reopening
+   * writes for the affected session.
+   */
+  discardCurrentSession?: (sessionId: string) => void
+}
+
+export class SessionNotFoundError extends Error {
+  readonly name = 'SessionNotFoundError'
+
+  constructor(readonly sessionId: string) {
+    super(`Session ${sessionId} not found`)
+  }
 }
 
 /**
@@ -33,19 +47,89 @@ export interface SessionWriteCoordinatorOptions {
 export class SessionWriteCoordinator {
   private readonly current = new Map<string, Session>()
   private readonly tails = new Map<string, Promise<void>>()
+  private readonly unavailable = new Set<string>()
   private readonly readCurrentSession: (sessionId: string) => Promise<Session | null>
+  private readonly discardCurrentSession: (sessionId: string) => void
 
   constructor(
     private readonly repository: SessionRepositoryPort,
     options: SessionWriteCoordinatorOptions = {}
   ) {
     this.readCurrentSession = options.readCurrentSession ?? ((sessionId) => this.repository.getSession(sessionId))
+    this.discardCurrentSession = options.discardCurrentSession ?? (() => undefined)
   }
 
   update(sessionId: string, updater: Updater<Session>, options: SessionWriteOptions = {}): Promise<SessionWriteResult> {
+    if (this.unavailable.has(sessionId)) {
+      return Promise.reject(new SessionNotFoundError(sessionId))
+    }
+    return this.enqueue(sessionId, () => this.performUpdate(sessionId, updater, options))
+  }
+
+  delete(sessionId: string, operation: () => Promise<void>): Promise<void> {
+    return this.deleteMany([sessionId], operation)
+  }
+
+  /**
+   * Fence new writes immediately, drain writes already queued for every id, then
+   * run deletion once. Successful deletions stay fenced so stale caches cannot
+   * recreate the session after storage removal.
+   */
+  deleteMany(sessionIds: string[], operation: () => Promise<void>): Promise<void> {
+    const uniqueIds = [...new Set(sessionIds)]
+    for (const sessionId of uniqueIds) {
+      this.unavailable.add(sessionId)
+    }
+
+    const previousTails = uniqueIds.map((sessionId) => this.tails.get(sessionId)?.catch(() => undefined))
+    const deletion = Promise.all(previousTails).then(async () => {
+      await operation()
+      for (const sessionId of uniqueIds) {
+        this.current.delete(sessionId)
+      }
+    })
+    const nextTail = deletion.then(
+      () => undefined,
+      () => undefined
+    )
+    for (const sessionId of uniqueIds) {
+      this.tails.set(sessionId, nextTail)
+    }
+    void nextTail.then(() => {
+      for (const sessionId of uniqueIds) {
+        if (this.tails.get(sessionId) === nextTail) {
+          this.tails.delete(sessionId)
+        }
+      }
+    })
+
+    return deletion.catch((error: unknown) => {
+      for (const sessionId of uniqueIds) {
+        // Deletion may have already removed some repository entries before a
+        // later step failed. Drop every cached snapshot before reopening writes
+        // so a surviving id is re-read and a removed id cannot be resurrected.
+        this.current.delete(sessionId)
+        this.discardCurrentSession(sessionId)
+        this.unavailable.delete(sessionId)
+      }
+      throw error
+    })
+  }
+
+  prime(session: Session): void {
+    this.unavailable.delete(session.id)
+    this.current.set(session.id, session)
+  }
+
+  forget(sessionId: string): void {
+    this.unavailable.delete(sessionId)
+    this.current.delete(sessionId)
+  }
+
+  private enqueue<T>(sessionId: string, operation: () => Promise<T>): Promise<T> {
     const previousTail = this.tails.get(sessionId) ?? Promise.resolve()
-    const operation = previousTail.catch(() => undefined).then(() => this.performUpdate(sessionId, updater, options))
-    const nextTail = operation.then(
+    const result = previousTail.catch(() => undefined).then(operation)
+    const nextTail = result.then(
       () => undefined,
       () => undefined
     )
@@ -55,16 +139,7 @@ export class SessionWriteCoordinator {
         this.tails.delete(sessionId)
       }
     })
-    return operation
-  }
-
-  prime(session: Session): void {
-    this.current.set(session.id, session)
-  }
-
-  forget(sessionId: string): void {
-    this.current.delete(sessionId)
-    this.tails.delete(sessionId)
+    return result
   }
 
   private async performUpdate(
@@ -74,7 +149,7 @@ export class SessionWriteCoordinator {
   ): Promise<SessionWriteResult> {
     const previous = this.current.get(sessionId) ?? (await this.readCurrentSession(sessionId))
     if (!previous) {
-      throw new Error(`Session ${sessionId} not found`)
+      throw new SessionNotFoundError(sessionId)
     }
 
     const updated = typeof updater === 'function' ? updater(previous) : { ...previous, ...updater }

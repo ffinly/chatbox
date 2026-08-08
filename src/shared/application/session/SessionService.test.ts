@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from 'vitest'
 import { createTestRecord, createTestSession, MemorySessionRepository } from './__tests__/memory-session-repository'
 import { SessionService } from './SessionService'
-import { SessionWriteCoordinator } from './SessionWriteCoordinator'
+import { SessionNotFoundError, SessionWriteCoordinator } from './SessionWriteCoordinator'
 import { type SessionApplicationEvent, SessionEventBus } from './session-events'
 
 function createHarness() {
@@ -166,5 +166,97 @@ describe('SessionService', () => {
     expect(deleteSpy).toHaveBeenCalledWith(session.id)
     expect(order).toEqual(['effect', 'storage', 'deleted'])
     expect(harness.repository.records.has(session.id)).toBe(false)
+  })
+
+  test('rejects writes that start after deletion begins and never resurrects the session', async () => {
+    const harness = createHarness()
+    const session = createTestSession('session-1')
+    harness.repository.sessions.set(session.id, session)
+    harness.repository.records.set(session.id, createTestRecord(session, 1))
+    let releasePreDelete: () => void = () => undefined
+    const preDeleteBlocked = new Promise<void>((resolve) => {
+      releasePreDelete = resolve
+    })
+    let preDeleteStarted: () => void = () => undefined
+    const preDeleteStartedPromise = new Promise<void>((resolve) => {
+      preDeleteStarted = resolve
+    })
+    harness.events.subscribe(async (event) => {
+      if (event.type !== 'session-will-delete') return
+      preDeleteStarted()
+      await preDeleteBlocked
+    })
+
+    const deletion = harness.service.deleteSession(session.id)
+    await preDeleteStartedPromise
+
+    await expect(harness.service.updateSession(session.id, { name: 'late write' })).rejects.toBeInstanceOf(
+      SessionNotFoundError
+    )
+    releasePreDelete()
+    await deletion
+
+    expect(harness.repository.sessions.has(session.id)).toBe(false)
+    expect(harness.repository.records.has(session.id)).toBe(false)
+  })
+
+  test('does not resurrect a session when metadata deletion fails after full-session deletion', async () => {
+    const harness = createHarness()
+    const session = createTestSession('session-1')
+    harness.repository.sessions.set(session.id, session)
+    harness.repository.records.set(session.id, createTestRecord(session, 1))
+    await harness.service.updateSession(session.id, { name: 'Cached before delete' })
+    vi.spyOn(harness.repository.meta, 'delete').mockRejectedValueOnce(new Error('metadata deletion failed'))
+
+    await expect(harness.service.deleteSession(session.id)).rejects.toThrow('metadata deletion failed')
+    await expect(harness.service.updateSession(session.id, { name: 'Must not revive' })).rejects.toBeInstanceOf(
+      SessionNotFoundError
+    )
+
+    expect(harness.repository.sessions.has(session.id)).toBe(false)
+    expect(harness.repository.records.has(session.id)).toBe(true)
+  })
+
+  test('keeps writes fenced until every started bulk deletion settles', async () => {
+    const harness = createHarness()
+    const failed = createTestSession('failed')
+    const delayed = createTestSession('delayed')
+    for (const session of [failed, delayed]) {
+      harness.repository.sessions.set(session.id, session)
+      harness.repository.records.set(session.id, createTestRecord(session, 1))
+      await harness.service.updateSession(session.id, { name: `Cached ${session.id}` })
+    }
+
+    let releaseDelayedDelete: () => void = () => undefined
+    const delayedDeleteBlocked = new Promise<void>((resolve) => {
+      releaseDelayedDelete = resolve
+    })
+    let delayedDeleteStarted: () => void = () => undefined
+    const delayedDeleteStartedPromise = new Promise<void>((resolve) => {
+      delayedDeleteStarted = resolve
+    })
+    const originalDeleteSession = harness.repository.deleteSession.bind(harness.repository)
+    vi.spyOn(harness.repository, 'deleteSession').mockImplementation(async (sessionId) => {
+      if (sessionId === failed.id) throw new Error('bulk deletion failed')
+      delayedDeleteStarted()
+      await delayedDeleteBlocked
+      await originalDeleteSession(sessionId)
+    })
+
+    const deletionResult = harness.service.deleteSessions([failed.id, delayed.id]).then(
+      () => undefined,
+      (error: unknown) => error
+    )
+    await delayedDeleteStartedPromise
+    await Promise.resolve()
+    await Promise.resolve()
+
+    await expect(harness.service.updateSession(delayed.id, { name: 'Must remain fenced' })).rejects.toBeInstanceOf(
+      SessionNotFoundError
+    )
+    releaseDelayedDelete()
+
+    await expect(deletionResult).resolves.toEqual(expect.objectContaining({ message: 'bulk deletion failed' }))
+    expect(harness.repository.sessions.has(delayed.id)).toBe(false)
   })
 })

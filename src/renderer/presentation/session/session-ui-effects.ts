@@ -2,6 +2,7 @@ import type { SessionApplicationEvent, SessionEventBus } from '@shared/applicati
 import { clearScrollPositionCache } from '@/components/chat/MessageList'
 import platform from '@/platform'
 import { cleanupSessionAtomCache } from '@/stores/atoms/throttleWriteSessionAtom'
+import { generationRuntimeStore } from '@/stores/session/generation-runtime'
 import { clearSessionNameGenerationState } from '@/stores/session/naming'
 import { uiStore } from '@/stores/uiStore'
 
@@ -40,6 +41,9 @@ function cleanupDeletedSessionRuntimeState(sessionId: string): void {
 export function registerSessionUiEffects(events: SessionEventBus): () => void {
   return events.subscribe(async (event) => {
     if (event.type === 'session-will-delete') {
+      for (const sessionId of event.ids) {
+        generationRuntimeStore.abort(sessionId, undefined, 'session-deleted')
+      }
       await cleanupAttachmentRagEntries(event)
       return
     }

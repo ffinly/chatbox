@@ -69,6 +69,10 @@ export class SessionQueryBridge {
     return this.queryClient.fetchQuery(this.definitions.session(sessionId))
   }
 
+  discardSessionCache(sessionId: string): void {
+    this.queryClient.removeQueries({ queryKey: QueryKeys.ChatSession(sessionId), exact: true })
+  }
+
   updateSessionListData(updater: (items: SessionMetaRecord[]) => SessionMetaRecord[]): void {
     updateListData(this.queryClient, QueryKeys.ChatSessionsList, updater)
   }

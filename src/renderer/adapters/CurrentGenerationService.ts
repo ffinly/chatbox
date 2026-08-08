@@ -1,3 +1,4 @@
+import { SessionNotFoundError } from '@shared/application/session'
 import { buildContext } from '@shared/context'
 import { GenerationService, type GenerationServiceDependencies, type GenerationSessionPort } from '@shared/generation'
 import type { LoggerPort } from '@shared/ports'
@@ -66,6 +67,7 @@ const logger: LoggerPort = {
 
 const sessions: GenerationSessionPort = {
   getSession: (sessionId) => chatStore.getSession(sessionId),
+  isSessionMissingError: (error) => error instanceof SessionNotFoundError,
   getSessionSettings: (sessionId) => chatStore.getSessionSettings(sessionId),
   updateSessionSettings: async (sessionId, update) => {
     await chatStore.updateSession(sessionId, (current) => {

@@ -55,6 +55,7 @@ interface Harness {
   setPrepareStep(prepareStep: ChatStreamOptions['prepareStep']): void
   setTools(tools: ToolSet): void
   failSessionSettingsUpdate(error: Error): void
+  failPersistenceFromCall(call: number, error: Error): void
   enableAgentModeSuggestion(result: Message['contentParts']): void
   setNow(value: number): void
 }
@@ -78,6 +79,8 @@ function createHarness(): Harness {
   let agentModeSuggestionEnabled = false
   let suggestionResult: Message['contentParts'] = []
   let sessionSettingsUpdateError: Error | undefined
+  let persistenceFailure: { call: number; error: Error } | undefined
+  let persistenceCallCount = 0
   const trackPauseAction = vi.fn()
   const steeringInject = vi.fn((_messages: ModelMessage[]) => Promise.resolve(undefined as ModelMessage[] | undefined))
   const steeringRelease = vi.fn()
@@ -98,6 +101,7 @@ function createHarness(): Harness {
 
   const sessions: GenerationSessionPort = {
     getSession: () => Promise.resolve(session),
+    isSessionMissingError: (error) => error === persistenceFailure?.error,
     getSessionSettings: () => Promise.resolve(sessionSettings),
     updateSessionSettings: (_sessionId, update) => {
       if (sessionSettingsUpdateError) return Promise.reject(sessionSettingsUpdateError)
@@ -111,6 +115,10 @@ function createHarness(): Harness {
         status: [],
       }),
     persistStreamingMessage: (_sessionId, message, options) => {
+      persistenceCallCount += 1
+      if (persistenceFailure && persistenceCallCount >= persistenceFailure.call) {
+        return Promise.reject(persistenceFailure.error)
+      }
       const index = session.messages.findIndex((candidate) => candidate.id === message.id)
       if (index >= 0) {
         session.messages[index] = message
@@ -256,6 +264,9 @@ function createHarness(): Harness {
     },
     failSessionSettingsUpdate(error) {
       sessionSettingsUpdateError = error
+    },
+    failPersistenceFromCall(call, error) {
+      persistenceFailure = { call, error }
     },
     enableAgentModeSuggestion(result) {
       agentModeSuggestionEnabled = true
@@ -456,6 +467,22 @@ describe('GenerationService', () => {
     expect(harness.runtime.get('session-1')).toBeUndefined()
   })
 
+  it('treats a disappearing session as an expected terminal outcome', async () => {
+    const missingSession = new Error('Session session-1 not found')
+    harness.failPersistenceFromCall(2, missingSession)
+    harness.setStreamFactory(() =>
+      (async function* disappearingSessionStream() {
+        await Promise.resolve()
+        harness.setNow(3_000)
+        yield { type: 'text-delta', text: 'partial' } as ModelStreamPart<ToolSet>
+      })()
+    )
+
+    await expect(harness.service.orchestrate('session-1', targetMessage())).resolves.toBeUndefined()
+    expect(harness.runtime.get('session-1')).toBeUndefined()
+    expect(lastPersisted(harness).error).toBeUndefined()
+  })
+
   it('retains paused runtime state and a structured tool approval reason', async () => {
     harness.setStreamFactory(() =>
       stream(
@@ -504,6 +531,7 @@ describe('GenerationService', () => {
   it('uses host time for the periodic checkpoint boundary', async () => {
     harness.setStreamFactory(() =>
       (async function* timedStream() {
+        await Promise.resolve()
         yield { type: 'text-delta', text: 'first' } as ModelStreamPart<ToolSet>
         harness.setNow(3_000)
         yield { type: 'text-delta', text: ' second' } as ModelStreamPart<ToolSet>

@@ -1,5 +1,6 @@
 import * as Sentry from '@sentry/react'
 import { isExpectedGenerationError } from '@shared/models/error-classification'
+import { normalizeErrorForSentry } from '@shared/utils/sentry_policy'
 import platform from '@/platform'
 import { trackEvent } from '@/utils/track'
 import { trackJkAutoEvent, trackJkClickEvent } from './jk'
@@ -204,7 +205,7 @@ export function captureAgentModeException(
   }
 ) {
   if (isExpectedGenerationError(error)) return
-  const exception = error instanceof Error ? error : new Error(`${error}`)
+  const exception = normalizeErrorForSentry(error)
   const customProvider = context.provider?.startsWith('custom-provider-') === true
   Sentry.withScope((scope) => {
     scope.setTag('component', 'agent-mode')

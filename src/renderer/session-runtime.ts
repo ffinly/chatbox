@@ -18,6 +18,7 @@ export const sessionWriteCoordinator = new SessionWriteCoordinator(sessionReposi
     sessionQueryBridgeReference
       ? sessionQueryBridgeReference.getSession(sessionId)
       : sessionRepository.getSession(sessionId),
+  discardCurrentSession: (sessionId) => sessionQueryBridgeReference?.discardSessionCache(sessionId),
 })
 
 export const sessionService = new SessionService(sessionRepository, sessionWriteCoordinator, sessionEvents, {

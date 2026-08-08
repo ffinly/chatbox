@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import type { Message, Session } from '../../types'
 import { createTestRecord, createTestSession, MemorySessionRepository } from './__tests__/memory-session-repository'
-import { SessionWriteCoordinator } from './SessionWriteCoordinator'
+import { SessionNotFoundError, SessionWriteCoordinator } from './SessionWriteCoordinator'
 
 function message(id: string): Message {
   return {
@@ -61,5 +61,75 @@ describe('SessionWriteCoordinator', () => {
 
     await coordinator.update(session.id, { name: 'Recovered' })
     expect(repository.sessions.get(session.id)?.name).toBe('Recovered')
+  })
+
+  test('drains queued writes before deletion and fences later writes from recreating the session', async () => {
+    const repository = new MemorySessionRepository()
+    const session = createTestSession('session-1')
+    repository.sessions.set(session.id, session)
+    repository.records.set(session.id, createTestRecord(session, 1))
+    const coordinator = new SessionWriteCoordinator(repository)
+    let releaseWrite: () => void = () => undefined
+    const writeBlocked = new Promise<void>((resolve) => {
+      releaseWrite = resolve
+    })
+    const originalSetSession = repository.setSession.bind(repository)
+    let setStarted: () => void = () => undefined
+    const setStartedPromise = new Promise<void>((resolve) => {
+      setStarted = resolve
+    })
+    repository.setSession = async (updated) => {
+      setStarted()
+      await writeBlocked
+      await originalSetSession(updated)
+    }
+
+    const pendingWrite = coordinator.update(session.id, { name: 'Updated before delete' })
+    await setStartedPromise
+    const deletion = coordinator.delete(session.id, () => repository.deleteSession(session.id))
+    const lateWrite = coordinator.update(session.id, { name: 'Must not return' })
+
+    await expect(lateWrite).rejects.toBeInstanceOf(SessionNotFoundError)
+    expect(repository.sessions.has(session.id)).toBe(true)
+
+    releaseWrite()
+    await pendingWrite
+    await deletion
+
+    expect(repository.sessions.has(session.id)).toBe(false)
+    await expect(coordinator.update(session.id, { name: 'Must not recreate' })).rejects.toBeInstanceOf(
+      SessionNotFoundError
+    )
+    expect(repository.sessions.has(session.id)).toBe(false)
+  })
+
+  test('re-reads storage after a partially failed bulk deletion instead of reviving cached sessions', async () => {
+    const repository = new MemorySessionRepository()
+    const removed = createTestSession('removed')
+    const surviving = createTestSession('surviving')
+    for (const session of [removed, surviving]) {
+      repository.sessions.set(session.id, session)
+      repository.records.set(session.id, createTestRecord(session, 1))
+    }
+    const coordinator = new SessionWriteCoordinator(repository)
+
+    // Prime both coordinator snapshots before the partial deletion.
+    await coordinator.update(removed.id, { name: 'Cached removed' })
+    await coordinator.update(surviving.id, { name: 'Cached surviving' })
+
+    await expect(
+      coordinator.deleteMany([removed.id, surviving.id], async () => {
+        await repository.deleteSession(removed.id)
+        throw new Error('bulk deletion failed')
+      })
+    ).rejects.toThrow('bulk deletion failed')
+
+    await expect(coordinator.update(removed.id, { name: 'Must not revive' })).rejects.toBeInstanceOf(
+      SessionNotFoundError
+    )
+    await coordinator.update(surviving.id, { name: 'Recovered from storage' })
+
+    expect(repository.sessions.has(removed.id)).toBe(false)
+    expect(repository.sessions.get(surviving.id)?.name).toBe('Recovered from storage')
   })
 })

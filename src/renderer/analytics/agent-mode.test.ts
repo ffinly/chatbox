@@ -99,12 +99,12 @@ describe('captureAgentModeException', () => {
     expect(setTagMock).toHaveBeenCalledWith('full_access', 'true')
   })
 
-  it('wraps non-Error values so Sentry gets a real exception', () => {
+  it('wraps non-Error values without forwarding their content', () => {
     captureAgentModeException('string failure', { operation: 'tool_retry' })
     expect(captureExceptionMock).toHaveBeenCalledTimes(1)
     const captured = captureExceptionMock.mock.calls[0][0]
     expect(captured).toBeInstanceOf(Error)
-    expect(captured.message).toBe('string failure')
+    expect(captured.message).toBe('Non-Error exception (string)')
   })
 
   it('sanitizes custom-provider identifiers and drops user-typed model ids', () => {

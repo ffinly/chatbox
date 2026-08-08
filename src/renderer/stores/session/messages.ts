@@ -1,8 +1,11 @@
+import { SessionNotFoundError } from '@shared/application/session'
 import { isExpectedGenerationError } from '@shared/models/error-classification'
 import { BaseError, ChatboxAIAPIError } from '@shared/models/errors'
+import { extractStreamErrorMessage } from '@shared/models/utils/stream-error-message'
 import { findMessageLocation } from '@shared/session/message-forks'
 import { createMessage, type Message } from '@shared/types'
 import { countMessageWords } from '@shared/utils/message'
+import { normalizeErrorForSentry } from '@shared/utils/sentry_policy'
 import { createModel } from '@/adapters'
 import { getLogger } from '@/lib/utils'
 import { runCompactionWithUIState } from '@/packages/context-management'
@@ -201,6 +204,9 @@ export function submitNewUserMessage(
       return
     }
     return submitNewUserMessageUnlocked(sessionId, params)
+  }).catch((error: unknown) => {
+    if (error instanceof SessionNotFoundError) return
+    throw error
   })
 }
 
@@ -296,8 +302,9 @@ export async function submitNewUserMessageUnlocked(
     }
   } catch (err: unknown) {
     // 如果文件上传失败，一定会出现带有错误信息的回复消息
-    const error = !(err instanceof Error) ? new Error(`${err}`) : err
-    if (!isExpectedGenerationError(error)) {
+    const error = normalizeErrorForSentry(err)
+    const userFacingErrorMessage = extractStreamErrorMessage(err)
+    if (!isExpectedGenerationError(err)) {
       reportError(error, {
         domain: 'session',
         operation: 'submit_message',
@@ -316,7 +323,7 @@ export async function submitNewUserMessageUnlocked(
       model: await getModelDisplayName(settings, globalSettings, 'chat'),
       contentParts: [{ type: 'text', text: '' }],
       errorCode,
-      error: `${error.message}`, // 这么写是为了避免类型问题
+      error: userFacingErrorMessage,
       status: [],
     }
     if (needGenerating) {

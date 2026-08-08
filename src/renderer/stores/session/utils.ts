@@ -1,5 +1,6 @@
 import { isExpectedGenerationError } from '@shared/models/error-classification'
 import { ApiError, BaseError, NetworkError, OCRError } from '@shared/models/errors'
+import { extractStreamErrorMessage } from '@shared/models/utils/stream-error-message'
 import { findMessageContext, findMessageSourceThread } from '@shared/session/message-forks'
 import type {
   AgentModeValue,
@@ -12,6 +13,7 @@ import type {
   Settings,
 } from '@shared/types'
 import { ModelProviderEnum } from '@shared/types'
+import { normalizeErrorForSentry } from '@shared/utils/sentry_policy'
 import { identity, pickBy } from 'lodash'
 import {
   type AgentModeEntrySource,
@@ -156,8 +158,9 @@ export function handleGenerationError(
   settings: SessionSettings,
   sentryContext?: { operationType?: 'send_message' | 'regenerate'; agentMode?: AgentModeValue }
 ): Message {
-  const error = !(err instanceof Error) ? new Error(`${err}`) : err
-  if (!isExpectedGenerationError(error)) {
+  const error = normalizeErrorForSentry(err)
+  const userFacingErrorMessage = extractStreamErrorMessage(err)
+  if (!isExpectedGenerationError(err)) {
     if (sentryContext?.agentMode === 'on') {
       captureAgentModeException(error, {
         operation: 'generation',
@@ -194,7 +197,7 @@ export function handleGenerationError(
     generating: false,
     cancel: undefined,
     errorCode,
-    error: `${error.message}`,
+    error: userFacingErrorMessage,
     errorExtra: pickBy(
       {
         aiProvider: ocrError ? ocrError.ocrProvider : settings.provider,
