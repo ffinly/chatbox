@@ -1,6 +1,7 @@
 import { BaseError } from '@shared/models/errors'
 import { isPersistentToolCallPauseError } from '@shared/models/persistent-tool-call-pause'
 import type { ModelStreamPart } from '@shared/models/types'
+import { extractToolResultImage } from '@shared/tool-result-image'
 import type {
   Message,
   MessageContentParts,
@@ -282,15 +283,19 @@ export async function processStreamChunk(
         existing.state = 'result'
         finalizeToolCallDuration(existing)
         const rawResult = 'result' in chunk ? chunk.result : chunk.output
+        const extractedImage = extractToolResultImage(rawResult)
+        const storedResult = extractedImage?.storedResult ?? rawResult
+        existing.resultImageStorageKey = extractedImage?.reference.storageKey
+        existing.resultImageMediaType = extractedImage?.reference.mediaType
         existing.resultProviderMetadata = chunk.providerMetadata
 
         // Check if the result is too large and should be offloaded to blob storage
         if (callbacks.onLargeToolResult) {
           let serialized: string
           try {
-            serialized = typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult)
+            serialized = typeof storedResult === 'string' ? storedResult : JSON.stringify(storedResult)
           } catch {
-            serialized = String(rawResult)
+            serialized = String(storedResult)
           }
 
           if (serialized.length > TOOL_RESULT_SIZE_LIMIT) {
@@ -305,7 +310,7 @@ export async function processStreamChunk(
           }
         }
 
-        existing.result = rawResult
+        existing.result = storedResult
       }
       break
     }

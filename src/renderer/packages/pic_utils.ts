@@ -36,7 +36,12 @@ export function calculateImageResizeSize(
   return { width, height }
 }
 
-export async function getImageBase64AndResize(file: File) {
+export interface ImageResizeOptions {
+  outputType?: 'image/jpeg' | 'image/png' | 'image/webp'
+  quality?: number
+}
+
+export async function getImageBase64AndResize(file: File, options: ImageResizeOptions = {}) {
   if (!file.type.startsWith('image/')) {
     throw new Error('file is not an image')
   }
@@ -66,9 +71,10 @@ export async function getImageBase64AndResize(file: File) {
       canvas.height = resizeSize.height
       // 绘制缩放后的图片
       ctx.drawImage(img, 0, 0, resizeSize.width, resizeSize.height)
-      // 转换为base64,jpeg使用0.9质量以减小文件大小
-      const base64 =
-        file.type === 'image/jpeg' ? canvas.toDataURL('image/jpeg', 0.9) : canvas.toDataURL('image/png', 1.0)
+      // Callers may request a bounded lossy format; user-upload behavior keeps the legacy default.
+      const outputType = options.outputType ?? (file.type === 'image/jpeg' ? 'image/jpeg' : 'image/png')
+      const quality = options.quality ?? (outputType === 'image/jpeg' ? 0.9 : 1)
+      const base64 = canvas.toDataURL(outputType, quality)
       resolve(base64)
     }
     img.onerror = (error) => {

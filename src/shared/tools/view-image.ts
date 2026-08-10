@@ -9,11 +9,11 @@ import type { ProviderModelInfo } from '../types'
 export const VIEW_IMAGE_TOOL_NAME = 'view_image'
 
 /**
- * Upper bound for reading raw image bytes into memory (base64 via IPC), shared by the
+ * Upper bound for reading raw image bytes into memory, shared by the
  * host read handler and the sandbox read path. The renderer downscales before anything
  * is stored or sent, so this only guards against loading a huge file into memory.
  */
-export const VIEW_IMAGE_MAX_READ_BYTES = 50 * 1024 * 1024
+export const VIEW_IMAGE_MAX_READ_BYTES = 20 * 1024 * 1024
 export const VIEW_IMAGE_MAX_SOURCE_DIMENSION = 16_384
 export const VIEW_IMAGE_MAX_SOURCE_PIXELS = 32 * 1024 * 1024
 

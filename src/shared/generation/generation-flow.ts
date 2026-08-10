@@ -262,6 +262,8 @@ export function cancelRunningToolCallBatch(
           state: 'result',
           pauseReason: undefined,
           resultStorageKey: undefined,
+          resultImageStorageKey: undefined,
+          resultImageMediaType: undefined,
           result: { success: false, exitCode: 130, stdout: '', stderr: '', cancelled: true },
           duration,
         }
@@ -271,6 +273,8 @@ export function cancelRunningToolCallBatch(
         state: 'error',
         pauseReason: undefined,
         resultStorageKey: undefined,
+        resultImageStorageKey: undefined,
+        resultImageMediaType: undefined,
         result: { error: 'Tool execution stopped by user.', cancelled: true },
         duration,
       }

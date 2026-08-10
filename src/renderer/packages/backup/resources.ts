@@ -1,5 +1,5 @@
 import { isTextFilePath } from '@shared/file-extensions'
-import { parseViewImageToolResult, VIEW_IMAGE_TOOL_NAME } from '@shared/tools/view-image'
+import { getToolResultImageReference } from '@shared/tool-result-image'
 import type { CopilotDetail, Message, MessageFile, Session, SessionMetaRecord, Settings } from '@shared/types'
 import type { BackupResourceEntry, BackupWarning } from './types'
 
@@ -84,13 +84,13 @@ function collectMessageReferences(
           mimeType: 'text/plain',
         })
       }
-      const viewImageResult = part.toolName === VIEW_IMAGE_TOOL_NAME ? parseViewImageToolResult(part.result) : null
-      if (viewImageResult) {
+      const imageReference = getToolResultImageReference(part)
+      if (imageReference) {
         addReference(references, {
-          storageKey: viewImageResult.image_storage_key,
+          storageKey: imageReference.storageKey,
           kind: 'image',
           sessionId,
-          mimeType: viewImageResult.media_type,
+          mimeType: imageReference.mediaType,
         })
       }
     }
@@ -222,13 +222,23 @@ function restoreMessageResourceKeys(message: Message, resourceKeyMap: ReadonlyMa
         if (restoredStorageKey === undefined) delete part.resultStorageKey
         else part.resultStorageKey = restoredStorageKey
       }
-      const viewImageResult = part.toolName === VIEW_IMAGE_TOOL_NAME ? parseViewImageToolResult(part.result) : null
-      if (viewImageResult) {
-        const restoredStorageKey = restoreResourceKey(viewImageResult.image_storage_key, resourceKeyMap)
-        const resultRecord = part.result as Record<string, unknown>
-        // A missing blob degrades gracefully: converter and UI fall back to the JSON result.
-        if (restoredStorageKey === undefined) delete resultRecord.image_storage_key
-        else resultRecord.image_storage_key = restoredStorageKey
+      const imageReference = getToolResultImageReference(part)
+      if (imageReference) {
+        const restoredStorageKey = restoreResourceKey(imageReference.storageKey, resourceKeyMap)
+        if (part.resultImageStorageKey !== undefined) {
+          // A missing blob degrades gracefully: converter and UI fall back to the JSON result.
+          if (restoredStorageKey === undefined) {
+            delete part.resultImageStorageKey
+            delete part.resultImageMediaType
+          } else {
+            part.resultImageStorageKey = restoredStorageKey
+          }
+        } else {
+          // Compatibility with backups created before image references became first-class fields.
+          const resultRecord = part.result as Record<string, unknown>
+          if (restoredStorageKey === undefined) delete resultRecord.image_storage_key
+          else resultRecord.image_storage_key = restoredStorageKey
+        }
       }
     }
     return [part]

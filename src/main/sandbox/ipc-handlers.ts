@@ -24,7 +24,7 @@ import {
   writeFile,
 } from './manager'
 import { createSandboxHtmlPreviewUrl } from './preview-server'
-import { readSandboxFileBase64 } from './read-file-base64'
+import { bufferToArrayBuffer, readSandboxFileBase64, readSandboxFileBytes } from './read-file-base64'
 
 const log = getLogger('sandbox:ipc-handlers')
 
@@ -275,6 +275,20 @@ export function registerSandboxIPCHandlers() {
     try {
       const sandboxRoots = getSandboxAllowedRoots()
       return await readSandboxFileBase64(params, sandboxRoots)
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error)
+      return { success: false, error: msg }
+    }
+  })
+
+  // Binary transport for image decoding. Avoids expanding large files into base64 in the
+  // main process and synchronously decoding that string again on the renderer main thread.
+  ipcMain.handle('sandbox:read-file-bytes', async (_event, params: { filePath: string; maxBytes?: number }) => {
+    try {
+      const sandboxRoots = getSandboxAllowedRoots()
+      const result = await readSandboxFileBytes(params, sandboxRoots)
+      if (!result.success) return result
+      return { success: true, bytes: bufferToArrayBuffer(result.bytes) }
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error)
       return { success: false, error: msg }

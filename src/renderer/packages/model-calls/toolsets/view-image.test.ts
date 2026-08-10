@@ -2,15 +2,15 @@ import type { SandboxProvider } from '@shared/sandbox-provider'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 const fsReadImage = vi.fn(
-  async (..._args: unknown[]): Promise<{ success: boolean; base64?: string; error?: string }> => ({
+  async (..._args: unknown[]): Promise<{ success: boolean; bytes?: ArrayBuffer; error?: string }> => ({
     success: true,
-    base64: '',
+    bytes: new ArrayBuffer(0),
   })
 )
-const sandboxReadFileBase64 = vi.fn(
-  async (..._args: unknown[]): Promise<{ success: boolean; base64?: string; error?: string }> => ({
+const sandboxReadFileBytes = vi.fn(
+  async (..._args: unknown[]): Promise<{ success: boolean; bytes?: ArrayBuffer; error?: string }> => ({
     success: true,
-    base64: '',
+    bytes: new ArrayBuffer(0),
   })
 )
 const getStoreBlob = vi.fn(async (..._args: unknown[]): Promise<string | null> => null)
@@ -18,19 +18,22 @@ const getStoreBlob = vi.fn(async (..._args: unknown[]): Promise<string | null> =
 vi.mock('@/platform', () => ({
   default: {
     fsReadImage: (...args: unknown[]) => fsReadImage(...args),
-    sandboxReadFileBase64: (...args: unknown[]) => sandboxReadFileBase64(...args),
+    sandboxReadFileBytes: (...args: unknown[]) => sandboxReadFileBytes(...args),
     getStoreBlob: (...args: unknown[]) => getStoreBlob(...args),
   },
 }))
 
-const getImageBase64AndResize = vi.fn(async (_file: File) => 'data:image/png;base64,UkVTSVpFRA==')
+const getImageBase64AndResize = vi.fn(
+  async (_file: File, _options?: { outputType?: string; quality?: number }) => 'data:image/webp;base64,UkVTSVpFRA=='
+)
 const svgToPngBase64 = vi.fn(
   async (_dataUrl: string, _options?: { maxOutputDimension?: number; strictResourceIsolation?: boolean }) =>
     'data:image/png;base64,U1ZHUE5H'
 )
 vi.mock('@/packages/pic_utils', () => ({
   MODEL_IMAGE_MAX_DIMENSION: 1568,
-  getImageBase64AndResize: (file: File) => getImageBase64AndResize(file),
+  getImageBase64AndResize: (file: File, options?: { outputType?: string; quality?: number }) =>
+    getImageBase64AndResize(file, options),
   svgToPngBase64: (dataUrl: string, options?: { maxOutputDimension?: number; strictResourceIsolation?: boolean }) =>
     svgToPngBase64(dataUrl, options),
 }))
@@ -47,7 +50,11 @@ const PNG_BYTES = Uint8Array.from([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 0, 0, 0x02, 0x80, 0, 0, 0x01,
   0xe0,
 ])
-const PNG_BASE64 = Buffer.from(PNG_BYTES).toString('base64')
+const PNG_BUFFER = PNG_BYTES.buffer as ArrayBuffer
+
+function bytesOf(text: string): ArrayBuffer {
+  return new TextEncoder().encode(text).buffer as ArrayBuffer
+}
 
 const provider = {
   type: 'local',
@@ -63,29 +70,29 @@ function getViewImageTool(context: Partial<Parameters<typeof buildViewImageToolS
   return buildToolSet(context).tools.view_image
 }
 
-async function execute(tool: unknown, input: unknown) {
+async function execute(tool: unknown, input: unknown, toolCallId = 'tool-call-id') {
   const executable = tool as {
     execute: (input: unknown, options: { toolCallId: string; messages: [] }) => Promise<unknown>
   }
-  return await executable.execute(input, { toolCallId: 'tool-call-id', messages: [] })
+  return await executable.execute(input, { toolCallId, messages: [] })
 }
 
-async function toModelOutput(tool: unknown, output: unknown) {
+async function toModelOutput(tool: unknown, output: unknown, toolCallId = 'tool-call-id') {
   const mapper = tool as {
     toModelOutput: (options: { toolCallId: string; input: unknown; output: unknown }) => Promise<unknown>
   }
-  return await mapper.toModelOutput({ toolCallId: 'tool-call-id', input: {}, output })
+  return await mapper.toModelOutput({ toolCallId, input: {}, output })
 }
 
 beforeEach(() => {
   fsReadImage.mockClear()
-  sandboxReadFileBase64.mockClear()
+  sandboxReadFileBytes.mockClear()
   getStoreBlob.mockReset()
   getImageBase64AndResize.mockClear()
   svgToPngBase64.mockClear()
   saveImage.mockClear()
-  fsReadImage.mockResolvedValue({ success: true, base64: PNG_BASE64 })
-  sandboxReadFileBase64.mockResolvedValue({ success: true, base64: PNG_BASE64 })
+  fsReadImage.mockResolvedValue({ success: true, bytes: PNG_BUFFER })
+  sandboxReadFileBytes.mockResolvedValue({ success: true, bytes: PNG_BUFFER })
   getStoreBlob.mockResolvedValue(null)
   svgToPngBase64.mockResolvedValue('data:image/png;base64,U1ZHUE5H')
 })
@@ -93,23 +100,24 @@ beforeEach(() => {
 describe('view_image execute — path routing', () => {
   test('relative path resolves inside the sandbox working directory', async () => {
     const result = (await execute(getViewImageTool(), { file_path: 'charts/output.png' })) as Record<string, unknown>
-    expect(sandboxReadFileBase64).toHaveBeenCalledWith({
+    expect(sandboxReadFileBytes).toHaveBeenCalledWith({
       filePath: '/sandbox/root/charts/output.png',
-      maxBytes: 50 * 1024 * 1024,
+      maxBytes: 20 * 1024 * 1024,
     })
     expect(fsReadImage).not.toHaveBeenCalled()
     expect(result).toEqual({
       file_path: 'charts/output.png',
       image_storage_key: 'picture:view-image:session-id:uuid',
-      media_type: 'image/png',
+      media_type: 'image/webp',
     })
-    expect(saveImage).toHaveBeenCalledWith('view-image:session-id', 'data:image/png;base64,UkVTSVpFRA==')
+    expect(getImageBase64AndResize).toHaveBeenCalledWith(expect.any(File), { outputType: 'image/webp', quality: 0.85 })
+    expect(saveImage).toHaveBeenCalledWith('view-image:session-id', 'data:image/webp;base64,UkVTSVpFRA==')
   })
 
   test('absolute path reads the host filesystem', async () => {
     await execute(getViewImageTool(), { file_path: '/Users/alice/Desktop/screenshot.png' })
     expect(fsReadImage).toHaveBeenCalledWith({ filePath: '/Users/alice/Desktop/screenshot.png' })
-    expect(sandboxReadFileBase64).not.toHaveBeenCalled()
+    expect(sandboxReadFileBytes).not.toHaveBeenCalled()
   })
 
   test('relative path without a sandbox provider returns an error', async () => {
@@ -137,12 +145,11 @@ describe('view_image execute — format handling', () => {
   test('rejects files that are neither known-extension nor known-magic images', async () => {
     const atobSpy = vi.spyOn(globalThis, 'atob')
     try {
-      fsReadImage.mockResolvedValue({ success: true, base64: Buffer.alloc(1024, 0x20).toString('base64') })
+      fsReadImage.mockResolvedValue({ success: true, bytes: new Uint8Array(1024).fill(0x20).buffer })
       const result = (await execute(getViewImageTool(), { file_path: '/tmp/notes.txt' })) as Record<string, unknown>
       expect(String(result.error)).toContain('Unsupported')
       expect(getImageBase64AndResize).not.toHaveBeenCalled()
-      expect(atobSpy).toHaveBeenCalledOnce()
-      expect(atobSpy.mock.calls[0]?.[0]).toHaveLength(24)
+      expect(atobSpy).not.toHaveBeenCalled()
     } finally {
       atobSpy.mockRestore()
     }
@@ -153,7 +160,7 @@ describe('view_image execute — format handling', () => {
     const dimensions = new DataView(oversizedPng.buffer)
     dimensions.setUint32(16, 20_000)
     dimensions.setUint32(20, 20_000)
-    fsReadImage.mockResolvedValue({ success: true, base64: Buffer.from(oversizedPng).toString('base64') })
+    fsReadImage.mockResolvedValue({ success: true, bytes: oversizedPng.buffer as ArrayBuffer })
 
     const result = (await execute(getViewImageTool(), { file_path: '/tmp/oversized.png' })) as Record<string, unknown>
 
@@ -169,7 +176,7 @@ describe('view_image execute — format handling', () => {
       // Second frame: 20,000x2.
       0x2c, 0, 0, 0, 0, 0x20, 0x4e, 2, 0, 0, 2, 0, 0x3b,
     ])
-    fsReadImage.mockResolvedValue({ success: true, base64: Buffer.from(gif).toString('base64') })
+    fsReadImage.mockResolvedValue({ success: true, bytes: gif.buffer as ArrayBuffer })
 
     const result = (await execute(getViewImageTool(), { file_path: '/tmp/oversized-frame.gif' })) as Record<
       string,
@@ -181,12 +188,11 @@ describe('view_image execute — format handling', () => {
   })
 
   test('svg is accepted by extension (no magic bytes)', async () => {
-    const svgBase64 = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480"></svg>').toString(
-      'base64'
-    )
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480"></svg>'
+    const svgBase64 = Buffer.from(svg).toString('base64')
     fsReadImage.mockResolvedValue({
       success: true,
-      base64: svgBase64,
+      bytes: bytesOf(svg),
     })
     const result = (await execute(getViewImageTool(), { file_path: '/tmp/icon.svg' })) as Record<string, unknown>
     expect(result.image_storage_key).toBe('picture:view-image:session-id:uuid')
@@ -200,7 +206,7 @@ describe('view_image execute — format handling', () => {
   test('rejects an SVG conversion that produces an empty canvas data URL', async () => {
     fsReadImage.mockResolvedValue({
       success: true,
-      base64: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>').toString('base64'),
+      bytes: bytesOf('<svg xmlns="http://www.w3.org/2000/svg"></svg>'),
     })
     svgToPngBase64.mockResolvedValueOnce('data:,')
 
@@ -229,7 +235,7 @@ describe('view_image toModelOutput', () => {
       type: 'content',
       value: [
         { type: 'text', text: 'Viewed image: chart.png' },
-        { type: 'image-data', data: 'UkVTSVpFRA==', mediaType: 'image/png' },
+        { type: 'image-data', data: 'UkVTSVpFRA==', mediaType: 'image/webp' },
       ],
     })
     expect(getStoreBlob).not.toHaveBeenCalled()
@@ -325,7 +331,7 @@ describe('view_image without tool-result image support (user-message injection)'
       role: 'user',
       content: [
         { type: 'text', text: '[Image from view_image tool: charts/output.png]' },
-        { type: 'image', image: 'UkVTSVpFRA==', mediaType: 'image/png' },
+        { type: 'image', image: 'UkVTSVpFRA==', mediaType: 'image/webp' },
       ],
     })
     expect(getStoreBlob).not.toHaveBeenCalled()
@@ -357,7 +363,104 @@ describe('view_image without tool-result image support (user-message injection)'
     expect(injected).toEqual(messages)
   })
 
-  test('toolResultImages=true does not expose the injection transform', () => {
-    expect(buildToolSet({ toolResultImages: true }).injectImagesIntoStepMessages).toBeUndefined()
+  test('caps current-generation image replay and downgrades older notices to compact json', async () => {
+    const toolSet = buildToolSet({ toolResultImages: false })
+    const toolParts = []
+    for (let index = 0; index < 6; index += 1) {
+      await execute(toolSet.tools.view_image, { file_path: `chart-${index}.png` }, 'call-0')
+      toolParts.push({
+        type: 'tool-result' as const,
+        toolCallId: 'call-0',
+        toolName: 'view_image',
+        output: { type: 'text' as const, value: 'image attached next' },
+      })
+    }
+
+    const bounded = await toolSet.injectImagesIntoStepMessages?.([
+      { role: 'tool' as const, content: toolParts },
+    ] as never)
+
+    expect(bounded).toHaveLength(2)
+    const boundedToolParts = bounded?.[0].content as Array<{ output: { type: string } }>
+    expect(boundedToolParts[0].output.type).toBe('json')
+    expect(boundedToolParts.slice(1).every((part) => part.output.type === 'text')).toBe(true)
+    const injectedParts = bounded?.[1].content as Array<{ type: string; text?: string }>
+    expect(injectedParts.filter((part) => part.type === 'image')).toHaveLength(5)
+    expect(injectedParts.filter((part) => part.type === 'text').map((part) => part.text)).toEqual(
+      [1, 2, 3, 4, 5].map((index) => `[Image from view_image tool: chart-${index}.png]`)
+    )
+  })
+
+  test('applies one image limit across history and current-generation results', async () => {
+    const toolSet = buildToolSet({ toolResultImages: false })
+    await execute(toolSet.tools.view_image, { file_path: 'current.png' }, 'current-call')
+    const historicalContent = Array.from({ length: 5 }, (_, index) => [
+      { type: 'text' as const, text: `[Image from view_image tool: history-${index}.png]` },
+      { type: 'image' as const, image: `history-${index}`, mediaType: 'image/webp' },
+    ]).flat()
+
+    const bounded = await toolSet.injectImagesIntoStepMessages?.([
+      {
+        role: 'tool' as const,
+        content: Array.from({ length: 5 }, (_, index) => ({
+          type: 'tool-result' as const,
+          toolCallId: `history-${index}`,
+          toolName: 'view_image',
+          output: {
+            type: 'text' as const,
+            value: `Viewed image: history-${index}.png. The image is attached in the user message directly after this tool result.`,
+          },
+        })),
+      },
+      { role: 'user' as const, content: historicalContent },
+      {
+        role: 'tool' as const,
+        content: [
+          {
+            type: 'tool-result' as const,
+            toolCallId: 'current-call',
+            toolName: 'view_image',
+            output: { type: 'text' as const, value: 'image attached next' },
+          },
+        ],
+      },
+    ] as never)
+
+    const images = bounded?.flatMap((message) =>
+      message.role === 'user' && Array.isArray(message.content)
+        ? message.content.filter((part) => part.type === 'image')
+        : []
+    )
+    expect(images).toHaveLength(5)
+    expect(JSON.stringify(bounded)).not.toContain('"image":"history-0"')
+    expect(JSON.stringify(bounded)).toContain('current.png')
+    const historicalToolResults = bounded?.[0].content as Array<{ output: { value: string } }>
+    expect(historicalToolResults[0].output.value).toContain('Image omitted from this replay')
+    expect(historicalToolResults[1].output.value).toContain('attached in the user message')
+  })
+
+  test('evicts cached image payloads outside the replay window', async () => {
+    const toolSet = buildToolSet({ toolResultImages: false })
+    const results = []
+    for (let index = 0; index < 6; index += 1) {
+      saveImage.mockResolvedValueOnce(`picture:${index}`)
+      results.push(await execute(toolSet.tools.view_image, { file_path: `chart-${index}.png` }, `call-${index}`))
+    }
+    const toolParts = results.map((_, index) => ({
+      type: 'tool-result' as const,
+      toolCallId: `call-${index}`,
+      toolName: 'view_image',
+      output: { type: 'text' as const, value: 'image attached next' },
+    }))
+    await toolSet.injectImagesIntoStepMessages?.([{ role: 'tool' as const, content: toolParts }] as never)
+    getStoreBlob.mockResolvedValue('data:image/webp;base64,UkVTSVpFRA==')
+
+    await toModelOutput(toolSet.tools.view_image, results[0], 'call-0')
+
+    expect(getStoreBlob).toHaveBeenCalledWith('picture:0')
+  })
+
+  test('toolResultImages=true still exposes the replay-bounding transform', () => {
+    expect(buildToolSet({ toolResultImages: true }).injectImagesIntoStepMessages).toBeDefined()
   })
 })

@@ -107,6 +107,8 @@ export function finalizeStaleGeneratingMessage(message: Message, bootTime = MODU
             state: 'error',
             pauseReason: undefined,
             resultStorageKey: undefined,
+            resultImageStorageKey: undefined,
+            resultImageMediaType: undefined,
             result: { error: 'Tool execution was interrupted before its result was persisted.' },
             duration: part.startTime ? now - part.startTime : undefined,
           }

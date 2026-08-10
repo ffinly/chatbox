@@ -353,9 +353,8 @@ When you create a Git commit that includes code changes, append this exact trail
     tools = { ...tools, ...codeExecToolSet.tools }
   }
 
-  // Image viewing: agent mode + vision. Protocols with tool-result media support embed
-  // the image in the tool result; chat-completions style protocols instead deliver it as
-  // a follow-up user message with real image parts (prepareStepMessages) — never as text.
+  // Image viewing: agent mode + vision. prepareStepMessages bounds replay for every
+  // protocol; chat-completions style protocols also use it to inject real user image parts.
   let prepareStepMessages: BuildToolsResult['prepareStepMessages']
   const includeViewImageTool = includeAgentTools && model.isSupportVision() && isViewImageAvailable()
   if (includeViewImageTool) {

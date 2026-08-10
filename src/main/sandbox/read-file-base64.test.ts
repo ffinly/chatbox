@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
-import { readSandboxFileBase64 } from './read-file-base64'
+import { bufferToArrayBuffer, readSandboxFileBase64, readSandboxFileBytes } from './read-file-base64'
 
 let testRoot: string
 let sandboxRoot: string
@@ -19,6 +19,20 @@ afterEach(async () => {
 })
 
 describe('readSandboxFileBase64', () => {
+  test('copies only the visible Buffer range into IPC payloads', () => {
+    const slice = Buffer.from([1, 2, 3]).subarray(1, 2)
+    expect(Array.from(new Uint8Array(bufferToArrayBuffer(slice)))).toEqual([2])
+  })
+
+  test('returns raw bytes for binary IPC callers', async () => {
+    const filePath = path.join(sandboxRoot, 'image.bin')
+    await writeFile(filePath, 'image data')
+
+    const result = await readSandboxFileBytes({ filePath, maxBytes: 100 }, [sandboxRoot])
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.bytes.toString('utf8')).toBe('image data')
+  })
+
   test('reads files inside an allowed root', async () => {
     const filePath = path.join(sandboxRoot, 'image.bin')
     await writeFile(filePath, 'image data')

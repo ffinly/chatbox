@@ -929,6 +929,8 @@ export class GenerationService<TContext> {
           pauseReason: batchPart.pauseReason?.type === 'app_action_approval' ? batchPart.pauseReason : undefined,
           result: undefined,
           resultStorageKey: undefined,
+          resultImageStorageKey: undefined,
+          resultImageMediaType: undefined,
           startTime: host.now(),
           duration: undefined,
         })
@@ -1088,6 +1090,8 @@ export class GenerationService<TContext> {
         state: 'call',
         result: undefined,
         resultStorageKey: undefined,
+        resultImageStorageKey: undefined,
+        resultImageMediaType: undefined,
         resultProviderMetadata: undefined,
         startTime: host.now(),
         duration: undefined,

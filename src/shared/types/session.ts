@@ -204,6 +204,9 @@ export const MessageToolCallPartSchema = z.object({
     .optional(),
   /** When the original result exceeded the size limit, the full result is stored in blob storage under this key. */
   resultStorageKey: z.string().optional(),
+  /** Image produced by this tool result, promoted out of private result JSON for generic consumers. */
+  resultImageStorageKey: z.string().optional(),
+  resultImageMediaType: z.string().optional(),
 })
 
 export const MessageContentPartSchema = z.discriminatedUnion('type', [
@@ -446,6 +449,8 @@ export type MessageToolCallPart<Args = unknown, Result = unknown> = Omit<
   args?: Args
   result?: Result
   resultStorageKey?: string
+  resultImageStorageKey?: string
+  resultImageMediaType?: string
 }
 export type MessageContentParts = z.infer<typeof MessageContentPartsSchema>
 /** The tool-call member of the content-part union, as stored inside MessageContentParts. */

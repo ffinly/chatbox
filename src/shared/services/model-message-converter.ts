@@ -2,11 +2,10 @@ import type { JSONValue } from '@ai-sdk/provider'
 import type { ReasoningPart } from '@ai-sdk/provider-utils'
 import type { FilePart, ImagePart, ModelMessage, TextPart, ToolCallPart } from 'ai'
 import { compact } from 'lodash'
+import { DEFAULT_TOOL_RESULT_IMAGE_INLINE_LIMIT, getToolResultImageReference } from '../tool-result-image'
 import {
   buildViewImageToolResultContent,
   buildViewImageUserMessage,
-  parseViewImageToolResult,
-  VIEW_IMAGE_TOOL_NAME,
   type ViewImageInjection,
   viewImageAttachmentNotice,
 } from '../tools/view-image'
@@ -31,7 +30,11 @@ export interface ConvertToModelMessagesOptions {
    * keeps compact JSON for auxiliary callers such as naming and summarization.
    */
   supportToolResultImages?: boolean
+  /** Maximum number of most-recent stored tool images to inline into one request. */
+  maxInlineToolResultImages?: number
 }
+
+export const DEFAULT_MAX_INLINE_TOOL_RESULT_IMAGES = DEFAULT_TOOL_RESULT_IMAGE_INLINE_LIMIT
 
 const GOOGLE_THOUGHT_SIGNATURE_VALIDATOR_BYPASS = 'skip_thought_signature_validator'
 
@@ -236,44 +239,103 @@ type ToolResultModelOutput =
       value: Array<{ type: 'text'; text: string } | { type: 'image-data'; data: string; mediaType: string }>
     }
 
+function truncatedToolResultOutput(toolCallPart: MessageContentToolCallPart): ToolResultModelOutput {
+  return {
+    type: 'json',
+    value: {
+      _truncated: true,
+      preview: String(toolCallPart.result ?? ''),
+      fullResultFileKey: toolCallPart.resultStorageKey,
+      hint: 'Result was too large and has been truncated. Use the read_file tool with the fullResultFileKey above to read the complete result.',
+    } as JSONValue,
+  }
+}
+
+function appendTruncatedResultNotice(
+  output: ToolResultModelOutput,
+  toolCallPart: MessageContentToolCallPart
+): ToolResultModelOutput {
+  const notice = `Additional tool result data was truncated. Preview: ${String(toolCallPart.result ?? '')}. Full result file key: ${toolCallPart.resultStorageKey}.`
+  if (output.type === 'content') {
+    return { ...output, value: [...output.value, { type: 'text', text: notice }] }
+  }
+  if (output.type === 'text') {
+    return { ...output, value: `${output.value}\n${notice}` }
+  }
+  return output
+}
+
 /**
- * Re-deliver a stored `view_image` result as an actual image on history resends.
+ * Re-deliver a stored tool result image as an actual image on history resends.
  * Protocols that accept media in tool results get it embedded there; other vision models
  * get a text tool output plus a follow-up user message with a real image part (the same
  * shape as a user-uploaded image — never base64-as-text). Returns null when the part is
- * not a usable view_image result, the model has no vision, or the stored blob is gone
+ * not a usable image result, the model has no vision, or the stored blob is gone
  * (callers fall back to the plain JSON output, which still carries the file path).
  */
-async function toViewImageToolOutput(
+async function toToolResultImageOutput(
   toolCallPart: MessageContentToolCallPart,
   resolveImage: ModelImageResolver,
-  options?: { modelSupportVision?: boolean; supportToolResultImages?: boolean }
+  options?: {
+    modelSupportVision?: boolean
+    supportToolResultImages?: boolean
+    inlineImage?: boolean
+  }
 ): Promise<{ output: ToolResultModelOutput; injection?: ViewImageInjection } | null> {
-  if (toolCallPart.toolName !== VIEW_IMAGE_TOOL_NAME) return null
   if (options?.modelSupportVision === false) return null
-  // Re-inlining view_image data is agent-generation behavior. Auxiliary callers such as
+  // Re-inlining tool image data is agent-generation behavior. Auxiliary callers such as
   // summaries and naming omit this option and must retain the compact JSON result.
   if (options?.supportToolResultImages === undefined) return null
-  const viewImageResult = parseViewImageToolResult(toolCallPart.result)
-  if (!viewImageResult) return null
-  const resolved = await resolveImageData(viewImageResult.image_storage_key, resolveImage)
+  if (!options.inlineImage) return null
+  const imageReference = getToolResultImageReference(toolCallPart)
+  if (!imageReference) return null
+  const resolved = await resolveImageData(imageReference.storageKey, resolveImage)
   if (!resolved) return null
   if (options?.supportToolResultImages) {
     return {
       output: buildViewImageToolResultContent({
-        filePath: viewImageResult.file_path,
+        filePath: imageReference.filePath ?? toolCallPart.toolName,
         ...resolved,
       }),
     }
   }
   return {
-    output: { type: 'text', value: viewImageAttachmentNotice(viewImageResult.file_path) },
+    output: {
+      type: 'text',
+      value: viewImageAttachmentNotice(imageReference.filePath ?? toolCallPart.toolName),
+    },
     injection: {
-      filePath: viewImageResult.file_path,
+      filePath: imageReference.filePath ?? toolCallPart.toolName,
       base64Data: resolved.base64Data,
       mediaType: resolved.mediaType,
     },
   }
+}
+
+function collectRecentToolResultImagePositions(
+  messages: Message[],
+  limit: number
+): ReadonlyMap<number, ReadonlySet<number>> {
+  const selected = new Map<number, Set<number>>()
+  const normalizedLimit = Math.max(0, Math.floor(limit))
+  if (normalizedLimit === 0) return selected
+
+  let selectedCount = 0
+  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const parts = messages[messageIndex].contentParts ?? []
+    for (let partIndex = parts.length - 1; partIndex >= 0; partIndex -= 1) {
+      const part = parts[partIndex]
+      if (part.type !== 'tool-call' || part.state !== 'result') continue
+      if (!getToolResultImageReference(part)) continue
+      const selectedPartIndexes = selected.get(messageIndex) ?? new Set<number>()
+      selectedPartIndexes.add(partIndex)
+      selected.set(messageIndex, selectedPartIndexes)
+      selectedCount += 1
+      if (selectedCount >= normalizedLimit) return selected
+    }
+  }
+
+  return selected
 }
 
 async function emitAssistantMessages(
@@ -285,6 +347,7 @@ async function emitAssistantMessages(
     ensureGoogleFunctionCallSignatures?: boolean
     modelSupportVision?: boolean
     supportToolResultImages?: boolean
+    inlineToolResultImagePartIndexes?: ReadonlySet<number>
   }
 ): Promise<void> {
   let cursor = 0
@@ -294,11 +357,13 @@ async function emitAssistantMessages(
 
     // Collect the contiguous run of completed tool calls that belong to the same batch.
     const toolCallParts: MessageContentToolCallPart[] = []
+    const toolCallPartIndexes: number[] = []
     for (let index = tcIdx; index < contentParts.length; index += 1) {
       const part = contentParts[index]
       if (!isCompletedToolCall(part)) break
       if (toolCallParts.length > 0 && !isSameToolCallBatch(toolCallParts[0], part)) break
       toolCallParts.push(part)
+      toolCallPartIndexes.push(index)
     }
     const batchEnd = tcIdx + toolCallParts.length
 
@@ -315,30 +380,27 @@ async function emitAssistantMessages(
     }
 
     const convertedToolResults = await Promise.all(
-      toolCallParts.map(async (tc) => {
+      toolCallParts.map(async (tc, index) => {
         let toolOutput: ToolResultModelOutput
         let injection: ViewImageInjection | undefined
         if (tc.state === 'error') {
           toolOutput = { type: 'error-text' as const, value: stringifyErrorResult(tc.result) }
-        } else if (tc.resultStorageKey) {
-          // The full result was offloaded to blob storage — send the preview + a hint.
-          // tc.result is always a plain string here (truncated from the serialized form).
-          const preview = String(tc.result ?? '')
-          toolOutput = {
-            type: 'json' as const,
-            value: {
-              _truncated: true,
-              preview,
-              fullResultFileKey: tc.resultStorageKey,
-              hint: 'Result was too large and has been truncated. Use the read_file tool with the fullResultFileKey above to read the complete result.',
-            } as JSONValue,
-          }
         } else {
-          const viewImageOutput = await toViewImageToolOutput(tc, resolveImage, options)
-          injection = viewImageOutput?.injection
-          toolOutput =
-            viewImageOutput?.output ??
-            ({ type: 'json' as const, value: toSafeJSONValue(tc.result) } as ToolResultModelOutput)
+          const toolResultImageOutput = await toToolResultImageOutput(tc, resolveImage, {
+            modelSupportVision: options?.modelSupportVision,
+            supportToolResultImages: options?.supportToolResultImages,
+            inlineImage: options?.inlineToolResultImagePartIndexes?.has(toolCallPartIndexes[index]),
+          })
+          injection = toolResultImageOutput?.injection
+          if (toolResultImageOutput) {
+            toolOutput = tc.resultStorageKey
+              ? appendTruncatedResultNotice(toolResultImageOutput.output, tc)
+              : toolResultImageOutput.output
+          } else {
+            toolOutput = tc.resultStorageKey
+              ? truncatedToolResultOutput(tc)
+              : ({ type: 'json' as const, value: toSafeJSONValue(tc.result) } as ToolResultModelOutput)
+          }
         }
         return {
           toolResult: {
@@ -393,8 +455,14 @@ export async function convertToModelMessages(
   options?: ConvertToModelMessagesOptions
 ): Promise<ModelMessage[]> {
   const output: ModelMessage[] = []
+  const inlineToolResultImagePositions = collectRecentToolResultImagePositions(
+    messages,
+    options?.supportToolResultImages === undefined
+      ? 0
+      : (options.maxInlineToolResultImages ?? DEFAULT_MAX_INLINE_TOOL_RESULT_IMAGES)
+  )
 
-  for (const m of messages) {
+  for (const [messageIndex, m] of messages.entries()) {
     switch (m.role) {
       case 'system':
         output.push({
@@ -416,6 +484,7 @@ export async function convertToModelMessages(
           ensureGoogleFunctionCallSignatures: options?.ensureGoogleFunctionCallSignatures,
           modelSupportVision: options?.modelSupportVision,
           supportToolResultImages: options?.supportToolResultImages,
+          inlineToolResultImagePartIndexes: inlineToolResultImagePositions.get(messageIndex),
         })
         break
       case 'tool':

@@ -1,4 +1,4 @@
-import type { Message } from '@shared/types'
+import type { Message, MessageContentToolCallPart } from '@shared/types'
 import { modelMessageSchema } from 'ai'
 import { describe, expect, it, vi } from 'vitest'
 import { convertToModelMessages } from './model-message-converter'
@@ -450,7 +450,7 @@ describe('convertToModelMessages — tool result sanitization', () => {
 })
 
 describe('convertToModelMessages — view_image tool results', () => {
-  const viewImageMessage = (result: unknown): Message => ({
+  const viewImageMessage = (result: unknown, fields: Partial<MessageContentToolCallPart> = {}): Message => ({
     id: 'a1',
     role: 'assistant',
     contentParts: [
@@ -461,6 +461,7 @@ describe('convertToModelMessages — view_image tool results', () => {
         toolName: 'view_image',
         args: { file_path: 'chart.png' },
         result,
+        ...fields,
       },
     ],
   })
@@ -492,6 +493,47 @@ describe('convertToModelMessages — view_image tool results', () => {
     for (const msg of output) {
       expect(() => modelMessageSchema.parse(msg)).not.toThrow()
     }
+  })
+
+  it('re-inlines a first-class image reference from any image-producing tool', async () => {
+    const output = await convertToModelMessages(
+      [
+        viewImageMessage(
+          { file_path: 'chart.png', media_type: 'image/png' },
+          {
+            toolName: 'render_chart',
+            resultImageStorageKey: 'picture:view-image:s1:uuid',
+            resultImageMediaType: 'image/png',
+          }
+        ),
+      ],
+      resolveStored,
+      { modelSupportVision: true, supportToolResultImages: true }
+    )
+
+    const toolMsg = output.find((message) => message.role === 'tool')
+    const part = (toolMsg?.content as Array<{ output: { type: string } }>)[0]
+    expect(part.output.type).toBe('content')
+  })
+
+  it('re-inlines an image even when auxiliary tool result data was offloaded', async () => {
+    const output = await convertToModelMessages(
+      [
+        viewImageMessage('truncated preview', {
+          toolName: 'render_chart',
+          resultStorageKey: 'blob:large-result',
+          resultImageStorageKey: 'picture:view-image:s1:uuid',
+          resultImageMediaType: 'image/png',
+        }),
+      ],
+      resolveStored,
+      { modelSupportVision: true, supportToolResultImages: true }
+    )
+
+    const toolMsg = output.find((message) => message.role === 'tool')
+    const part = (toolMsg?.content as Array<{ output: { type: string; value: Array<{ type: string }> } }>)[0]
+    expect(part.output.type).toBe('content')
+    expect(part.output.value.some((value) => value.type === 'image-data')).toBe(true)
   })
 
   it('delivers the image as a follow-up user message when tool-result images are unsupported', async () => {
@@ -553,5 +595,37 @@ describe('convertToModelMessages — view_image tool results', () => {
     const toolMsg = output.find((m) => m.role === 'tool')
     const part = (toolMsg?.content as Array<{ type: string; output: { type: string } }>)[0]
     expect(part.output.type).toBe('json')
+  })
+
+  it('only inlines the most recent image occurrences when tool call IDs repeat', async () => {
+    const resolver = vi.fn((storageKey: string) => Promise.resolve(`data:image/webp;base64,${storageKey}`))
+    const messages = ['oldest', 'middle', 'latest'].map(
+      (name): Message =>
+        viewImageMessage(
+          { file_path: `${name}.webp`, media_type: 'image/webp' },
+          {
+            toolCallId: 'call-0',
+            toolName: 'render_chart',
+            resultImageStorageKey: `picture:${name}`,
+            resultImageMediaType: 'image/webp',
+          }
+        )
+    )
+
+    const output = await convertToModelMessages(messages, resolver, {
+      modelSupportVision: true,
+      supportToolResultImages: false,
+      maxInlineToolResultImages: 2,
+    })
+
+    expect(resolver.mock.calls.map(([storageKey]) => storageKey)).toEqual(['picture:middle', 'picture:latest'])
+    const imageParts = output.flatMap((message) =>
+      message.role === 'user' && Array.isArray(message.content)
+        ? message.content.filter((part) => part.type === 'image')
+        : []
+    )
+    expect(imageParts).toHaveLength(2)
+    const firstTool = output.find((message) => message.role === 'tool')
+    expect((firstTool?.content as Array<{ output: { type: string } }>)[0].output.type).toBe('json')
   })
 })

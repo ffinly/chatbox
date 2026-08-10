@@ -45,6 +45,7 @@ import { registerOAuthHandlers } from './oauth'
 import * as proxy from './proxy'
 import { runRipgrepSearch } from './ripgrep-search'
 import { registerSandboxHandlers } from './sandbox'
+import { bufferToArrayBuffer } from './sandbox/read-file-base64'
 import { registerSkillsHandlers } from './skills'
 import {
   delStoreBlob,
@@ -913,7 +914,7 @@ ipcMain.handle('fs:read-image', async (_event, params: { filePath: string }) => 
     if (!result.success) {
       return { success: false, error: formatTooLargeFileRead(result, 'Image file') }
     }
-    return { success: true, base64: result.bytes.toString('base64') }
+    return { success: true, bytes: bufferToArrayBuffer(result.bytes) }
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) }
   }

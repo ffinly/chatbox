@@ -1221,7 +1221,7 @@ describe('buildToolsForSession — view_image gating', () => {
     expect(result.prepareStepMessages).toBeDefined()
   })
 
-  test('media-capable protocols embed in tool results and need no step-message rewrite', async () => {
+  test('media-capable protocols use the step-message rewrite to bound image replay', async () => {
     const model = createMockModel({ apiStyle: 'anthropic' } as Partial<ModelInterface>)
     const result = await buildToolsForSession(model, {
       webBrowsing: false,
@@ -1229,7 +1229,7 @@ describe('buildToolsForSession — view_image gating', () => {
       agentMode: 'on',
     })
     expect(result.tools.view_image).toBeDefined()
-    expect(result.prepareStepMessages).toBeUndefined()
+    expect(result.prepareStepMessages).toBeDefined()
   })
 
   test('omits view_image without vision support', async () => {

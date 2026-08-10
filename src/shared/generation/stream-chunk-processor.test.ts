@@ -811,4 +811,33 @@ describe('processStreamChunk', () => {
     expect(part.resultStorageKey).toBeUndefined()
     expect(mockCallbacks.onLargeToolResult).not.toHaveBeenCalled()
   })
+
+  it('promotes image storage metadata out of a tool private result', async () => {
+    const state = createInitialState()
+    const r1 = await processStreamChunk(
+      chunk('tool-call', { toolCallId: 'tc-image', toolName: 'render_chart', args: {} }),
+      state,
+      callbacks
+    )
+    const r2 = await processStreamChunk(
+      chunk('tool-result', {
+        toolCallId: 'tc-image',
+        result: {
+          success: true,
+          file_path: 'chart.png',
+          image_storage_key: 'picture:chart',
+          media_type: 'image/webp',
+        },
+      }),
+      r1.state,
+      callbacks
+    )
+
+    expect(r2.state.contentParts[0]).toMatchObject({
+      resultImageStorageKey: 'picture:chart',
+      resultImageMediaType: 'image/webp',
+      result: { success: true, file_path: 'chart.png', media_type: 'image/webp' },
+    })
+    expect((r2.state.contentParts[0] as MessageToolCallPart).result).not.toHaveProperty('image_storage_key')
+  })
 })
