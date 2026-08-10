@@ -52,6 +52,7 @@ import { createPortal } from 'react-dom'
 import { useDropzone } from 'react-dropzone'
 import { useTranslation } from 'react-i18next'
 import { v4 as uuidv4 } from 'uuid'
+import { useStore } from 'zustand'
 import { createModelDependencies } from '@/adapters'
 import { JK_PAGE_NAMES } from '@/analytics/jk-events'
 import { AppTooltip as Tooltip } from '@/components/ui/tooltip'
@@ -99,7 +100,12 @@ import {
   type ShortcutSendValue,
 } from '../../../shared/types'
 import * as dom from '../../hooks/dom'
-import { enqueueUserMessage, messageQueueStore, resumeQueueAndDrain } from '../../stores/session/message-queue'
+import {
+  enqueueUserMessage,
+  MAX_QUEUED_MESSAGES,
+  messageQueueStore,
+  resumeQueueAndDrain,
+} from '../../stores/session/message-queue'
 import { startPreparedSessionAttachmentIndexing } from '../../stores/sessionAttachmentRagIndexing'
 import * as sessionHelpers from '../../stores/sessionHelpers'
 import * as toastActions from '../../stores/toastActions'
@@ -120,7 +126,7 @@ import { cleanupFile, markFileProcessing, onFileProcessed, storeFilePromise } fr
 import { QueuedMessagesBar } from './QueuedMessagesBar'
 import ReasoningControlButton from './ReasoningControlButton'
 import { getTrailingSkillCommand, insertSkillCommandText } from './skillCommand'
-import { getSubmitAction } from './submitAction'
+import { getSubmitAction, getSubmitControl } from './submitAction'
 import TokenCountMenu from './TokenCountMenu'
 import { useReasoningControlState } from './useReasoningControlState'
 
@@ -400,9 +406,9 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
     const { sessionSettings: currentSessionMergedSettings } = useSessionSettings(sessionId || null)
     const sessionLocks = useSessionLockState(currentSession)
     const submitAvailability = getSubmitAvailability(sessionLocks)
-    // While replies stream, the send button becomes a Stop button. The hard
-    // block (compaction/approval) is an independent axis so its cue stays
-    // visible even during concurrent streaming.
+    // While replies stream, an empty draft shows Stop; entering content turns
+    // the same control back into Send so it can be queued. The hard block
+    // (compaction/approval) remains an independent axis.
     const generating = submitAvailability.control === 'stop'
     const generatingCount = sessionLocks.generatingReplyCount
     const isAwaitingToolApproval = sessionLocks.awaitingToolApproval
@@ -573,6 +579,9 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
       () => !(hasTextContent || attachments?.length || pictureKeys?.length),
       [hasTextContent, attachments, pictureKeys]
     )
+    const currentQueueLength = useStore(messageQueueStore, (state) =>
+      currentSessionId ? (state.queues[currentSessionId]?.length ?? 0) : 0
+    )
 
     const preprocessedSessionAttachmentIds = useMemo(
       () =>
@@ -737,6 +746,14 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
       submitAvailability.blockReason !== undefined ||
       hasPreprocessErrors ||
       hasBlockedSessionRagFiles
+    const submitControl = getSubmitControl({
+      generating,
+      hasDraft: !disableSubmit,
+      canQueueDraft: !submitBlocked && currentQueueLength < MAX_QUEUED_MESSAGES,
+      sessionType,
+      hasModel: Boolean(model),
+    })
+    const showingStopControl = submitControl === 'stop'
 
     const autoCompactionEnabled = useMemo(() => {
       if (!currentSession) return globalAutoCompaction ?? true
@@ -1521,44 +1538,42 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                 onPaste={onPaste}
               />
 
-              {/* Queue Button: the only touch-accessible enqueue path (mobile Enter
-                  inserts a newline, and the send button below becomes Stop). */}
-              {generating && (
-                <Tooltip label={t('Will send after the current response finishes')} withArrow>
-                  <ActionIcon
-                    data-testid={TestId.chat.queuedMessageEnqueue}
-                    disabled={submitBlocked}
-                    size={32}
-                    variant="light"
-                    color="chatbox-brand"
-                    radius="lg"
-                    onClick={() => handleSubmit()}
-                  >
-                    <ScalableIcon icon={IconArrowUp} size={16} />
-                  </ActionIcon>
-                </Tooltip>
-              )}
-
-              {/* Send Button */}
               <Tooltip
                 // `n` rather than `count`, so i18next does not engage plural resolution for a
                 // label that is only ever shown for more than one reply.
-                label={generatingCount > 1 ? t('Stop all {{n}} replies', { n: generatingCount }) : t('Stop')}
-                disabled={!generating}
+                label={
+                  submitControl === 'queue'
+                    ? t('Will send after the current response finishes')
+                    : generatingCount > 1
+                      ? t('Stop all {{n}} replies', { n: generatingCount })
+                      : t('Stop')
+                }
+                disabled={submitControl === 'send'}
                 withArrow
               >
                 <ActionIcon
-                  data-testid={generating ? TestId.chat.stop : TestId.chat.send}
-                  disabled={submitBlocked && !generating}
+                  data-testid={
+                    submitControl === 'stop'
+                      ? TestId.chat.stop
+                      : submitControl === 'queue'
+                        ? TestId.chat.queuedMessageEnqueue
+                        : TestId.chat.send
+                  }
+                  disabled={submitBlocked && !showingStopControl}
                   size={32}
                   variant="filled"
-                  color={generating ? 'dark' : 'chatbox-brand'}
+                  color={showingStopControl ? 'dark' : 'chatbox-brand'}
                   radius="lg"
-                  onClick={generating ? onStopGenerating : () => handleSubmit()}
-                  className={cn('shrink-0 mb-1', !generating && submitBlocked && 'disabled:!opacity-100 !text-white')}
-                  style={!generating && submitBlocked ? { backgroundColor: 'rgba(222, 226, 230, 1)' } : undefined}
+                  onClick={showingStopControl ? onStopGenerating : () => handleSubmit()}
+                  className={cn(
+                    'shrink-0 mb-1',
+                    !showingStopControl && submitBlocked && 'disabled:!opacity-100 !text-white'
+                  )}
+                  style={
+                    !showingStopControl && submitBlocked ? { backgroundColor: 'rgba(222, 226, 230, 1)' } : undefined
+                  }
                 >
-                  {generating ? (
+                  {showingStopControl ? (
                     <ScalableIcon icon={IconPlayerStopFilled} size={16} />
                   ) : (
                     <ScalableIcon icon={IconArrowUp} size={16} />
