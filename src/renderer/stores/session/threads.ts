@@ -6,6 +6,7 @@ import * as dom from '@/hooks/dom'
 import * as chatStore from '../chatStore'
 import * as scrollActions from '../scrollActions'
 import { _copySession as copySession, switchCurrentSession } from './crud'
+import { generationRuntimeStore } from './generation-runtime'
 
 const threadService = new ThreadService({
   sessions: {
@@ -16,8 +17,12 @@ const threadService = new ThreadService({
   createId: uuidv4,
   now: Date.now,
   getDefaultSystemPrompt: defaults.getDefaultPrompt,
-  cancelMessages: (_sessionId, messages) => {
-    for (const message of messages) message.cancel?.()
+  cancelMessages: (sessionId, messages) => {
+    for (const message of messages) {
+      if (message.generating || generationRuntimeStore.get(sessionId, message.id)) {
+        generationRuntimeStore.requestAbort(sessionId, message.id, 'thread-changed')
+      }
+    }
   },
   copySession: (source) => copySession(source),
 })

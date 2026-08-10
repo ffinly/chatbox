@@ -1,28 +1,127 @@
-import { finishAbortedGeneration } from '@shared/generation'
-import type { Message } from '@shared/types'
+import { finishAbortedGeneration, type GenerationRuntimeStore } from '@shared/generation'
+import { getCurrentConversationMessages } from '@shared/session/generation-state'
+import { findMessageLocation } from '@shared/session/message-forks'
+import type { Message, Session } from '@shared/types'
 
 export { cancelRunningToolCallBatch, finishAbortedGeneration } from '@shared/generation'
 
-export interface GenerationCancellationPersistence {
+export interface GenerationCancellationDependencies {
+  runtime: Pick<GenerationRuntimeStore, 'abort' | 'get' | 'list' | 'requestAbort'>
+  getSession: (sessionId: string) => Promise<Session | null>
   removeMessage: (sessionId: string, messageId: string) => Promise<void>
   persistMessage: (sessionId: string, message: Message) => Promise<void>
 }
 
-export async function stopGeneratingMessages(
+const sessionStopTasks = new Map<string, Promise<void>>()
+
+function serializeSessionStop(sessionId: string, operation: () => Promise<void>): Promise<void> {
+  const previous = sessionStopTasks.get(sessionId)
+  const task = previous ? previous.catch(() => {}).then(operation) : operation()
+  let trackedTask: Promise<void>
+  trackedTask = task.finally(() => {
+    if (sessionStopTasks.get(sessionId) === trackedTask) sessionStopTasks.delete(sessionId)
+  })
+  sessionStopTasks.set(sessionId, trackedTask)
+  return trackedTask
+}
+
+async function getDefaultDependencies(): Promise<GenerationCancellationDependencies> {
+  const [chatStore, { generationRuntimeStore }, { modifyMessage, removeMessage }] = await Promise.all([
+    import('../chatStore'),
+    import('./generation-runtime'),
+    import('./messages'),
+  ])
+  return {
+    runtime: generationRuntimeStore,
+    getSession: (sessionId) => chatStore.getSession(sessionId),
+    removeMessage,
+    persistMessage: (sessionId, message) => modifyMessage(sessionId, message, true),
+  }
+}
+
+async function finalizeMessages(
   sessionId: string,
-  messages: readonly Message[],
-  persistence: GenerationCancellationPersistence,
-  stoppedAt = Date.now()
+  messageIds: ReadonlySet<string>,
+  session: Session,
+  dependencies: GenerationCancellationDependencies,
+  stoppedAt: number
 ): Promise<void> {
-  for (const message of messages) {
-    message.cancel?.(stoppedAt)
+  const updates: Promise<void>[] = []
+  for (const messageId of messageIds) {
+    const location = findMessageLocation(session, messageId)
+    if (!location) continue
+    const message = location.list[location.index]
+    if (!message.generating) continue
+    updates.push(
+      message.contentParts.length === 0
+        ? dependencies.removeMessage(sessionId, message.id)
+        : dependencies.persistMessage(sessionId, finishAbortedGeneration(message, message.contentParts, stoppedAt))
+    )
   }
 
-  await Promise.all(
-    messages.map((message) =>
-      message.contentParts.length === 0
-        ? persistence.removeMessage(sessionId, message.id)
-        : persistence.persistMessage(sessionId, finishAbortedGeneration(message, message.contentParts, stoppedAt))
-    )
-  )
+  const results = await Promise.allSettled(updates)
+  const failures = results.flatMap((result) => (result.status === 'rejected' ? [result.reason] : []))
+  if (failures.length > 0) {
+    throw new AggregateError(failures, 'Failed to persist one or more stopped generations')
+  }
+}
+
+export function stopMessageGeneration(
+  sessionId: string,
+  messageId: string,
+  dependencies?: GenerationCancellationDependencies,
+  stoppedAt = Date.now()
+): Promise<void> {
+  return serializeSessionStop(sessionId, async () => {
+    const resolvedDependencies = dependencies ?? (await getDefaultDependencies())
+    const runtime = resolvedDependencies.runtime.get(sessionId, messageId)
+    if (runtime?.phase === 'paused') return
+    if (runtime) {
+      resolvedDependencies.runtime.requestAbort(sessionId, messageId, stoppedAt)
+    }
+
+    const session = await resolvedDependencies.getSession(sessionId)
+    if (!session) return
+    const location = findMessageLocation(session, messageId)
+    if (!location?.list[location.index].generating) return
+    if (!runtime) {
+      resolvedDependencies.runtime.requestAbort(sessionId, messageId, stoppedAt)
+    }
+    await finalizeMessages(sessionId, new Set([messageId]), session, resolvedDependencies, stoppedAt)
+  })
+}
+
+export function stopAllMessageGenerations(
+  sessionId: string,
+  dependencies?: GenerationCancellationDependencies,
+  stoppedAt = Date.now()
+): Promise<void> {
+  return serializeSessionStop(sessionId, async () => {
+    const resolvedDependencies = dependencies ?? (await getDefaultDependencies())
+    const activeRuntimes = resolvedDependencies.runtime.list(sessionId).filter((runtime) => runtime.phase !== 'paused')
+    for (const runtime of activeRuntimes) {
+      resolvedDependencies.runtime.abort(sessionId, runtime.messageId, stoppedAt, runtime)
+    }
+
+    // Read after aborting so the terminal write is derived from the freshest
+    // cache projection instead of a Message snapshot captured by the UI.
+    const session = await resolvedDependencies.getSession(sessionId)
+    if (!session) return
+    const messageIds = new Set(activeRuntimes.map((runtime) => runtime.messageId))
+    for (const runtime of resolvedDependencies.runtime.list(sessionId)) {
+      if (runtime.phase === 'paused') continue
+      resolvedDependencies.runtime.abort(sessionId, runtime.messageId, stoppedAt, runtime)
+      messageIds.add(runtime.messageId)
+    }
+    const activeRuntimeMessageIds = new Set(messageIds)
+    for (const message of getCurrentConversationMessages(session)) {
+      if (message.role === 'assistant' && message.generating) messageIds.add(message.id)
+    }
+    for (const messageId of messageIds) {
+      if (!activeRuntimeMessageIds.has(messageId)) {
+        resolvedDependencies.runtime.requestAbort(sessionId, messageId, stoppedAt)
+      }
+    }
+    await finalizeMessages(sessionId, messageIds, session, resolvedDependencies, stoppedAt)
+  })
 }

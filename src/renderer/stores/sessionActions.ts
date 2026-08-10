@@ -26,7 +26,7 @@ export {
   getSessionWebBrowsing,
   regenerateInNewFork,
 } from './session/generation'
-export { stopGeneratingMessages } from './session/generation-cancellation'
+export { stopAllMessageGenerations, stopMessageGeneration } from './session/generation-cancellation'
 // Re-export message operations from session/messages.ts
 export {
   insertMessage,

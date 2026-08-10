@@ -1,6 +1,5 @@
 import NiceModal from '@ebay/nice-modal-react'
 import { Box, Button } from '@mantine/core'
-import { getGenerationControlMessages } from '@shared/session/generation-state'
 import type { ModelProvider } from '@shared/types'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
@@ -26,11 +25,9 @@ import { applyChatboxLicenseDefaultModelToSession } from '@/stores/defaultChatMo
 import { lastUsedModelStore } from '@/stores/lastUsedModelStore'
 import * as scrollActions from '@/stores/scrollActions'
 import {
-  modifyMessage,
   removeCurrentThread,
-  removeMessage,
   startNewThread,
-  stopGeneratingMessages,
+  stopAllMessageGenerations,
   submitNewUserMessage,
 } from '@/stores/sessionActions'
 import { clearSessionActivity } from '@/stores/sessionActivityStore'
@@ -80,10 +77,6 @@ function RouteComponent() {
     [providers.length, isLoggedIn, hasLicense, hasExpiredLicense, isExceeded, isExceededResolved]
   )
 
-  const generationControlMessages = useMemo(
-    () => (currentSession ? getGenerationControlMessages(currentSession) : []),
-    [currentSession]
-  )
   const shouldShowTemplateWelcomeCard = useMemo(
     () => Boolean(currentSession && builtInTemplateSessionIds.has(currentSession.id) && welcomeCardMode !== 'none'),
     [currentSession, welcomeCardMode]
@@ -99,11 +92,6 @@ function RouteComponent() {
       licensePlanName,
     })
   }, [currentSession, hasExpiredLicense, licenseDetail, licenseKey, licensePlanName])
-  const generatingMessages = useMemo(
-    () => generationControlMessages.filter((message) => message.generating),
-    [generationControlMessages]
-  )
-
   const messageListRef = useRef<MessageListRef>(null)
 
   const goHome = useCallback(() => {
@@ -223,12 +211,11 @@ function RouteComponent() {
     if (!currentSession) {
       return false
     }
-    void stopGeneratingMessages(currentSession.id, generatingMessages, {
-      removeMessage,
-      persistMessage: (sessionId, message) => modifyMessage(sessionId, message, true),
+    void stopAllMessageGenerations(currentSession.id).catch((error) => {
+      console.error('Failed to stop all message generations:', error)
     })
     return true
-  }, [currentSession, generatingMessages])
+  }, [currentSession])
 
   const model = useMemo(() => {
     if (!currentSessionWithDefaultModel?.settings?.modelId || !currentSessionWithDefaultModel?.settings?.provider) {

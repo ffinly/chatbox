@@ -315,6 +315,22 @@ describe('GenerationService', () => {
     expect(harness.runtime.get('session-1')).toBeUndefined()
   })
 
+  it('consumes a stop requested before runtime registration without starting the provider stream', async () => {
+    harness.runtime.requestAbort('session-1', 'assistant-1', 900)
+    harness.setChatStreamFactory(() => {
+      throw new Error('provider stream must not start')
+    })
+
+    await harness.service.orchestrate('session-1', targetMessage(), { operationType: 'send_message' })
+
+    expect(lastPersisted(harness)).toMatchObject({
+      id: 'assistant-1',
+      generating: false,
+      finishReason: 'canceled',
+    })
+    expect(harness.runtime.get('session-1')).toBeUndefined()
+  })
+
   it('wires steering into prepareStep and releases it when generation settles', async () => {
     const basePrepareStep = vi.fn(() => Promise.resolve({ activeTools: ['tool_a'] }))
     harness.setPrepareStep(basePrepareStep)

@@ -176,5 +176,20 @@ describe('ThreadService', () => {
       settings: { agentPromptSnapshot: historySnapshot },
     })
     expect(harness.session.threads).toEqual([])
+    expect(harness.cancelMessages).toHaveBeenCalledWith('session-1', historyMessages)
+  })
+
+  test('cancels the messages discarded when removing the current thread', async () => {
+    const currentMessages = [message('current', 'user'), message('reply', 'assistant')]
+    const harness = createHarness({
+      id: 'session-1',
+      name: 'Session',
+      messages: currentMessages,
+      threads: [],
+    })
+
+    await expect(harness.service.removeCurrent('session-1')).resolves.toBe(true)
+
+    expect(harness.cancelMessages).toHaveBeenCalledWith('session-1', currentMessages)
   })
 })

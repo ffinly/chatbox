@@ -1,3 +1,4 @@
+import { getGenerationControlMessages } from '@shared/session/generation-state'
 import {
   copyMessageForksWithMapping,
   copyMessagesWithMapping,
@@ -18,7 +19,7 @@ import * as chatStore from '../chatStore'
 import * as scrollActions from '../scrollActions'
 import { clearSessionActivity } from '../sessionActivityStore'
 import { initEmptyChatSession, initEmptyPictureSession } from '../sessionHelpers'
-import { getGenerationControlMessages } from './generation-state'
+import { generationRuntimeStore } from './generation-runtime'
 
 /**
  * Create a new session and switch to it
@@ -265,14 +266,20 @@ export async function clear(sessionId: string) {
   if (!session) {
     return
   }
-  for (const message of getGenerationControlMessages(session)) {
-    message.cancel?.()
-  }
-  if (platform.type === 'desktop') {
+  if (platform.isDesktopLike) {
     try {
       await platform.getSessionAttachmentRagController().deleteSessionAttachments(sessionId)
     } catch (error) {
       console.warn('Failed to cleanup session attachment RAG entries while clearing session:', error)
+    }
+  }
+  const activeRuntimeIds = new Set(generationRuntimeStore.list(sessionId).map((runtime) => runtime.messageId))
+  for (const messageId of activeRuntimeIds) {
+    generationRuntimeStore.requestAbort(sessionId, messageId, 'session-cleared')
+  }
+  for (const message of getGenerationControlMessages(session)) {
+    if (message.generating && !activeRuntimeIds.has(message.id)) {
+      generationRuntimeStore.requestAbort(sessionId, message.id, 'session-cleared')
     }
   }
   const updated = await chatStore.updateSessionWithMessages(session.id, {

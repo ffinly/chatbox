@@ -51,6 +51,27 @@ describe('GenerationRuntimeStore', () => {
     expect(store.get('session-1')).toBeUndefined()
   })
 
+  it('carries an abort request across the placeholder window exactly once', () => {
+    const store = createStore()
+
+    store.requestAbort('session-1', 'message-1', 123_456)
+    const cancelled = store.start('session-1', 'message-1')
+    const retry = store.start('session-1', 'message-1')
+
+    expect(cancelled.abortController.signal.aborted).toBe(true)
+    expect(cancelled.abortController.signal.reason).toBe(123_456)
+    expect(retry.abortController.signal.aborted).toBe(false)
+  })
+
+  it('clears pending abort requests with the rest of a Session runtime', () => {
+    const store = createStore()
+
+    store.requestAbort('session-1', 'message-1', 'stopped')
+    expect(store.abort('session-1')).toBe(true)
+
+    expect(store.start('session-1', 'message-1').abortController.signal.aborted).toBe(false)
+  })
+
   it('finishes active runtimes but preserves paused runtimes', () => {
     const store = createStore()
     store.start('session-1', 'message-1')
@@ -73,6 +94,7 @@ describe('GenerationRuntimeStore', () => {
     expect(first.abortController.signal.aborted).toBe(false)
     expect(store.get('session-1', 'message-1')).toBe(first)
     expect(store.get('session-1')).toBe(second)
+    expect(store.list('session-1')).toEqual([first, second])
     expect(store.finishActive('session-1', 'message-1', first)).toBe(true)
     expect(store.get('session-1', 'message-2')).toBe(second)
   })

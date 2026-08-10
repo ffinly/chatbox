@@ -22,6 +22,7 @@ export interface GenerationRuntimeStoreOptions {
  */
 export class GenerationRuntimeStore {
   private readonly states = new Map<string, Map<string, GenerationRuntimeState>>()
+  private readonly pendingAbortReasons = new Map<string, Map<string, unknown>>()
   private readonly unsettledStreamDrains = new Map<string, Set<Promise<void>>>()
   private readonly listeners = new Set<() => void>()
   private readonly createAbortController: () => AbortController
@@ -33,12 +34,20 @@ export class GenerationRuntimeStore {
   start(sessionId: string, messageId: string): GenerationRuntimeState {
     const sessionStates = this.getOrCreateSessionStates(sessionId)
     sessionStates.get(messageId)?.abortController.abort()
+    const pendingAbortReasons = this.pendingAbortReasons.get(sessionId)
+    const hasPendingAbort = pendingAbortReasons?.has(messageId) ?? false
+    const pendingAbortReason = pendingAbortReasons?.get(messageId)
+    if (hasPendingAbort) {
+      pendingAbortReasons?.delete(messageId)
+      if (pendingAbortReasons?.size === 0) this.pendingAbortReasons.delete(sessionId)
+    }
     const state: GenerationRuntimeState = {
       sessionId,
       messageId,
       phase: 'preparing',
       abortController: this.createAbortController(),
     }
+    if (hasPendingAbort) state.abortController.abort(pendingAbortReason)
     sessionStates.set(messageId, state)
     this.notify()
     return state
@@ -49,6 +58,24 @@ export class GenerationRuntimeStore {
     if (!sessionStates) return undefined
     if (messageId !== undefined) return sessionStates.get(messageId)
     return [...sessionStates.values()].at(-1)
+  }
+
+  list(sessionId: string): readonly GenerationRuntimeState[] {
+    return [...(this.states.get(sessionId)?.values() ?? [])]
+  }
+
+  /**
+   * Abort an active runtime or remember the request for the placeholder window
+   * before GenerationService registers its controller.
+   */
+  requestAbort(sessionId: string, messageId: string, reason?: unknown): void {
+    if (this.abort(sessionId, messageId, reason)) return
+    let pendingAbortReasons = this.pendingAbortReasons.get(sessionId)
+    if (!pendingAbortReasons) {
+      pendingAbortReasons = new Map()
+      this.pendingAbortReasons.set(sessionId, pendingAbortReasons)
+    }
+    pendingAbortReasons.set(messageId, reason)
   }
 
   setPhase(
@@ -68,11 +95,13 @@ export class GenerationRuntimeStore {
   abort(sessionId: string, messageId?: string, reason?: unknown, expected?: GenerationRuntimeState): boolean {
     if (messageId === undefined) {
       const sessionStates = this.states.get(sessionId)
-      if (!sessionStates) return false
-      for (const state of sessionStates.values()) state.abortController.abort(reason)
-      this.states.delete(sessionId)
-      this.notify()
-      return true
+      const hadPendingAbort = this.pendingAbortReasons.delete(sessionId)
+      if (sessionStates) {
+        for (const state of sessionStates.values()) state.abortController.abort(reason)
+        this.states.delete(sessionId)
+      }
+      if (sessionStates || hadPendingAbort) this.notify()
+      return Boolean(sessionStates || hadPendingAbort)
     }
     const current = this.getMatchingState(sessionId, messageId, expected)
     if (!current) return false
@@ -141,11 +170,12 @@ export class GenerationRuntimeStore {
   }
 
   dispose(): void {
-    const hadStates = this.states.size > 0
+    const hadStates = this.states.size > 0 || this.pendingAbortReasons.size > 0
     for (const sessionStates of this.states.values()) {
       for (const state of sessionStates.values()) state.abortController.abort()
     }
     this.states.clear()
+    this.pendingAbortReasons.clear()
     this.unsettledStreamDrains.clear()
     if (hadStates) this.notify()
     this.listeners.clear()

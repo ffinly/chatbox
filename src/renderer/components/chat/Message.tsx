@@ -80,7 +80,7 @@ import {
   regenerateInNewFork,
   removeMessage,
   retryFromLastToolCallAfterApiError,
-  stopGeneratingMessages,
+  stopMessageGeneration,
 } from '@/stores/sessionActions'
 import * as toastActions from '@/stores/toastActions'
 import { getSessionLockNotice, notifySessionLockBlocked } from '@/utils/session-lock-copy'
@@ -227,10 +227,7 @@ const _Message: FC<Props> = (props) => {
 
   const handleStop = useCallback(async () => {
     if (msg.generating) {
-      await stopGeneratingMessages(sessionId, [msg], {
-        removeMessage,
-        persistMessage: (currentSessionId, message) => modifyMessage(currentSessionId, message, true),
-      })
+      await stopMessageGeneration(sessionId, msg.id)
       return
     }
     await modifyMessage(sessionId, { ...msg, generating: false, cancel: undefined }, true)

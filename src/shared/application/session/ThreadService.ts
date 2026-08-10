@@ -42,6 +42,8 @@ export class ThreadService {
       return this.removeCurrentFromSession(session.id)
     }
 
+    const target = session.threads?.find((thread) => thread.id === threadId)
+    if (target) this.dependencies.cancelMessages(sessionId, target.messages)
     await this.dependencies.sessions.updateSessionWithMessages(sessionId, {
       threads: session.threads?.filter((thread) => thread.id !== threadId),
     })
@@ -192,6 +194,7 @@ export class ThreadService {
   private async removeCurrentFromSession(sessionId: string): Promise<boolean> {
     await this.dependencies.sessions.updateSessionWithMessages(sessionId, (current) => {
       if (!current) throw new Error(`Session ${sessionId} not found during thread removal`)
+      this.dependencies.cancelMessages(sessionId, current.messages)
       // Discard the current conversation's compaction points with its messages;
       // when restoring a thread, restore that thread's points with its messages.
       const update: Session = {
