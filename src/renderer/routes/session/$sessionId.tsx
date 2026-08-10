@@ -60,9 +60,11 @@ function RouteComponent() {
   const widthFull = useUIStore((s) => s.widthFull)
   const isSmallScreen = useIsSmallScreen()
   const setLastUsedChatModel = useStore(lastUsedModelStore, (state) => state.setChatModel)
+
   useEffect(() => {
     clearSessionActivity(currentSessionId)
   }, [currentSessionId])
+
   const welcomeCardMode = useMemo(
     () =>
       getHomeWelcomeCardMode({

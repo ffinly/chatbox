@@ -43,6 +43,7 @@ interface Harness {
   session: Session
   globalSettings: Settings
   trackPauseAction: ReturnType<typeof vi.fn>
+  afterMessageGenerated: ReturnType<typeof vi.fn>
   steeringInject: ReturnType<typeof vi.fn>
   steeringRegister: ReturnType<typeof vi.fn>
   steeringRelease: ReturnType<typeof vi.fn>
@@ -82,6 +83,7 @@ function createHarness(): Harness {
   let persistenceFailure: { call: number; error: Error } | undefined
   let persistenceCallCount = 0
   const trackPauseAction = vi.fn()
+  const afterMessageGenerated = vi.fn()
   const steeringInject = vi.fn((_messages: ModelMessage[]) => Promise.resolve(undefined as ModelMessage[] | undefined))
   const steeringRelease = vi.fn()
   const steeringRegister = vi.fn(() => ({ inject: steeringInject, release: steeringRelease }))
@@ -219,7 +221,7 @@ function createHarness(): Harness {
       createPictureStorageKey: (sessionId, messageId) => `picture:${sessionId}:${messageId}`,
       estimateTokens: () => 42,
       markFirstSuccessfulChatCompleted: vi.fn(),
-      afterMessageGenerated: vi.fn(),
+      afterMessageGenerated,
       now: () => now,
     },
     analytics: {
@@ -245,6 +247,7 @@ function createHarness(): Harness {
     session,
     globalSettings,
     trackPauseAction,
+    afterMessageGenerated,
     steeringInject,
     steeringRegister,
     steeringRelease,
@@ -313,6 +316,7 @@ describe('GenerationService', () => {
     expect(finalMessage.cancel).toBeUndefined()
     expect(harness.persisted.filter(({ refreshCounting }) => refreshCounting)).toHaveLength(1)
     expect(harness.runtime.get('session-1')).toBeUndefined()
+    expect(harness.afterMessageGenerated).toHaveBeenCalledWith('session-1', finalMessage)
   })
 
   it('consumes a stop requested before runtime registration without starting the provider stream', async () => {
@@ -328,6 +332,26 @@ describe('GenerationService', () => {
       generating: false,
       finishReason: 'canceled',
     })
+    expect(harness.runtime.get('session-1')).toBeUndefined()
+  })
+
+  it('registers preparing runtime before the first setup await and stops without starting the provider stream', async () => {
+    harness.setChatStreamFactory(() => {
+      throw new Error('provider stream must not start')
+    })
+
+    const generation = harness.service.orchestrate('session-1', targetMessage(), { operationType: 'send_message' })
+
+    expect(harness.runtime.get('session-1', 'assistant-1')?.phase).toBe('preparing')
+    harness.runtime.requestAbort('session-1', 'assistant-1', 900)
+    await generation
+
+    expect(lastPersisted(harness)).toMatchObject({
+      id: 'assistant-1',
+      generating: false,
+      finishReason: 'canceled',
+    })
+    expect(harness.afterMessageGenerated).not.toHaveBeenCalled()
     expect(harness.runtime.get('session-1')).toBeUndefined()
   })
 

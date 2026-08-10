@@ -46,8 +46,12 @@ function collectReachableMessages(session: Session, initialLists: Message[][]): 
  * Return messages reachable from the current conversation, including saved
  * fork branches but excluding historical threads.
  */
+export function getConversationMessages(session: Session, messages: Message[]): Message[] {
+  return collectReachableMessages(session, [messages])
+}
+
 export function getCurrentConversationMessages(session: Session): Message[] {
-  return collectReachableMessages(session, [session.messages])
+  return getConversationMessages(session, session.messages)
 }
 
 // Several consumers (route, message list, input box) derive lock state from

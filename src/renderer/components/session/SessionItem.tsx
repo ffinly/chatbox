@@ -343,7 +343,7 @@ function SessionItem(props: Props) {
         </Text>
       )}
 
-      {!renaming && activity !== 'idle' && (
+      {activity !== 'idle' && !renaming && (
         <Box
           component="span"
           data-session-activity={activity}

@@ -134,8 +134,7 @@ export function switchCurrentSession(sessionId: string) {
   const store = getDefaultStore()
   store.set(atoms.currentSessionIdAtom, sessionId)
   router.navigate({
-    to: '/session/$sessionId',
-    params: { sessionId },
+    to: `/session/${sessionId}`,
   })
   scrollActions.clearAutoScroll()
 }
@@ -258,13 +257,6 @@ export async function clear(sessionId: string) {
   if (!session) {
     return
   }
-  if (platform.isDesktopLike) {
-    try {
-      await platform.getSessionAttachmentRagController().deleteSessionAttachments(sessionId)
-    } catch (error) {
-      console.warn('Failed to cleanup session attachment RAG entries while clearing session:', error)
-    }
-  }
   const activeRuntimeIds = new Set(generationRuntimeStore.list(sessionId).map((runtime) => runtime.messageId))
   for (const messageId of activeRuntimeIds) {
     generationRuntimeStore.requestAbort(sessionId, messageId, 'session-cleared')
@@ -272,6 +264,13 @@ export async function clear(sessionId: string) {
   for (const message of getGenerationControlMessages(session)) {
     if (message.generating && !activeRuntimeIds.has(message.id)) {
       generationRuntimeStore.requestAbort(sessionId, message.id, 'session-cleared')
+    }
+  }
+  if (platform.isDesktopLike) {
+    try {
+      await platform.getSessionAttachmentRagController().deleteSessionAttachments(sessionId)
+    } catch (error) {
+      console.warn('Failed to cleanup session attachment RAG entries while clearing session:', error)
     }
   }
   const updated = await chatStore.updateSessionWithMessages(session.id, {

@@ -3,7 +3,7 @@
 import { MantineProvider } from '@mantine/core'
 import { TestId } from '@shared/automation/testids'
 import type { SessionMetaRecord } from '@shared/types'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 const { isSmallScreenMock, platformMock, switchCurrentSessionMock, updateSessionMock } = vi.hoisted(() => ({
@@ -32,6 +32,8 @@ vi.mock('@/stores/uiStore', () => ({
   useUIStore: (selector: (state: { setShowSidebar: () => void }) => unknown) => selector({ setShowSidebar: vi.fn() }),
 }))
 
+import { generationRuntimeStore } from '@/stores/session/generation-runtime'
+import { resetSessionActivityStore, sessionActivityStore } from '@/stores/sessionActivityStore'
 import SessionItem from './SessionItem'
 
 const session: SessionMetaRecord = {
@@ -52,6 +54,8 @@ function renderItem(selected = true) {
 describe('SessionItem inline rename', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    generationRuntimeStore.clear(session.id)
+    resetSessionActivityStore()
     isSmallScreenMock.mockReturnValue(false)
     platformMock.type = 'desktop'
     updateSessionMock.mockResolvedValue(undefined)
@@ -147,5 +151,20 @@ describe('SessionItem inline rename', () => {
     fireEvent.doubleClick(selectedTitle)
 
     expect(screen.getByRole('textbox', { name: 'Name' })).toBeTruthy()
+  })
+
+  test('shows generation and unread completion activity', () => {
+    const runtime = generationRuntimeStore.start(session.id, 'reply-1')
+    const view = renderItem(false)
+
+    expect(screen.getByRole('status', { name: 'Generating...' })).toBeTruthy()
+
+    act(() => {
+      generationRuntimeStore.finishActive(session.id, runtime.messageId, runtime)
+      sessionActivityStore.setState({ unreadCompletedSessionIds: { [session.id]: true } })
+    })
+
+    expect(screen.getByRole('status', { name: 'Completed' })).toBeTruthy()
+    view.unmount()
   })
 })

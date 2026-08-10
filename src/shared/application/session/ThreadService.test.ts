@@ -192,4 +192,28 @@ describe('ThreadService', () => {
 
     expect(harness.cancelMessages).toHaveBeenCalledWith('session-1', currentMessages)
   })
+
+  test('cancels inactive fork replies when replacing the current conversation', async () => {
+    const pivot = message('pivot', 'user')
+    const inactiveReply = message('inactive-reply', 'assistant')
+    const harness = createHarness({
+      id: 'session-1',
+      name: 'Session',
+      messages: [pivot],
+      messageForksHash: {
+        [pivot.id]: {
+          position: 0,
+          lists: [
+            { id: 'current', messages: [] },
+            { id: 'inactive', messages: [inactiveReply] },
+          ],
+          createdAt: 1,
+        },
+      },
+    })
+
+    await harness.service.refreshContextAndCreateNew('session-1')
+
+    expect(harness.cancelMessages).toHaveBeenCalledWith('session-1', [pivot, inactiveReply])
+  })
 })

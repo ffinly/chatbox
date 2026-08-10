@@ -4,6 +4,7 @@ import platform from '@/platform'
 import { cleanupSessionAtomCache } from '@/stores/atoms/throttleWriteSessionAtom'
 import { generationRuntimeStore } from '@/stores/session/generation-runtime'
 import { clearSessionNameGenerationState } from '@/stores/session/naming'
+import { clearSessionActivity } from '@/stores/sessionActivityStore'
 import { uiStore } from '@/stores/uiStore'
 
 async function runInChunks<T>(items: T[], chunkSize: number, worker: (item: T) => Promise<void>): Promise<void> {
@@ -30,6 +31,7 @@ function cleanupDeletedSessionRuntimeState(sessionId: string): void {
   cleanupSessionAtomCache(sessionId)
   clearScrollPositionCache(sessionId)
   clearSessionNameGenerationState(sessionId)
+  clearSessionActivity(sessionId)
   platform.sandboxReset?.({ sessionId }).catch(() => {})
   platform.sandboxRemoveArtifacts?.({ sessionId }).catch(() => {})
 }

@@ -200,7 +200,7 @@ export interface GenerationHostPort {
   createPictureStorageKey(sessionId: string, messageId: string): string
   estimateTokens(messages: Message[]): number
   markFirstSuccessfulChatCompleted(): void
-  afterMessageGenerated(): void
+  afterMessageGenerated(sessionId: string, message: Message): void
   now(): number
 }
 
@@ -278,39 +278,7 @@ export class GenerationService<TContext> {
     options?: GenerationOptions
   ): Promise<void> {
     const { sessions, settings: settingsRepository, host, analytics } = this.dependencies
-    const session = await sessions.getSession(sessionId)
-    const settings = await sessions.getSessionSettings(sessionId)
-    const globalSettings = settingsRepository.getSettings()
-    const config = await host.getConfig()
-
-    if (!session || !settings) {
-      return
-    }
-
-    analytics.trackGenerate(sessionId, settings, globalSettings, session.type, options)
-
-    const startedAt = host.now()
-    let firstTokenLatency: number | undefined
-    let lastPersistTimestamp = host.now()
-
-    let targetMessage = await sessions.initializeTargetMessage(
-      initialTargetMessage,
-      settings,
-      globalSettings,
-      session.type
-    )
-    await sessions.persistStreamingMessage(sessionId, targetMessage)
-
-    const contextTargetIndex = options?.contextMessages?.findIndex((message) => message.id === targetMessage.id) ?? -1
-    const found =
-      options?.contextMessages && contextTargetIndex > 0
-        ? { messages: options.contextMessages, index: contextTargetIndex }
-        : sessions.findTargetMessageIndex(session, targetMessage.id)
-    if (!found) return
-    const { messages, index: targetMessageIndex } = found
-    const promptTargetMessageIndex = options?.appendToMessage ? targetMessageIndex + 1 : targetMessageIndex
-
-    const generationMessageId = targetMessage.id
+    const generationMessageId = initialTargetMessage.id
     const runtimeState = this.dependencies.runtime.start(sessionId, generationMessageId)
     const controller = runtimeState.abortController
     const externalSignal = options?.externalAbortSignal
@@ -319,7 +287,12 @@ export class GenerationService<TContext> {
     } else {
       externalSignal?.addEventListener('abort', () => controller.abort(externalSignal.reason), { once: true })
     }
-    if (controller.signal.aborted) {
+
+    let targetMessage = initialTargetMessage
+    const finishRuntime = () => {
+      this.dependencies.runtime.finishActive(sessionId, generationMessageId, runtimeState)
+    }
+    const finishCanceledSetup = async (persist: boolean): Promise<void> => {
       targetMessage = {
         ...targetMessage,
         generating: false,
@@ -327,10 +300,64 @@ export class GenerationService<TContext> {
         status: [],
         finishReason: 'canceled',
       }
-      await sessions.persistStreamingMessage(sessionId, targetMessage, { refreshCounting: true })
-      this.dependencies.runtime.finishActive(sessionId, generationMessageId, runtimeState)
+      if (persist) {
+        await sessions.persistStreamingMessage(sessionId, targetMessage, { refreshCounting: true })
+      }
+      finishRuntime()
+    }
+
+    let session: Session | null | undefined
+    let settings: SessionSettings | null | undefined
+    const globalSettings = settingsRepository.getSettings()
+    let config: Config
+    try {
+      session = await sessions.getSession(sessionId)
+      if (controller.signal.aborted) return finishCanceledSetup(Boolean(session))
+
+      settings = await sessions.getSessionSettings(sessionId)
+      if (controller.signal.aborted) return finishCanceledSetup(true)
+
+      config = await host.getConfig()
+      if (controller.signal.aborted) return finishCanceledSetup(true)
+
+      if (!session || !settings) {
+        finishRuntime()
+        return
+      }
+
+      targetMessage = await sessions.initializeTargetMessage(
+        initialTargetMessage,
+        settings,
+        globalSettings,
+        session.type
+      )
+      if (controller.signal.aborted) return finishCanceledSetup(true)
+
+      await sessions.persistStreamingMessage(sessionId, targetMessage)
+      if (controller.signal.aborted) return finishCanceledSetup(true)
+    } catch (error) {
+      finishRuntime()
+      throw error
+    }
+
+    analytics.trackGenerate(sessionId, settings, globalSettings, session.type, options)
+
+    const startedAt = host.now()
+    let firstTokenLatency: number | undefined
+    let lastPersistTimestamp = host.now()
+
+    const contextTargetIndex = options?.contextMessages?.findIndex((message) => message.id === targetMessage.id) ?? -1
+    const found =
+      options?.contextMessages && contextTargetIndex > 0
+        ? { messages: options.contextMessages, index: contextTargetIndex }
+        : sessions.findTargetMessageIndex(session, targetMessage.id)
+    if (!found) {
+      finishRuntime()
       return
     }
+    const { messages, index: targetMessageIndex } = found
+    const promptTargetMessageIndex = options?.appendToMessage ? targetMessageIndex + 1 : targetMessageIndex
+
     targetMessage = {
       ...targetMessage,
       cancel: (stoppedAt = host.now()) => {
@@ -677,7 +704,7 @@ export class GenerationService<TContext> {
       if (options?.operationType === 'send_message') {
         host.markFirstSuccessfulChatCompleted()
       }
-      host.afterMessageGenerated()
+      host.afterMessageGenerated(sessionId, targetMessage)
     } catch (error: unknown) {
       if (sessions.isSessionMissingError?.(error)) return
       const pause = getToolCallPause(error)

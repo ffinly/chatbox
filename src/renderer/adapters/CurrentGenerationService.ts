@@ -47,6 +47,7 @@ import {
   initializeTargetMessage,
   trackGenerateEvent,
 } from '@/stores/session/utils'
+import { markSessionReplyCompleted } from '@/stores/sessionActivityStore'
 import * as settingActions from '@/stores/settingActions'
 import { uiStore } from '@/stores/uiStore'
 import { trackEvent } from '@/utils/track'
@@ -257,7 +258,10 @@ const dependencies: GenerationServiceDependencies<ModelDependencies> = {
     createPictureStorageKey: (sessionId, messageId) => StorageKeyGenerator.picture(`${sessionId}:${messageId}`),
     estimateTokens: (messages) => estimateTokensFromMessages(messages),
     markFirstSuccessfulChatCompleted: () => markFirstSuccessfulChatCompleted(),
-    afterMessageGenerated: () => appleAppStore.tickAfterMessageGenerated(),
+    afterMessageGenerated: (sessionId, message) => {
+      appleAppStore.tickAfterMessageGenerated()
+      markSessionReplyCompleted(sessionId, message)
+    },
     now: Date.now,
   },
   analytics: {

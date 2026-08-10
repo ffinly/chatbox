@@ -1,3 +1,4 @@
+import { getConversationMessages, getCurrentConversationMessages } from '../../session/generation-state'
 import type { Message, Session, SessionThread } from '../../types'
 import { getMessageText } from '../../utils/message'
 import type { SessionUseCasePort } from './session-use-case-port'
@@ -43,7 +44,7 @@ export class ThreadService {
     }
 
     const target = session.threads?.find((thread) => thread.id === threadId)
-    if (target) this.dependencies.cancelMessages(sessionId, target.messages)
+    if (target) this.dependencies.cancelMessages(sessionId, getConversationMessages(session, target.messages))
     await this.dependencies.sessions.updateSessionWithMessages(sessionId, {
       threads: session.threads?.filter((thread) => thread.id !== threadId),
     })
@@ -55,7 +56,7 @@ export class ThreadService {
     const target = session?.threads?.find((thread) => thread.id === threadId)
     if (!session?.threads || !target) return false
 
-    this.dependencies.cancelMessages(sessionId, session.messages)
+    this.dependencies.cancelMessages(sessionId, getCurrentConversationMessages(session))
     // Build the transfer from the queue's current Session, not the snapshot
     // above: a compaction commit may still be persisting, and a stale full
     // object would overwrite its summary and compaction point.
@@ -82,7 +83,7 @@ export class ThreadService {
     const session = await this.dependencies.sessions.getSession(sessionId)
     if (!session) return false
 
-    this.dependencies.cancelMessages(sessionId, session.messages)
+    this.dependencies.cancelMessages(sessionId, getCurrentConversationMessages(session))
     // Archive from the queue's current Session so an overlapping compaction
     // commit remains attached to the conversation being archived.
     await this.dependencies.sessions.updateSessionWithMessages(session.id, (current) => {
@@ -113,7 +114,7 @@ export class ThreadService {
     const session = await this.dependencies.sessions.getSession(sessionId)
     if (!session) return false
 
-    this.dependencies.cancelMessages(sessionId, session.messages)
+    this.dependencies.cancelMessages(sessionId, getCurrentConversationMessages(session))
     // Archive from the queue's current Session, not the earlier eligibility
     // snapshot, so concurrent compaction data cannot be lost.
     await this.dependencies.sessions.updateSessionWithMessages(session.id, (current) => {
@@ -194,7 +195,7 @@ export class ThreadService {
   private async removeCurrentFromSession(sessionId: string): Promise<boolean> {
     await this.dependencies.sessions.updateSessionWithMessages(sessionId, (current) => {
       if (!current) throw new Error(`Session ${sessionId} not found during thread removal`)
-      this.dependencies.cancelMessages(sessionId, current.messages)
+      this.dependencies.cancelMessages(sessionId, getCurrentConversationMessages(current))
       // Discard the current conversation's compaction points with its messages;
       // when restoring a thread, restore that thread's points with its messages.
       const update: Session = {
