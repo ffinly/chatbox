@@ -1,13 +1,24 @@
 import type { Message, Session } from '../types'
 
-type GenerationStateMessage = Pick<Message, 'role' | 'generating' | 'cancel'>
+type GenerationStateMessage = Pick<Message, 'id' | 'role' | 'generating'>
+const EMPTY_ACTIVE_GENERATION_MESSAGE_IDS: ReadonlySet<string> = new Set()
 
-export function isCancellableGeneratingAssistantMessage(message: GenerationStateMessage): boolean {
-  return message.role === 'assistant' && message.generating === true && typeof message.cancel === 'function'
+export function isCancellableGeneratingAssistantMessage(
+  message: GenerationStateMessage,
+  generationRuntimeActive: boolean
+): boolean {
+  return message.role === 'assistant' && message.generating === true && generationRuntimeActive
 }
 
-export function countCancellableGeneratingAssistantMessages(messages: GenerationStateMessage[]): number {
-  return messages.reduce((count, message) => count + Number(isCancellableGeneratingAssistantMessage(message)), 0)
+export function countCancellableGeneratingAssistantMessages(
+  messages: GenerationStateMessage[],
+  activeGenerationMessageIds: ReadonlySet<string>
+): number {
+  return messages.reduce(
+    (count, message) =>
+      count + Number(isCancellableGeneratingAssistantMessage(message, activeGenerationMessageIds.has(message.id))),
+    0
+  )
 }
 
 function collectReachableMessages(session: Session, initialLists: Message[][]): Message[] {
@@ -54,39 +65,49 @@ export function getCurrentConversationMessages(session: Session): Message[] {
   return getConversationMessages(session, session.messages)
 }
 
-// Several consumers (route, message list, input box) derive lock state from
-// the same session snapshot in one render pass, and streaming hands them a
-// fresh session object per chunk — cache per session identity so the
-// threads/forks walk happens once per update (same pattern as
-// listPendingApprovalToolCalls).
-const generationControlMessagesCache = new WeakMap<Session, Message[]>()
+type GenerationControlBase = {
+  currentMessageIds: ReadonlySet<string>
+  visibleMessages: Message[]
+}
+
+// Several consumers derive lock state from the same Session snapshot in one
+// render pass. Cache the runtime-independent traversal per Session identity;
+// runtime ids are still filtered fresh whenever the store changes.
+const generationControlBaseCache = new WeakMap<Session, GenerationControlBase>()
+
+function getGenerationControlBase(session: Session): GenerationControlBase {
+  const cached = generationControlBaseCache.get(session)
+  if (cached) return cached
+
+  const currentMessages = getCurrentConversationMessages(session)
+  const result = {
+    currentMessageIds: new Set(currentMessages.map((message) => message.id)),
+    visibleMessages: collectReachableMessages(session, [
+      session.messages,
+      ...(session.threads ?? []).map((thread) => thread.messages),
+    ]),
+  }
+  generationControlBaseCache.set(session, result)
+  return result
+}
 
 /**
  * Return messages that should control the session-level generating UI.
  *
- * Current conversation messages are always included. Historical threads and
- * their forks are included only while they have a runtime cancel callback, so
- * stale persisted `generating: true` flags cannot lock the session.
+ * Current conversation messages keep their existing behavior, including the
+ * short placeholder window before an AbortController is registered. Historical
+ * threads and their forks are included only while their message id has an active
+ * runtime, so stale persisted `generating: true` flags cannot lock the session.
  */
-export function getGenerationControlMessages(session: Session): Message[] {
-  const cached = generationControlMessagesCache.get(session)
-  if (cached) {
-    return cached
-  }
-  const result = computeGenerationControlMessages(session)
-  generationControlMessagesCache.set(session, result)
-  return result
-}
-
-function computeGenerationControlMessages(session: Session): Message[] {
-  const currentMessages = getCurrentConversationMessages(session)
-  const currentMessageIds = new Set(currentMessages.map((message) => message.id))
-  const visibleMessages = collectReachableMessages(session, [
-    session.messages,
-    ...(session.threads ?? []).map((thread) => thread.messages),
-  ])
+export function getGenerationControlMessages(
+  session: Session,
+  activeGenerationMessageIds: ReadonlySet<string> = EMPTY_ACTIVE_GENERATION_MESSAGE_IDS
+): Message[] {
+  const { currentMessageIds, visibleMessages } = getGenerationControlBase(session)
 
   return visibleMessages.filter(
-    (message) => currentMessageIds.has(message.id) || isCancellableGeneratingAssistantMessage(message)
+    (message) =>
+      currentMessageIds.has(message.id) ||
+      isCancellableGeneratingAssistantMessage(message, activeGenerationMessageIds.has(message.id))
   )
 }

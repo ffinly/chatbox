@@ -12,6 +12,7 @@ vi.mock('i18next', () => ({ t: (key: string) => key }))
 
 import { setCompactionUIState } from '../atoms/compactionAtoms'
 import { guardSessionAction } from './action-guard'
+import { generationRuntimeStore } from './generation-runtime'
 
 function message(overrides: Partial<Message>): Message {
   return {
@@ -35,6 +36,7 @@ describe('guardSessionAction', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     setCompactionUIState('session-1', { status: 'idle' })
+    generationRuntimeStore.clear('session-1')
   })
 
   it('allows the action and stays silent when the session is unlocked', async () => {
@@ -45,9 +47,10 @@ describe('guardSessionAction', () => {
   })
 
   it('blocks regenerate-class actions and toasts while a reply streams', async () => {
+    generationRuntimeStore.start('session-1', 'reply')
     getSessionMock.mockResolvedValue(
       session({
-        messages: [message({ id: 'user', role: 'user' }), message({ id: 'reply', generating: true, cancel: () => {} })],
+        messages: [message({ id: 'user', role: 'user' }), message({ id: 'reply', generating: true })],
       })
     )
 

@@ -51,6 +51,22 @@ describe('GenerationRuntimeStore', () => {
     expect(store.get('session-1')).toBeUndefined()
   })
 
+  it('retains a stopping runtime until terminal persistence settles', () => {
+    const store = createStore()
+    const active = store.start('session-1', 'message-1')
+
+    const stopping = store.beginStop('session-1', 'message-1', 123_456, active)
+
+    expect(stopping).toMatchObject({ phase: 'stopping' })
+    expect(active.abortController.signal.aborted).toBe(true)
+    expect(active.abortController.signal.reason).toBe(123_456)
+    expect(store.get('session-1', 'message-1')).toBe(stopping)
+    expect(store.setPhase('session-1', 'message-1', 'streaming', active)).toBe(stopping)
+    expect(store.finishActive('session-1', 'message-1', active)).toBe(false)
+    expect(store.clear('session-1', 'message-1', stopping)).toBe(true)
+    expect(store.get('session-1')).toBeUndefined()
+  })
+
   it('carries an abort request across the placeholder window exactly once', () => {
     const store = createStore()
 
@@ -148,9 +164,11 @@ describe('GenerationRuntimeStore', () => {
     store.clear('session-1', 'message-1')
 
     expect(listener).toHaveBeenCalledTimes(3)
+    expect(store.getVersion()).toBe(3)
     unsubscribe()
     store.start('session-2', 'message-2')
     expect(listener).toHaveBeenCalledTimes(3)
+    expect(store.getVersion()).toBe(4)
   })
 
   it('aborts all retained controllers when disposed', () => {

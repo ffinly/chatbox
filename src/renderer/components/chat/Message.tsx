@@ -69,6 +69,7 @@ import { copyToClipboard } from '@/packages/navigator'
 import { countWord } from '@/packages/word-count'
 import { getSession } from '@/stores/chatStore'
 import { lockSessionAgentMode, setSessionAgentMode } from '@/stores/session/agent-mode'
+import { useIsGenerationRuntimeActive } from '@/stores/session/generation-runtime'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
 import '../../static/Block.css'
@@ -111,7 +112,6 @@ function resetMessageForAgentModeResponse(msg: Message): Message {
   return {
     ...msg,
     generating: true,
-    cancel: undefined,
     contentParts: [],
     errorCode: undefined,
     error: undefined,
@@ -196,6 +196,7 @@ const _Message: FC<Props> = (props) => {
   const enableMermaidRendering = useSettingsStore((state) => state.enableMermaidRendering)
   const showAvatar = useSettingsStore((state) => state.showAvatar)
   const messageLayout = useSettingsStore((state) => state.messageLayout)
+  const generationRuntimeActive = useIsGenerationRuntimeActive(sessionId, msg.id)
 
   const isBubbleLayout = messageLayout === 'bubble'
 
@@ -230,7 +231,7 @@ const _Message: FC<Props> = (props) => {
       await stopMessageGeneration(sessionId, msg.id)
       return
     }
-    await modifyMessage(sessionId, { ...msg, generating: false, cancel: undefined }, true)
+    await modifyMessage(sessionId, { ...msg, generating: false }, true)
   }, [sessionId, msg])
 
   const generationLocked = isGenerationLocked(sessionLocks)
@@ -1025,7 +1026,7 @@ const _Message: FC<Props> = (props) => {
 
   const showConcurrentReplyStop = shouldShowConcurrentReplyStop({
     allowStop: allowGeneratingStop,
-    cancellable: isCancellableGeneratingAssistantMessage(msg),
+    cancellable: isCancellableGeneratingAssistantMessage(msg, generationRuntimeActive),
     generatingReplyCount: sessionLocks.generatingReplyCount,
     sessionType: props.sessionType,
   })

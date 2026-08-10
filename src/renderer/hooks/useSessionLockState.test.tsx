@@ -2,10 +2,11 @@
 
 import { IDLE_SESSION_LOCK_STATE } from '@shared/session/action-gates'
 import type { Session } from '@shared/types'
-import { renderHook } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import { getDefaultStore } from 'jotai'
 import { beforeEach, describe, expect, test } from 'vitest'
 import { compactionUIStateMapAtom } from '@/stores/atoms/compactionAtoms'
+import { generationRuntimeStore } from '@/stores/session/generation-runtime'
 import { useSessionLockState } from './useSessionLockState'
 
 function session(overrides: Partial<Session> = {}): Session {
@@ -20,6 +21,7 @@ function session(overrides: Partial<Session> = {}): Session {
 describe('useSessionLockState', () => {
   beforeEach(() => {
     getDefaultStore().set(compactionUIStateMapAtom, {})
+    generationRuntimeStore.clear('session-1')
   })
 
   test('returns the idle state without a session', () => {
@@ -50,9 +52,9 @@ describe('useSessionLockState', () => {
         role: 'assistant' as const,
         contentParts: [{ type: 'text' as const, text }],
         generating: true,
-        cancel: () => {},
       },
     ]
+    generationRuntimeStore.start('session-1', 'reply')
 
     // Each streaming chunk hands the hook a fresh session object; the lock
     // values are unchanged, so memo()'d consumers must get the same reference.
@@ -70,12 +72,13 @@ describe('useSessionLockState', () => {
   })
 
   test('derives generation locks from session messages', () => {
+    generationRuntimeStore.start('session-1', 'reply')
     const { result } = renderHook(() =>
       useSessionLockState(
         session({
           messages: [
             { id: 'user', role: 'user', contentParts: [] },
-            { id: 'reply', role: 'assistant', contentParts: [], generating: true, cancel: () => {} },
+            { id: 'reply', role: 'assistant', contentParts: [], generating: true },
           ],
         })
       )
@@ -83,5 +86,30 @@ describe('useSessionLockState', () => {
 
     expect(result.current.generatingReplyCount).toBe(1)
     expect(result.current.anyReplyGenerating).toBe(true)
+  })
+
+  test('updates cancellable reply counts from runtime subscriptions', () => {
+    const current = session({
+      messages: [{ id: 'reply', role: 'assistant', contentParts: [], generating: true }],
+    })
+    const { result } = renderHook(() => useSessionLockState(current))
+
+    expect(result.current.anyReplyGenerating).toBe(true)
+    expect(result.current.generatingReplyCount).toBe(0)
+
+    act(() => {
+      generationRuntimeStore.start('session-1', 'reply')
+    })
+    expect(result.current.generatingReplyCount).toBe(1)
+
+    act(() => {
+      generationRuntimeStore.beginStop('session-1', 'reply')
+    })
+    expect(result.current.generatingReplyCount).toBe(1)
+
+    act(() => {
+      generationRuntimeStore.clear('session-1', 'reply')
+    })
+    expect(result.current.generatingReplyCount).toBe(0)
   })
 })

@@ -27,14 +27,13 @@ function locks(overrides: Partial<SessionLockState>): SessionLockState {
 
 describe('deriveSessionLockState', () => {
   it('derives generating counts, the placeholder window, and approval state from the session', () => {
-    const cancel = () => {}
     const session: Session = {
       id: 'session-1',
       name: 'Session',
       messages: [
         message({ id: 'user', role: 'user' }),
         message({ id: 'placeholder', generating: true }),
-        message({ id: 'streaming', generating: true, cancel }),
+        message({ id: 'streaming', generating: true }),
         message({
           id: 'paused',
           contentParts: [
@@ -50,7 +49,10 @@ describe('deriveSessionLockState', () => {
       ],
     }
 
-    const state = deriveSessionLockState(session, { compactionRunning: true })
+    const state = deriveSessionLockState(session, {
+      compactionRunning: true,
+      activeGenerationMessageIds: new Set(['streaming']),
+    })
 
     expect(state.generatingReplyCount).toBe(1)
     expect(state.anyReplyGenerating).toBe(true)

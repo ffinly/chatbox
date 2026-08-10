@@ -1,4 +1,4 @@
-export type GenerationRuntimePhase = 'preparing' | 'streaming' | 'paused'
+export type GenerationRuntimePhase = 'preparing' | 'streaming' | 'paused' | 'stopping'
 
 export interface GenerationRuntimeState {
   readonly sessionId: string
@@ -16,9 +16,9 @@ export interface GenerationRuntimeStoreOptions {
  *
  * A Session can temporarily have multiple runtimes because alternative replies
  * intentionally bypass the per-session generation lock. A new runtime replaces
- * only an older runtime for the same message. Persisted messages may still expose
- * compatibility fields such as `generating` and `cancel`, but AbortControllers
- * always remain in this in-memory store.
+ * only an older runtime for the same message. Persisted messages expose
+ * `generating` for recovery and rendering, while AbortControllers always remain
+ * in this in-memory store.
  */
 export class GenerationRuntimeStore {
   private readonly states = new Map<string, Map<string, GenerationRuntimeState>>()
@@ -26,6 +26,7 @@ export class GenerationRuntimeStore {
   private readonly unsettledStreamDrains = new Map<string, Set<Promise<void>>>()
   private readonly listeners = new Set<() => void>()
   private readonly createAbortController: () => AbortController
+  private version = 0
 
   constructor(options: GenerationRuntimeStoreOptions = {}) {
     this.createAbortController = options.createAbortController ?? (() => new AbortController())
@@ -86,6 +87,7 @@ export class GenerationRuntimeStore {
   ): GenerationRuntimeState | undefined {
     const current = this.getMatchingState(sessionId, messageId, expected)
     if (!current) return undefined
+    if (current.phase === 'stopping') return current
     const next = { ...current, phase }
     this.states.get(sessionId)?.set(messageId, next)
     this.notify()
@@ -112,12 +114,33 @@ export class GenerationRuntimeStore {
   }
 
   /**
+   * Abort a runtime while retaining it as a generation lock until the caller
+   * settles the terminal Message write and explicitly clears it.
+   */
+  beginStop(
+    sessionId: string,
+    messageId: string,
+    reason?: unknown,
+    expected?: GenerationRuntimeState
+  ): GenerationRuntimeState | undefined {
+    const current = this.getMatchingState(sessionId, messageId, expected)
+    if (!current || current.phase === 'paused') return undefined
+    if (current.phase === 'stopping') return current
+
+    const stopping = { ...current, phase: 'stopping' as const }
+    this.states.get(sessionId)?.set(messageId, stopping)
+    current.abortController.abort(reason)
+    this.notify()
+    return stopping
+  }
+
+  /**
    * Releases a finished active runtime while preserving a paused runtime for
    * the later continue/stop action.
    */
   finishActive(sessionId: string, messageId: string, expected?: GenerationRuntimeState): boolean {
     const current = this.getMatchingState(sessionId, messageId, expected)
-    if (!current || current.phase === 'paused') return false
+    if (!current || current.phase === 'paused' || current.phase === 'stopping') return false
     this.deleteState(sessionId, messageId)
     this.notify()
     return true
@@ -169,6 +192,10 @@ export class GenerationRuntimeStore {
     return () => this.listeners.delete(listener)
   }
 
+  getVersion(): number {
+    return this.version
+  }
+
   dispose(): void {
     const hadStates = this.states.size > 0 || this.pendingAbortReasons.size > 0
     for (const sessionStates of this.states.values()) {
@@ -207,6 +234,7 @@ export class GenerationRuntimeStore {
   }
 
   private notify(): void {
+    this.version += 1
     for (const listener of this.listeners) listener()
   }
 }

@@ -9,6 +9,7 @@ import { useAtomValue } from 'jotai'
 import { selectAtom } from 'jotai/utils'
 import { useMemo, useRef } from 'react'
 import { compactionUIStateMapAtom } from '@/stores/atoms/compactionAtoms'
+import { getActiveGenerationMessageIds, useGenerationRuntimeVersion } from '@/stores/session/generation-runtime'
 
 /**
  * Renderer adapter for the shared session action gates: joins session data
@@ -34,13 +35,17 @@ export function useSessionLockState(session: Session | null | undefined): Sessio
     [sessionId]
   )
   const compactionRunning = useAtomValue(compactionRunningAtom)
+  useGenerationRuntimeVersion()
+  const activeGenerationMessageIds = sessionId ? getActiveGenerationMessageIds(sessionId) : new Set<string>()
   const previousRef = useRef<SessionLockState>(IDLE_SESSION_LOCK_STATE)
   return useMemo(() => {
-    const next = session ? deriveSessionLockState(session, { compactionRunning }) : IDLE_SESSION_LOCK_STATE
+    const next = session
+      ? deriveSessionLockState(session, { compactionRunning, activeGenerationMessageIds })
+      : IDLE_SESSION_LOCK_STATE
     if (sessionLockStatesEqual(next, previousRef.current)) {
       return previousRef.current
     }
     previousRef.current = next
     return next
-  }, [session, compactionRunning])
+  }, [session, compactionRunning, activeGenerationMessageIds])
 }

@@ -237,7 +237,7 @@ describe('ForkGroup', () => {
           { id: 'older', messages: [message('older-reply')] },
           {
             id: 'generating',
-            messages: [message('generating-reply', { generating: true, cancel: () => {} })],
+            messages: [message('generating-reply', { generating: true })],
           },
         ],
         createdAt: 1,
@@ -261,7 +261,7 @@ describe('ForkGroup', () => {
           { id: 'older', messages: [message('older-reply')] },
           {
             id: 'generating',
-            messages: [message('generating-reply', { generating: true, cancel: () => {} })],
+            messages: [message('generating-reply', { generating: true })],
           },
         ],
         createdAt: 1,
@@ -289,7 +289,7 @@ describe('ForkGroup', () => {
           { id: 'current', messages: [] },
           {
             id: 'alternative',
-            messages: [message('alternative-reply', { generating: true, cancel: () => {} })],
+            messages: [message('alternative-reply', { generating: true })],
           },
         ],
         createdAt: 1,
@@ -315,7 +315,7 @@ describe('ForkGroup', () => {
           { id: 'current', messages: [] },
           {
             id: 'alternative',
-            messages: [message('alternative-reply', { generating: true, cancel: () => {} })],
+            messages: [message('alternative-reply', { generating: true })],
           },
         ],
         createdAt: 1,

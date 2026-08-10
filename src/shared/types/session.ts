@@ -271,13 +271,6 @@ export const MessageBackgroundTaskSchema = z.object({
   summary: z.string(),
 })
 
-// Main Message schema
-// Define a custom function type for cancel
-const CancelFunctionSchema = z.custom<((stoppedAt?: number) => void) | undefined>(
-  (val) => val === undefined || typeof val === 'function',
-  { message: 'Must be a function or undefined' }
-)
-
 const MessageUsageSchema = z.object({
   inputTokens: z.number().optional().catch(undefined),
   /**
@@ -373,7 +366,6 @@ export const MessageSchema = z.object({
   id: z.string(),
   role: z.nativeEnum(MessageRoleEnum),
   name: z.string().optional(),
-  cancel: CancelFunctionSchema.optional(),
   generating: z.boolean().optional(),
   aiProvider: z.union([ModelProviderSchema, z.string()]).optional(),
   model: z.string().optional(),

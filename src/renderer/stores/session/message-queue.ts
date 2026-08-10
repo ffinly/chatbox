@@ -7,6 +7,7 @@ import { createStore } from 'zustand'
 import { getLogger } from '@/lib/utils'
 import * as chatStore from '@/stores/chatStore'
 import { withSessionGenerationLock } from './generation-lock'
+import { getActiveGenerationMessageIds } from './generation-runtime'
 
 const log = getLogger('message-queue')
 
@@ -220,7 +221,14 @@ function deliverQueuedMessage(sessionId: string, item: QueuedUserMessage): Promi
 
     // Alternative replies generate concurrently without holding the session lock,
     // so an explicit check is required in addition to lock serialization.
-    if (countCancellableGeneratingAssistantMessages(getGenerationControlMessages(session)) > 0) return 'deferred'
+    const activeGenerationMessageIds = getActiveGenerationMessageIds(sessionId)
+    if (
+      countCancellableGeneratingAssistantMessages(
+        getGenerationControlMessages(session, activeGenerationMessageIds),
+        activeGenerationMessageIds
+      ) > 0
+    )
+      return 'deferred'
     // A paused tool call is waiting for user approval; delivering now would start
     // a follow-up generation behind the approval dialog.
     if (currentConversationHasPausedToolCall(session)) return 'deferred'
@@ -236,7 +244,7 @@ function deliverQueuedMessage(sessionId: string, item: QueuedUserMessage): Promi
         !orphanUserMessage &&
         lastMessage?.role === 'assistant' &&
         lastMessage.generating === true &&
-        typeof lastMessage.cancel !== 'function' &&
+        !activeGenerationMessageIds.has(lastMessage.id) &&
         session.messages.at(-2)?.id === item.id
           ? lastMessage
           : undefined

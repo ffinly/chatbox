@@ -233,7 +233,6 @@ function createHarness(): Harness {
     handleGenerationError: (error, message) => ({
       ...message,
       generating: false,
-      cancel: undefined,
       status: [],
       error: error instanceof Error ? error.message : String(error),
       errorExtra: { source: 'test-error-mapper' },
@@ -412,7 +411,6 @@ describe('GenerationService', () => {
       usage: generationStreamFixture.expectedUsage,
       tokensUsed: 42,
     })
-    expect(finalMessage.cancel).toBeUndefined()
     expect(harness.persisted.filter(({ refreshCounting }) => refreshCounting)).toHaveLength(1)
     expect(harness.runtime.get('session-1')).toBeUndefined()
     expect(harness.afterMessageGenerated).toHaveBeenCalledWith('session-1', finalMessage)
@@ -751,12 +749,11 @@ describe('GenerationService', () => {
     expect(harness.runtime.get('session-1')).toBeUndefined()
   })
 
-  it('uses the runtime cancel projection and persists abort as a non-error terminal state', async () => {
+  it('persists a runtime abort as a non-error terminal state', async () => {
     harness.setStreamFactory(() =>
       (async function* abortedStream() {
         await Promise.resolve()
-        const cachedMessage = harness.cached.at(-1)
-        cachedMessage?.cancel?.()
+        harness.runtime.abort('session-1', 'assistant-1')
         expect(harness.runtime.get('session-1')?.abortController.signal.aborted).toBe(true)
         yield* []
         throw new Error('request aborted')
@@ -784,7 +781,7 @@ describe('GenerationService', () => {
     const generation = harness.service.orchestrate('session-1', targetMessage(), {
       externalAbortSignal: externalAbortController.signal,
     })
-    await vi.waitFor(() => expect(harness.cached.at(-1)?.cancel).toEqual(expect.any(Function)))
+    await vi.waitFor(() => expect(harness.runtime.get('session-1', 'assistant-1')).toBeDefined())
 
     externalAbortController.abort()
     await generation

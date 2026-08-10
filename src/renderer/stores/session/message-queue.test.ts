@@ -35,6 +35,7 @@ vi.mock('@/lib/utils', () => ({
 }))
 
 import { resetSessionGenerationLocksForTests } from '@/stores/session/generation-lock'
+import { generationRuntimeStore } from '@/stores/session/generation-runtime'
 import {
   clearPendingQueuedMessages,
   clearQueue,
@@ -80,6 +81,7 @@ describe('message queue', () => {
     vi.clearAllMocks()
     resetMessageQueueForTests()
     resetSessionGenerationLocksForTests()
+    generationRuntimeStore.clear('session-1')
     currentSession = createSession()
     getSessionMock.mockImplementation(() => Promise.resolve(currentSession))
     submitMock.mockImplementation((_sessionId: string, params: { newUserMsg: Message }) => {
@@ -102,6 +104,7 @@ describe('message queue', () => {
   afterEach(() => {
     resetMessageQueueForTests()
     resetSessionGenerationLocksForTests()
+    generationRuntimeStore.clear('session-1')
     vi.useRealTimers()
   })
 
@@ -116,12 +119,12 @@ describe('message queue', () => {
   })
 
   it('defers while a cancellable generating assistant message exists', async () => {
+    generationRuntimeStore.start('session-1', 'active')
     currentSession.messages.push({
       id: 'active',
       role: 'assistant',
       contentParts: [],
       generating: true,
-      cancel: () => {},
     })
 
     enqueueUserMessage('session-1', userMessage('m1'))
@@ -137,19 +140,20 @@ describe('message queue', () => {
           ? {
               ...message,
               generating: false,
-              cancel: undefined,
               finishReason: 'stop',
               contentParts: [{ type: 'text', text: 'done' }],
             }
           : message
       ),
     }
+    generationRuntimeStore.clear('session-1', 'active')
     wakeQueuedUserMessages('session-1')
     await vi.runOnlyPendingTimersAsync()
     expect(submitMock).toHaveBeenCalledOnce()
   })
 
   it('honors a wake that arrives while a deferred drain is still unwinding', async () => {
+    generationRuntimeStore.start('session-1', 'active')
     const activeSession: Session = {
       ...currentSession,
       messages: [
@@ -159,7 +163,6 @@ describe('message queue', () => {
           role: 'assistant',
           contentParts: [],
           generating: true,
-          cancel: () => {},
         },
       ],
     }
@@ -170,11 +173,10 @@ describe('message queue', () => {
       currentSession = {
         ...activeSession,
         messages: activeSession.messages.map((message) =>
-          message.id === 'active'
-            ? { ...message, generating: false, cancel: undefined, finishReason: 'stop' as const }
-            : message
+          message.id === 'active' ? { ...message, generating: false, finishReason: 'stop' as const } : message
         ),
       }
+      generationRuntimeStore.clear('session-1', 'active')
       wakeQueuedUserMessages('session-1')
       return Promise.resolve(activeSession)
     })
@@ -378,12 +380,12 @@ describe('message queue', () => {
   })
 
   it('pauses when the originating conversation was replaced before delivery', async () => {
+    generationRuntimeStore.start('session-1', 'active')
     currentSession.messages.push({
       id: 'active',
       role: 'assistant',
       contentParts: [],
       generating: true,
-      cancel: () => {},
     })
 
     enqueueUserMessage('session-1', userMessage('m1'))
@@ -401,12 +403,12 @@ describe('message queue', () => {
   })
 
   it('pauses when a fork switch left the anchor reachable only through a saved branch', async () => {
+    generationRuntimeStore.start('session-1', 'active')
     currentSession.messages.push({
       id: 'active',
       role: 'assistant',
       contentParts: [],
       generating: true,
-      cancel: () => {},
     })
 
     enqueueUserMessage('session-1', userMessage('m1'))
@@ -478,7 +480,6 @@ describe('message queue', () => {
       role: 'assistant',
       contentParts: [],
       generating: true,
-      cancel: () => {},
     })
     enqueueUserMessage('session-1', userMessage('m1'))
     // Simulate a crash mid-delivery: the persisted item carries the in-flight flag.
@@ -512,7 +513,6 @@ describe('message queue', () => {
       role: 'assistant',
       contentParts: [],
       generating: true,
-      cancel: () => {},
     })
     enqueueUserMessage('session-1', userMessage('m1'))
     enqueueUserMessage('session-1', userMessage('m2'))
@@ -531,7 +531,6 @@ describe('message queue', () => {
       role: 'assistant',
       contentParts: [],
       generating: true,
-      cancel: () => {},
     })
     enqueueUserMessage('session-1', userMessage('m1'))
     enqueueUserMessage('session-1', userMessage('m2'))
@@ -556,7 +555,6 @@ describe('message queue', () => {
       role: 'assistant',
       contentParts: [],
       generating: true,
-      cancel: () => {},
     })
     for (let index = 0; index < MAX_QUEUED_MESSAGES; index += 1) {
       expect(enqueueUserMessage('session-1', userMessage(`m${index}`))).toBe('queued')

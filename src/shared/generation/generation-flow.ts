@@ -303,7 +303,6 @@ export function finishAbortedGeneration(
     {
       ...message,
       generating: false,
-      cancel: undefined,
       contentParts: finalizedParts,
       status: [],
       finishReason: 'canceled',
@@ -317,7 +316,6 @@ export function finishPausedToolCallContinuation(message: Message, finishReason?
   return {
     ...message,
     generating: false,
-    cancel: undefined,
     finishReason,
   }
 }

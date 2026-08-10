@@ -261,7 +261,7 @@ export async function clear(sessionId: string) {
   for (const messageId of activeRuntimeIds) {
     generationRuntimeStore.requestAbort(sessionId, messageId, 'session-cleared')
   }
-  for (const message of getGenerationControlMessages(session)) {
+  for (const message of getGenerationControlMessages(session, activeRuntimeIds)) {
     if (message.generating && !activeRuntimeIds.has(message.id)) {
       generationRuntimeStore.requestAbort(sessionId, message.id, 'session-cleared')
     }

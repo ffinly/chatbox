@@ -115,19 +115,16 @@ describe('paused tool-call approval binding', () => {
 
 describe('paused tool-call continuation cancellation', () => {
   it('clears runtime generation controls when continuation stops', () => {
-    const cancel = vi.fn()
     const message = {
       id: 'message-1',
       role: 'assistant',
       contentParts: [],
       generating: true,
-      cancel,
       finishReason: 'tool-call-paused',
     } as Message
 
     expect(finishPausedToolCallContinuation(message, 'canceled')).toMatchObject({
       generating: false,
-      cancel: undefined,
       finishReason: 'canceled',
     })
   })

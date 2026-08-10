@@ -18,27 +18,27 @@ function message(overrides: Partial<Message>): Message {
 
 describe('generation state', () => {
   it('counts only assistant replies that are generating and cancellable in the current runtime', () => {
-    const cancel = () => {}
     const messages = [
-      message({ id: 'active-current', generating: true, cancel }),
-      message({ id: 'active-history', generating: true, cancel }),
+      message({ id: 'active-current', generating: true }),
+      message({ id: 'active-history', generating: true }),
       message({ id: 'stale-history', generating: true }),
-      message({ id: 'finished', generating: false, cancel }),
-      message({ id: 'user', role: 'user', generating: true, cancel }),
+      message({ id: 'finished', generating: false }),
+      message({ id: 'user', role: 'user', generating: true }),
     ]
+    const activeIds = new Set(['active-current', 'active-history', 'finished', 'user'])
 
-    expect(countCancellableGeneratingAssistantMessages(messages)).toBe(2)
-    expect(isCancellableGeneratingAssistantMessage(messages[0])).toBe(true)
-    expect(isCancellableGeneratingAssistantMessage(messages[2])).toBe(false)
+    expect(countCancellableGeneratingAssistantMessages(messages, activeIds)).toBe(2)
+    expect(isCancellableGeneratingAssistantMessage(messages[0], true)).toBe(true)
+    expect(isCancellableGeneratingAssistantMessage(messages[2], false)).toBe(false)
   })
 
   it('includes reachable fork replies but excludes historical threads', () => {
     const pivot = message({ id: 'pivot', role: 'user' })
     const currentReply = message({ id: 'current' })
-    const alternative = message({ id: 'alternative', generating: true, cancel: () => {} })
+    const alternative = message({ id: 'alternative', generating: true })
     const nestedPivot = message({ id: 'nested-pivot', role: 'user' })
     const nestedAlternative = message({ id: 'nested-alternative' })
-    const historical = message({ id: 'historical', generating: true, cancel: () => {} })
+    const historical = message({ id: 'historical', generating: true })
     const session: Session = {
       id: 'session-1',
       name: 'Session',
@@ -74,14 +74,13 @@ describe('generation state', () => {
   })
 
   it('controls generation from runtime-cancellable historical threads and forks without reviving stale flags', () => {
-    const cancel = () => {}
     const currentPivot = message({ id: 'current-pivot', role: 'user' })
     const currentPlaceholder = message({ id: 'current-placeholder', generating: true })
     const historicalPivot = message({ id: 'historical-pivot', role: 'user' })
-    const historicalRuntime = message({ id: 'historical-runtime', generating: true, cancel })
+    const historicalRuntime = message({ id: 'historical-runtime', generating: true })
     const historicalStale = message({ id: 'historical-stale', generating: true })
-    const historicalFinished = message({ id: 'historical-finished', generating: false, cancel })
-    const historicalForkRuntime = message({ id: 'historical-fork-runtime', generating: true, cancel })
+    const historicalFinished = message({ id: 'historical-finished', generating: false })
+    const historicalForkRuntime = message({ id: 'historical-fork-runtime', generating: true })
     const session: Session = {
       id: 'session-2',
       name: 'Session',
@@ -106,7 +105,8 @@ describe('generation state', () => {
       },
     }
 
-    const controlledIds = getGenerationControlMessages(session).map((item) => item.id)
+    const activeIds = new Set(['historical-runtime', 'historical-finished', 'historical-fork-runtime'])
+    const controlledIds = getGenerationControlMessages(session, activeIds).map((item) => item.id)
 
     expect(controlledIds).toEqual([
       'current-pivot',
@@ -114,6 +114,8 @@ describe('generation state', () => {
       'historical-runtime',
       'historical-fork-runtime',
     ])
-    expect(countCancellableGeneratingAssistantMessages(getGenerationControlMessages(session))).toBe(2)
+    expect(
+      countCancellableGeneratingAssistantMessages(getGenerationControlMessages(session, activeIds), activeIds)
+    ).toBe(2)
   })
 })

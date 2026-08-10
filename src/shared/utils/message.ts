@@ -99,7 +99,6 @@ export function finalizeStaleGeneratingMessage(message: Message, bootTime = MODU
   return {
     ...message,
     generating: false,
-    cancel: undefined,
     contentParts: message.contentParts.map((part) =>
       part.type === 'tool-call' && part.state === 'call'
         ? {

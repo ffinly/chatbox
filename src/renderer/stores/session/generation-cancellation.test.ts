@@ -53,7 +53,6 @@ describe('main generation cancellation', () => {
       expect.objectContaining({
         id: latest.id,
         generating: false,
-        cancel: undefined,
         status: [],
         finishReason: 'canceled',
         contentParts: [
@@ -62,6 +61,63 @@ describe('main generation cancellation', () => {
         ],
       })
     )
+  })
+
+  it('keeps the runtime locked while the canceled terminal message is being persisted', async () => {
+    const runtime = new GenerationRuntimeStore()
+    const active = runtime.start('session-1', 'message-1')
+    const latest = message('message-1', {
+      contentParts: [{ type: 'text', text: 'partial reply' }],
+    })
+    const session: Session = { id: 'session-1', name: 'Session', messages: [latest] }
+    let releasePersist: () => void = () => undefined
+    const persistMessage = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          releasePersist = resolve
+        })
+    )
+    const harness = dependencies(session, runtime, { persistMessage })
+
+    const stop = stopMessageGeneration('session-1', latest.id, harness.value, 20_000)
+    await vi.waitFor(() => expect(runtime.get('session-1', latest.id)?.phase).toBe('stopping'))
+
+    expect(active.abortController.signal.aborted).toBe(true)
+    expect(persistMessage).toHaveBeenCalledOnce()
+    releasePersist()
+    await stop
+
+    expect(runtime.get('session-1', latest.id)).toBeUndefined()
+  })
+
+  it('retains a runtime that registers while a placeholder Stop reads the Session', async () => {
+    const runtime = new GenerationRuntimeStore()
+    const latest = message('message-1', {
+      contentParts: [{ type: 'text', text: 'partial reply' }],
+    })
+    const session: Session = { id: 'session-1', name: 'Session', messages: [latest] }
+    let releasePersist: () => void = () => undefined
+    const persistMessage = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          releasePersist = resolve
+        })
+    )
+    const getSession = vi.fn(() => {
+      runtime.start('session-1', latest.id)
+      return Promise.resolve(session)
+    })
+    const harness = dependencies(session, runtime, { getSession, persistMessage })
+
+    const stop = stopMessageGeneration('session-1', latest.id, harness.value, 20_000)
+    await vi.waitFor(() => expect(runtime.get('session-1', latest.id)?.phase).toBe('stopping'))
+
+    expect(runtime.get('session-1', latest.id)?.abortController.signal.aborted).toBe(true)
+    expect(persistMessage).toHaveBeenCalledOnce()
+    releasePersist()
+    await stop
+
+    expect(runtime.get('session-1', latest.id)).toBeUndefined()
   })
 
   it('removes an untouched placeholder even before its runtime is registered', async () => {

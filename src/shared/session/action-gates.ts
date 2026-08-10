@@ -15,7 +15,7 @@ import { countCancellableGeneratingAssistantMessages, getGenerationControlMessag
  */
 
 export type SessionLockState = {
-  /** Assistant replies currently streaming with a live cancel callback. */
+  /** Assistant replies currently streaming with a live generation runtime. */
   generatingReplyCount: number
   /**
    * Any reply in the current conversation still flagged as generating,
@@ -86,11 +86,15 @@ function blocked(reason: SessionActionBlockReason): SessionActionGate {
  */
 export function deriveSessionLockState(
   session: Session,
-  runtime: { compactionRunning?: boolean } = {}
+  runtime: {
+    compactionRunning?: boolean
+    activeGenerationMessageIds?: ReadonlySet<string>
+  } = {}
 ): SessionLockState {
-  const controlMessages = getGenerationControlMessages(session)
+  const activeGenerationMessageIds = runtime.activeGenerationMessageIds ?? new Set<string>()
+  const controlMessages = getGenerationControlMessages(session, activeGenerationMessageIds)
   return {
-    generatingReplyCount: countCancellableGeneratingAssistantMessages(controlMessages),
+    generatingReplyCount: countCancellableGeneratingAssistantMessages(controlMessages, activeGenerationMessageIds),
     anyReplyGenerating: controlMessages.some((message) => message.generating === true),
     compactionRunning: runtime.compactionRunning ?? false,
     awaitingToolApproval: listPendingApprovalToolCalls(session.messages).length > 0,

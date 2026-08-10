@@ -300,7 +300,6 @@ export class GenerationService<TContext> {
       targetMessage = {
         ...targetMessage,
         generating: false,
-        cancel: undefined,
         status: [],
         finishReason: 'canceled',
       }
@@ -361,15 +360,6 @@ export class GenerationService<TContext> {
     }
     const { messages, index: targetMessageIndex } = found
     const promptTargetMessageIndex = options?.appendToMessage ? targetMessageIndex + 1 : targetMessageIndex
-
-    targetMessage = {
-      ...targetMessage,
-      cancel: (stoppedAt = host.now()) => {
-        this.dependencies.runtime.abort(sessionId, generationMessageId, stoppedAt, runtimeState)
-      },
-    }
-    sessions.updateStreamingCache(sessionId, targetMessage)
-
     // A previous Stop can leave a tool that ignores abortSignal still running.
     // Re-check after every wait because an alternative reply may register a new
     // drain while this generation is already behind the barrier.
@@ -470,7 +460,6 @@ export class GenerationService<TContext> {
           targetMessage = {
             ...targetMessage,
             generating: false,
-            cancel: undefined,
             status: [],
             finishReason: 'canceled',
           }
@@ -496,7 +485,6 @@ export class GenerationService<TContext> {
           targetMessage = {
             ...targetMessage,
             generating: false,
-            cancel: undefined,
             contentParts: [{ type: 'agent-mode-suggestion', reason: decision.reason }],
             status: [],
             finishReason: 'agent-mode-suggested',
@@ -756,7 +744,6 @@ export class GenerationService<TContext> {
         targetMessage = {
           ...targetMessage,
           generating: false,
-          cancel: undefined,
           contentParts: [...infoParts, ...processorState.contentParts],
           tokensUsed: targetMessage.tokensUsed ?? host.estimateTokens([...promptMessages, targetMessage]),
           status: [],
@@ -776,7 +763,6 @@ export class GenerationService<TContext> {
       targetMessage = {
         ...targetMessage,
         generating: false,
-        cancel: undefined,
         contentParts: [...infoParts, ...processorState.contentParts],
         tokensUsed: targetMessage.tokensUsed ?? host.estimateTokens([...promptMessages, targetMessage]),
         status: [],
@@ -796,7 +782,6 @@ export class GenerationService<TContext> {
         targetMessage = {
           ...targetMessage,
           generating: false,
-          cancel: undefined,
           contentParts: [
             ...infoParts,
             ...markToolCallPaused(processorState.contentParts, pause.toolCallId, pause.pauseReason),
@@ -1048,8 +1033,6 @@ export class GenerationService<TContext> {
         })
       ),
       generating: true,
-      cancel: (stoppedAt = host.now()) =>
-        this.dependencies.runtime.abort(sessionId, messageId, stoppedAt, runtimeState),
     }
     await sessions.modifyMessage(sessionId, message, false)
 

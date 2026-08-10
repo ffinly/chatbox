@@ -85,7 +85,6 @@ describe('mergeCachedGeneratingMessages', () => {
     const cachedCandidate = message({
       id: 'assistant-fork',
       generating: true,
-      cancel: () => {},
       status: [{ type: 'preparing_tool_call', toolName: 'code_execution' }],
     })
     const persisted = session({
@@ -118,7 +117,6 @@ describe('mergeCachedGeneratingMessages', () => {
     const result = mergeCachedGeneratingMessages(persisted, cached)
     const candidate = result.messageForksHash?.['user-1'].lists[1].messages[0]
 
-    expect(candidate?.cancel).toBe(cachedCandidate.cancel)
     expect(candidate?.status).toEqual([{ type: 'preparing_tool_call', toolName: 'code_execution' }])
   })
 })

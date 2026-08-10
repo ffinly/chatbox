@@ -136,7 +136,6 @@ export async function initializeTargetMessage(
 ): Promise<Message> {
   return {
     ...targetMsg,
-    cancel: undefined,
     aiProvider: settings.provider,
     model: await getModelDisplayName(settings, globalSettings, sessionType || 'chat'),
     generating: true,
@@ -195,7 +194,6 @@ export function handleGenerationError(
   return {
     ...targetMsg,
     generating: false,
-    cancel: undefined,
     errorCode,
     error: userFacingErrorMessage,
     errorExtra: pickBy(

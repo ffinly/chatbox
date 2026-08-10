@@ -323,7 +323,6 @@ export async function submitNewUserMessageUnlocked(
     newAssistantMsg = {
       ...newAssistantMsg,
       generating: false,
-      cancel: undefined,
       model: await getModelDisplayName(settings, globalSettings, 'chat'),
       contentParts: [{ type: 'text', text: '' }],
       errorCode,

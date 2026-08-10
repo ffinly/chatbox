@@ -182,7 +182,6 @@ export type ChatboxAIModel = 'chatboxai-3.5' | 'chatboxai-4' | string
 export function copyMessage(source: Message): Message {
   return {
     ...source,
-    cancel: undefined,
     id: uuidv4(),
   }
 }
@@ -238,7 +237,6 @@ export function copyMessageForksWithMapping(
           if (existingId) {
             return {
               ...message,
-              cancel: undefined,
               id: existingId,
             }
           }
