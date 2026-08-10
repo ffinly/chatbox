@@ -1,7 +1,7 @@
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import type { Message, Session } from '../../types'
 import { createTestRecord, createTestSession, MemorySessionRepository } from './__tests__/memory-session-repository'
-import { SessionNotFoundError, SessionWriteCoordinator } from './SessionWriteCoordinator'
+import { SessionMetadataUpdateError, SessionNotFoundError, SessionWriteCoordinator } from './SessionWriteCoordinator'
 
 function message(id: string): Message {
   return {
@@ -61,6 +61,27 @@ describe('SessionWriteCoordinator', () => {
 
     await coordinator.update(session.id, { name: 'Recovered' })
     expect(repository.sessions.get(session.id)?.name).toBe('Recovered')
+  })
+
+  test('reports metadata failure after retaining the persisted session snapshot', async () => {
+    const repository = new MemorySessionRepository()
+    const session = createTestSession('session-1')
+    repository.sessions.set(session.id, session)
+    repository.records.set(session.id, createTestRecord(session, 1))
+    const coordinator = new SessionWriteCoordinator(repository)
+    const metadataError = new Error('metadata update failed')
+    vi.spyOn(repository.meta, 'update').mockRejectedValueOnce(metadataError)
+
+    const failure = await coordinator.update(session.id, (current) => appendMessage(current, 'persisted')).catch(
+      (error: unknown) => error
+    )
+
+    expect(failure).toBeInstanceOf(SessionMetadataUpdateError)
+    expect(failure).toMatchObject({ metadataError })
+    expect(repository.sessions.get(session.id)?.messages.map(({ id }) => id)).toEqual(['persisted'])
+
+    await coordinator.update(session.id, (current) => appendMessage(current, 'next'))
+    expect(repository.sessions.get(session.id)?.messages.map(({ id }) => id)).toEqual(['persisted', 'next'])
   })
 
   test('drains queued writes before deletion and fences later writes from recreating the session', async () => {

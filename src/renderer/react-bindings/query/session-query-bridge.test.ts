@@ -9,9 +9,9 @@ import {
   createTestSession,
   MemorySessionRepository,
 } from '@shared/application/session/__tests__/memory-session-repository'
-import type { Session, SessionMetaPage } from '@shared/types'
+import type { Message, Session, SessionMetaPage } from '@shared/types'
 import { QueryClient } from '@tanstack/react-query'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { QueryKeys } from './query-keys'
 import { type InfiniteSessionData, SessionQueryBridge } from './session-query-bridge'
 import { createSessionQueryDefinitions } from './session-query-options'
@@ -80,6 +80,43 @@ describe('SessionQueryBridge', () => {
       SessionNotFoundError
     )
     expect(repository.sessions.has(session.id)).toBe(false)
+  })
+
+  test('metadata update failure still projects persisted session data into the cache', async () => {
+    const repository = new MemorySessionRepository()
+    const session = createTestSession('session-1')
+    repository.sessions.set(session.id, session)
+    repository.records.set(session.id, createTestRecord(session, 1))
+    const events = new SessionEventBus()
+    const queryClient = new QueryClient()
+    let bridge: SessionQueryBridge | null = null
+    const writes = new SessionWriteCoordinator(repository, {
+      readCurrentSession: (sessionId) => (bridge ? bridge.getSession(sessionId) : repository.getSession(sessionId)),
+    })
+    const service = new SessionService(repository, writes, events, {
+      createId: () => 'created',
+      now: () => 100,
+    })
+    bridge = new SessionQueryBridge(queryClient, service, events)
+    await bridge.getSession(session.id)
+    const queuedMessage: Message = {
+      id: 'queued-message',
+      role: 'user',
+      contentParts: [{ type: 'text', text: 'hello' }],
+    }
+    const metadataError = new Error('metadata update failed')
+    vi.spyOn(repository.meta, 'update').mockRejectedValueOnce(metadataError)
+
+    await expect(
+      service.updateSessionWithMessages(session.id, (current) => {
+        if (!current) throw new Error('Expected current session')
+        return { ...current, messages: [...current.messages, queuedMessage] }
+      })
+    ).rejects.toBe(metadataError)
+
+    expect(repository.sessions.get(session.id)?.messages).toEqual([queuedMessage])
+    expect(queryClient.getQueryData<Session>(QueryKeys.ChatSession(session.id))?.messages).toEqual([queuedMessage])
+    expect(repository.records.get(session.id)?.name).toBe(session.name)
   })
 
   test('bulk deletion resets every client from storage and includes unloaded pages', async () => {

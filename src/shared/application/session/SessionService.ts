@@ -1,6 +1,10 @@
 import type { LoggerPort, SessionRepositoryPort } from '../../ports'
 import type { Session, SessionMetaPage, SessionMetaRecord, SessionSettings, Updater } from '../../types'
-import type { SessionWriteCoordinator } from './SessionWriteCoordinator'
+import {
+  SessionMetadataUpdateError,
+  type SessionWriteCoordinator,
+  type SessionWriteResult,
+} from './SessionWriteCoordinator'
 import type { SessionEventBus } from './session-events'
 import {
   assertNoMessageDataUpdate,
@@ -172,7 +176,24 @@ export class SessionService {
   ): Promise<Session> {
     await this.initialize()
     const updateMeta = typeof updater === 'function' || hasSessionMetaFields(updater)
-    const result = await this.writes.update(sessionId, updater, { updateMeta })
+    let result: SessionWriteResult
+    try {
+      result = await this.writes.update(sessionId, updater, { updateMeta })
+    } catch (error) {
+      if (!(error instanceof SessionMetadataUpdateError)) throw error
+
+      // The full session is already durable and is also the coordinator's
+      // current snapshot. Project it even though the list metadata write failed,
+      // otherwise staleTime: Infinity leaves external read models permanently
+      // behind and a retry can append the same message again.
+      await this.events.publish({
+        type: 'session-updated',
+        session: error.session,
+        meta: null,
+        preserveCachedGeneratingMessages: options.preserveCachedGeneratingMessages === true,
+      })
+      throw error.metadataError
+    }
     await this.events.publish({
       type: 'session-updated',
       session: result.session,

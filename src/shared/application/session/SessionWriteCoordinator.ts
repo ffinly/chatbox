@@ -35,6 +35,22 @@ export class SessionNotFoundError extends Error {
 }
 
 /**
+ * Internal partial-success signal: full session data was persisted, but its
+ * denormalized metadata projection was not. SessionService uses this to keep
+ * external read models aligned before rethrowing the original metadata error.
+ */
+export class SessionMetadataUpdateError extends Error {
+  readonly name = 'SessionMetadataUpdateError'
+
+  constructor(
+    readonly session: Session,
+    readonly metadataError: unknown
+  ) {
+    super(`Failed to update metadata for session ${session.id}`, { cause: metadataError })
+  }
+}
+
+/**
  * Serializes read-modify-write operations per session id.
  *
  * The in-memory state is updated only after the full session write succeeds.
@@ -158,7 +174,11 @@ export class SessionWriteCoordinator {
 
     const meta = options.updateMeta === false ? null : projectSessionMeta(updated)
     if (meta) {
-      await this.repository.meta.update(sessionId, meta)
+      try {
+        await this.repository.meta.update(sessionId, meta)
+      } catch (error) {
+        throw new SessionMetadataUpdateError(updated, error)
+      }
     }
     return { session: updated, meta }
   }

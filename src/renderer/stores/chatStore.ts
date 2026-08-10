@@ -165,6 +165,7 @@ export async function insertMessage(sessionId: string, message: Message, previou
       let previousIndex = session.messages.findIndex((m) => m.id === previousId)
 
       if (previousIndex >= 0) {
+        if (session.messages.some((existing) => existing.id === message.id)) return session
         const insertIndex = afterAnchoredSummaries(session.messages, previousIndex)
         return {
           ...session,
@@ -177,6 +178,7 @@ export async function insertMessage(sessionId: string, message: Message, previou
         for (const thread of session.threads) {
           previousIndex = thread.messages.findIndex((m) => m.id === previousId)
           if (previousIndex >= 0) {
+            if (thread.messages.some((existing) => existing.id === message.id)) return session
             const insertIndex = afterAnchoredSummaries(thread.messages, previousIndex)
             return {
               ...session,
@@ -199,6 +201,7 @@ export async function insertMessage(sessionId: string, message: Message, previou
       }
     }
     // no previous message, insert to tail of current thread
+    if (session.messages.some((existing) => existing.id === message.id)) return session
     return {
       ...session,
       messages: [...session.messages, message],
