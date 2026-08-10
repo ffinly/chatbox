@@ -312,7 +312,7 @@ describe('MessageList minimap anchors', () => {
     isSmallScreenMock.value = false
   })
 
-  function buildSession(assistantText: string): Session {
+  function buildSession(assistantText: string, generating = false): Session {
     return {
       id: 'session-1',
       type: 'chat',
@@ -321,15 +321,29 @@ describe('MessageList minimap anchors', () => {
         message('user-1', MessageRoleEnum.User, 'first question'),
         message('assistant-1', MessageRoleEnum.Assistant, 'first answer'),
         message('user-2', MessageRoleEnum.User, 'second question'),
-        message('assistant-2', MessageRoleEnum.Assistant, assistantText),
+        { ...message('assistant-2', MessageRoleEnum.Assistant, assistantText), generating },
       ],
     }
   }
 
+  function updateAssistantMessage(session: Session, assistantText: string, generating: boolean): Session {
+    return {
+      ...session,
+      messages: session.messages.map((currentMessage) =>
+        currentMessage.id === 'assistant-2'
+          ? {
+              ...currentMessage,
+              contentParts: [{ type: 'text', text: assistantText }],
+              generating,
+            }
+          : currentMessage
+      ),
+    }
+  }
+
   test('keeps the anchors reference stable across session cache replacements with identical previews', () => {
-    // Streaming replaces the session object on every chunk; once the reply has
-    // grown past the preview length, anchors must keep their identity so the
-    // memoized rail does not re-render per token.
+    // Unrelated session cache replacements must keep anchor identity once the
+    // visible preview prefix is unchanged.
     const longReply = 'streamed reply '.repeat(40)
     const { rerender } = render(
       <MantineProvider>
@@ -378,5 +392,109 @@ describe('MessageList minimap anchors', () => {
 
     expect(previewTextSpy.calls).toBe(0)
     expect(minimapRenderLog.length).toBe(0)
+  })
+
+  test('freezes anchors across streaming chunks and loads the assistant preview after generation', () => {
+    const initialSession = buildSession('partial reply', true)
+    const { rerender } = render(
+      <MantineProvider>
+        <MessageList currentSession={initialSession} />
+      </MantineProvider>
+    )
+    const generationStartAnchors = minimapRenderLog.at(-1) as Array<{ assistantText?: string }>
+    const generationStartPreviewCalls = previewTextSpy.calls
+    expect(generationStartAnchors.at(-1)?.assistantText).toBeUndefined()
+
+    const nextChunkSession = updateAssistantMessage(initialSession, 'partial reply plus another chunk', true)
+    rerender(
+      <MantineProvider>
+        <MessageList currentSession={nextChunkSession} />
+      </MantineProvider>
+    )
+    expect(minimapRenderLog.at(-1)).toBe(generationStartAnchors)
+    expect(previewTextSpy.calls).toBe(generationStartPreviewCalls)
+
+    const completedSession = updateAssistantMessage(nextChunkSession, 'completed reply', false)
+    rerender(
+      <MantineProvider>
+        <MessageList currentSession={completedSession} />
+      </MantineProvider>
+    )
+    const completedAnchors = minimapRenderLog.at(-1) as Array<{ assistantText?: string }>
+    expect(completedAnchors).not.toBe(generationStartAnchors)
+    expect(completedAnchors.at(-1)?.assistantText).toBe('completed reply')
+    expect(previewTextSpy.calls).toBeGreaterThan(generationStartPreviewCalls)
+  })
+
+  test('rebuilds once when steering inserts a user message during generation', () => {
+    const initialSession = buildSession('partial reply', true)
+    const { rerender } = render(
+      <MantineProvider>
+        <MessageList currentSession={initialSession} />
+      </MantineProvider>
+    )
+    const generationStartAnchors = minimapRenderLog.at(-1) as Array<{ messageId: string }>
+
+    const sessionWithSteering = {
+      ...initialSession,
+      messages: [...initialSession.messages, message('steered-user', MessageRoleEnum.User, 'change direction')],
+    }
+    rerender(
+      <MantineProvider>
+        <MessageList currentSession={sessionWithSteering} />
+      </MantineProvider>
+    )
+    const steeredAnchors = minimapRenderLog.at(-1) as Array<{ messageId: string }>
+    const steeredPreviewCalls = previewTextSpy.calls
+    expect(steeredAnchors).not.toBe(generationStartAnchors)
+    expect(steeredAnchors.at(-1)?.messageId).toBe('steered-user')
+
+    const nextChunkWithSteering = updateAssistantMessage(sessionWithSteering, 'partial reply plus another chunk', true)
+    rerender(
+      <MantineProvider>
+        <MessageList currentSession={nextChunkWithSteering} />
+      </MantineProvider>
+    )
+    expect(minimapRenderLog.at(-1)).toBe(steeredAnchors)
+    expect(previewTextSpy.calls).toBe(steeredPreviewCalls)
+  })
+
+  test('rebuilds anchors when a user message is edited during generation', () => {
+    const initialSession = buildSession('partial reply', true)
+    const { rerender } = render(
+      <MantineProvider>
+        <MessageList currentSession={initialSession} />
+      </MantineProvider>
+    )
+    const generationStartAnchors = minimapRenderLog.at(-1) as Array<{ text: string }>
+    const generationStartPreviewCalls = previewTextSpy.calls
+
+    const editedSession: Session = {
+      ...initialSession,
+      messages: initialSession.messages.map((currentMessage) =>
+        currentMessage.id === 'user-1'
+          ? { ...currentMessage, contentParts: [{ type: 'text', text: 'edited first question' }] }
+          : currentMessage
+      ),
+    }
+    rerender(
+      <MantineProvider>
+        <MessageList currentSession={editedSession} />
+      </MantineProvider>
+    )
+    const editedAnchors = minimapRenderLog.at(-1) as Array<{ text: string }>
+    expect(editedAnchors).not.toBe(generationStartAnchors)
+    expect(editedAnchors[0]?.text).toBe('edited first question')
+    expect(previewTextSpy.calls).toBeGreaterThan(generationStartPreviewCalls)
+
+    const nextChunkSession = updateAssistantMessage(editedSession, 'partial reply plus another chunk', true)
+    const editedPreviewCalls = previewTextSpy.calls
+    rerender(
+      <MantineProvider>
+        <MessageList currentSession={nextChunkSession} />
+      </MantineProvider>
+    )
+    expect(minimapRenderLog.at(-1)).toBe(editedAnchors)
+    expect(previewTextSpy.calls).toBe(editedPreviewCalls)
   })
 })

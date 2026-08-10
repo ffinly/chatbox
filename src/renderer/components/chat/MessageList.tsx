@@ -48,7 +48,12 @@ import ForkMarkerMessage from './ForkMarkerMessage'
 import Message from './Message'
 import MessageMinimapRail, { type MessageMinimapAnchor } from './MessageMinimapRail'
 import MessageNavigation, { ScrollToBottomButton } from './MessageNavigation'
-import { areMinimapAnchorsEqual, getMessagePreviewText, isUserNavigationMessage } from './message-navigation-utils'
+import {
+  areMinimapAnchorsEqual,
+  canReuseMinimapAnchorsDuringGeneration,
+  getMessagePreviewText,
+  isUserNavigationMessage,
+} from './message-navigation-utils'
 import SummaryMessage from './SummaryMessage'
 import { createSmoothFollowOutputController } from './smooth-follow-output'
 
@@ -116,16 +121,37 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
     [currentMessageList]
   )
 
-  // Anchors carry only short preview prefixes and reuse the previous array
-  // when nothing visible changed, so per-chunk session cache updates neither
-  // re-join the whole conversation text nor re-render the memoized rail.
-  const previousAnchorsRef = useRef<MessageMinimapAnchor[]>([])
+  // A streaming reply replaces the session object for every chunk. Build the
+  // minimap once when generation starts, freeze it while chunks arrive, then
+  // refresh it once with the final assistant preview after generation ends.
+  const previousMinimapStateRef = useRef<{
+    sessionId: string
+    generationRunning: boolean
+    messages: SessionMessage[]
+    anchors: MessageMinimapAnchor[]
+  }>({ sessionId: currentSession.id, generationRunning: false, messages: [], anchors: [] })
   const userMessageAnchors = useMemo<MessageMinimapAnchor[]>(() => {
+    const previousState = previousMinimapStateRef.current
+
     // Small screens never show the rail, so skip the anchor scan entirely
     // (it would otherwise run on every streaming chunk on mobile).
     if (isSmallScreen) {
-      previousAnchorsRef.current = EMPTY_MINIMAP_ANCHORS
+      previousMinimapStateRef.current = {
+        sessionId: currentSession.id,
+        generationRunning: false,
+        messages: currentMessageList,
+        anchors: EMPTY_MINIMAP_ANCHORS,
+      }
       return EMPTY_MINIMAP_ANCHORS
+    }
+
+    if (
+      sessionLocks.anyReplyGenerating &&
+      previousState.sessionId === currentSession.id &&
+      previousState.generationRunning &&
+      canReuseMinimapAnchorsDuringGeneration(previousState.messages, currentMessageList)
+    ) {
+      return previousState.anchors
     }
 
     const assistantTextByUserId = new Map<string, string>()
@@ -142,7 +168,11 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
           break
         }
         if (nextMessage.role === 'assistant' && !nextMessage.isSummary && !nextMessage.isForkMarker) {
-          assistantTextByUserId.set(message.id, getMessagePreviewText(nextMessage))
+          // Do not expose a transient partial preview. The completed text is
+          // loaded by the first render after `anyReplyGenerating` becomes false.
+          if (!nextMessage.generating) {
+            assistantTextByUserId.set(message.id, getMessagePreviewText(nextMessage))
+          }
           break
         }
       }
@@ -157,12 +187,18 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
       }))
     )
 
-    if (areMinimapAnchorsEqual(previousAnchorsRef.current, anchors)) {
-      return previousAnchorsRef.current
+    const stableAnchors =
+      previousState.sessionId === currentSession.id && areMinimapAnchorsEqual(previousState.anchors, anchors)
+        ? previousState.anchors
+        : anchors
+    previousMinimapStateRef.current = {
+      sessionId: currentSession.id,
+      generationRunning: sessionLocks.anyReplyGenerating,
+      messages: currentMessageList,
+      anchors: stableAnchors,
     }
-    previousAnchorsRef.current = anchors
-    return anchors
-  }, [currentMessageList, renderItems, isSmallScreen])
+    return stableAnchors
+  }, [currentMessageList, currentSession.id, renderItems, sessionLocks.anyReplyGenerating, isSmallScreen])
   const showMinimap = !isSmallScreen && userMessageAnchors.length > 0
 
   const virtuoso = useRef<VirtuosoHandle>(null)
