@@ -1,5 +1,5 @@
-import type { LanguageModelV3 } from '@ai-sdk/provider'
-import type { Provider } from 'ai'
+import type { LanguageModelV3, LanguageModelV3CallOptions } from '@ai-sdk/provider'
+import { jsonSchema, type ModelMessage, type PrepareStepFunction, type Provider, type ToolSet } from 'ai'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ModelDependencies } from '../types/adapters'
 import type { SentryScope } from '../utils/sentry_adapter'
@@ -225,6 +225,84 @@ describe('AbstractAISDKModel chatStream closure', () => {
 
     await stream.return(undefined)
     expect(providerStreamClosed).toBe(true)
+  })
+
+  it('awaits the resolved-request checkpoint before the provider stream starts', async () => {
+    const checkpointError = new Error('checkpoint failed')
+    const onRequestResolved = vi.fn(() => Promise.reject(checkpointError))
+    const providerStarted = vi.fn()
+    const effectiveMessages: ModelMessage[] = [{ role: 'user', content: 'steered' }]
+    const tools: ToolSet = {
+      tool_a: { inputSchema: jsonSchema({ type: 'object' }) },
+      tool_b: { inputSchema: jsonSchema({ type: 'object' }) },
+    }
+    aiMocks.streamText.mockImplementation((options: { prepareStep?: PrepareStepFunction<ToolSet> }) => ({
+      fullStream: (async function* () {
+        await options.prepareStep?.({
+          steps: [],
+          stepNumber: 0,
+          model: languageModel,
+          messages: [{ role: 'user', content: 'original' }],
+          experimental_context: undefined,
+        })
+        providerStarted()
+        yield* []
+      })(),
+      totalUsage: Promise.resolve({ inputTokens: 0, outputTokens: 0, totalTokens: 0 }),
+      finishReason: Promise.resolve('stop'),
+    }))
+
+    const stream = createModel().chatStream([], {
+      tools,
+      prepareStep: () => ({ messages: effectiveMessages, activeTools: ['tool_b'] }),
+      onRequestResolved,
+    })
+
+    await expect(stream.next()).rejects.toBe(checkpointError)
+    expect(onRequestResolved).toHaveBeenCalledWith({
+      callSettings: {},
+      modelMessages: effectiveMessages,
+      tools: { tool_b: tools.tool_b },
+      stream: true,
+    })
+    expect(providerStarted).not.toHaveBeenCalled()
+  })
+
+  it('resolves the request for every provider step', async () => {
+    const order: string[] = []
+    vi.mocked(languageModel.doStream).mockImplementation(() => {
+      order.push('provider')
+      return Promise.resolve({ stream: new ReadableStream() })
+    })
+    aiMocks.streamText.mockImplementation(
+      (options: { model: LanguageModelV3; prepareStep?: PrepareStepFunction<ToolSet> }) => ({
+        fullStream: (async function* () {
+          for (const stepNumber of [0, 1]) {
+            await options.prepareStep?.({
+              steps: [],
+              stepNumber,
+              model: languageModel,
+              messages: [{ role: 'user', content: `step-${stepNumber}` }],
+              experimental_context: undefined,
+            })
+            await options.model.doStream({ prompt: [] } as LanguageModelV3CallOptions)
+          }
+          yield* []
+        })(),
+        totalUsage: Promise.resolve({ inputTokens: 0, outputTokens: 0, totalTokens: 0 }),
+        finishReason: Promise.resolve('stop'),
+      })
+    )
+
+    const stream = createModel().chatStream([], {
+      onRequestResolved: ({ modelMessages }) => {
+        order.push(`checkpoint:${String(modelMessages[0]?.content)}`)
+      },
+    })
+
+    await stream.next()
+
+    expect(order).toEqual(['checkpoint:step-0', 'provider', 'checkpoint:step-1', 'provider'])
   })
 })
 

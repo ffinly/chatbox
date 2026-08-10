@@ -168,6 +168,7 @@ describe('steering consumer', () => {
       steeredModelMessage('text-m2'),
       { role: 'assistant', content: [{ type: 'text', text: 'more' }] },
     ])
+    expect(consumer.getInjectedMessageIds()).toEqual(['m1', 'm2'])
   })
 
   it('keeps the message queued (at the head) when persistence fails', async () => {

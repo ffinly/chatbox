@@ -24,6 +24,12 @@ export async function convertToModelMessages(
   return sharedConvertToModelMessages(messages, (storageKey) => dependencies.storage.getImage(storageKey), options)
 }
 
+export function buildModelSystemPrompt(model: string, additionalInfo: string): string {
+  return `Current model: ${model}\nCurrent date: ${dayjs().format(
+    'YYYY-MM-DD'
+  )}\n Additional info for this conversation: ${additionalInfo}`
+}
+
 /**
  * 在 system prompt 中注入模型信息
  * @param model
@@ -34,11 +40,10 @@ export function injectModelSystemPrompt(
   model: string,
   messages: Message[],
   additionalInfo: string,
-  role: 'system' | 'user' = 'system'
+  role: 'system' | 'user' = 'system',
+  systemPrompt = buildModelSystemPrompt(model, additionalInfo)
 ) {
-  const metadataPrompt = `Current model: ${model}\nCurrent date: ${dayjs().format(
-    'YYYY-MM-DD'
-  )}\n Additional info for this conversation: ${additionalInfo}\n\n`
+  const metadataPrompt = `${systemPrompt}\n\n`
   let hasInjected = false
   const injectedMessages = messages.map((m) => {
     if (m.role === role && !hasInjected) {
@@ -54,7 +59,7 @@ export function injectModelSystemPrompt(
       id: `injected-system-prompt-${dayjs().valueOf()}`,
       role,
       timestamp: Date.now(),
-      contentParts: [{ type: 'text', text: metadataPrompt.trimEnd() }],
+      contentParts: [{ type: 'text', text: systemPrompt.trimEnd() }],
     })
   }
 

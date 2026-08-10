@@ -5,7 +5,6 @@ import {
   type FinishReason,
   experimental_generateImage as generateImage,
   type ImageModel,
-  type JSONValue,
   type LanguageModelUsage,
   type ModelMessage,
   type PrepareStepFunction,
@@ -42,12 +41,15 @@ import { stopWhenPersistentToolCallPause } from './persistent-tool-call-pause'
 import { repairToolCallJson } from './tool-call-json-repair'
 import type {
   CallChatCompletionOptions,
+  CallSettings,
   ChatStreamOptions,
   ModelInterface,
   ModelStatus,
   ModelStreamPart,
 } from './types'
 import { extractStreamErrorMessage } from './utils/stream-error-message'
+
+export type { CallSettings } from './types'
 
 const RETRY_CONFIG = {
   MAX_ATTEMPTS: 5,
@@ -131,15 +133,6 @@ class StatusQueue {
       },
     }
   }
-}
-
-// ai sdk CallSettings类型的子集
-export interface CallSettings {
-  temperature?: number
-  topP?: number
-  maxOutputTokens?: number
-  providerOptions?: Record<string, Record<string, JSONValue>>
-  system?: string
 }
 
 interface ToolExecutionResult {
@@ -292,6 +285,25 @@ export default abstract class AbstractAISDKModel implements ModelInterface {
   ): AsyncGenerator<ModelStreamPart<T>> {
     const baseModel = this.prepareChatModel(this.getChatModel(options))
     const callSettings = this.resolveCallSettings(options)
+    const basePrepareStep = options.prepareStep as PrepareStepFunction<T> | undefined
+    const onRequestResolved = options.onRequestResolved
+    const prepareStep: PrepareStepFunction<T> | undefined = onRequestResolved
+      ? async (stepOptions) => {
+          const prepared = await basePrepareStep?.(stepOptions)
+          const allTools = (options.tools ?? {}) as T
+          const activeToolNames = prepared?.activeTools ? new Set(prepared.activeTools.map(String)) : undefined
+          const effectiveTools = activeToolNames
+            ? (Object.fromEntries(Object.entries(allTools).filter(([toolName]) => activeToolNames.has(toolName))) as T)
+            : allTools
+          await onRequestResolved({
+            callSettings,
+            modelMessages: prepared?.messages ?? stepOptions.messages,
+            tools: effectiveTools,
+            stream: this.options.stream !== false,
+          })
+          return prepared
+        }
+      : basePrepareStep
 
     const statusQueue = new StatusQueue()
 
@@ -309,7 +321,6 @@ export default abstract class AbstractAISDKModel implements ModelInterface {
       }
       return undefined
     }
-
     const model = createRetryable({
       model: baseModel,
       retries: [retryableStatusAttempt],
@@ -346,7 +357,7 @@ export default abstract class AbstractAISDKModel implements ModelInterface {
       messages,
       stopWhen: [stepCountIs(options.maxSteps || Number.MAX_SAFE_INTEGER), stopWhenPersistentToolCallPause<T>()],
       tools: options.tools as T | undefined,
-      prepareStep: options.prepareStep as PrepareStepFunction<T> | undefined,
+      prepareStep,
       experimental_repairToolCall: repairToolCallJson as ToolCallRepairFunction<T>,
       abortSignal: options.signal,
       ...callSettings,

@@ -1,5 +1,6 @@
 import type { BlobStoragePort } from '@shared/ports'
 import storage from '@/storage'
+import { trackBlobWrite } from '@/storage/blob-write-tracker'
 
 export interface CurrentBlobStorageBackend {
   getBlob(key: string): Promise<string | null>
@@ -21,6 +22,10 @@ export class CurrentBlobStorage implements BlobStoragePort {
 
   set(key: string, value: string): Promise<void> {
     return this.backend.setBlob(key, value)
+  }
+
+  touch(key: string): void {
+    trackBlobWrite(key)
   }
 
   remove(key: string): Promise<void> {

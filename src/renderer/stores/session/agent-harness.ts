@@ -29,7 +29,11 @@ import {
   hasAcceptedCallbackBackgroundTask,
   hasAcceptedCallbackBackgroundTaskResult,
 } from '@/packages/chatbox-cli/background-task-result'
-import { convertToModelMessages, injectModelSystemPrompt } from '@/packages/model-calls/message-utils'
+import {
+  buildModelSystemPrompt,
+  convertToModelMessages,
+  injectModelSystemPrompt,
+} from '@/packages/model-calls/message-utils'
 import { getOS } from '@/packages/navigator'
 import platform from '@/platform'
 import { createSandboxProvider } from '@/sandbox'
@@ -90,6 +94,7 @@ export interface PreparedAgentGenerationHarness {
   chatOptions: ChatStreamOptions
   infoParts: MessageContentParts
   fallbackToolCallPart: MessageContentParts[number] | undefined
+  systemPrompt: string | undefined
   sandboxProvider: SandboxProvider | null
   debug: {
     effectiveAgentMode: 'on' | 'off'
@@ -365,6 +370,7 @@ export async function prepareAgentGenerationHarness(
   }
 
   let injectedMessages: Message[]
+  let systemPrompt: string
   if (effectiveAgentMode === 'on' && personaSnapshot) {
     // Agent mode assembles its own system prompt, ordered by stability for prefix
     // caching: fixed identity → frozen Soul/memories → tool instructions → runtime
@@ -378,6 +384,7 @@ export async function prepareAgentGenerationHarness(
     })
     const runtimeMetadata = `\n## Runtime\nCurrent model: ${model.modelId}\nSession context captured: ${dayjs(personaSnapshot.capturedAt).format('YYYY-MM-DD')}`
     const systemText = `${personaPrompt}\n${instructions}${runtimeMetadata}`
+    systemPrompt = systemText
     injectedMessages = [
       {
         id: `agent-system-prompt-${personaSnapshot.capturedAt}`,
@@ -388,11 +395,13 @@ export async function prepareAgentGenerationHarness(
       ...promptMsgs,
     ]
   } else {
+    systemPrompt = buildModelSystemPrompt(model.modelId, instructions)
     injectedMessages = injectModelSystemPrompt(
       model.modelId,
       promptMsgs,
       instructions,
-      model.isSupportSystemMessage() ? 'system' : 'user'
+      model.isSupportSystemMessage() ? 'system' : 'user',
+      systemPrompt
     )
   }
 
@@ -458,6 +467,7 @@ export async function prepareAgentGenerationHarness(
     chatOptions,
     infoParts,
     fallbackToolCallPart,
+    systemPrompt,
     sandboxProvider,
     debug: {
       effectiveAgentMode,

@@ -48,6 +48,24 @@ function createSession(): Session {
           {
             id: 'message-2',
             role: 'assistant',
+            generationRequests: [
+              {
+                version: 1,
+                capturedAt: 1,
+                model: { id: 'test-model' },
+                agentMode: true,
+                callSettings: { stream: true },
+                context: {
+                  sessionBoundary: { messageCount: 1, firstMessageId: 'message-1', lastMessageId: 'message-1' },
+                  modelMessageCount: 1,
+                  sha256: 'a'.repeat(64),
+                },
+                definitions: {
+                  storageKey: `generation-request:${'b'.repeat(64)}`,
+                  sha256: 'b'.repeat(64),
+                },
+              },
+            ],
             contentParts: [
               {
                 type: 'tool-call',
@@ -80,6 +98,7 @@ describe('backup resource graph', () => {
         'link:parsed',
         'tool:result',
         'picture:tool-image',
+        `generation-request:${'b'.repeat(64)}`,
         'picture:avatar',
         'picture:background',
       ])
@@ -149,6 +168,7 @@ describe('backup resource graph', () => {
         ['link:parsed', 'link:restored'],
         ['tool:result', 'tool:restored'],
         ['picture:tool-image', 'picture:tool-image:restored'],
+        [`generation-request:${'b'.repeat(64)}`, `generation-request:${'c'.repeat(64)}`],
         ['picture:avatar', 'picture:avatar:restored'],
         ['picture:background', 'picture:background:restored'],
       ])
@@ -164,6 +184,9 @@ describe('backup resource graph', () => {
       resultImageStorageKey: 'picture:tool-image:restored',
       resultImageMediaType: 'image/webp',
     })
+    expect(remapped.threads?.[0].messages[0].generationRequests?.[0].definitions.storageKey).toBe(
+      `generation-request:${'c'.repeat(64)}`
+    )
     expect(remapped.assistantAvatarKey).toBe('picture:avatar:restored')
     expect(source.messages[0].contentParts[1]).toMatchObject({ storageKey: 'picture:shared' })
     expect(source.messages[0].files?.[0].sessionAttachmentId).toBe(42)
@@ -179,6 +202,7 @@ describe('backup resource graph', () => {
     expect(cleaned.messages[0].links?.[0].storageKey).toBeUndefined()
     expect(cleaned.threads?.[0].messages[0].contentParts[0]).not.toHaveProperty('resultStorageKey')
     expect(cleaned.threads?.[0].messages[0].contentParts[0]).not.toHaveProperty('resultImageStorageKey')
+    expect(cleaned.threads?.[0].messages[0].generationRequests).toBeUndefined()
     expect(cleaned.assistantAvatarKey).toBeUndefined()
     expect(cleaned.backgroundImage).toBeUndefined()
   })

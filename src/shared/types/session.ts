@@ -300,6 +300,75 @@ const MessageUsageSchema = z.object({
   cachedInputTokens: z.number().optional().catch(undefined),
 })
 
+export const GenerationRequestFunctionToolSchema = z.object({
+  type: z.literal('function'),
+  name: z.string(),
+  description: z.string().optional(),
+  inputSchema: z.json(),
+  inputExamples: z.array(z.object({ input: z.json() })).optional(),
+  providerOptions: MessageProviderMetadataSchema.optional(),
+  strict: z.boolean().optional(),
+})
+
+export const GenerationRequestProviderToolSchema = z.object({
+  type: z.literal('provider'),
+  name: z.string(),
+  id: z.string(),
+  args: z.json(),
+})
+
+export const GenerationRequestToolSchema = z.discriminatedUnion('type', [
+  GenerationRequestFunctionToolSchema,
+  GenerationRequestProviderToolSchema,
+])
+
+export const GenerationRequestDefinitionsSchema = z.object({
+  version: z.literal(1),
+  systemPrompt: z.string().optional(),
+  tools: z.array(GenerationRequestToolSchema),
+})
+
+export const GenerationRequestDefinitionsReferenceSchema = z.object({
+  storageKey: z.string(),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/),
+})
+
+/**
+ * Versioned, serializable request envelope captured before a provider dispatch.
+ * Conversation content stays in the session surface and reusable definitions
+ * live in content-addressed blobs. Compact hashes/references detect drift
+ * without duplicating the provider payload into every assistant message.
+ */
+export const GenerationRequestSnapshotSchema = z.object({
+  version: z.literal(1),
+  capturedAt: z.number(),
+  model: z.object({
+    provider: z.string().optional(),
+    id: z.string(),
+    apiStyle: z.string().optional(),
+  }),
+  agentMode: z.boolean(),
+  providerOptions: MessageProviderMetadataSchema.optional(),
+  callSettings: z.object({
+    temperature: z.number().optional(),
+    topP: z.number().optional(),
+    maxOutputTokens: z.number().optional(),
+    stream: z.boolean(),
+    system: z.string().optional(),
+  }),
+  context: z.object({
+    sessionBoundary: z.object({
+      messageCount: z.number().int().nonnegative(),
+      firstMessageId: z.string().optional(),
+      lastMessageId: z.string().optional(),
+    }),
+    appendedMessageIds: z.array(z.string()).optional(),
+    modelMessageCount: z.number().int().nonnegative(),
+    sha256: z.string().regex(/^[a-f0-9]{64}$/),
+  }),
+  definitions: GenerationRequestDefinitionsReferenceSchema,
+})
+
 export const MessageSchema = z.object({
   id: z.string(),
   role: z.nativeEnum(MessageRoleEnum),
@@ -331,6 +400,7 @@ export const MessageSchema = z.object({
   /** Total wall-clock time (ms) spent generating this message (thinking + tools + text). */
   generationDuration: z.number().optional(),
   finishReason: z.string().optional(),
+  generationRequests: z.array(GenerationRequestSnapshotSchema).optional().catch(undefined),
   tokenCountMap: TokenCountMapSchema.optional(), // estimate token count as input
   tokenCalculatedAt: TokenCalculatedAtSchema,
   updatedAt: z.number().optional(),
@@ -460,6 +530,9 @@ export type ToolUseScope = z.infer<typeof ToolUseScopeSchema>
 export type ModelProvider = z.infer<typeof ModelProviderSchema>
 export type MessageStatus = z.infer<typeof MessageStatusSchema>
 export type MessageBackgroundTask = z.infer<typeof MessageBackgroundTaskSchema>
+export type GenerationRequestTool = z.infer<typeof GenerationRequestToolSchema>
+export type GenerationRequestDefinitions = z.infer<typeof GenerationRequestDefinitionsSchema>
+export type GenerationRequestSnapshot = z.infer<typeof GenerationRequestSnapshotSchema>
 export type Message = z.infer<typeof MessageSchema>
 export type SessionType = z.infer<typeof SessionTypeSchema>
 export type CompactionPoint = z.infer<typeof CompactionPointSchema>

@@ -223,6 +223,7 @@ const dependencies: GenerationServiceDependencies<ModelDependencies> = {
         chatOptions: prepared.chatOptions,
         infoParts: prepared.infoParts,
         fallbackToolCallPart: prepared.fallbackToolCallPart,
+        systemPrompt: prepared.systemPrompt,
       }
     },
   },

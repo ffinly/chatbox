@@ -270,6 +270,8 @@ describe('prepareAgentGenerationHarness', () => {
     expect(serializedCoreMessages).toContain("same language as the user's latest message")
     expect(serializedCoreMessages).toContain('code_execution')
     expect(serializedCoreMessages).toContain('Available Skills')
+    expect(prepared.systemPrompt).toContain('Current model: test-model')
+    expect(prepared.systemPrompt).toContain('## Response Language')
 
     expect(prepared.chatOptions.tools).toBe(prepared.tools)
     expect(prepared.chatOptions.agentMode).toBe(true)

@@ -1,4 +1,4 @@
-import type { ModelMessage, PrepareStepFunction, TextStreamPart, ToolSet } from 'ai'
+import type { JSONValue, ModelMessage, PrepareStepFunction, TextStreamPart, ToolSet } from 'ai'
 import {
   type MessageContentParts,
   type MessageStatus,
@@ -38,6 +38,22 @@ export interface ModelInterface {
     signal?: AbortSignal,
     callback?: (picBase64: string) => void | Promise<void>
   ) => Promise<string[]>
+}
+
+/** The exact provider-facing settings after model-specific normalization. */
+export interface CallSettings {
+  temperature?: number
+  topP?: number
+  maxOutputTokens?: number
+  providerOptions?: Record<string, Record<string, JSONValue>>
+  system?: string
+}
+
+export interface ResolvedChatRequest {
+  callSettings: CallSettings
+  modelMessages: ModelMessage[]
+  tools: ToolSet
+  stream: boolean
 }
 
 export const CallChatCompletionOptionsSchema = z.object({
@@ -84,6 +100,8 @@ export interface ChatStreamOptions {
   providerOptions?: ProviderOptions
   maxSteps?: number
   prepareStep?: PrepareStepFunction<ToolSet>
+  /** Runs after each step's preparation resolves provider-facing messages/tools and before dispatch. */
+  onRequestResolved?: (request: ResolvedChatRequest) => void | Promise<void>
 }
 
 export type ModelStatus = MessageStatus

@@ -2,21 +2,23 @@ import { getDefaultStore } from 'jotai'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { inputBoxPreConstructedMessageFamily } from '@/stores/atoms/uiAtoms'
 
-const { blobStore, sessionStore, metaRecords, recentBlobKeys, mockGetImageGenerationStorage } = vi.hoisted(() => {
-  const blobs = new Map<string, string>()
-  const sessions = new Map<string, unknown>()
-  return {
-    blobStore: blobs,
-    sessionStore: sessions,
-    metaRecords: [] as Array<{ id: string; hidden?: boolean }>,
-    recentBlobKeys: [] as string[],
-    mockGetImageGenerationStorage: vi.fn(() => ({
-      initialize: async () => undefined,
-      getTotal: async () => 0,
-      getPage: async () => ({ items: [], nextCursor: null }),
-    })),
-  }
-})
+const { blobStore, sessionStore, metaRecords, recentBlobKeys, lateTouchedBlobKeys, mockGetImageGenerationStorage } =
+  vi.hoisted(() => {
+    const blobs = new Map<string, string>()
+    const sessions = new Map<string, unknown>()
+    return {
+      blobStore: blobs,
+      sessionStore: sessions,
+      metaRecords: [] as Array<{ id: string; hidden?: boolean }>,
+      recentBlobKeys: [] as string[],
+      lateTouchedBlobKeys: new Set<string>(),
+      mockGetImageGenerationStorage: vi.fn(() => ({
+        initialize: async () => undefined,
+        getTotal: async () => 0,
+        getPage: async () => ({ items: [], nextCursor: null }),
+      })),
+    }
+  })
 
 vi.mock('@/platform', () => ({
   default: {
@@ -39,6 +41,7 @@ vi.mock('@/storage', () => ({
 
 vi.mock('../storage/blob-write-tracker', () => ({
   getRecentlyWrittenBlobKeys: vi.fn(() => recentBlobKeys),
+  isBlobRecentlyWritten: vi.fn((key: string) => recentBlobKeys.includes(key) || lateTouchedBlobKeys.has(key)),
 }))
 
 vi.mock('@/stores/chatStore', () => ({
@@ -82,6 +85,7 @@ describe('cleanupOrphanedBlobs', () => {
     sessionStore.clear()
     metaRecords.length = 0
     recentBlobKeys.length = 0
+    lateTouchedBlobKeys.clear()
   })
 
   it('protects recently written in-flight blobs from deletion', async () => {
@@ -97,6 +101,17 @@ describe('cleanupOrphanedBlobs', () => {
     expect(blobStore.has('picture:image-gen:rec-1:uuid-1')).toBe(true)
     expect(blobStore.has('parseFile-in-flight')).toBe(true)
     expect(blobStore.has('picture:orphan')).toBe(false)
+  })
+
+  it('honors a blob touched after the scan via the pre-delete recheck', async () => {
+    const key = `generation-request:${'d'.repeat(64)}`
+    blobStore.set(key, '{}')
+    lateTouchedBlobKeys.add(key)
+
+    const deleted = await cleanupOrphanedBlobs()
+
+    expect(deleted).toBe(0)
+    expect(blobStore.has(key)).toBe(true)
   })
 
   it('reclaims orphaned link caches and tool results while keeping referenced ones', async () => {
@@ -126,6 +141,41 @@ describe('cleanupOrphanedBlobs', () => {
     expect(blobStore.has('tool-result:kept-session:call-1')).toBe(true)
     expect(blobStore.has('link:https://orphan.example')).toBe(false)
     expect(blobStore.has('tool-result:deleted-session:call-2')).toBe(false)
+  })
+
+  it('keeps referenced generation definitions and reclaims orphaned definitions', async () => {
+    const keptKey = `generation-request:${'a'.repeat(64)}`
+    const orphanKey = `generation-request:${'b'.repeat(64)}`
+    blobStore.set(keptKey, '{}')
+    blobStore.set(orphanKey, '{}')
+    metaRecords.push({ id: 'kept-session' })
+    sessionStore.set('session:kept-session', {
+      id: 'kept-session',
+      messages: [
+        {
+          id: 'assistant-1',
+          role: 'assistant',
+          contentParts: [],
+          generationRequests: [
+            {
+              version: 1,
+              capturedAt: 1,
+              model: { id: 'test-model' },
+              agentMode: true,
+              callSettings: { stream: true },
+              context: { sessionBoundary: { messageCount: 0 }, modelMessageCount: 0, sha256: 'c'.repeat(64) },
+              definitions: { storageKey: keptKey, sha256: 'a'.repeat(64) },
+            },
+          ],
+        },
+      ],
+    })
+
+    const deleted = await cleanupOrphanedBlobs()
+
+    expect(deleted).toBe(1)
+    expect(blobStore.has(keptKey)).toBe(true)
+    expect(blobStore.has(orphanKey)).toBe(false)
   })
 
   it('aborts without deleting when the reference scan exceeds its time budget', async () => {

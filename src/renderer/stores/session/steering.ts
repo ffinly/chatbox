@@ -21,6 +21,8 @@ export interface SteeringConsumer {
    * Returns the messages to use for this step, or undefined to leave them unchanged.
    */
   inject(stepMessages: ModelMessage[]): Promise<ModelMessage[] | undefined>
+  /** IDs of durable user messages currently injected into model-visible context. */
+  getInjectedMessageIds(): readonly string[]
   release(): void
 }
 
@@ -115,6 +117,9 @@ export function registerSteeringConsumer(
 
       if (!consumed && records.length === 0) return undefined
       return effective
+    },
+    getInjectedMessageIds() {
+      return Array.from(steeredIds)
     },
     release() {
       if (activeConsumers.get(sessionId) === token) {

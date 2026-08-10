@@ -23,6 +23,16 @@ function collectMessageReferences(
   references: ResourceReference[],
   warnings: BackupWarning[]
 ) {
+  for (const generationRequest of message.generationRequests ?? []) {
+    addReference(references, {
+      storageKey: generationRequest.definitions.storageKey,
+      // Reuse the existing UTF-8 auxiliary payload kind so v2 backup readers
+      // remain schema-compatible with this new reference source.
+      kind: 'tool-result',
+      sessionId,
+      mimeType: 'application/json',
+    })
+  }
   for (const picture of (message as LegacyMessage).pictures ?? []) {
     addReference(
       references,
@@ -182,6 +192,15 @@ export function prepareSessionForBackup(session: Session): Session {
 }
 
 function restoreMessageResourceKeys(message: Message, resourceKeyMap: ReadonlyMap<string, string>) {
+  if (message.generationRequests) {
+    message.generationRequests = message.generationRequests.flatMap((generationRequest) => {
+      const restoredStorageKey = restoreResourceKey(generationRequest.definitions.storageKey, resourceKeyMap)
+      if (restoredStorageKey === undefined) return []
+      generationRequest.definitions.storageKey = restoredStorageKey
+      return [generationRequest]
+    })
+    if (message.generationRequests.length === 0) delete message.generationRequests
+  }
   const legacyMessage = message as LegacyMessage
   if (legacyMessage.pictures) {
     legacyMessage.pictures = legacyMessage.pictures.flatMap((picture) => {

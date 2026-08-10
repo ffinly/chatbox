@@ -7,9 +7,17 @@ import { getMetaStorage } from '@/stores/chatStore'
 import { settingsStore } from '@/stores/settingsStore'
 import platform from '../platform'
 import storage from '../storage'
-import { getRecentlyWrittenBlobKeys } from '../storage/blob-write-tracker'
+import { getRecentlyWrittenBlobKeys, isBlobRecentlyWritten } from '../storage/blob-write-tracker'
 
-const CLEANABLE_BLOB_PREFIXES = ['picture:', 'file:', 'parseUrl-', 'parseFile-', 'link:', 'tool-result:']
+const CLEANABLE_BLOB_PREFIXES = [
+  'picture:',
+  'file:',
+  'parseUrl-',
+  'parseFile-',
+  'link:',
+  'tool-result:',
+  'generation-request:',
+]
 
 /**
  * Blobs written within this window are treated as in-flight and never deleted:
@@ -207,6 +215,10 @@ async function doCleanupOrphanedBlobs(options?: CleanupOptions): Promise<number>
       console.warn(`storage_clear: deletion stopped early by time budget after ${deletedCount} blobs`)
       break
     }
+    // Content-addressed blob reuse (generation request definitions) touches
+    // the key without rewriting it, so recheck the in-flight window right
+    // before each delete instead of only once after the scan.
+    if (isBlobRecentlyWritten(key, IN_FLIGHT_BLOB_PROTECTION_MS)) continue
     try {
       await storage.delBlob(key)
       deletedCount++
