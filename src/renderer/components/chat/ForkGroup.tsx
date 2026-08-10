@@ -1,6 +1,7 @@
 import { ActionIcon, Box, Button, Flex, Stack, Text, Tooltip } from '@mantine/core'
 import { TestId } from '@shared/automation/testids'
 import { getSessionActionGate, type SessionLockState } from '@shared/session/action-gates'
+import { supportsSessionGeneration } from '@shared/session/capabilities'
 import type { Session, SessionType } from '@shared/types'
 import { IconAlignRight, IconChevronLeft, IconChevronRight, IconFold, IconTrash } from '@tabler/icons-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -8,7 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { deleteFork, switchFork, switchForkTo } from '@/stores/sessionActions'
 import { getSessionLockNotice, notifySessionLockBlocked } from '@/utils/session-lock-copy'
-import ActionMenu from '../ActionMenu'
+import ActionMenu, { type ActionMenuItemProps } from '../ActionMenu'
 import Message from './Message'
 
 type ForkGroupProps = {
@@ -182,16 +183,20 @@ export default function ForkGroup(props: ForkGroupProps) {
                 },
               ]
             : []),
-          {
-            divider: true,
-          },
-          {
-            doubleCheck: !forkControlsLocked,
-            text: t('delete'),
-            icon: IconTrash,
-            disabled: forkControlsLocked && !isSmallScreen,
-            onClick: handleDelete,
-          },
+          ...(supportsSessionGeneration(sessionType)
+            ? ([
+                {
+                  divider: true,
+                },
+                {
+                  doubleCheck: !forkControlsLocked,
+                  text: t('delete'),
+                  icon: IconTrash,
+                  disabled: forkControlsLocked && !isSmallScreen,
+                  onClick: handleDelete,
+                },
+              ] satisfies ActionMenuItemProps[])
+            : []),
         ]}
       >
         <Text

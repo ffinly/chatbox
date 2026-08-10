@@ -60,8 +60,12 @@ vi.mock('react-virtuoso', async () => {
   }
 })
 
+const messageRenderLog = vi.hoisted(() => [] as Array<{ id: string; readOnly?: boolean }>)
 vi.mock('./Message', () => ({
-  default: ({ msg }: { msg: Message }) => <div data-testid={`message-${msg.id}`}>{msg.role}</div>,
+  default: ({ msg, readOnly }: { msg: Message; readOnly?: boolean }) => {
+    messageRenderLog.push({ id: msg.id, readOnly })
+    return <div data-testid={`message-${msg.id}`}>{msg.role}</div>
+  },
 }))
 
 const minimapRenderLog = vi.hoisted(() => [] as unknown[])
@@ -220,6 +224,7 @@ function message(id: string, role: Message['role'], content: string): Message {
 
 describe('MessageList new message layout', () => {
   beforeEach(() => {
+    messageRenderLog.length = 0
     Object.defineProperty(window, 'matchMedia', {
       configurable: true,
       value: vi.fn().mockImplementation((query: string) => ({
@@ -245,6 +250,23 @@ describe('MessageList new message layout', () => {
     }
 
     vi.stubGlobal('ResizeObserver', ResizeObserverMock)
+  })
+
+  test('renders legacy picture session messages as read-only', () => {
+    const session: Session = {
+      id: 'picture-session',
+      type: 'picture',
+      name: 'Legacy pictures',
+      messages: [message('picture-message', MessageRoleEnum.Assistant, 'historical image')],
+    }
+
+    render(
+      <MantineProvider>
+        <MessageList currentSession={session} />
+      </MantineProvider>
+    )
+
+    expect(messageRenderLog).toContainEqual({ id: 'picture-message', readOnly: true })
   })
 
   test('does not stretch an archived thread turn when the current new thread is appended after it', () => {

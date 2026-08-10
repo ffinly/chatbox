@@ -2,6 +2,7 @@ import { SessionNotFoundError } from '@shared/application/session'
 import { isExpectedGenerationError } from '@shared/models/error-classification'
 import { BaseError, ChatboxAIAPIError } from '@shared/models/errors'
 import { extractStreamErrorMessage } from '@shared/models/utils/stream-error-message'
+import { supportsSessionGeneration } from '@shared/session/capabilities'
 import { findMessageLocation } from '@shared/session/message-forks'
 import { createMessage, type Message } from '@shared/types'
 import { countMessageWords } from '@shared/utils/message'
@@ -221,6 +222,9 @@ export async function submitNewUserMessageUnlocked(
   const session = await chatStore.getSession(sessionId)
   const settings = await chatStore.getSessionSettings(sessionId)
   if (!session || !settings) {
+    return
+  }
+  if (!supportsSessionGeneration(session.type)) {
     return
   }
 

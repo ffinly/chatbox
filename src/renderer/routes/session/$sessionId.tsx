@@ -60,8 +60,6 @@ function RouteComponent() {
   const widthFull = useUIStore((s) => s.widthFull)
   const isSmallScreen = useIsSmallScreen()
   const setLastUsedChatModel = useStore(lastUsedModelStore, (state) => state.setChatModel)
-  const setLastUsedPictureModel = useStore(lastUsedModelStore, (state) => state.setPictureModel)
-
   useEffect(() => {
     clearSessionActivity(currentSessionId)
   }, [currentSessionId])
@@ -113,14 +111,8 @@ function RouteComponent() {
           setLastUsedChatModel(provider, modelId)
         }
       }
-      if (currentSession.type === 'picture' && currentSession.settings) {
-        const { provider, modelId } = currentSession.settings
-        if (provider && modelId) {
-          setLastUsedPictureModel(provider, modelId)
-        }
-      }
     }
-  }, [currentSession?.settings, currentSession?.type, currentSession, setLastUsedChatModel, setLastUsedPictureModel])
+  }, [currentSession?.settings, currentSession?.type, currentSession, setLastUsedChatModel])
 
   useEffect(() => {
     if (!currentSession || !currentSessionWithDefaultModel || currentSessionWithDefaultModel === currentSession) {

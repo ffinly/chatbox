@@ -1,15 +1,8 @@
 import NiceModal, { useModal } from '@ebay/nice-modal-react'
-import { ActionIcon, Box, Button, FileButton, Flex, Input, Slider, Stack, Switch, Text, Textarea } from '@mantine/core'
+import { ActionIcon, Box, Button, FileButton, Flex, Input, Stack, Switch, Text, Textarea } from '@mantine/core'
 import { TestId } from '@shared/automation/testids'
-import { chatSessionSettings, pictureSessionSettings } from '@shared/defaults'
-import {
-  createMessage,
-  isChatSession,
-  isPictureSession,
-  ModelProviderEnum,
-  type Session,
-  type SessionSettings,
-} from '@shared/types'
+import { chatSessionSettings } from '@shared/defaults'
+import { createMessage, isChatSession, ModelProviderEnum, type Session } from '@shared/types'
 import { MAX_TOOL_CALLS_BEFORE_CONFIRMATION } from '@shared/utils/tool-call-limit-pause'
 import { IconInfoCircle, IconTrash, IconUpload } from '@tabler/icons-react'
 import { pick } from 'lodash'
@@ -22,15 +15,14 @@ import MaxContextMessageCountSlider from '@/components/common/MaxContextMessageC
 import { ScalableIcon } from '@/components/common/ScalableIcon'
 import SliderWithInput from '@/components/common/SliderWithInput'
 import { handleImageInputAndSave, ImageInStorage } from '@/components/Image'
-import ImageStyleSelect from '@/components/ImageStyleSelect'
 import { AppTooltip as Tooltip } from '@/components/ui/tooltip'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { trackingEvent } from '@/packages/event'
 import storage from '@/storage'
 import { StorageKeyGenerator } from '@/storage/StoreStorage'
 import { updateSessionWithMessages } from '@/stores/chatStore'
-import { getSessionMeta, mergeSettings } from '@/stores/sessionHelpers'
-import { settingsStore, useSettingsStore } from '@/stores/settingsStore'
+import { getSessionMeta } from '@/stores/sessionHelpers'
+import { useSettingsStore } from '@/stores/settingsStore'
 import { add as addToast } from '@/stores/toastActions'
 import { getMessageText } from '../../shared/utils/message'
 
@@ -211,54 +203,55 @@ const SessionSettingsModal = NiceModal.create(
               />
             </Stack>
 
-            <Textarea
-              label={t('Instruction (System Prompt)')}
-              placeholder={t('Copilot Prompt Demo') || ''}
-              autosize
-              minRows={2}
-              maxRows={12}
-              value={systemPrompt}
-              onChange={(event) => setSystemPrompt(event.target.value)}
-              classNames={{
-                input: '!text-chatbox-tint-primary',
-              }}
-              styles={{
-                input: { touchAction: 'manipulation' },
-              }}
-            />
+            {isChatSession(session) && (
+              <>
+                <Textarea
+                  label={t('Instruction (System Prompt)')}
+                  placeholder={t('Copilot Prompt Demo') || ''}
+                  autosize
+                  minRows={2}
+                  maxRows={12}
+                  value={systemPrompt}
+                  onChange={(event) => setSystemPrompt(event.target.value)}
+                  classNames={{
+                    input: '!text-chatbox-tint-primary',
+                  }}
+                  styles={{
+                    input: { touchAction: 'manipulation' },
+                  }}
+                />
 
-            <Stack gap="xs">
-              <Flex align="center" justify="space-between">
-                <Text fw={700}>{t('Specific model settings')}</Text>
-                <Button size="compact-sm" color="chatbox-brand" variant="transparent" onClick={onReset} fw={600}>
-                  {t('Reset')}
-                </Button>
-              </Flex>
+                <Stack gap="xs">
+                  <Flex align="center" justify="space-between">
+                    <Text fw={700}>{t('Specific model settings')}</Text>
+                    <Button size="compact-sm" color="chatbox-brand" variant="transparent" onClick={onReset} fw={600}>
+                      {t('Reset')}
+                    </Button>
+                  </Flex>
 
-              <Box p="sm" className="border border-solid border-chatbox-border-primary rounded-lg">
-                {isChatSession(session) && (
-                  <ChatConfig
-                    settings={editingData.settings}
-                    onSettingsChange={(d) =>
-                      setEditingData((_data) => {
-                        if (_data) {
-                          return {
-                            ..._data,
-                            settings: {
-                              ..._data?.settings,
-                              ...d,
-                            },
+                  <Box p="sm" className="border border-solid border-chatbox-border-primary rounded-lg">
+                    <ChatConfig
+                      settings={editingData.settings}
+                      onSettingsChange={(d) =>
+                        setEditingData((_data) => {
+                          if (_data) {
+                            return {
+                              ..._data,
+                              settings: {
+                                ..._data?.settings,
+                                ...d,
+                              },
+                            }
+                          } else {
+                            return null
                           }
-                        } else {
-                          return null
-                        }
-                      })
-                    }
-                  />
-                )}
-                {isPictureSession(session) && <PictureConfig dataEdit={editingData} setDataEdit={setEditingData} />}
-              </Box>
-            </Stack>
+                        })
+                      }
+                    />
+                  </Box>
+                </Stack>
+              </>
+            )}
 
             <Stack gap="xs">
               <Text fw={600}>{t('Background Settings')}</Text>
@@ -479,46 +472,6 @@ export function ChatConfig({
             onChange={(v) => onSettingsChange({ pauseOnToolCallLimit: v.target.checked })}
           />
         </Flex>
-      </Stack>
-    </Stack>
-  )
-}
-
-function PictureConfig(props: { dataEdit: Session; setDataEdit: (data: Session) => void }) {
-  const { t } = useTranslation()
-  const { dataEdit, setDataEdit } = props
-  const globalSettings = settingsStore.getState().getSettings()
-  const sessionSettings = mergeSettings(globalSettings, dataEdit.settings || {}, dataEdit.type || 'chat')
-  const updateSettingsEdit = (updated: Partial<SessionSettings>) => {
-    setDataEdit({
-      ...dataEdit,
-      settings: {
-        ...(dataEdit.settings || {}),
-        ...updated,
-      },
-    })
-  }
-  return (
-    <Stack gap="md" className="my-4">
-      <ImageStyleSelect
-        value={sessionSettings.dalleStyle || pictureSessionSettings().dalleStyle!}
-        onChange={(v) => updateSettingsEdit({ dalleStyle: v })}
-        className={sessionSettings.dalleStyle === undefined ? 'opacity-50' : ''}
-      />
-      <Stack>
-        <Text size="sm" fw="600">
-          {t('Number of Images per Reply')}
-        </Text>
-        <Slider
-          value={sessionSettings.imageGenerateNum || pictureSessionSettings().imageGenerateNum!}
-          onChange={(v) => updateSettingsEdit({ imageGenerateNum: v })}
-          min={1}
-          max={10}
-          step={1}
-          marks={Array.from({ length: 10 }).map((_, i) => ({
-            value: i + 1,
-          }))}
-        />
       </Stack>
     </Stack>
   )

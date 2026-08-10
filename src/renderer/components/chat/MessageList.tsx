@@ -438,15 +438,19 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
               <SummaryMessage
                 msg={msg}
                 className={options.isFirstItem ? 'pt-4' : options.isLastItem ? '!pb-4' : ''}
-                isLatestSummary={msg.id === latestSummaryMessageId}
-                onDelete={() => {
-                  const gate = getSessionActionGate('delete-summary', sessionLocks)
-                  if (!gate.allowed) {
-                    void notifySessionLockBlocked(gate.reason, t)
-                    return
-                  }
-                  void removeMessage(currentSession.id, msg.id)
-                }}
+                isLatestSummary={currentSession.type !== 'picture' && msg.id === latestSummaryMessageId}
+                onDelete={
+                  currentSession.type === 'picture'
+                    ? undefined
+                    : () => {
+                        const gate = getSessionActionGate('delete-summary', sessionLocks)
+                        if (!gate.allowed) {
+                          void notifySessionLockBlocked(gate.reason, t)
+                          return
+                        }
+                        void removeMessage(currentSession.id, msg.id)
+                      }
+                }
                 sessionId={currentSession.id}
               />
             ) : (
@@ -455,6 +459,7 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
                 msg={msg}
                 sessionId={currentSession.id}
                 sessionType={currentSession.type || 'chat'}
+                readOnly={currentSession.type === 'picture'}
                 className={options.isFirstItem ? 'pt-4' : options.isLastItem ? '!pb-4' : ''}
                 collapseThreshold={msg.role === 'system' ? 150 : undefined}
                 buttonGroup={options.isLastItem && msg.role === 'assistant' ? 'always' : 'auto'}

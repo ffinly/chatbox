@@ -63,6 +63,17 @@ describe('guardSessionAction', () => {
     expect(toastMock).toHaveBeenCalledWith('Wait for compaction to finish', 2500)
   })
 
+  it('blocks mutations in legacy picture sessions but still allows branch navigation', async () => {
+    getSessionMock.mockResolvedValue(session({ type: 'picture' }))
+
+    await expect(guardSessionAction('session-1', 'regenerate')).resolves.toBe(false)
+    expect(toastMock).toHaveBeenCalledWith('This session is read-only', 2500)
+
+    toastMock.mockClear()
+    await expect(guardSessionAction('session-1', 'switch-fork')).resolves.toBe(true)
+    expect(toastMock).not.toHaveBeenCalled()
+  })
+
   it('lets the action surface its own handling when the session is missing', async () => {
     getSessionMock.mockResolvedValue(null)
 

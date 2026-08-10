@@ -94,6 +94,8 @@ vi.mock('uuid', () => ({
   v4: uuidv4Mock,
 }))
 
+vi.mock('i18next', () => ({ t: (key: string) => key }))
+
 vi.mock('./chatStore', () => ({
   updateSessionWithMessages,
   updateSession: updateSessionMock,
@@ -126,7 +128,6 @@ vi.mock('@/adapters', () => ({
 }))
 
 vi.mock('@/packages/model-calls', () => ({
-  generateImage: vi.fn(),
   generateText: vi.fn(),
 }))
 

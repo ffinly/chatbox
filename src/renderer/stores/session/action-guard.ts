@@ -5,6 +5,7 @@ import {
   type SessionActionContext,
   type SessionLockState,
 } from '@shared/session/action-gates'
+import { supportsSessionGeneration } from '@shared/session/capabilities'
 import type { Session } from '@shared/types'
 import { t } from 'i18next'
 import { notifySessionLockBlocked } from '@/utils/session-lock-copy'
@@ -47,9 +48,11 @@ export async function guardSessionAction(
   context: SessionActionContext = {},
   preloadedSession?: Session | null
 ): Promise<boolean> {
+  let session: Session | null
   let locks: SessionLockState | null
   try {
-    locks = await getSessionLockStateNow(sessionId, preloadedSession)
+    session = preloadedSession !== undefined ? preloadedSession : await chatStore.getSession(sessionId)
+    locks = await getSessionLockStateNow(sessionId, session)
   } catch {
     // A failed session read must not turn a void-called action into an
     // unhandled rejection; fall back to the action's own error handling.
@@ -58,6 +61,10 @@ export async function guardSessionAction(
   if (!locks) {
     // Let the action surface its own "session not found" handling.
     return true
+  }
+  if (session && !supportsSessionGeneration(session.type) && action !== 'switch-fork') {
+    await notifySessionLockBlocked('read-only', t)
+    return false
   }
   const gate = getSessionActionGate(action, locks, context)
   if (gate.allowed) {

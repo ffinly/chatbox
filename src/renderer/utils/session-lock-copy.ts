@@ -11,6 +11,8 @@ export function getSessionLockNotice(reason: SessionActionBlockReason, t: TFunct
       return t('Wait for compaction to finish')
     case 'awaiting-approval':
       return t('Waiting for approval')
+    case 'read-only':
+      return t('This session is read-only')
   }
 }
 

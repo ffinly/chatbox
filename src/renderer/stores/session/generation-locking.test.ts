@@ -5,16 +5,20 @@ const {
   getSessionMock,
   getSessionSettingsMock,
   createInactiveForkMock,
+  createNewForkMock,
+  findMessageLocationMock,
   insertMessageAfterMock,
   orchestrateGenerationMock,
-  orchestratePictureGenerationMock,
+  guardSessionActionMock,
 } = vi.hoisted(() => ({
   getSessionMock: vi.fn(),
   getSessionSettingsMock: vi.fn(),
   createInactiveForkMock: vi.fn(),
+  createNewForkMock: vi.fn(),
+  findMessageLocationMock: vi.fn(),
   insertMessageAfterMock: vi.fn(),
   orchestrateGenerationMock: vi.fn(),
-  orchestratePictureGenerationMock: vi.fn(),
+  guardSessionActionMock: vi.fn(),
 }))
 
 vi.mock('../chatStore', () => ({
@@ -24,15 +28,15 @@ vi.mock('../chatStore', () => ({
 vi.mock('./attachment-resolver', () => ({ createAttachmentResolver: vi.fn() }))
 vi.mock('./forks', () => ({
   createInactiveFork: createInactiveForkMock,
-  createNewFork: vi.fn(),
-  findMessageLocation: vi.fn(),
+  createNewFork: createNewForkMock,
+  findMessageLocation: findMessageLocationMock,
 }))
 vi.mock('./messages', () => ({ insertMessageAfter: insertMessageAfterMock }))
 vi.mock('./orchestration', () => ({ orchestrateGeneration: orchestrateGenerationMock }))
-vi.mock('./pictures', () => ({ orchestratePictureGeneration: orchestratePictureGenerationMock }))
+vi.mock('./action-guard', () => ({ guardSessionAction: guardSessionActionMock }))
 vi.mock('./utils', () => ({ getSessionWebBrowsing: vi.fn() }))
 
-import { generate, generateMore } from './generation'
+import { generate, generateMore, generateMoreInNewFork, regenerateInNewFork } from './generation'
 import { resetSessionGenerationLocksForTests } from './generation-lock'
 
 function message(id: string): Message {
@@ -45,6 +49,7 @@ describe('generation entry-point locking', () => {
     resetSessionGenerationLocksForTests()
     getSessionMock.mockResolvedValue({ id: 'session-1', name: 'Session', messages: [] })
     getSessionSettingsMock.mockResolvedValue({})
+    guardSessionActionMock.mockResolvedValue(true)
     createInactiveForkMock.mockImplementation(async (_sessionId, _msgId, branchMessages: Message[]) => [
       { id: 'user-1', role: 'user', contentParts: [] },
       ...branchMessages,
@@ -113,51 +118,26 @@ describe('generation entry-point locking', () => {
     )
   })
 
-  it('serializes alternative replies for picture sessions', async () => {
+  it('keeps legacy picture sessions read-only across generation entry points', async () => {
     const pictureSession: Session = {
       id: 'session-1',
       name: 'Picture Session',
       type: 'picture',
       messages: [],
     }
-    let releaseSecondSessionRead = (_session: Session) => {}
-    const secondSessionGate = new Promise<Session>((resolve) => {
-      releaseSecondSessionRead = resolve
-    })
-    let markSecondSessionRead = () => {}
-    const secondSessionRead = new Promise<void>((resolve) => {
-      markSecondSessionRead = resolve
-    })
-    getSessionMock
-      .mockResolvedValueOnce(pictureSession)
-      .mockResolvedValueOnce(pictureSession)
-      .mockImplementationOnce(async () => {
-        const session = await secondSessionGate
-        markSecondSessionRead()
-        return session
-      })
-      .mockResolvedValue(pictureSession)
-    createInactiveForkMock.mockResolvedValue(null)
-    let finishFirst = () => {}
-    const firstGeneration = new Promise<void>((resolve) => {
-      finishFirst = resolve
-    })
-    orchestratePictureGenerationMock.mockReturnValueOnce(firstGeneration).mockResolvedValueOnce(undefined)
+    getSessionMock.mockResolvedValue(pictureSession)
 
-    const first = generateMore('session-1', 'user-1')
-    await vi.waitFor(() => expect(orchestratePictureGenerationMock).toHaveBeenCalledOnce())
+    await Promise.all([
+      generate('session-1', message('assistant-1')),
+      generateMore('session-1', 'user-1'),
+      generateMoreInNewFork('session-1', 'user-1'),
+      regenerateInNewFork('session-1', message('assistant-1')),
+    ])
 
-    const second = generateMore('session-1', 'user-1')
-    releaseSecondSessionRead(pictureSession)
-    await secondSessionRead
-
-    expect(insertMessageAfterMock).toHaveBeenCalledOnce()
-    expect(orchestratePictureGenerationMock).toHaveBeenCalledOnce()
-
-    finishFirst()
-    await Promise.all([first, second])
-
-    expect(insertMessageAfterMock).toHaveBeenCalledTimes(2)
-    expect(orchestratePictureGenerationMock).toHaveBeenCalledTimes(2)
+    expect(orchestrateGenerationMock).not.toHaveBeenCalled()
+    expect(createInactiveForkMock).not.toHaveBeenCalled()
+    expect(createNewForkMock).not.toHaveBeenCalled()
+    expect(findMessageLocationMock).not.toHaveBeenCalled()
+    expect(insertMessageAfterMock).not.toHaveBeenCalled()
   })
 })

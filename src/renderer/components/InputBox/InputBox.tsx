@@ -1430,7 +1430,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
             align="center"
           >
             <Text size="sm" c="chatbox-tertiary" ta="center">
-              {t('This image session is no longer active. Please use the new Image Creator for image generation.')}
+              {t('This image session is read-only. Please use the new Image Creator for image generation.')}
             </Text>
             <Button variant="light" size="xs" onClick={() => navigate({ to: '/image-creator' })}>
               {t('Go to Image Creator')}

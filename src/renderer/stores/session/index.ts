@@ -89,7 +89,6 @@ export {
   retryFromLastToolCallAfterApiError,
   stopPausedToolCall,
 } from './orchestration'
-export { createLoadingPictures } from './pictures'
 // Thread operations (9 functions)
 export {
   compressAndCreateThread,

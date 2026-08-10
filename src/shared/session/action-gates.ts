@@ -45,6 +45,8 @@ export type SessionActionBlockReason =
   | 'awaiting-approval'
   /** The target message itself is still streaming. */
   | 'message-streaming'
+  /** The persisted session is retained for viewing but no longer accepts mutations. */
+  | 'read-only'
 
 export type SessionActionGate =
   | { allowed: true; reason?: undefined }

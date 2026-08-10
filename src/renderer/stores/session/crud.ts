@@ -18,7 +18,7 @@ import * as atoms from '../atoms'
 import * as chatStore from '../chatStore'
 import * as scrollActions from '../scrollActions'
 import { clearSessionActivity } from '../sessionActivityStore'
-import { initEmptyChatSession, initEmptyPictureSession } from '../sessionHelpers'
+import { initEmptyChatSession } from '../sessionHelpers'
 import { generationRuntimeStore } from './generation-runtime'
 
 /**
@@ -33,19 +33,11 @@ async function create(newSession: Omit<Session, 'id'>) {
 /**
  * Create a new empty session
  */
-export async function createEmpty(type: 'chat' | 'picture') {
-  let newSession: Session
-  switch (type) {
-    case 'chat':
-      newSession = await create(initEmptyChatSession())
-      break
-    case 'picture':
-      newSession = await create(initEmptyPictureSession())
-      break
-    default:
-      throw new Error(`Unknown session type: ${type}`)
+export function createEmpty(type: 'chat') {
+  if (type !== 'chat') {
+    throw new Error('Legacy picture sessions can no longer be created')
   }
-  return newSession
+  return create(initEmptyChatSession())
 }
 
 /**

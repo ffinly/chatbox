@@ -29,8 +29,10 @@ describe('getSubmitAction', () => {
     expect(getSubmitAction({ ...base, generating: true, needGenerating: false })).toBe('block')
   })
 
-  it('does not queue for picture sessions', () => {
+  it('keeps legacy picture sessions read-only', () => {
+    expect(getSubmitAction({ ...base, sessionType: 'picture' })).toBe('block')
     expect(getSubmitAction({ ...base, generating: true, sessionType: 'picture' })).toBe('block')
+    expect(getSubmitAction({ ...base, needGenerating: false, sessionType: 'picture' })).toBe('block')
   })
 
   it('queues behind pending items when idle so send order is preserved', () => {

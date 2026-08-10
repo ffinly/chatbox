@@ -1,5 +1,6 @@
 import { buildContext } from '@shared/context'
 import type { AttachmentResolver } from '@shared/context/types'
+import { supportsSessionGeneration } from '@shared/session/capabilities'
 import { findMessageContext } from '@shared/session/message-forks'
 import { type CompactionPoint, createMessage, type Message, type Session, type SessionSettings } from '@shared/types'
 import type { AgentModeEntrySource } from '@/analytics/agent-mode'
@@ -10,7 +11,6 @@ import { createInactiveFork, createNewFork, findMessageLocation } from './forks'
 import { withSessionGenerationLock } from './generation-lock'
 import { insertMessageAfter } from './messages'
 import { orchestrateGeneration } from './orchestration'
-import { orchestratePictureGeneration } from './pictures'
 
 /** Internal generation entry point for callers that already hold the session generation lock. */
 export async function _generateWithoutSessionLock(
@@ -29,12 +29,11 @@ export async function _generateWithoutSessionLock(
     return
   }
 
-  if (session.type === 'chat' || session.type === undefined) {
-    await orchestrateGeneration(sessionId, targetMsg, options)
+  if (!supportsSessionGeneration(session.type)) {
     return
   }
 
-  await orchestratePictureGeneration(sessionId, targetMsg, session, settings, options)
+  await orchestrateGeneration(sessionId, targetMsg, options)
 }
 
 export function generate(
@@ -80,15 +79,8 @@ async function generateInactiveReply(sessionId: string, msgId: string) {
 
 export async function generateMore(sessionId: string, msgId: string) {
   const session = await chatStore.getSession(sessionId)
-  if (!session) {
+  if (!session || !supportsSessionGeneration(session.type)) {
     return
-  }
-
-  // Picture generation has no abort signal yet, so keep it serialized. Chat
-  // replies are safe to run concurrently because their message writes are
-  // serialized by chatStore and each stream has its own AbortController.
-  if (session.type === 'picture') {
-    return withSessionGenerationLock(sessionId, () => generateActiveReplyWithoutSessionLock(sessionId, msgId))
   }
   return generateInactiveReply(sessionId, msgId)
 }
@@ -106,7 +98,7 @@ export function generateMoreInNewFork(sessionId: string, msgId: string) {
       // read failures from escaping as unhandled rejections.
       return
     }
-    if (!session) {
+    if (!session || !supportsSessionGeneration(session.type)) {
       return
     }
     const location = findMessageLocation(session, msgId)
@@ -147,7 +139,7 @@ async function regenerateInNewForkWithoutSessionLock(
 ) {
   const runGenerateMore = options?.runGenerateMore ?? generateActiveReplyWithoutSessionLock
   const session = await chatStore.getSession(sessionId)
-  if (!session) {
+  if (!session || !supportsSessionGeneration(session.type)) {
     return
   }
   const location = findMessageLocation(session, msg.id)

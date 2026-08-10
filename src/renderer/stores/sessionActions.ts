@@ -49,7 +49,6 @@ export {
   retryFromLastToolCallAfterApiError,
   stopPausedToolCall,
 } from './session/orchestration'
-export { createLoadingPictures } from './session/pictures'
 // Re-export thread operations from session/threads.ts
 export {
   compressAndCreateThread,

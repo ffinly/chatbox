@@ -73,10 +73,20 @@ function generationLocks(): SessionLockState {
   return locks({ generatingReplyCount: 2, anyReplyGenerating: true })
 }
 
-function renderGroup(forks: ForkEntry, sessionLocks: SessionLockState = locks()) {
+function renderGroup(
+  forks: ForkEntry,
+  sessionLocks: SessionLockState = locks(),
+  sessionType: 'chat' | 'picture' = 'chat'
+) {
   return render(
     <MantineProvider>
-      <ForkGroup sessionId="session-1" sessionType="chat" msgId="user-1" forks={forks} sessionLocks={sessionLocks} />
+      <ForkGroup
+        sessionId="session-1"
+        sessionType={sessionType}
+        msgId="user-1"
+        forks={forks}
+        sessionLocks={sessionLocks}
+      />
     </MantineProvider>
   )
 }
@@ -114,6 +124,25 @@ describe('ForkGroup', () => {
     expect(screen.getByTestId(TestId.message.forkPrevious)).toBeTruthy()
     expect(screen.getByTestId(TestId.message.forkCounter).textContent).toBe('2 / 2')
     expect(screen.getByTestId(TestId.message.forkNext)).toBeTruthy()
+  })
+
+  test('keeps branch navigation but removes fork deletion for legacy picture sessions', () => {
+    renderGroup(
+      {
+        position: 0,
+        lists: [
+          { id: 'current', messages: [] },
+          { id: 'alternative', messages: [] },
+        ],
+        createdAt: 1,
+      },
+      locks(),
+      'picture'
+    )
+
+    expect(screen.queryByRole('button', { name: 'delete' })).toBeNull()
+    fireEvent.click(screen.getByTestId(TestId.message.forkNext))
+    expect(switchForkMock).toHaveBeenCalledWith('session-1', 'user-1', 'next')
   })
 
   test('scopes repeated fork navigation IDs by message ID', () => {

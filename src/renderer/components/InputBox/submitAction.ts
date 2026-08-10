@@ -34,11 +34,11 @@ export function getSubmitAction(params: {
   hasModel: boolean
 }): SubmitAction {
   const { generating, needGenerating, sessionType, queueLength, blockedForOtherReasons, hasModel } = params
+  if (sessionType === 'picture') return 'block'
   if (blockedForOtherReasons || !hasModel) return 'block'
   if (generating) {
-    // "Insert without reply" during generation keeps its historical no-op behavior,
-    // and picture sessions have no meaningful queue semantics.
-    if (!needGenerating || sessionType === 'picture') return 'block'
+    // "Insert without reply" during generation keeps its historical no-op behavior.
+    if (!needGenerating) return 'block'
     return 'queue'
   }
   if (needGenerating && queueLength > 0) return 'queue-resume'
