@@ -82,6 +82,11 @@ async function ensureLang(h: Highlighter, lang: string): Promise<string> {
   return h.getLoadedLanguages().includes(lang) ? lang : 'plaintext'
 }
 
+export async function preloadLanguage(language: string): Promise<void> {
+  const h = await init()
+  await ensureLang(h, language)
+}
+
 export async function highlight(code: string, language: string, theme: ShikiTheme): Promise<string> {
   const cached = cacheGet(code, language, theme)
   if (cached !== undefined) return cached
