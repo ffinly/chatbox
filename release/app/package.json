@@ -17,5 +17,10 @@
   "dependencies": {
     "@anthropic-ai/sandbox-runtime": "^0.0.54",
     "@libsql/client": "^0.15.6"
+  },
+  "overrides": {
+    "ws": "8.19.0",
+    "libsql": "0.5.22",
+    "shell-quote": "1.10.0"
   }
 }
