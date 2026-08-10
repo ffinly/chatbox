@@ -4,6 +4,7 @@ import type { AttachmentResolver } from '@shared/context/types'
 import { ChatboxAIAPIError, OCRError } from '@shared/models/errors'
 import type { ChatStreamOptions, ModelInterface } from '@shared/models/types'
 import type { SandboxProvider } from '@shared/sandbox-provider'
+import { supportsToolResultImages } from '@shared/tools/view-image'
 import type {
   AgentModeLockReason,
   AgentModeValue,
@@ -333,7 +334,11 @@ export async function prepareAgentGenerationHarness(
         }
       : undefined
 
-  const { tools, instructions: toolInstructions } = await buildToolsForSession(model, {
+  const {
+    tools,
+    instructions: toolInstructions,
+    prepareStepMessages,
+  } = await buildToolsForSession(model, {
     sessionId: session.id,
     webBrowsing,
     knowledgeBase,
@@ -407,6 +412,9 @@ export async function prepareAgentGenerationHarness(
     // or the per-model remote config (ChatboxAI google-routed models), so it is the single
     // signal for "this request speaks the Gemini function-call protocol".
     ensureGoogleFunctionCallSignatures: model.apiStyle === 'google',
+    // Re-inline stored view_image results as images on history resends for protocols
+    // that accept media in tool results.
+    supportToolResultImages: supportsToolResultImages(model.apiStyle),
   })
 
   const chatOptions: ChatStreamOptions = {
@@ -429,6 +437,17 @@ export async function prepareAgentGenerationHarness(
             ? allToolNames.filter((toolName) => toolName !== 'chatbox_cli')
             : allToolNames,
       }
+    }
+  }
+
+  // Protocols without tool-result media support get view_image results injected as
+  // follow-up user messages with real image parts. Compose with any existing prepareStep.
+  if (prepareStepMessages) {
+    const basePrepareStep = chatOptions.prepareStep
+    chatOptions.prepareStep = async (prepareOptions) => {
+      const base = await basePrepareStep?.(prepareOptions)
+      const stepMessages = await prepareStepMessages(prepareOptions.messages)
+      return stepMessages === prepareOptions.messages ? base : { ...base, messages: stepMessages }
     }
   }
 

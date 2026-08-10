@@ -497,7 +497,8 @@ export class GenerationService<TContext> {
         const basePrepareStep = chatOptions.prepareStep
         chatOptions.prepareStep = async (prepareStepOptions) => {
           const base = await basePrepareStep?.(prepareStepOptions)
-          const injectedMessages = await steering.inject(prepareStepOptions.messages).catch((error) => {
+          const stepMessages = base?.messages ?? prepareStepOptions.messages
+          const injectedMessages = await steering.inject(stepMessages).catch((error) => {
             this.dependencies.logger.log('error', 'Steering injection failed', { error })
             return undefined
           })

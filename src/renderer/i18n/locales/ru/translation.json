@@ -1348,5 +1348,6 @@
   "Scanning local memories…": "Сканирование локальных воспоминаний…",
   "Found {{count}} new local memories.": "Найдено новых локальных воспоминаний: {{count}}.",
   "Review": "Проверить",
-  "No new local memories were found.": "Новые локальные воспоминания не найдены."
+  "No new local memories were found.": "Новые локальные воспоминания не найдены.",
+  "View Image": "Просмотр изображения"
 }

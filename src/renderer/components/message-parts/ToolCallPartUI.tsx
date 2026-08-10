@@ -57,6 +57,7 @@ import clsx from 'clsx'
 import { type FC, type ReactNode, type Ref, useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ImageGenerationResultGallery } from '@/components/chat/ImageGenerationResultGallery'
+import { ImageInStorage } from '@/components/Image'
 import { ChatboxAIErrorMessage } from '@/components/common/ChatboxAIErrorMessage'
 import { ScalableIcon } from '@/components/common/ScalableIcon'
 import { useBlob } from '@/hooks/useBlob'
@@ -262,6 +263,7 @@ const toolIconMap: Record<string, React.ElementType> = {
   load_skill: IconSparkles,
   chatbox_cli: IconSparkles,
   user_exec: IconTerminal,
+  view_image: IconPhoto,
 }
 
 const getToolIcon = (toolName: string) => toolIconMap[toolName] || IconCode
@@ -1503,7 +1505,44 @@ const TimelineToolCallDetail: FC<{ part: MessageToolCallPart } & ToolCallActionC
   if (isCommandExecutionPart(part)) {
     return <CommandExecutionDetails part={part} />
   }
+  if (part.toolName === 'view_image') {
+    return <ViewImageDetails part={part} />
+  }
   return <GeneralToolCallDetails part={part} />
+}
+
+// ─── View Image ─────────────────────────────────────────────────────
+
+const ViewImageDetails: FC<{ part: MessageToolCallPart }> = ({ part }) => {
+  const setPictureShow = useUIStore((s) => s.setPictureShow)
+  const result = part.result as Record<string, unknown> | undefined
+  const storageKey = typeof result?.image_storage_key === 'string' ? result.image_storage_key : ''
+  const filePath =
+    getFirstStringValue(part.args, ['file_path']) || (typeof result?.file_path === 'string' ? result.file_path : '')
+  if (part.state !== 'result' || !storageKey) {
+    return <GeneralToolCallDetails part={part} />
+  }
+  return (
+    <Stack gap={6}>
+      {filePath && (
+        <Text size="xs" c="chatbox-tertiary" style={{ wordBreak: 'break-all' }}>
+          {filePath}
+        </Text>
+      )}
+      <Box
+        style={{
+          maxWidth: 320,
+          borderRadius: 'var(--mantine-radius-md)',
+          overflow: 'hidden',
+          cursor: 'zoom-in',
+          width: 'fit-content',
+        }}
+        onClick={() => setPictureShow({ picture: { storageKey } })}
+      >
+        <ImageInStorage storageKey={storageKey} />
+      </Box>
+    </Stack>
+  )
 }
 
 // Shared timeline rail: the connecting line(s) plus the round status node.

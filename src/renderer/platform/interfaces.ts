@@ -117,6 +117,8 @@ export interface Platform extends Storage {
     regex?: boolean
     include?: string
   }): Promise<{ success: boolean; content?: string; error?: string }>
+  /** Read a host image file as base64 (read-only, size-capped in the main process). */
+  fsReadImage?(params: { filePath: string }): Promise<{ success: boolean; base64?: string; error?: string }>
   fsWrite?(params: { filePath: string; content: string }): Promise<{ success: boolean; error?: string }>
   fsEdit?(params: {
     filePath: string
@@ -221,7 +223,11 @@ export interface Platform extends Storage {
   }): Promise<{ success: boolean; artifactPath?: string; error?: string }>
   sandboxHasArtifacts?(params: { sessionId: string }): Promise<{ has: boolean }>
   sandboxRemoveArtifacts?(params: { sessionId: string }): Promise<{ success: boolean; error?: string }>
-  sandboxReadFileBase64?(params: { filePath: string }): Promise<{ success: boolean; base64?: string; error?: string }>
+  sandboxReadFileBase64?(params: {
+    filePath: string
+    /** Reject files larger than this many bytes before reading them into memory. */
+    maxBytes?: number
+  }): Promise<{ success: boolean; base64?: string; error?: string }>
   sandboxCreateHtmlPreview?(params: { filePath: string }): Promise<{ success: boolean; url?: string; error?: string }>
 
   // Directory dialog (Desktop only)

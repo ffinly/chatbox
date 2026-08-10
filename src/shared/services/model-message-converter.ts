@@ -2,6 +2,14 @@ import type { JSONValue } from '@ai-sdk/provider'
 import type { ReasoningPart } from '@ai-sdk/provider-utils'
 import type { FilePart, ImagePart, ModelMessage, TextPart, ToolCallPart } from 'ai'
 import { compact } from 'lodash'
+import {
+  buildViewImageToolResultContent,
+  buildViewImageUserMessage,
+  parseViewImageToolResult,
+  VIEW_IMAGE_TOOL_NAME,
+  type ViewImageInjection,
+  viewImageAttachmentNotice,
+} from '../tools/view-image'
 import type { Message, MessageContentParts, MessageContentToolCallPart } from '../types'
 import { getMessageText } from '../utils/message'
 
@@ -16,6 +24,13 @@ export interface ConvertToModelMessagesOptions {
   modelSupportVision: boolean
   preserveReasoning?: boolean
   ensureGoogleFunctionCallSignatures?: boolean
+  /**
+   * The model's wire protocol accepts images inside tool results (see
+   * `supportsToolResultImages`). Explicit true embeds stored `view_image` results
+   * in tool output; explicit false injects follow-up user image messages. Omission
+   * keeps compact JSON for auxiliary callers such as naming and summarization.
+   */
+  supportToolResultImages?: boolean
 }
 
 const GOOGLE_THOUGHT_SIGNATURE_VALIDATOR_BYPASS = 'skip_thought_signature_validator'
@@ -159,7 +174,7 @@ async function convertContentParts<T extends TextPart | ImagePart | FilePart>(
   )
 }
 
-async function convertUserContentParts(
+function convertUserContentParts(
   contentParts: MessageContentParts,
   resolveImage: ModelImageResolver,
   options?: { modelSupportVision: boolean }
@@ -212,11 +227,65 @@ async function convertAssistantContentParts(
  * the correct message sequence: assistant(pre-tool + tool-call) → tool(result) → assistant(post-tool).
  * This preserves the ordering that providers expect for multi-turn tool use.
  */
+type ToolResultModelOutput =
+  | { type: 'error-text'; value: string }
+  | { type: 'text'; value: string }
+  | { type: 'json'; value: JSONValue }
+  | {
+      type: 'content'
+      value: Array<{ type: 'text'; text: string } | { type: 'image-data'; data: string; mediaType: string }>
+    }
+
+/**
+ * Re-deliver a stored `view_image` result as an actual image on history resends.
+ * Protocols that accept media in tool results get it embedded there; other vision models
+ * get a text tool output plus a follow-up user message with a real image part (the same
+ * shape as a user-uploaded image — never base64-as-text). Returns null when the part is
+ * not a usable view_image result, the model has no vision, or the stored blob is gone
+ * (callers fall back to the plain JSON output, which still carries the file path).
+ */
+async function toViewImageToolOutput(
+  toolCallPart: MessageContentToolCallPart,
+  resolveImage: ModelImageResolver,
+  options?: { modelSupportVision?: boolean; supportToolResultImages?: boolean }
+): Promise<{ output: ToolResultModelOutput; injection?: ViewImageInjection } | null> {
+  if (toolCallPart.toolName !== VIEW_IMAGE_TOOL_NAME) return null
+  if (options?.modelSupportVision === false) return null
+  // Re-inlining view_image data is agent-generation behavior. Auxiliary callers such as
+  // summaries and naming omit this option and must retain the compact JSON result.
+  if (options?.supportToolResultImages === undefined) return null
+  const viewImageResult = parseViewImageToolResult(toolCallPart.result)
+  if (!viewImageResult) return null
+  const resolved = await resolveImageData(viewImageResult.image_storage_key, resolveImage)
+  if (!resolved) return null
+  if (options?.supportToolResultImages) {
+    return {
+      output: buildViewImageToolResultContent({
+        filePath: viewImageResult.file_path,
+        ...resolved,
+      }),
+    }
+  }
+  return {
+    output: { type: 'text', value: viewImageAttachmentNotice(viewImageResult.file_path) },
+    injection: {
+      filePath: viewImageResult.file_path,
+      base64Data: resolved.base64Data,
+      mediaType: resolved.mediaType,
+    },
+  }
+}
+
 async function emitAssistantMessages(
   contentParts: MessageContentParts,
   resolveImage: ModelImageResolver,
   output: ModelMessage[],
-  options?: { preserveReasoning?: boolean; ensureGoogleFunctionCallSignatures?: boolean }
+  options?: {
+    preserveReasoning?: boolean
+    ensureGoogleFunctionCallSignatures?: boolean
+    modelSupportVision?: boolean
+    supportToolResultImages?: boolean
+  }
 ): Promise<void> {
   let cursor = 0
   while (cursor < contentParts.length) {
@@ -245,39 +314,56 @@ async function emitAssistantMessages(
       output.push({ role: 'assistant' as const, content: converted })
     }
 
-    const toolResults = toolCallParts.map((tc) => {
-      let toolOutput: { type: 'error-text'; value: string } | { type: 'json'; value: JSONValue }
-      if (tc.state === 'error') {
-        toolOutput = { type: 'error-text' as const, value: stringifyErrorResult(tc.result) }
-      } else if (tc.resultStorageKey) {
-        // The full result was offloaded to blob storage — send the preview + a hint.
-        // tc.result is always a plain string here (truncated from the serialized form).
-        const preview = String(tc.result ?? '')
-        toolOutput = {
-          type: 'json' as const,
-          value: {
-            _truncated: true,
-            preview,
-            fullResultFileKey: tc.resultStorageKey,
-            hint: 'Result was too large and has been truncated. Use the read_file tool with the fullResultFileKey above to read the complete result.',
-          } as JSONValue,
+    const convertedToolResults = await Promise.all(
+      toolCallParts.map(async (tc) => {
+        let toolOutput: ToolResultModelOutput
+        let injection: ViewImageInjection | undefined
+        if (tc.state === 'error') {
+          toolOutput = { type: 'error-text' as const, value: stringifyErrorResult(tc.result) }
+        } else if (tc.resultStorageKey) {
+          // The full result was offloaded to blob storage — send the preview + a hint.
+          // tc.result is always a plain string here (truncated from the serialized form).
+          const preview = String(tc.result ?? '')
+          toolOutput = {
+            type: 'json' as const,
+            value: {
+              _truncated: true,
+              preview,
+              fullResultFileKey: tc.resultStorageKey,
+              hint: 'Result was too large and has been truncated. Use the read_file tool with the fullResultFileKey above to read the complete result.',
+            } as JSONValue,
+          }
+        } else {
+          const viewImageOutput = await toViewImageToolOutput(tc, resolveImage, options)
+          injection = viewImageOutput?.injection
+          toolOutput =
+            viewImageOutput?.output ??
+            ({ type: 'json' as const, value: toSafeJSONValue(tc.result) } as ToolResultModelOutput)
         }
-      } else {
-        toolOutput = { type: 'json' as const, value: toSafeJSONValue(tc.result) }
-      }
-      return {
-        type: 'tool-result' as const,
-        toolCallId: tc.toolCallId,
-        toolName: tc.toolName,
-        output: toolOutput,
-        providerOptions: tc.resultProviderMetadata,
-      }
-    })
+        return {
+          toolResult: {
+            type: 'tool-result' as const,
+            toolCallId: tc.toolCallId,
+            toolName: tc.toolName,
+            output: toolOutput,
+            providerOptions: tc.resultProviderMetadata,
+          },
+          injection,
+        }
+      })
+    )
 
     output.push({
       role: 'tool' as const,
-      content: toolResults,
+      content: convertedToolResults.map((entry) => entry.toolResult),
     })
+
+    // Vision models on protocols without tool-result media get the image as a follow-up
+    // user message with real image parts — the same shape as a user-uploaded image.
+    const imageInjections = compact(convertedToolResults.map((entry) => entry.injection))
+    if (imageInjections.length > 0) {
+      output.push(buildViewImageUserMessage(imageInjections))
+    }
 
     cursor = batchEnd
   }
@@ -328,6 +414,8 @@ export async function convertToModelMessages(
         await emitAssistantMessages(m.contentParts || [], resolveImage, output, {
           preserveReasoning: options?.preserveReasoning,
           ensureGoogleFunctionCallSignatures: options?.ensureGoogleFunctionCallSignatures,
+          modelSupportVision: options?.modelSupportVision,
+          supportToolResultImages: options?.supportToolResultImages,
         })
         break
       case 'tool':

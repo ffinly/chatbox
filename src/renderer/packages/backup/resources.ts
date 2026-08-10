@@ -1,4 +1,5 @@
 import { isTextFilePath } from '@shared/file-extensions'
+import { parseViewImageToolResult, VIEW_IMAGE_TOOL_NAME } from '@shared/tools/view-image'
 import type { CopilotDetail, Message, MessageFile, Session, SessionMetaRecord, Settings } from '@shared/types'
 import type { BackupResourceEntry, BackupWarning } from './types'
 
@@ -74,13 +75,24 @@ function collectMessageReferences(
   for (const part of message.contentParts ?? []) {
     if (part.type === 'image') {
       addReference(references, { storageKey: part.storageKey, kind: 'image', sessionId })
-    } else if (part.type === 'tool-call' && part.resultStorageKey) {
-      addReference(references, {
-        storageKey: part.resultStorageKey,
-        kind: 'tool-result',
-        sessionId,
-        mimeType: 'text/plain',
-      })
+    } else if (part.type === 'tool-call') {
+      if (part.resultStorageKey) {
+        addReference(references, {
+          storageKey: part.resultStorageKey,
+          kind: 'tool-result',
+          sessionId,
+          mimeType: 'text/plain',
+        })
+      }
+      const viewImageResult = part.toolName === VIEW_IMAGE_TOOL_NAME ? parseViewImageToolResult(part.result) : null
+      if (viewImageResult) {
+        addReference(references, {
+          storageKey: viewImageResult.image_storage_key,
+          kind: 'image',
+          sessionId,
+          mimeType: viewImageResult.media_type,
+        })
+      }
     }
   }
 }
@@ -204,10 +216,20 @@ function restoreMessageResourceKeys(message: Message, resourceKeyMap: ReadonlyMa
       const restoredStorageKey = restoreResourceKey(part.storageKey, resourceKeyMap)
       if (restoredStorageKey === undefined) return []
       part.storageKey = restoredStorageKey
-    } else if (part.type === 'tool-call' && part.resultStorageKey !== undefined) {
-      const restoredStorageKey = restoreResourceKey(part.resultStorageKey, resourceKeyMap)
-      if (restoredStorageKey === undefined) delete part.resultStorageKey
-      else part.resultStorageKey = restoredStorageKey
+    } else if (part.type === 'tool-call') {
+      if (part.resultStorageKey !== undefined) {
+        const restoredStorageKey = restoreResourceKey(part.resultStorageKey, resourceKeyMap)
+        if (restoredStorageKey === undefined) delete part.resultStorageKey
+        else part.resultStorageKey = restoredStorageKey
+      }
+      const viewImageResult = part.toolName === VIEW_IMAGE_TOOL_NAME ? parseViewImageToolResult(part.result) : null
+      if (viewImageResult) {
+        const restoredStorageKey = restoreResourceKey(viewImageResult.image_storage_key, resourceKeyMap)
+        const resultRecord = part.result as Record<string, unknown>
+        // A missing blob degrades gracefully: converter and UI fall back to the JSON result.
+        if (restoredStorageKey === undefined) delete resultRecord.image_storage_key
+        else resultRecord.image_storage_key = restoredStorageKey
+      }
     }
     return [part]
   })

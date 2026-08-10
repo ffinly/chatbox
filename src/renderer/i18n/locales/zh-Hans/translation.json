@@ -1348,5 +1348,6 @@
   "Scanning local memories…": "正在扫描本地记忆…",
   "Found {{count}} new local memories.": "发现 {{count}} 条新的本地记忆。",
   "Review": "审阅",
-  "No new local memories were found.": "未发现新的本地记忆。"
+  "No new local memories were found.": "未发现新的本地记忆。",
+  "View Image": "查看图片"
 }

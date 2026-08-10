@@ -1348,5 +1348,6 @@
   "Scanning local memories…": "Skanner lokale minner…",
   "Found {{count}} new local memories.": "Fant {{count}} nye lokale minner.",
   "Review": "Se gjennom",
-  "No new local memories were found.": "Fant ingen nye lokale minner."
+  "No new local memories were found.": "Fant ingen nye lokale minner.",
+  "View Image": "Vis bilde"
 }

@@ -1348,5 +1348,6 @@
   "Scanning local memories…": "Analisi dei ricordi locali…",
   "Found {{count}} new local memories.": "Trovati {{count}} nuovi ricordi locali.",
   "Review": "Rivedi",
-  "No new local memories were found.": "Non sono stati trovati nuovi ricordi locali."
+  "No new local memories were found.": "Non sono stati trovati nuovi ricordi locali.",
+  "View Image": "Visualizza immagine"
 }

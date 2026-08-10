@@ -1348,5 +1348,6 @@
   "Scanning local memories…": "Analyse des souvenirs locaux…",
   "Found {{count}} new local memories.": "{{count}} nouveaux souvenirs locaux ont été trouvés.",
   "Review": "Vérifier",
-  "No new local memories were found.": "Aucun nouveau souvenir local n’a été trouvé."
+  "No new local memories were found.": "Aucun nouveau souvenir local n’a été trouvé.",
+  "View Image": "Afficher l'image"
 }

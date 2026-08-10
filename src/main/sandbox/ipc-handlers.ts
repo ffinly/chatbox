@@ -1,5 +1,3 @@
-import { lstat as fsLstat, readFile as fsReadFile, realpath as fsRealpath } from 'node:fs/promises'
-import path from 'node:path'
 import { ipcMain } from 'electron'
 import type { SandboxExecLanguage } from '../../shared/sandbox-provider'
 import { getLogger } from '../util'
@@ -26,6 +24,7 @@ import {
   writeFile,
 } from './manager'
 import { createSandboxHtmlPreviewUrl } from './preview-server'
+import { readSandboxFileBase64 } from './read-file-base64'
 
 const log = getLogger('sandbox:ipc-handlers')
 
@@ -272,21 +271,10 @@ export function registerSandboxIPCHandlers() {
 
   // Read a file as base64 directly from disk (no sandbox init required).
   // Restricted to files within a known sandbox root (temp working dirs or persisted artifacts).
-  ipcMain.handle('sandbox:read-file-base64', async (_event, params: { filePath: string }) => {
+  ipcMain.handle('sandbox:read-file-base64', async (_event, params: { filePath: string; maxBytes?: number }) => {
     try {
       const sandboxRoots = getSandboxAllowedRoots()
-      // Check for symlinks before resolving — defense-in-depth
-      const stat = await fsLstat(params.filePath)
-      if (stat.isSymbolicLink()) {
-        return { success: false, error: 'Access denied: symlinks not allowed' }
-      }
-      const resolved = await fsRealpath(params.filePath)
-      const isInsideSandbox = sandboxRoots.some((root) => resolved === root || resolved.startsWith(root + path.sep))
-      if (!isInsideSandbox) {
-        return { success: false, error: 'Access denied: path outside sandbox directory' }
-      }
-      const buffer = await fsReadFile(resolved)
-      return { success: true, base64: buffer.toString('base64') }
+      return await readSandboxFileBase64(params, sandboxRoots)
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error)
       return { success: false, error: msg }

@@ -57,7 +57,12 @@ vi.hoisted(() => {
 })
 
 vi.mock('@/platform', () => ({
-  default: { type: 'web', readWorkspaceInstructions: readWorkspaceInstructionsMock },
+  default: {
+    type: 'web',
+    readWorkspaceInstructions: readWorkspaceInstructionsMock,
+    // Presence enables view_image registration (isViewImageAvailable).
+    fsReadImage: vi.fn(),
+  },
 }))
 
 const trackAgentModeFullAccessBypassMock = vi.fn()
@@ -1188,5 +1193,65 @@ describe('user_exec tool', () => {
       type: 'text',
       value: 'Exit code: 0\n\n(no output)',
     })
+  })
+})
+
+describe('buildToolsForSession — view_image gating', () => {
+  test('registers view_image for vision models on media-capable protocols in agent mode', async () => {
+    const model = createMockModel({ apiStyle: 'anthropic' } as Partial<ModelInterface>)
+    const result = await buildToolsForSession(model, {
+      webBrowsing: false,
+      messages: [],
+      agentMode: 'on',
+    })
+    expect(result.tools.view_image).toBeDefined()
+    expect(result.instructions).toContain('view_image')
+  })
+
+  test('registers view_image with user-message injection for chat-completions style providers', async () => {
+    const model = createMockModel({ apiStyle: 'openai' } as Partial<ModelInterface>)
+    const result = await buildToolsForSession(model, {
+      webBrowsing: false,
+      messages: [],
+      agentMode: 'on',
+    })
+    // Chat-completions protocols cannot embed images in tool results, so the image is
+    // delivered via the prepareStep messages rewrite instead of being dropped.
+    expect(result.tools.view_image).toBeDefined()
+    expect(result.prepareStepMessages).toBeDefined()
+  })
+
+  test('media-capable protocols embed in tool results and need no step-message rewrite', async () => {
+    const model = createMockModel({ apiStyle: 'anthropic' } as Partial<ModelInterface>)
+    const result = await buildToolsForSession(model, {
+      webBrowsing: false,
+      messages: [],
+      agentMode: 'on',
+    })
+    expect(result.tools.view_image).toBeDefined()
+    expect(result.prepareStepMessages).toBeUndefined()
+  })
+
+  test('omits view_image without vision support', async () => {
+    const model = createMockModel({
+      apiStyle: 'anthropic',
+      isSupportVision: vi.fn().mockReturnValue(false),
+    } as Partial<ModelInterface>)
+    const result = await buildToolsForSession(model, {
+      webBrowsing: false,
+      messages: [],
+      agentMode: 'on',
+    })
+    expect(result.tools.view_image).toBeUndefined()
+  })
+
+  test('omits view_image outside agent mode', async () => {
+    const model = createMockModel({ apiStyle: 'anthropic' } as Partial<ModelInterface>)
+    const result = await buildToolsForSession(model, {
+      webBrowsing: false,
+      messages: [],
+      agentMode: 'off',
+    })
+    expect(result.tools.view_image).toBeUndefined()
   })
 })

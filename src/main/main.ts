@@ -28,11 +28,13 @@ import path from 'path'
 import * as sourceMapSupport from 'source-map-support'
 import type { ShortcutSetting } from 'src/shared/types'
 import { KNOWN_LOCAL_PARSER_ERROR_CODES } from '../shared/file-parse-errors'
+import { VIEW_IMAGE_MAX_READ_BYTES } from '../shared/tools/view-image'
 import { flushSentry, sentry } from './adapters/sentry'
 import { registerAgentPersonaHandlers } from './agent-persona/ipc-handlers'
 import * as analystic from './analystic-node'
 import { AppUpdater } from './app-updater'
 import * as autoLauncher from './autoLauncher'
+import { formatTooLargeFileRead, readRegularFileBytesBounded } from './bounded-file-read'
 import { handleDeepLink } from './deeplinks'
 import { parseFile } from './file-parser'
 import { isQuitForInstallRequested } from './installer-command'
@@ -894,6 +896,24 @@ ipcMain.handle('fs:read', async (_event, params: { filePath: string; offset?: nu
       endLine,
       totalLines: lines.length,
     }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
+  }
+})
+
+// Same read-only trust level as fs:read; the renderer downscales before anything is
+// stored or sent, so the cap only guards against reading a huge file into memory.
+ipcMain.handle('fs:read-image', async (_event, params: { filePath: string }) => {
+  try {
+    const resolved = path.resolve(params.filePath)
+    const result = await readRegularFileBytesBounded(resolved, VIEW_IMAGE_MAX_READ_BYTES)
+    if (!result.success && result.reason === 'not-regular-file') {
+      return { success: false, error: 'Path is not a file' }
+    }
+    if (!result.success) {
+      return { success: false, error: formatTooLargeFileRead(result, 'Image file') }
+    }
+    return { success: true, base64: result.bytes.toString('base64') }
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) }
   }

@@ -283,6 +283,10 @@ export default class DesktopPlatform implements Platform {
     return this.ipc.invoke('fs:read', params)
   }
 
+  async fsReadImage(params: { filePath: string }): Promise<{ success: boolean; base64?: string; error?: string }> {
+    return this.ipc.invoke('fs:read-image', params)
+  }
+
   async readWorkspaceInstructions(directories: string[]): Promise<WorkspaceInstructionsResult> {
     return this.ipc.invoke('workspace:read-instructions', directories)
   }
@@ -487,6 +491,7 @@ export default class DesktopPlatform implements Platform {
 
   public async sandboxReadFileBase64(params: {
     filePath: string
+    maxBytes?: number
   }): Promise<{ success: boolean; base64?: string; error?: string }> {
     return this.ipc.invoke('sandbox:read-file-base64', params)
   }

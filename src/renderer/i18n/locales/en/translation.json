@@ -1348,5 +1348,6 @@
   "Scanning local memories…": "Scanning local memories…",
   "Found {{count}} new local memories.": "Found {{count}} new local memories.",
   "Review": "Review",
-  "No new local memories were found.": "No new local memories were found."
+  "No new local memories were found.": "No new local memories were found.",
+  "View Image": "View Image"
 }

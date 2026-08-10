@@ -1,9 +1,10 @@
 import type { ModelInterface } from '@shared/models/types'
 import type { SandboxProvider } from '@shared/sandbox-provider'
+import { supportsToolResultImages } from '@shared/tools/view-image'
 import type { KnowledgeBase, Message, SessionSettings, Settings } from '@shared/types'
 import type { UserExecApprovalSource } from '@shared/types/user-exec'
 import { getMessageText } from '@shared/utils/message'
-import { jsonSchema, type ToolSet } from 'ai'
+import { jsonSchema, type ModelMessage, type ToolSet } from 'ai'
 import { trackAgentModeFullAccessBypass } from '@/analytics/agent-mode'
 import { languageNameMap } from '@/i18n/locales'
 import { mcpController } from '@/packages/mcp/controller'
@@ -17,6 +18,7 @@ import { getToolSet as getKBToolSet } from '@/packages/model-calls/toolsets/know
 import { asRecord, numberField, stringField, toTextModelOutput } from '@/packages/model-calls/toolsets/model-output'
 import { remapPhantomHomePath } from '@/packages/model-calls/toolsets/sandbox-paths'
 import { getToolSet as getSessionAttachmentRagToolSet } from '@/packages/model-calls/toolsets/session-attachment-rag'
+import { buildViewImageToolSet, isViewImageAvailable } from '@/packages/model-calls/toolsets/view-image'
 import { getToolSetDescription, parseLinkTool, webSearchTool } from '@/packages/model-calls/toolsets/web-search'
 import { buildWorkspaceInstructions } from '@/packages/model-calls/workspace-instructions'
 import { skillsController, subscribeSkillsChanged } from '@/packages/skills/controller'
@@ -79,6 +81,12 @@ export interface BuildToolsOptions {
 export interface BuildToolsResult {
   tools: ToolSet
   instructions: string
+  /**
+   * Step-message rewrite for protocols that cannot embed images in tool results:
+   * inserts view_image results as follow-up user messages with real image parts.
+   * Callers wire it into prepareStep's `messages` override.
+   */
+  prepareStepMessages?: (messages: ModelMessage[]) => Promise<ModelMessage[]>
 }
 
 /**
@@ -345,6 +353,22 @@ When you create a Git commit that includes code changes, append this exact trail
     tools = { ...tools, ...codeExecToolSet.tools }
   }
 
+  // Image viewing: agent mode + vision. Protocols with tool-result media support embed
+  // the image in the tool result; chat-completions style protocols instead deliver it as
+  // a follow-up user message with real image parts (prepareStepMessages) — never as text.
+  let prepareStepMessages: BuildToolsResult['prepareStepMessages']
+  const includeViewImageTool = includeAgentTools && model.isSupportVision() && isViewImageAvailable()
+  if (includeViewImageTool) {
+    const viewImageToolSet = buildViewImageToolSet({
+      sessionId: options.sessionId ?? codeExecution?.sessionId,
+      provider: codeExecution?.provider,
+      toolResultImages: supportsToolResultImages(model.apiStyle),
+    })
+    instructions += viewImageToolSet.description
+    tools = { ...tools, ...viewImageToolSet.tools }
+    prepareStepMessages = viewImageToolSet.injectImagesIntoStepMessages
+  }
+
   if (includeAgentTools) {
     const filesystemToolSet = buildFilesystemTools({
       sessionId: codeExecution?.sessionId,
@@ -397,7 +421,7 @@ When you create a Git commit that includes code changes, append this exact trail
     instructions = buildToolUseCommunicationInstruction() + instructions
   }
 
-  return { tools, instructions }
+  return { tools, instructions, ...(prepareStepMessages ? { prepareStepMessages } : {}) }
 }
 
 function buildLoadSkillTool(options: BuildToolsOptions): ToolSet[string] {

@@ -1348,5 +1348,6 @@
   "Scanning local memories…": "正在掃描本機記憶…",
   "Found {{count}} new local memories.": "找到 {{count}} 條新的本機記憶。",
   "Review": "檢視",
-  "No new local memories were found.": "找不到新的本機記憶。"
+  "No new local memories were found.": "找不到新的本機記憶。",
+  "View Image": "查看圖片"
 }

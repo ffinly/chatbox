@@ -373,6 +373,41 @@ describe('GenerationService', () => {
     expect(harness.steeringWake).toHaveBeenCalledWith('session-1')
   })
 
+  it('applies steering after an inner prepareStep message rewrite', async () => {
+    const rewrittenMessages = [{ role: 'user', content: 'with injected image' }] as ModelMessage[]
+    harness.setPrepareStep(() => Promise.resolve({ activeTools: ['tool_a'], messages: rewrittenMessages }))
+    harness.steeringInject.mockImplementationOnce((messages: ModelMessage[]) =>
+      Promise.resolve([...messages, { role: 'user', content: 'steered' }])
+    )
+
+    let stepResult: unknown
+    harness.setChatStreamFactory((_messages, options) =>
+      (async function* streamWithComposedPrepareStep() {
+        const prepareStep = options.prepareStep
+        if (!prepareStep) throw new Error('Expected prepareStep to be wired')
+        stepResult = await prepareStep({
+          steps: [],
+          stepNumber: 0,
+          model: {},
+          messages: [{ role: 'user', content: 'original' }],
+          experimental_context: undefined,
+        } as unknown as Parameters<NonNullable<ChatStreamOptions['prepareStep']>>[0])
+        yield { type: 'finish', finishReason: 'stop' } as ModelStreamPart<ToolSet>
+      })()
+    )
+
+    await harness.service.orchestrate('session-1', targetMessage())
+
+    expect(harness.steeringInject).toHaveBeenCalledWith(rewrittenMessages)
+    expect(stepResult).toEqual({
+      activeTools: ['tool_a'],
+      messages: [
+        { role: 'user', content: 'with injected image' },
+        { role: 'user', content: 'steered' },
+      ],
+    })
+  })
+
   it('persists a tool-call checkpoint immediately instead of waiting for the periodic interval', async () => {
     harness.setStreamFactory(() =>
       stream([

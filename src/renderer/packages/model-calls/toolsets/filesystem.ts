@@ -97,7 +97,7 @@ function formatEditFileOutput(output: unknown): string {
   return contentOrErrorText(output)
 }
 
-function isAbsolutePath(filePath: string): boolean {
+export function isAbsolutePath(filePath: string): boolean {
   return filePath.startsWith('/') || isWindowsAbsolutePath(filePath)
 }
 
@@ -173,7 +173,7 @@ function isWindowsRenderer(): boolean {
   return typeof navigator !== 'undefined' && (navigator.userAgent ?? '').includes('Windows')
 }
 
-function normalizeToolPathForPlatform(filePath: string): string {
+export function normalizeToolPathForPlatform(filePath: string): string {
   if (!isWindowsRenderer()) return filePath
   return normalizeWindowsAbsolutePath(filePath) ?? filePath
 }

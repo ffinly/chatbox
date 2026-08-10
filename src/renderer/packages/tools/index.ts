@@ -72,6 +72,7 @@ export function getToolName(toolName: string, input?: unknown): string {
     install_skill: t('Install Skill'),
     user_exec: t('Run Command'),
     parse_file: t('Parse File'),
+    view_image: t('View Image'),
   }
 
   return toolNames[toolName] || toolName

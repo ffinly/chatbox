@@ -1,6 +1,6 @@
 import type { Message } from '@shared/types'
 import { modelMessageSchema } from 'ai'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { convertToModelMessages } from './model-message-converter'
 
 // Tool-call fixtures below never reference images, so the resolver is never called.
@@ -446,5 +446,112 @@ describe('convertToModelMessages — tool result sanitization', () => {
       { type: 'text', text: 'final answer' },
     ])
     expect(() => modelMessageSchema.parse(preservedAssistant)).not.toThrow()
+  })
+})
+
+describe('convertToModelMessages — view_image tool results', () => {
+  const viewImageMessage = (result: unknown): Message => ({
+    id: 'a1',
+    role: 'assistant',
+    contentParts: [
+      {
+        type: 'tool-call',
+        state: 'result',
+        toolCallId: 'call-1',
+        toolName: 'view_image',
+        args: { file_path: 'chart.png' },
+        result,
+      },
+    ],
+  })
+
+  const viewImageResult = {
+    file_path: 'chart.png',
+    image_storage_key: 'picture:view-image:s1:uuid',
+    media_type: 'image/png',
+  }
+
+  const resolveStored = (storageKey: string) =>
+    Promise.resolve(storageKey === 'picture:view-image:s1:uuid' ? 'data:image/png;base64,SU1BR0U=' : null)
+
+  it('re-inlines the stored image when the model supports tool-result images', async () => {
+    const output = await convertToModelMessages([viewImageMessage(viewImageResult)], resolveStored, {
+      modelSupportVision: true,
+      supportToolResultImages: true,
+    })
+
+    const toolMsg = output.find((m) => m.role === 'tool')
+    const part = (toolMsg?.content as Array<{ type: string; output: unknown }>)[0]
+    expect(part.output).toEqual({
+      type: 'content',
+      value: [
+        { type: 'text', text: 'Viewed image: chart.png' },
+        { type: 'image-data', data: 'SU1BR0U=', mediaType: 'image/png' },
+      ],
+    })
+    for (const msg of output) {
+      expect(() => modelMessageSchema.parse(msg)).not.toThrow()
+    }
+  })
+
+  it('delivers the image as a follow-up user message when tool-result images are unsupported', async () => {
+    const output = await convertToModelMessages([viewImageMessage(viewImageResult)], resolveStored, {
+      modelSupportVision: true,
+      supportToolResultImages: false,
+    })
+
+    // The tool output is a plain text notice — never base64-as-text.
+    const toolIndex = output.findIndex((m) => m.role === 'tool')
+    const part = (output[toolIndex]?.content as Array<{ type: string; output: { type: string; value: unknown } }>)[0]
+    expect(part.output.type).toBe('text')
+    expect(String(part.output.value)).toContain('attached in the user message')
+    expect(JSON.stringify(part.output)).not.toContain('SU1BR0U=')
+
+    // The image itself follows as a real user-message image part (same as a user upload).
+    const followUp = output[toolIndex + 1]
+    expect(followUp).toEqual({
+      role: 'user',
+      content: [
+        { type: 'text', text: '[Image from view_image tool: chart.png]' },
+        { type: 'image', image: 'SU1BR0U=', mediaType: 'image/png' },
+      ],
+    })
+    for (const msg of output) {
+      expect(() => modelMessageSchema.parse(msg)).not.toThrow()
+    }
+  })
+
+  it('keeps compact json when view_image re-inlining is not explicitly enabled', async () => {
+    const resolver = vi.fn(resolveStored)
+    const output = await convertToModelMessages([viewImageMessage(viewImageResult)], resolver, {
+      modelSupportVision: true,
+    })
+
+    const toolIndex = output.findIndex((message) => message.role === 'tool')
+    const part = (output[toolIndex]?.content as Array<{ output: { type: string; value: unknown } }>)[0]
+    expect(part.output).toEqual({ type: 'json', value: viewImageResult })
+    expect(output[toolIndex + 1]).toBeUndefined()
+    expect(resolver).not.toHaveBeenCalled()
+  })
+
+  it('falls back to json output when the model has no vision', async () => {
+    const output = await convertToModelMessages([viewImageMessage(viewImageResult)], resolveStored, {
+      modelSupportVision: false,
+      supportToolResultImages: true,
+    })
+    const toolMsg = output.find((m) => m.role === 'tool')
+    const part = (toolMsg?.content as Array<{ type: string; output: { type: string } }>)[0]
+    expect(part.output.type).toBe('json')
+  })
+
+  it('falls back to json output when the stored blob is gone', async () => {
+    const output = await convertToModelMessages(
+      [viewImageMessage({ ...viewImageResult, image_storage_key: 'picture:missing' })],
+      resolveStored,
+      { modelSupportVision: true, supportToolResultImages: true }
+    )
+    const toolMsg = output.find((m) => m.role === 'tool')
+    const part = (toolMsg?.content as Array<{ type: string; output: { type: string } }>)[0]
+    expect(part.output.type).toBe('json')
   })
 })

@@ -1348,5 +1348,6 @@
   "Scanning local memories…": "Skannar lokala minnen…",
   "Found {{count}} new local memories.": "Hittade {{count}} nya lokala minnen.",
   "Review": "Granska",
-  "No new local memories were found.": "Inga nya lokala minnen hittades."
+  "No new local memories were found.": "Inga nya lokala minnen hittades.",
+  "View Image": "Visa bild"
 }
