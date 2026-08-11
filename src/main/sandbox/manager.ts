@@ -30,6 +30,7 @@ import { shellQuote } from '../../shared/utils/shell'
 import { normalizeWindowsAbsolutePath } from '../../shared/utils/windows-path'
 import { buildOperationFinishLog, buildOperationStartLog, createOperationId } from '../operation-log'
 import { killProcessTree } from '../process-tree'
+import { getChatboxQaPaths } from '../qa-runtime'
 import { runRipgrepFileList, runRipgrepSearch } from '../ripgrep-search'
 import { getLogger } from '../util'
 import { resolveWindowsPowerShell } from '../windows-powershell'
@@ -1333,11 +1334,11 @@ export async function copyBlobToSandbox(
  * renderer's sandbox-path detection (preview gating) keeps working.
  */
 export function getSandboxTmpRoot(): string {
-  return path.join(tmpdir(), 'chatbox-sandbox')
+  return getChatboxQaPaths()?.sandboxTmpRoot ?? path.join(tmpdir(), 'chatbox-sandbox')
 }
 
 export function getSandboxArtifactsRoot(): string {
-  return path.join(app.getPath('userData'), 'chatbox-sandbox', 'artifacts')
+  return getChatboxQaPaths()?.sandboxArtifactsRoot ?? path.join(app.getPath('userData'), 'chatbox-sandbox', 'artifacts')
 }
 
 /**
