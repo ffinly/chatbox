@@ -206,10 +206,11 @@ async function convertAssistantContentParts(
       if (c.type === 'text') {
         return { type: 'text', text: c.text } as TextPart
       }
-      // Reasoning is opt-in per provider. DeepSeek V4 thinking mode requires it on every
-      // assistant turn, but other providers reject (xAI Grok 400s on unknown
-      // `reasoning_content`) or merge it into text content (Mistral concatenates without
-      // a separator). Default off keeps prior behavior; orchestration enables it for DeepSeek.
+      // Reasoning is opt-in per provider. DeepSeek thinking mode requires it on follow-up
+      // requests, including when routed through an OpenAI-compatible provider, but other
+      // providers reject it (xAI Grok 400s on unknown `reasoning_content`) or merge it into
+      // text content (Mistral concatenates without a separator). Default off keeps prior
+      // behavior; orchestration enables it only for positively identified DeepSeek routes.
       if (c.type === 'reasoning') {
         if (!options?.preserveReasoning || !c.text) return null
         return { type: 'reasoning', text: c.text } satisfies ReasoningPart

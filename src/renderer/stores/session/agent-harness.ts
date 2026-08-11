@@ -18,9 +18,9 @@ import type {
   SessionSettings,
   Settings,
 } from '@shared/types'
-import { ModelProviderEnum } from '@shared/types'
 import type { ModelDependencies } from '@shared/types/adapters'
 import { sequenceMessages } from '@shared/utils/message'
+import { shouldPreserveDeepSeekReasoning } from '@shared/utils/reasoning-control'
 import type { ToolSet } from 'ai'
 import dayjs from 'dayjs'
 import { t } from 'i18next'
@@ -416,7 +416,10 @@ export async function prepareAgentGenerationHarness(
 
   const coreMessages = await convertToModelMessages(injectedMessages, {
     modelSupportVision: model.isSupportVision(),
-    preserveReasoning: settings.provider === ModelProviderEnum.DeepSeek,
+    preserveReasoning: shouldPreserveDeepSeekReasoning(settings.provider, {
+      modelId: model.modelId,
+      apiStyle: model.apiStyle,
+    }),
     // getModel() stamps apiStyle from the provider type (builtin/custom Gemini providers)
     // or the per-model remote config (ChatboxAI google-routed models), so it is the single
     // signal for "this request speaks the Gemini function-call protocol".

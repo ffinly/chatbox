@@ -83,7 +83,7 @@ import MessageErrTips from './MessageErrTips'
 import MessageStatuses, { PreparingToolCallStatus } from './MessageLoading'
 import { getMessageActionVisibilityClass, type MessageButtonGroup } from './message-action-state'
 import { isMessageReminderPresentation, resolveMessageErrorPresentation } from './message-error-presentation'
-import { shouldRightAlignMessage } from './message-layout'
+import { shouldReserveClassicMessageTrailingSpace, shouldRightAlignMessage } from './message-layout'
 import { getMessageRoleClass } from './message-role-class'
 import { createMessageTimelineLayout } from './message-timeline'
 import { getMessageTokenDisplay } from './message-token-display'
@@ -698,6 +698,12 @@ const _Message: FC<Props> = (props) => {
   const isRightAlignedMessage = shouldRightAlignMessage(messageLayout, msg.role)
   const messageRoleClass = getMessageRoleClass(msg.role)
   const shouldShowAvatar = showAvatar ?? true
+  const reserveClassicMessageTrailingSpace = shouldReserveClassicMessageTrailingSpace(
+    messageLayout,
+    msg.role,
+    shouldShowAvatar,
+    isSmallScreen
+  )
   const statusElements = <MessageStatuses statuses={leadingStatuses} />
   const errorTipsElement = (
     <MessageErrTips
@@ -1228,6 +1234,7 @@ const _Message: FC<Props> = (props) => {
             {meta}
             {messageActions}
           </Flex>
+          {reserveClassicMessageTrailingSpace && <Box aria-hidden className="w-7 shrink-0" />}
         </Flex>
       </Box>
     )

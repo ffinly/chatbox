@@ -313,10 +313,6 @@ html[data-need-room-for-windows-controls="true"] .pswp__top-bar {
   width: 12px !important;
 }
 
-*::-webkit-scrollbar-corner {
-  background-color: transparent;
-}
-
 div[data-vaul-handle] {
   margin: 12px auto;
   width: 64px;

@@ -545,7 +545,7 @@ const HighlightedShikiCodeBlock = memo(
 
     if (!html) {
       return (
-        <div className="shiki-code-wrapper shiki-code-fallback max-w-full min-w-0 text-xs" style={lineNumberStyle}>
+        <div className="shiki-code-wrapper shiki-code-fallback max-w-full min-w-0" style={lineNumberStyle}>
           <pre>
             <code>{code}</code>
           </pre>
@@ -555,7 +555,7 @@ const HighlightedShikiCodeBlock = memo(
 
     return (
       <div
-        className="shiki-code-wrapper max-w-full min-w-0 text-xs"
+        className="shiki-code-wrapper max-w-full min-w-0"
         style={lineNumberStyle}
         // biome-ignore lint/security/noDangerouslySetInnerHtml: shiki generates safe HTML from code tokenization
         dangerouslySetInnerHTML={{ __html: html }}
@@ -571,7 +571,7 @@ const StreamingPlainCodeBlock = memo(
     }, [language])
 
     return (
-      <div className="shiki-code-wrapper shiki-code-fallback max-w-full min-w-0 text-xs" style={lineNumberStyle}>
+      <div className="shiki-code-wrapper shiki-code-fallback max-w-full min-w-0" style={lineNumberStyle}>
         <pre className="shiki shiki-streaming-plain">
           <code>
             {lines.map((line, lineIndex) => (

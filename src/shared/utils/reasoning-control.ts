@@ -364,6 +364,34 @@ function isOpenAICompatibleApiStyle(provider: ModelProvider | undefined, model: 
   )
 }
 
+function usesOpenAICompatibleReasoningHistory(provider: ModelProvider | undefined, model: ProviderModelInfo): boolean {
+  if (model.apiStyle === 'openai') return true
+
+  // getModel() stamps the provider type onto current models. Keep the missing-style
+  // fallback for older ChatboxAI/custom model records that predate that metadata.
+  return (
+    !model.apiStyle &&
+    (provider === ModelProviderEnum.ChatboxAI || provider === ModelProviderEnum.Custom || isCustomProviderId(provider))
+  )
+}
+
+/**
+ * Whether historical assistant reasoning must survive conversion to model messages.
+ *
+ * The native DeepSeek SDK needs reasoning parts for its V4 request conversion.
+ * OpenAI-compatible routes, including built-in and custom providers, need the same
+ * parts so their provider SDK can emit reasoning history. Keeping both the API-style
+ * and model-family checks avoids reintroducing the Grok, Mistral, and Gemini regressions
+ * caused by preserving reasoning for every provider.
+ */
+export function shouldPreserveDeepSeekReasoning(
+  provider: ModelProvider | undefined,
+  model: ProviderModelInfo | null | undefined
+): boolean {
+  if (provider === ModelProviderEnum.DeepSeek) return true
+  return !!model && usesOpenAICompatibleReasoningHistory(provider, model) && isDeepSeekReasoningModel(model.modelId)
+}
+
 export function getReasoningControlCapabilities(
   provider: ModelProvider | undefined,
   model?: ProviderModelInfo | null

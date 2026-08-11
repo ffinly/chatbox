@@ -107,6 +107,7 @@ vi.mock('@/packages/user-exec-approval', () => ({
   requestUserExecApproval: vi.fn(),
 }))
 
+import { convertToOpenAICompatibleChatMessages } from '@ai-sdk/openai-compatible/internal'
 import type { ModelInterface } from '@shared/models/types'
 import type { SandboxProvider } from '@shared/sandbox-provider'
 import {
@@ -518,6 +519,104 @@ describe('prepareAgentGenerationHarness', () => {
     expect(serialized).toContain('tool-26')
     expect(serialized).toContain('console.log(26)')
   })
+
+  test.each([
+    { provider: 'opencode-go', modelId: 'deepseek-v4-pro' },
+    { provider: ModelProviderEnum.SiliconFlow, modelId: 'deepseek-ai/DeepSeek-R1' },
+    { provider: ModelProviderEnum.VolcEngine, modelId: 'deepseek-r1-250528' },
+  ])('passes prior DeepSeek reasoning back as reasoning_content through $provider', async ({ provider, modelId }) => {
+    const messages: Message[] = [
+      {
+        id: 'user-1',
+        role: MessageRoleEnum.User,
+        contentParts: [{ type: 'text', text: 'Solve this carefully.' }],
+      },
+      {
+        id: 'assistant-1',
+        role: MessageRoleEnum.Assistant,
+        contentParts: [
+          { type: 'reasoning', text: 'Prior private reasoning' },
+          { type: 'text', text: 'Prior answer' },
+        ],
+      },
+      {
+        id: 'user-2',
+        role: MessageRoleEnum.User,
+        contentParts: [{ type: 'text', text: 'Continue.' }],
+      },
+    ]
+
+    const prepared = await prepareAgentGenerationHarness({
+      session: createSession(),
+      settings: { provider, modelId } as SessionSettings,
+      globalSettings: {} as Settings,
+      configs: { uuid: 'config-1' } as Config,
+      messages,
+      targetMsgIx: messages.length,
+      model: createMockModel({ modelId, apiStyle: 'openai' }),
+      dependencies: createModelDependencies(),
+      webBrowsing: false,
+      agentModeValue: 'off',
+      agentModeLocked: false,
+      agentModeSupported: true,
+      signal: new AbortController().signal,
+    })
+
+    const upstreamMessages = convertToOpenAICompatibleChatMessages(prepared.coreMessages)
+    expect(upstreamMessages.find((message) => message.role === 'assistant')).toEqual({
+      role: 'assistant',
+      content: 'Prior answer',
+      reasoning_content: 'Prior private reasoning',
+    })
+  })
+
+  test.each(['grok-4', 'mistral-large-latest', 'gemini-2.5-pro'])(
+    'does not pass prior reasoning to an unrelated OpenAI-compatible %s model',
+    async (modelId) => {
+      const messages: Message[] = [
+        {
+          id: 'user-1',
+          role: MessageRoleEnum.User,
+          contentParts: [{ type: 'text', text: 'Question' }],
+        },
+        {
+          id: 'assistant-1',
+          role: MessageRoleEnum.Assistant,
+          contentParts: [
+            { type: 'reasoning', text: 'Must stay local' },
+            { type: 'text', text: 'Answer' },
+          ],
+        },
+        {
+          id: 'user-2',
+          role: MessageRoleEnum.User,
+          contentParts: [{ type: 'text', text: 'Continue' }],
+        },
+      ]
+
+      const prepared = await prepareAgentGenerationHarness({
+        session: createSession(),
+        settings: { provider: 'custom-openai', modelId } as SessionSettings,
+        globalSettings: {} as Settings,
+        configs: { uuid: 'config-1' } as Config,
+        messages,
+        targetMsgIx: messages.length,
+        model: createMockModel({ modelId, apiStyle: 'openai' }),
+        dependencies: createModelDependencies(),
+        webBrowsing: false,
+        agentModeValue: 'off',
+        agentModeLocked: false,
+        agentModeSupported: true,
+        signal: new AbortController().signal,
+      })
+
+      const upstreamMessages = convertToOpenAICompatibleChatMessages(prepared.coreMessages)
+      expect(upstreamMessages.find((message) => message.role === 'assistant')).toEqual({
+        role: 'assistant',
+        content: 'Answer',
+      })
+    }
+  )
 })
 
 describe('agent persona snapshot', () => {

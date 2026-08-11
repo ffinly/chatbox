@@ -28,9 +28,6 @@ const log = getLogger('index')
 // 按需加载 polyfill
 import './setup/load_polyfill'
 
-// Show native scrollbars only while scrolling
-import './setup/scrollbar_visibility'
-
 // Publish the automation contract version during renderer startup.
 import './setup/automation_contract'
 // 引入保护代码

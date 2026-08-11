@@ -201,8 +201,8 @@ export default function SessionList(props: Props) {
                 <SortableItem
                   id={item.session.id}
                   disabled={Boolean(isSmallScreen && !isReordering)}
+                  dragLabel={`${t('Adjust order')}: ${item.session.name}`}
                   showDragHandle={Boolean(isSmallScreen && isReordering)}
-                  dragHandleLabel={t('Adjust order') || undefined}
                 >
                   <SessionItem
                     selected={routerState.location.pathname === `/session/${item.session.id}`}
@@ -216,7 +216,7 @@ export default function SessionList(props: Props) {
           />
           <DragOverlay dropAnimation={null}>
             {activeDragSession ? (
-              <div className="pointer-events-none">
+              <div className="pointer-events-none scale-[1.02] rounded-lg bg-chatbox-background-primary shadow-lg">
                 <SessionItem
                   selected={routerState.location.pathname === `/session/${activeDragSession.id}`}
                   session={activeDragSession}
@@ -235,11 +235,11 @@ function SortableItem(props: {
   id: string
   children?: React.ReactNode
   disabled?: boolean
+  dragLabel?: string
   showDragHandle?: boolean
-  dragHandleLabel?: string
 }) {
-  const { id, children, disabled = false, showDragHandle = false, dragHandleLabel } = props
-  const { attributes, isDragging, listeners, setActivatorNodeRef, setNodeRef, transform, transition } = useSortable({
+  const { id, children, disabled = false, dragLabel, showDragHandle = false } = props
+  const { attributes, isDragging, listeners, setNodeRef, transform, transition } = useSortable({
     id,
     disabled,
   })
@@ -252,23 +252,20 @@ function SortableItem(props: {
     <div
       ref={setNodeRef}
       style={style}
-      className="relative pb-1"
-      {...(!disabled && !showDragHandle ? attributes : {})}
-      {...(!disabled && !showDragHandle ? listeners : {})}
+      className={disabled ? 'relative pb-1' : 'relative pb-1 cursor-grab active:cursor-grabbing'}
+      {...(!disabled ? attributes : {})}
+      {...(!disabled ? listeners : {})}
+      aria-label={disabled ? undefined : dragLabel}
     >
       {children}
       {showDragHandle && (
-        <button
-          ref={setActivatorNodeRef}
-          type="button"
-          aria-label={dragHandleLabel}
-          className="absolute right-3 top-1/2 flex size-8 -translate-y-1/2 touch-none items-center justify-center rounded-sm border-0 bg-transparent text-chatbox-tertiary active:cursor-grabbing"
-          onClick={(event) => event.stopPropagation()}
-          {...attributes}
-          {...listeners}
+        <span
+          data-session-drag-handle
+          aria-hidden
+          className="pointer-events-none absolute right-3 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center text-chatbox-tertiary"
         >
           <IconGripVertical size={18} />
-        </button>
+        </span>
       )}
     </div>
   )

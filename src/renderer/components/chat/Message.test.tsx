@@ -1,6 +1,6 @@
 import { type Message, MessageRoleEnum } from '@shared/types'
 import { describe, expect, test, vi } from 'vitest'
-import { shouldRightAlignMessage } from './message-layout'
+import { shouldReserveClassicMessageTrailingSpace, shouldRightAlignMessage } from './message-layout'
 import { getMessageRoleClass } from './message-role-class'
 import { getMessageTokenDisplay } from './message-token-display'
 
@@ -39,6 +39,14 @@ describe('Message layout alignment', () => {
     expect(shouldRightAlignMessage('bubble', MessageRoleEnum.System)).toBe(false)
     expect(shouldRightAlignMessage('left', MessageRoleEnum.Tool)).toBe(false)
     expect(shouldRightAlignMessage('bubble', MessageRoleEnum.Tool)).toBe(false)
+  })
+
+  test('reserves trailing avatar space for classic user and assistant messages with avatars', () => {
+    expect(shouldReserveClassicMessageTrailingSpace('left', MessageRoleEnum.Assistant, true, true)).toBe(true)
+    expect(shouldReserveClassicMessageTrailingSpace('left', MessageRoleEnum.Assistant, false, true)).toBe(false)
+    expect(shouldReserveClassicMessageTrailingSpace('left', MessageRoleEnum.User, true, true)).toBe(true)
+    expect(shouldReserveClassicMessageTrailingSpace('bubble', MessageRoleEnum.Assistant, true, true)).toBe(false)
+    expect(shouldReserveClassicMessageTrailingSpace('left', MessageRoleEnum.Assistant, true, false)).toBe(false)
   })
 })
 

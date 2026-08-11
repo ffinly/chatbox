@@ -144,6 +144,46 @@ describe('Markdown streaming code highlighting', () => {
   })
 })
 
+describe('Markdown code block font size', () => {
+  const renderCodeBlock = (source: string, generating = false) =>
+    render(
+      <MantineProvider forceColorScheme="dark">
+        <BlockCodeCollapsedStateProvider>
+          <Markdown generating={generating} hiddenCodeActions forceColorScheme="dark">
+            {source}
+          </Markdown>
+        </BlockCodeCollapsedStateProvider>
+      </MantineProvider>
+    )
+
+  it('does not override the message font size for highlighted code', () => {
+    renderCodeBlock('```ts\nconst answer = 42\n```')
+
+    const codeWrapper = document.querySelector('.shiki-code-wrapper:not(.shiki-code-fallback)')
+    expect(codeWrapper).not.toBeNull()
+    expect(codeWrapper?.classList.contains('text-xs')).toBe(false)
+  })
+
+  it('does not override the message font size while code is streaming', () => {
+    renderCodeBlock('```ts\nconst answer = 42', true)
+
+    const codeWrapper = document.querySelector('.shiki-streaming-plain')?.closest('.shiki-code-wrapper')
+    expect(codeWrapper).not.toBeNull()
+    expect(codeWrapper?.classList.contains('text-xs')).toBe(false)
+  })
+
+  it('does not override the message font size while highlighting loads', () => {
+    highlightSync.mockReturnValueOnce(null)
+    highlight.mockReturnValueOnce(new Promise<string>(() => {}))
+    renderCodeBlock('```ts\nconst answer = 42\n```')
+
+    const codeWrapper = document.querySelector('.shiki-code-fallback')
+    expect(codeWrapper).not.toBeNull()
+    expect(codeWrapper?.querySelector('.shiki-streaming-plain')).toBeNull()
+    expect(codeWrapper?.classList.contains('text-xs')).toBe(false)
+  })
+})
+
 describe('Markdown images', () => {
   it('opens a rendered image in the shared viewer and preserves image metadata', async () => {
     render(<Markdown>{'![Generated preview](https://example.com/image.png?x=1&y=2 "Result")'}</Markdown>)

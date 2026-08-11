@@ -258,7 +258,7 @@ function SessionItem(props: Props) {
       className={clsx(
         'cursor-pointer rounded-lg group/session-item',
         'select-none',
-        props.isReordering && 'cursor-default',
+        props.isReordering && 'cursor-grab active:cursor-grabbing',
         isSmallScreen
           ? props.isReordering
             ? 'bg-chatbox-background-primary'
