@@ -18,13 +18,13 @@ export const MemoryEntrySchema = z.object({
 export type MemoryEntry = z.infer<typeof MemoryEntrySchema>
 
 /**
- * Frozen per-session snapshot of the agent persona prompt inputs, captured when the
- * session first generates in agent mode. Mid-session edits to the global Soul/memories
- * (and to workspace AGENTS.md files) update storage but never mutate a running session,
- * so the provider-side prompt cache prefix stays stable. A new thread clears the
- * snapshot and re-captures on the next generation.
+ * Frozen per-conversation snapshot of the reusable prompt-context inputs. It is
+ * captured when the conversation first needs Soul, memories, or workspace
+ * instructions. Mid-conversation edits update their source storage but never mutate
+ * the snapshot, so the provider-side prompt cache prefix stays stable. A new thread
+ * clears the snapshot and re-captures on the next generation.
  */
-export const AgentPromptSnapshotSchema = z.object({
+export const SessionPromptContextSnapshotSchema = z.object({
   version: z.number(),
   soul: z.string(),
   memories: z.array(MemoryEntrySchema),
@@ -41,9 +41,9 @@ export const AgentPromptSnapshotSchema = z.object({
   scope: z.enum(['chat', 'agent']).optional().catch(undefined),
 })
 
-export type AgentPromptSnapshot = z.infer<typeof AgentPromptSnapshotSchema>
+export type SessionPromptContextSnapshot = z.infer<typeof SessionPromptContextSnapshotSchema>
 
-export const AGENT_PROMPT_SNAPSHOT_VERSION = 1
+export const SESSION_PROMPT_CONTEXT_SNAPSHOT_VERSION = 1
 
 /**
  * Virtual path exposing the Soul document to file tools (read_file / write_file /

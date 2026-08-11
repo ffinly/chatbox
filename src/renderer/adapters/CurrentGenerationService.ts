@@ -24,7 +24,7 @@ import { prepareAgentGenerationHarness, refreshSessionAttachmentStatuses } from 
 import {
   getSessionAgentModeEntry,
   lockSessionAgentMode,
-  persistAgentPromptSnapshotGuarded,
+  persistSessionPromptContextSnapshotGuarded,
   setSessionAgentMode,
 } from '@/stores/session/agent-mode'
 import { findMessageLocation } from '@/stores/session/forks'
@@ -203,14 +203,14 @@ const dependencies: GenerationServiceDependencies<ModelDependencies> = {
         compactionPoints: request.compactionPoints,
         sideEffects: {
           lockAgentMode: request.lockAgentMode,
-          persistAgentPromptSnapshot: (snapshot) => {
+          persistSessionPromptContextSnapshot: (snapshot) => {
             // A canceled generation (thread switch/new thread) must not write its
             // late capture; the CAS guard inside handles the remaining races.
             if (request.signal.aborted) return
-            persistAgentPromptSnapshotGuarded(
+            persistSessionPromptContextSnapshotGuarded(
               request.session.id,
               snapshot,
-              request.settings.agentPromptSnapshot?.capturedAt
+              request.settings.sessionPromptContextSnapshot?.capturedAt
             )
           },
         },

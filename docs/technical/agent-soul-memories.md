@@ -25,14 +25,21 @@ Agent mode 的 system prompt 由 harness 自行组装(不再走 `injectModelSyst
 
 会话级 system prompt(含 copilot 人设)在 agent mode 下**直接丢弃**,身份统一由 Soul 表达;Chat mode 路径完全不变。
 
-### 冻结快照(AgentPromptSnapshot)
+### 冻结快照(SessionPromptContextSnapshot)
 
-- **捕获时机**:会话首次以 agent mode 生成时,一次性读取 Soul + memories + workspace AGENTS.md,存入 `session.settings.agentPromptSnapshot`。
+- **捕获时机**:会话首次以 agent mode 生成时,一次性读取 Soul + memories + workspace AGENTS.md,存入 `session.settings.sessionPromptContextSnapshot`。
 - **会话期间只读**:Soul/memories/AGENTS.md 的任何中途修改都只写存储,不影响进行中的会话——system prompt 前缀 byte 级稳定,prefix cache 不失效。这与 Hermes 的 "frozen MEMORY snapshot" 语义一致。
 - **刷新路径**:
   - 新 thread(`refreshContextAndCreateNewThread`)与压缩建 thread(`compressAndCreateThread`)清除快照,下次生成重新捕获(上下文重置,cache 本来就没了,免费刷新点);
   - working directories 变更时自动重新捕获(用户显式操作,可接受的 cache 失效);
 - Schema 见 `src/shared/types/agent-persona.ts`(zod,`.catch()` 防旧版本回退解析失败),`version` 字段预留迁移。
+
+### 动态能力刷新(Skills / Plugins)
+
+- Skills、Plugins、MCP 与其他工具能力不属于 `SessionPromptContextSnapshot`;它只冻结 Soul、Memories 与 workspace instructions。
+- 能力列表与对应工具指令在每次 generation 开始时重新解析。安装、删除或更新能力后应发送 change event 清除 discovery cache;启用/禁用状态直接从当前 settings 读取。
+- 因此当前会话无需重启或新建 thread:下一次用户消息使用新的能力集合。已经开始的 generation 保持其启动时的工具集合,避免中途改变一次 provider 调用的语义。
+- 能力变化会自然改变最终 system prompt/tools,并由 `GenerationRequestSnapshot` 记录;这是用户显式操作导致的可接受 prompt-cache break,不应顺带刷新 Soul、Memories 或 AGENTS.md 快照。
 
 ### Soul 文档
 
@@ -67,8 +74,8 @@ Agent mode 的 system prompt 由 harness 自行组装(不再走 `injectModelSyst
 | `src/main/agent-persona/local-memory-scanner.ts` | 固定位置的 Claude/Codex 本地记忆发现与解析 |
 | `src/renderer/stores/agentPersonaStore.ts` | Soul/memories 存储 CRUD、模板初始化、快照捕获 |
 | `src/renderer/stores/session/agent-harness.ts` | system prompt 组装、丢弃会话 system prompt |
-| `src/renderer/stores/session/persona-snapshot.ts` | 快照解析策略(agent/chat 两种模式的捕获与复用规则) |
-| `src/renderer/stores/session/agent-mode.ts` | `persistAgentPromptSnapshotGuarded`(CAS 防护的快照持久化) |
+| `src/renderer/stores/session/prompt-context-snapshot.ts` | 快照解析策略(agent/chat 两种模式的捕获与复用规则) |
+| `src/renderer/stores/session/agent-mode.ts` | `persistSessionPromptContextSnapshotGuarded`(CAS 防护的快照持久化) |
 | `src/renderer/packages/model-calls/toolsets/agent-memory.ts` | save_memory / delete_memory 工具 |
 | `src/renderer/packages/model-calls/toolsets/soul-file.ts` | 虚拟路径读写桥 |
 | `src/renderer/packages/model-calls/workspace-instructions.ts` | AGENTS.md 读取(从 tools-builder 抽出) |
@@ -77,5 +84,5 @@ Agent mode 的 system prompt 由 harness 自行组装(不再走 `injectModelSyst
 ## 兼容性
 
 - 存量会话的 system prompt 数据不动,仅 agent mode 生成路径忽略;Chat mode 与 copilot 行为不变。
-- `agentPromptSnapshot` 为 optional + `.catch(undefined)`,旧客户端读到新数据时按未设置处理。
+- `sessionPromptContextSnapshot` 为 optional + `.catch(undefined)`;旧的 `agentPromptSnapshot` 尚未进入正式版,不保留字段迁移。
 - 新存储 key(`agent-soul` / `agent-memories`)为增量添加,不涉及 IndexedDB 版本变更。

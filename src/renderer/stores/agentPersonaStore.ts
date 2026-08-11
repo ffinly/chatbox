@@ -1,10 +1,10 @@
 import {
-  AGENT_PROMPT_SNAPSHOT_VERSION,
-  type AgentPromptSnapshot,
   MEMORY_ENTRY_MAX_CHARS,
   MEMORY_MAX_ENTRIES,
   type MemoryEntry,
   MemoryEntrySchema,
+  SESSION_PROMPT_CONTEXT_SNAPSHOT_VERSION,
+  type SessionPromptContextSnapshot,
   SOUL_MAX_CHARS,
 } from '@shared/types/agent-persona'
 import { t } from 'i18next'
@@ -15,7 +15,7 @@ import storage from '@/storage'
 /**
  * Global agent persona storage: the user's Soul document and agent-written memories.
  * Both are global (not per-session); running sessions read them only through the
- * frozen AgentPromptSnapshot in session settings, so writes here never disturb an
+ * frozen SessionPromptContextSnapshot in session settings, so writes here never disturb an
  * in-flight conversation or its provider prompt cache.
  */
 
@@ -215,10 +215,10 @@ function normalizedDirectories(workingDirectories: string[] | undefined): string
 }
 
 /** Capture a fresh frozen snapshot of the persona prompt inputs for a session. */
-export async function captureAgentPromptSnapshot(
+export async function captureSessionPromptContextSnapshot(
   workingDirectories: string[] | undefined,
   scope: 'chat' | 'agent'
-): Promise<AgentPromptSnapshot> {
+): Promise<SessionPromptContextSnapshot> {
   const directories = normalizedDirectories(workingDirectories)
   const [soul, memories, workspaceInstructions] = await Promise.all([
     readSoul(),
@@ -226,7 +226,7 @@ export async function captureAgentPromptSnapshot(
     buildWorkspaceInstructions(workingDirectories),
   ])
   return {
-    version: AGENT_PROMPT_SNAPSHOT_VERSION,
+    version: SESSION_PROMPT_CONTEXT_SNAPSHOT_VERSION,
     soul: soul.content,
     memories,
     workspaceInstructions,
@@ -246,8 +246,8 @@ export function withAgentPersonaLocks<T>(operation: () => Promise<T>): Promise<T
  * directories. Directory changes are user-explicit, so the snapshot is re-captured
  * (an acceptable, intentional prompt-cache break).
  */
-export function snapshotMatchesDirectories(
-  snapshot: AgentPromptSnapshot,
+export function sessionPromptContextSnapshotMatchesDirectories(
+  snapshot: SessionPromptContextSnapshot,
   workingDirectories: string[] | undefined
 ): boolean {
   const directories = normalizedDirectories(workingDirectories)

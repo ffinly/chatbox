@@ -8,13 +8,13 @@ import { supportsToolResultImages } from '@shared/tools/view-image'
 import type {
   AgentModeLockReason,
   AgentModeValue,
-  AgentPromptSnapshot,
   CompactionPoint,
   Config,
   KnowledgeBase,
   Message,
   MessageContentParts,
   Session,
+  SessionPromptContextSnapshot,
   SessionSettings,
   Settings,
 } from '@shared/types'
@@ -42,7 +42,7 @@ import { SESSION_ATTACHMENT_RAG_LOG_PREFIX } from '../../../shared/session-attac
 import { createAttachmentResolver } from './attachment-resolver'
 import { applyLegacyToolFallback } from './legacy-tool-fallback'
 import { getOCRModel, ocrImagesInMessages } from './ocr-helper'
-import { resolvePersonaSnapshot } from './persona-snapshot'
+import { resolveSessionPromptContextSnapshot } from './prompt-context-snapshot'
 import { buildToolsForSession } from './tools-builder'
 
 const log = getLogger('agent-generation-harness')
@@ -55,8 +55,8 @@ Unless the user requests otherwise, all visible assistant text must be in the sa
 
 export interface AgentGenerationSideEffects {
   lockAgentMode?: (reason: Exclude<AgentModeLockReason, null>) => void
-  /** Persist a freshly captured persona snapshot into the session settings. */
-  persistAgentPromptSnapshot?: (snapshot: AgentPromptSnapshot) => void
+  /** Persist freshly captured prompt context into the session settings. */
+  persistSessionPromptContextSnapshot?: (snapshot: SessionPromptContextSnapshot) => void
 }
 
 export interface PrepareAgentGenerationHarnessOptions {
@@ -234,13 +234,13 @@ export async function prepareAgentGenerationHarness(
   // Global memory switch: when off, stored memories are neither injected nor
   // maintained in either mode (Soul/identity are unaffected).
   const memoryEnabled = globalSettings.memoryEnabled !== false
-  const personaSnapshot = await resolvePersonaSnapshot({
+  const promptContextSnapshot = await resolveSessionPromptContextSnapshot({
     effectiveAgentMode,
     memoryEnabled,
     settings,
     messages,
     targetMsgIx,
-    persist: sideEffects?.persistAgentPromptSnapshot,
+    persist: sideEffects?.persistSessionPromptContextSnapshot,
   })
 
   const sandboxProvider = effectiveAgentMode !== 'off' ? sandboxProviderFactory() : null
@@ -354,7 +354,7 @@ export async function prepareAgentGenerationHarness(
     onAgentModeActivated: () => {
       sideEffects?.lockAgentMode?.('load_skill')
     },
-    workspaceInstructionsOverride: personaSnapshot?.workspaceInstructions,
+    workspaceInstructionsOverride: promptContextSnapshot?.workspaceInstructions,
     globalSettings,
   })
   const hasTools = Object.keys(tools).length > 0
@@ -364,32 +364,37 @@ export async function prepareAgentGenerationHarness(
   // appended to the regular instruction path so the session system prompt stays
   // authoritative. Tool guidance follows whether the memory tools were actually
   // registered for this model.
-  if (effectiveAgentMode !== 'on' && memoryEnabled && personaSnapshot && personaSnapshot.memories.length > 0) {
+  if (
+    effectiveAgentMode !== 'on' &&
+    memoryEnabled &&
+    promptContextSnapshot &&
+    promptContextSnapshot.memories.length > 0
+  ) {
     const memoryToolsAvailable = 'save_memory' in tools
-    instructions = `${buildMemoriesSection(personaSnapshot.memories, { includeToolGuidance: memoryToolsAvailable })}${instructions}`
+    instructions = `${buildMemoriesSection(promptContextSnapshot.memories, { includeToolGuidance: memoryToolsAvailable })}${instructions}`
   }
 
   let injectedMessages: Message[]
   let systemPrompt: string
-  if (effectiveAgentMode === 'on' && personaSnapshot) {
+  if (effectiveAgentMode === 'on' && promptContextSnapshot) {
     // Agent mode assembles its own system prompt, ordered by stability for prefix
     // caching: fixed identity → frozen Soul/memories → tool instructions → runtime
     // metadata. The date is the snapshot's capture date (not today) so the system
     // prompt never drifts mid-session.
     const personaPrompt = buildAgentPersonaPrompt({
-      soul: personaSnapshot.soul,
-      memories: memoryEnabled ? personaSnapshot.memories : [],
+      soul: promptContextSnapshot.soul,
+      memories: memoryEnabled ? promptContextSnapshot.memories : [],
       platformType: platform.type,
       os: getOS(),
     })
-    const runtimeMetadata = `\n## Runtime\nCurrent model: ${model.modelId}\nSession context captured: ${dayjs(personaSnapshot.capturedAt).format('YYYY-MM-DD')}`
+    const runtimeMetadata = `\n## Runtime\nCurrent model: ${model.modelId}\nSession context captured: ${dayjs(promptContextSnapshot.capturedAt).format('YYYY-MM-DD')}`
     const systemText = `${personaPrompt}\n${instructions}${runtimeMetadata}`
     systemPrompt = systemText
     injectedMessages = [
       {
-        id: `agent-system-prompt-${personaSnapshot.capturedAt}`,
+        id: `agent-system-prompt-${promptContextSnapshot.capturedAt}`,
         role: model.isSupportSystemMessage() ? 'system' : 'user',
-        timestamp: personaSnapshot.capturedAt,
+        timestamp: promptContextSnapshot.capturedAt,
         contentParts: [{ type: 'text', text: systemText }],
       },
       ...promptMsgs,

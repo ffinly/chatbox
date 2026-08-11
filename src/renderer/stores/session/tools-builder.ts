@@ -71,7 +71,7 @@ export interface BuildToolsOptions {
    */
   globalSettings?: Pick<Settings, 'memoryEnabled' | 'language'>
   /**
-   * Frozen workspace-instructions text from the session's AgentPromptSnapshot.
+   * Frozen workspace-instructions text from the session's SessionPromptContextSnapshot.
    * When set (agent mode), it is used verbatim instead of re-reading AGENTS.md
    * from disk, keeping the system prompt prefix stable for provider caches.
    */

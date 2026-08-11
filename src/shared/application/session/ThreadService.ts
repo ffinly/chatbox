@@ -72,7 +72,7 @@ export class ThreadService {
         threadName: currentTarget.name,
         compactionPoints: currentTarget.compactionPoints,
         settings: current.settings
-          ? { ...current.settings, agentPromptSnapshot: currentTarget.agentPromptSnapshot }
+          ? { ...current.settings, sessionPromptContextSnapshot: currentTarget.sessionPromptContextSnapshot }
           : current.settings,
       }
     })
@@ -99,7 +99,9 @@ export class ThreadService {
         ],
         threadName: '',
         compactionPoints: undefined,
-        settings: current.settings ? { ...current.settings, agentPromptSnapshot: undefined } : current.settings,
+        settings: current.settings
+          ? { ...current.settings, sessionPromptContextSnapshot: undefined }
+          : current.settings,
       }
     })
     return true
@@ -134,7 +136,9 @@ export class ThreadService {
         threadName: '',
         messageForksHash: undefined,
         compactionPoints: undefined,
-        settings: current.settings ? { ...current.settings, agentPromptSnapshot: undefined } : current.settings,
+        settings: current.settings
+          ? { ...current.settings, sessionPromptContextSnapshot: undefined }
+          : current.settings,
       }
     })
     return true
@@ -158,7 +162,7 @@ export class ThreadService {
       messageForksHash: session.messageForksHash,
       compactionPoints: target.compactionPoints,
       settings: session.settings
-        ? { ...session.settings, agentPromptSnapshot: target.agentPromptSnapshot }
+        ? { ...session.settings, sessionPromptContextSnapshot: target.sessionPromptContextSnapshot }
         : session.settings,
     })
     await this.remove(sessionId, threadId)
@@ -179,7 +183,7 @@ export class ThreadService {
       messages: session.messages,
       createdAt: this.dependencies.now(),
       compactionPoints: session.compactionPoints,
-      agentPromptSnapshot: session.settings?.agentPromptSnapshot,
+      sessionPromptContextSnapshot: session.settings?.sessionPromptContextSnapshot,
     }
   }
 
@@ -203,7 +207,9 @@ export class ThreadService {
         messages: current.messages.filter((message) => message.role === 'system').slice(0, 1),
         threadName: undefined,
         compactionPoints: undefined,
-        settings: current.settings ? { ...current.settings, agentPromptSnapshot: undefined } : current.settings,
+        settings: current.settings
+          ? { ...current.settings, sessionPromptContextSnapshot: undefined }
+          : current.settings,
       }
       if (current.threads?.length) {
         const lastThread = current.threads[current.threads.length - 1]
@@ -212,7 +218,7 @@ export class ThreadService {
         update.threadName = lastThread.name
         update.compactionPoints = lastThread.compactionPoints
         update.settings = current.settings
-          ? { ...current.settings, agentPromptSnapshot: lastThread.agentPromptSnapshot }
+          ? { ...current.settings, sessionPromptContextSnapshot: lastThread.sessionPromptContextSnapshot }
           : current.settings
       }
       return update

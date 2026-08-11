@@ -1,7 +1,7 @@
 import type { JSONValue, LanguageModelUsage, ProviderMetadata } from 'ai'
 import { z } from 'zod'
 import { SessionSettingsSchema } from '../types/settings'
-import { AgentPromptSnapshotSchema } from './agent-persona'
+import { SessionPromptContextSnapshotSchema } from './agent-persona'
 import { ModelProviderEnum } from './provider'
 
 // Re-export for backward compatibility
@@ -428,10 +428,10 @@ export const SessionThreadSchema = z.object({
   messages: z.array(MessageSchema),
   createdAt: z.number(),
   compactionPoints: z.array(CompactionPointSchema).optional(),
-  // The frozen agent persona snapshot travels with its conversation, like
+  // The frozen session prompt-context snapshot travels with its conversation, like
   // compaction points: an archived thread restored later keeps the exact
   // Soul/memories it was generated with instead of recapturing the latest.
-  agentPromptSnapshot: AgentPromptSnapshotSchema.optional().catch(undefined),
+  sessionPromptContextSnapshot: SessionPromptContextSnapshotSchema.optional().catch(undefined),
 })
 
 // Image source schema

@@ -619,7 +619,7 @@ describe('prepareAgentGenerationHarness', () => {
   )
 })
 
-describe('agent persona snapshot', () => {
+describe('session prompt context snapshot', () => {
   function createUserMessage(text = 'Help me with a task.'): Message {
     return {
       id: 'msg-user-1',
@@ -660,15 +660,15 @@ describe('agent persona snapshot', () => {
   }
 
   test('captures and persists a snapshot, drops session system prompts, and pins the capture date', async () => {
-    const persistAgentPromptSnapshot = vi.fn()
+    const persistSessionPromptContextSnapshot = vi.fn()
     const prepared = await prepareWith(
       { provider: ModelProviderEnum.ChatboxAI, modelId: 'test-model' } as SessionSettings,
       [createSystemMessage('You are a pirate copilot.'), createUserMessage()],
-      { persistAgentPromptSnapshot }
+      { persistSessionPromptContextSnapshot }
     )
 
-    expect(persistAgentPromptSnapshot).toHaveBeenCalledTimes(1)
-    const snapshot = persistAgentPromptSnapshot.mock.calls[0][0]
+    expect(persistSessionPromptContextSnapshot).toHaveBeenCalledTimes(1)
+    const snapshot = persistSessionPromptContextSnapshot.mock.calls[0][0]
     expect(snapshot.version).toBe(1)
     expect(snapshot.workspaceDirectories).toEqual([])
 
@@ -686,12 +686,12 @@ describe('agent persona snapshot', () => {
   })
 
   test('reuses an existing snapshot verbatim without re-capturing', async () => {
-    const persistAgentPromptSnapshot = vi.fn()
+    const persistSessionPromptContextSnapshot = vi.fn()
     const prepared = await prepareWith(
       {
         provider: ModelProviderEnum.ChatboxAI,
         modelId: 'test-model',
-        agentPromptSnapshot: {
+        sessionPromptContextSnapshot: {
           version: 1,
           soul: 'My frozen custom persona content.',
           memories: [{ id: 'm1', content: 'User prefers pnpm over npm', createdAt: 1700000000000 }],
@@ -701,10 +701,10 @@ describe('agent persona snapshot', () => {
         },
       } as SessionSettings,
       [createUserMessage()],
-      { persistAgentPromptSnapshot }
+      { persistSessionPromptContextSnapshot }
     )
 
-    expect(persistAgentPromptSnapshot).not.toHaveBeenCalled()
+    expect(persistSessionPromptContextSnapshot).not.toHaveBeenCalled()
     const serialized = JSON.stringify(prepared.coreMessages)
     expect(serialized).toContain('My frozen custom persona content.')
     expect(serialized).toContain('[m1] User prefers pnpm over npm')
@@ -712,13 +712,13 @@ describe('agent persona snapshot', () => {
   })
 
   test('re-captures when the working directories change', async () => {
-    const persistAgentPromptSnapshot = vi.fn()
+    const persistSessionPromptContextSnapshot = vi.fn()
     await prepareWith(
       {
         provider: ModelProviderEnum.ChatboxAI,
         modelId: 'test-model',
         workingDirectories: ['/new/dir'],
-        agentPromptSnapshot: {
+        sessionPromptContextSnapshot: {
           version: 1,
           soul: 'Stale soul.',
           memories: [],
@@ -728,21 +728,21 @@ describe('agent persona snapshot', () => {
         },
       } as SessionSettings,
       [createUserMessage()],
-      { persistAgentPromptSnapshot }
+      { persistSessionPromptContextSnapshot }
     )
 
-    expect(persistAgentPromptSnapshot).toHaveBeenCalledTimes(1)
-    const snapshot = persistAgentPromptSnapshot.mock.calls[0][0]
+    expect(persistSessionPromptContextSnapshot).toHaveBeenCalledTimes(1)
+    const snapshot = persistSessionPromptContextSnapshot.mock.calls[0][0]
     expect(snapshot.workspaceDirectories).toEqual(['/new/dir'])
   })
 
   test('re-captures when the existing snapshot was chat-scoped', async () => {
-    const persistAgentPromptSnapshot = vi.fn()
+    const persistSessionPromptContextSnapshot = vi.fn()
     await prepareWith(
       {
         provider: ModelProviderEnum.ChatboxAI,
         modelId: 'test-model',
-        agentPromptSnapshot: {
+        sessionPromptContextSnapshot: {
           version: 1,
           soul: 'Chat-era soul that must not gate agent identity.',
           memories: [],
@@ -753,11 +753,11 @@ describe('agent persona snapshot', () => {
         },
       } as SessionSettings,
       [createUserMessage()],
-      { persistAgentPromptSnapshot }
+      { persistSessionPromptContextSnapshot }
     )
 
-    expect(persistAgentPromptSnapshot).toHaveBeenCalledTimes(1)
-    expect(persistAgentPromptSnapshot.mock.calls[0][0].scope).toBe('agent')
+    expect(persistSessionPromptContextSnapshot).toHaveBeenCalledTimes(1)
+    expect(persistSessionPromptContextSnapshot.mock.calls[0][0].scope).toBe('agent')
   })
 
   test('chat mode keeps the legacy system prompt path untouched', async () => {
@@ -826,7 +826,7 @@ describe('chat mode memories', () => {
       {
         provider: ModelProviderEnum.ChatboxAI,
         modelId: 'test-model',
-        agentPromptSnapshot: {
+        sessionPromptContextSnapshot: {
           version: 1,
           soul: 'Custom soul that must stay agent-only.',
           memories: [{ id: 'm1', content: 'User prefers pnpm over npm', createdAt: 1700000000000 }],
@@ -852,13 +852,13 @@ describe('chat mode memories', () => {
   test('captures a memories snapshot on first chat generation when memories exist', async () => {
     const storage = (await import('@/storage')).default
     await storage.setItemNow('agent-memories', [{ id: 'm2', content: 'Timezone is UTC+8', createdAt: 1700000000000 }])
-    const persistAgentPromptSnapshot = vi.fn()
+    const persistSessionPromptContextSnapshot = vi.fn()
     const prepared = await chatPrepare(
       { provider: ModelProviderEnum.ChatboxAI, modelId: 'test-model' } as SessionSettings,
       [userMessage],
-      { persistAgentPromptSnapshot }
+      { persistSessionPromptContextSnapshot }
     )
-    expect(persistAgentPromptSnapshot).toHaveBeenCalledTimes(1)
+    expect(persistSessionPromptContextSnapshot).toHaveBeenCalledTimes(1)
     expect(JSON.stringify(prepared.coreMessages)).toContain('[m2] Timezone is UTC+8')
   })
 
@@ -874,7 +874,7 @@ describe('chat mode memories', () => {
       settings: {
         provider: ModelProviderEnum.ChatboxAI,
         modelId: 'test-model',
-        agentPromptSnapshot: {
+        sessionPromptContextSnapshot: {
           version: 1,
           soul: 'Persisted soul.',
           memories: [{ id: 'm9', content: 'Should not appear', createdAt: 1700000000000 }],
@@ -912,7 +912,7 @@ describe('chat mode memories', () => {
     await storage.setItemNow('agent-memories', [
       { id: 'm3', content: 'Appeared mid-conversation', createdAt: 1700000000000 },
     ])
-    const persistAgentPromptSnapshot = vi.fn()
+    const persistSessionPromptContextSnapshot = vi.fn()
     const assistantMessage: Message = {
       id: 'msg-assistant-1',
       role: MessageRoleEnum.Assistant,
@@ -922,9 +922,9 @@ describe('chat mode memories', () => {
     const prepared = await chatPrepare(
       { provider: ModelProviderEnum.ChatboxAI, modelId: 'test-model' } as SessionSettings,
       [userMessage, assistantMessage, { ...userMessage, id: 'msg-user-2' }],
-      { persistAgentPromptSnapshot }
+      { persistSessionPromptContextSnapshot }
     )
-    expect(persistAgentPromptSnapshot).not.toHaveBeenCalled()
+    expect(persistSessionPromptContextSnapshot).not.toHaveBeenCalled()
     expect(JSON.stringify(prepared.coreMessages)).not.toContain('Appeared mid-conversation')
     await storage.setItemNow('agent-memories', [])
   })
@@ -932,13 +932,13 @@ describe('chat mode memories', () => {
   test('skips snapshot capture entirely when no memories exist', async () => {
     const storage = (await import('@/storage')).default
     await storage.setItemNow('agent-memories', [])
-    const persistAgentPromptSnapshot = vi.fn()
+    const persistSessionPromptContextSnapshot = vi.fn()
     const prepared = await chatPrepare(
       { provider: ModelProviderEnum.ChatboxAI, modelId: 'test-model' } as SessionSettings,
       [userMessage],
-      { persistAgentPromptSnapshot }
+      { persistSessionPromptContextSnapshot }
     )
-    expect(persistAgentPromptSnapshot).not.toHaveBeenCalled()
+    expect(persistSessionPromptContextSnapshot).not.toHaveBeenCalled()
     expect(JSON.stringify(prepared.coreMessages)).not.toContain('## Memories')
   })
 })

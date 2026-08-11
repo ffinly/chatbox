@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest'
-import type { AgentPromptSnapshot, Message, Session, Updater } from '../../types'
+import type { Message, Session, SessionPromptContextSnapshot, Updater } from '../../types'
 import type { SessionMetadataUpdate } from './session-metadata'
 import type { SessionUseCasePort } from './session-use-case-port'
 import { ThreadService } from './ThreadService'
@@ -8,7 +8,7 @@ function message(id: string, role: Message['role'], text = id): Message {
   return { id, role, contentParts: [{ type: 'text', text }] }
 }
 
-function personaSnapshot(soul: string): AgentPromptSnapshot {
+function promptContextSnapshot(soul: string): SessionPromptContextSnapshot {
   return {
     version: 1,
     soul,
@@ -64,21 +64,21 @@ describe('ThreadService', () => {
   test('switches thread data while returning UI effects to the host', async () => {
     const current = [message('system', 'system'), message('current', 'user')]
     const history = [message('history', 'user')]
-    const currentSnapshot = personaSnapshot('Current Soul')
-    const historySnapshot = personaSnapshot('History Soul')
+    const currentSnapshot = promptContextSnapshot('Current Soul')
+    const historySnapshot = promptContextSnapshot('History Soul')
     const harness = createHarness({
       id: 'session-1',
       name: 'Session',
       threadName: 'Current thread',
       messages: current,
-      settings: { agentPromptSnapshot: currentSnapshot },
+      settings: { sessionPromptContextSnapshot: currentSnapshot },
       threads: [
         {
           id: 'history-1',
           name: 'History',
           messages: history,
           createdAt: 1,
-          agentPromptSnapshot: historySnapshot,
+          sessionPromptContextSnapshot: historySnapshot,
         },
       ],
     })
@@ -88,25 +88,25 @@ describe('ThreadService', () => {
     expect(harness.cancelMessages).toHaveBeenCalledWith('session-1', current)
     expect(harness.session.messages).toBe(history)
     expect(harness.session.threadName).toBe('History')
-    expect(harness.session.settings?.agentPromptSnapshot).toBe(historySnapshot)
+    expect(harness.session.settings?.sessionPromptContextSnapshot).toBe(historySnapshot)
     expect(harness.session.threads).toEqual([
       {
         id: 'thread-1',
         name: 'Current thread',
         messages: current,
         createdAt: 101,
-        agentPromptSnapshot: currentSnapshot,
+        sessionPromptContextSnapshot: currentSnapshot,
       },
     ])
   })
 
   test('creates a new thread with a clean system prompt and keeps existing history', async () => {
-    const snapshot = personaSnapshot('Current Soul')
+    const snapshot = promptContextSnapshot('Current Soul')
     const harness = createHarness({
       id: 'session-1',
       name: 'Session',
       messages: [message('system', 'system', 'Custom system'), message('user', 'user')],
-      settings: { agentPromptSnapshot: snapshot },
+      settings: { sessionPromptContextSnapshot: snapshot },
       threads: [{ id: 'old', name: 'Old', messages: [], createdAt: 1 }],
     })
 
@@ -119,17 +119,17 @@ describe('ThreadService', () => {
       contentParts: [{ type: 'text', text: 'Custom system' }],
     })
     expect(harness.session.threadName).toBe('')
-    expect(harness.session.settings?.agentPromptSnapshot).toBeUndefined()
-    expect(harness.session.threads?.at(-1)?.agentPromptSnapshot).toBe(snapshot)
+    expect(harness.session.settings?.sessionPromptContextSnapshot).toBeUndefined()
+    expect(harness.session.threads?.at(-1)?.sessionPromptContextSnapshot).toBe(snapshot)
   })
 
   test('compresses into a continuation prompt and clears fork state', async () => {
-    const snapshot = personaSnapshot('Current Soul')
+    const snapshot = promptContextSnapshot('Current Soul')
     const harness = createHarness({
       id: 'session-1',
       name: 'Session',
       messages: [message('system', 'system', 'System'), message('user', 'user')],
-      settings: { agentPromptSnapshot: snapshot },
+      settings: { sessionPromptContextSnapshot: snapshot },
       messageForksHash: {
         user: { position: 0, lists: [{ id: 'branch', messages: [] }], createdAt: 1 },
       },
@@ -143,25 +143,25 @@ describe('ThreadService', () => {
     ])
     expect(harness.session.messageForksHash).toBeUndefined()
     expect(harness.session.threads).toHaveLength(1)
-    expect(harness.session.settings?.agentPromptSnapshot).toBeUndefined()
-    expect(harness.session.threads?.[0].agentPromptSnapshot).toBe(snapshot)
+    expect(harness.session.settings?.sessionPromptContextSnapshot).toBeUndefined()
+    expect(harness.session.threads?.[0].sessionPromptContextSnapshot).toBe(snapshot)
   })
 
   test('moves a history thread into a copied conversation before removing it', async () => {
     const historyMessages = [message('history', 'user')]
-    const historySnapshot = personaSnapshot('History Soul')
+    const historySnapshot = promptContextSnapshot('History Soul')
     const harness = createHarness({
       id: 'session-1',
       name: 'Session',
       messages: [message('current', 'user')],
-      settings: { agentPromptSnapshot: personaSnapshot('Current Soul') },
+      settings: { sessionPromptContextSnapshot: promptContextSnapshot('Current Soul') },
       threads: [
         {
           id: 'history-1',
           name: 'History',
           messages: historyMessages,
           createdAt: 1,
-          agentPromptSnapshot: historySnapshot,
+          sessionPromptContextSnapshot: historySnapshot,
         },
       ],
     })
@@ -173,7 +173,7 @@ describe('ThreadService', () => {
       messages: historyMessages,
       threads: [],
       threadName: undefined,
-      settings: { agentPromptSnapshot: historySnapshot },
+      settings: { sessionPromptContextSnapshot: historySnapshot },
     })
     expect(harness.session.threads).toEqual([])
     expect(harness.cancelMessages).toHaveBeenCalledWith('session-1', historyMessages)

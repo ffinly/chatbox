@@ -1,18 +1,22 @@
-import type { AgentPromptSnapshot, Message, SessionSettings } from '@shared/types'
-import { captureAgentPromptSnapshot, listMemories, snapshotMatchesDirectories } from '@/stores/agentPersonaStore'
+import type { Message, SessionPromptContextSnapshot, SessionSettings } from '@shared/types'
+import {
+  captureSessionPromptContextSnapshot,
+  listMemories,
+  sessionPromptContextSnapshotMatchesDirectories,
+} from '@/stores/agentPersonaStore'
 
-export interface ResolvePersonaSnapshotOptions {
+export interface ResolveSessionPromptContextSnapshotOptions {
   effectiveAgentMode: 'on' | 'off'
   /** Global memory switch for this request; when off, chat mode never captures. */
   memoryEnabled: boolean
   settings: SessionSettings
   messages: Message[]
   targetMsgIx: number
-  persist?: (snapshot: AgentPromptSnapshot) => void
+  persist?: (snapshot: SessionPromptContextSnapshot) => void
 }
 
 /**
- * Resolve the frozen persona snapshot (Soul + memories + workspace AGENTS.md)
+ * Resolve the frozen prompt-context snapshot (Soul + memories + workspace AGENTS.md)
  * for one generation. Captured once and reused verbatim afterwards so the
  * system prompt prefix stays byte-stable for provider caches.
  *
@@ -29,21 +33,21 @@ export interface ResolvePersonaSnapshotOptions {
  * description promises; sessions that never touch memories get no snapshot
  * churn.
  */
-export async function resolvePersonaSnapshot(
-  options: ResolvePersonaSnapshotOptions
-): Promise<AgentPromptSnapshot | undefined> {
+export async function resolveSessionPromptContextSnapshot(
+  options: ResolveSessionPromptContextSnapshotOptions
+): Promise<SessionPromptContextSnapshot | undefined> {
   const { effectiveAgentMode, memoryEnabled, settings, messages, targetMsgIx, persist } = options
-  const existing = settings.agentPromptSnapshot
+  const existing = settings.sessionPromptContextSnapshot
 
   if (effectiveAgentMode === 'on') {
     if (
       existing &&
       (existing.scope ?? 'agent') === 'agent' &&
-      snapshotMatchesDirectories(existing, settings.workingDirectories)
+      sessionPromptContextSnapshotMatchesDirectories(existing, settings.workingDirectories)
     ) {
       return existing
     }
-    const snapshot = await captureAgentPromptSnapshot(settings.workingDirectories, 'agent')
+    const snapshot = await captureSessionPromptContextSnapshot(settings.workingDirectories, 'agent')
     persist?.(snapshot)
     return snapshot
   }
@@ -51,7 +55,7 @@ export async function resolvePersonaSnapshot(
   if (existing) return existing
   const isConversationStart = !messages.slice(0, targetMsgIx).some((message) => message.role === 'assistant')
   if (memoryEnabled && isConversationStart && (await listMemories()).length > 0) {
-    const snapshot = await captureAgentPromptSnapshot(settings.workingDirectories, 'chat')
+    const snapshot = await captureSessionPromptContextSnapshot(settings.workingDirectories, 'chat')
     persist?.(snapshot)
     return snapshot
   }
