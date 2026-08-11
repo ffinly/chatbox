@@ -86,6 +86,7 @@ import * as toastActions from '@/stores/toastActions'
 import { useUIStore } from '@/stores/uiStore'
 import { inlineSandboxHtmlAssets } from './html-artifact-assets'
 import { getLocalFileName, localFilePathToUrl } from './local-file-url'
+import { ReasoningInlineSummary } from './ReasoningInlineSummary'
 
 // ─── Tool Error Result ──────────────────────────────────────────────
 
@@ -1968,7 +1969,7 @@ function useReasoningState(message: Message | undefined, part: MessageReasoningP
 }
 
 const TimelineReasoningStep: FC<{
-  part: MessageReasoningPart
+  part?: MessageReasoningPart
   message?: Message
   isFirst: boolean
   isLast: boolean
@@ -1986,18 +1987,14 @@ const TimelineReasoningStep: FC<{
     ? 'var(--chatbox-background-brand-secondary)'
     : 'color-mix(in srgb, var(--chatbox-tint-warning) 12%, transparent)'
 
-  const label = isThinking
-    ? t('Thinking')
-    : showTime
-      ? t('Thought for {{time}}', { time: formatElapsedTime(displayTime) })
-      : t('Deeply thought')
+  const label = isThinking ? t('Thinking') : t('Deeply thought')
 
   return (
     <Box pos="relative" pl={32} style={{ minHeight: 28, overflow: 'visible' }}>
       <TimelineRail isFirst={isFirst} isLast={isLast} icon={IconBulb} dotBg={dotBg} stateColor={stateColor} />
       <UnstyledButton
         onClick={hasDetail ? () => setExpanded((prev) => !prev) : undefined}
-        style={{ cursor: hasDetail ? 'pointer' : 'default', maxWidth: '100%', display: 'block' }}
+        style={{ cursor: hasDetail ? 'pointer' : 'default', width: '100%', maxWidth: '100%', display: 'block' }}
       >
         <Group
           gap={8}
@@ -2005,17 +2002,16 @@ const TimelineReasoningStep: FC<{
           align="center"
           style={{ height: TIMELINE_NODE_CENTER * 2, maxWidth: '100%', transform: 'translateY(-1px)' }}
         >
-          <Text
-            size="sm"
-            fw={500}
-            c="chatbox-secondary"
-            lh="20px"
-            fs={isThinking ? 'italic' : undefined}
-            className="shrink-0"
-          >
+          <Text size="sm" fw={500} c="chatbox-primary" lh="20px" className="shrink-0">
             {label}
           </Text>
+          {!expanded && <ReasoningInlineSummary content={reasoningContent} isThinking={isThinking} />}
           {isThinking && <ToolCallRunningDots />}
+          {showTime && (
+            <Text size="xs" c="chatbox-tertiary" lh="20px" className="shrink-0 tabular-nums">
+              {formatElapsedTime(displayTime)}
+            </Text>
+          )}
           {expanded && hasDetail && onCopyReasoningContent && (
             <ActionIcon
               variant="subtle"
@@ -2134,103 +2130,14 @@ export const ReasoningContentUI: FC<{
   message: Message
   part?: MessageReasoningPart
   onCopyReasoningContent: (content: string) => (e: React.MouseEvent<HTMLButtonElement>) => void
-}> = ({ message, part, onCopyReasoningContent }) => {
-  const { t } = useTranslation()
-  const { reasoningContent, isThinking, displayTime } = useReasoningState(message, part)
-
-  const [isExpanded, setIsExpanded] = useState<boolean>(false)
-
-  const shouldShowTimer = message.isStreamingMode === true
-  const showTime = shouldShowTimer && displayTime >= MIN_STEP_DURATION_MS
-
-  const toggleExpanded = useCallback(() => {
-    setIsExpanded((prev) => !prev)
-  }, [])
-
-  const showCopy = isExpanded && reasoningContent.length > 0
-  const copyButton = showCopy ? (
-    <ActionIcon
-      variant="subtle"
-      size="xs"
-      c="chatbox-gray"
-      onClick={(e) => {
-        e.stopPropagation()
-        onCopyReasoningContent(reasoningContent)(e)
-      }}
-      aria-label={t('Copy reasoning content')}
-    >
-      <ScalableIcon icon={IconCopy} size={12} />
-    </ActionIcon>
-  ) : null
-
-  const reasoningCollapse = reasoningContent.length > 0 && (
-    <Collapse in={isExpanded}>
-      <Box
-        mt={4}
-        pl="sm"
-        style={{
-          borderLeft: '1px solid var(--chatbox-tint-placeholder)',
-          maxHeight: 400,
-          overflowY: 'auto',
-          marginLeft: 7,
-        }}
-      >
-        <Text size="sm" c="chatbox-tertiary" style={{ whiteSpace: 'pre-line', lineHeight: 1.5 }}>
-          {reasoningContent}
-        </Text>
-      </Box>
-    </Collapse>
-  )
-
-  if (isThinking) {
-    return (
-      <Box mb={4}>
-        <UnstyledButton onClick={toggleExpanded}>
-          <Group gap={6}>
-            <Box
-              w={6}
-              h={6}
-              style={{
-                borderRadius: '50%',
-                backgroundColor: 'var(--chatbox-tint-brand)',
-                animation: 'pulse 1.5s ease-in-out infinite',
-              }}
-            />
-            <Text size="sm" c="chatbox-tertiary" fs="italic">
-              {t('Thinking')}
-              {showTime ? ` · ${formatElapsedTime(displayTime)}` : '...'}
-            </Text>
-            {copyButton}
-          </Group>
-        </UnstyledButton>
-        {reasoningCollapse}
-      </Box>
-    )
-  }
-
-  return (
-    <Box mb="xs">
-      <Box role="button" onClick={toggleExpanded}>
-        <Group gap={6}>
-          <ScalableIcon icon={IconBulb} size={14} color="var(--chatbox-tint-warning)" />
-          <Text size="sm" fw={600} c="chatbox-secondary" td="underline">
-            {showTime ? t('Thought for {{time}}', { time: formatElapsedTime(displayTime) }) : t('Deeply thought')}
-          </Text>
-          {copyButton}
-        </Group>
-      </Box>
-      <Collapse in={isExpanded}>
-        <Box
-          ml={4}
-          mt={4}
-          pl="sm"
-          style={{ borderLeft: '2px solid var(--chatbox-tint-warning)', maxHeight: 400, overflowY: 'auto' }}
-        >
-          <Text size="sm" c="chatbox-tertiary" style={{ whiteSpace: 'pre-line', lineHeight: 1.5 }}>
-            {reasoningContent}
-          </Text>
-        </Box>
-      </Collapse>
-    </Box>
-  )
-}
+}> = ({ message, part, onCopyReasoningContent }) => (
+  <Box my={8} mb={12}>
+    <TimelineReasoningStep
+      part={part}
+      message={message}
+      isFirst
+      isLast
+      onCopyReasoningContent={onCopyReasoningContent}
+    />
+  </Box>
+)

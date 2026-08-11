@@ -12,14 +12,7 @@ import {
 } from '@shared/session/action-gates'
 import { isCancellableGeneratingAssistantMessage } from '@shared/session/generation-state'
 import { findMessageLocation } from '@shared/session/message-forks'
-import type {
-  Message,
-  MessageBackgroundTask,
-  MessageReasoningPart,
-  MessageTextPart,
-  MessageToolCallPart,
-  SessionType,
-} from '@shared/types'
+import type { Message, MessageBackgroundTask, MessageTextPart, MessageToolCallPart, SessionType } from '@shared/types'
 import { getMessageText } from '@shared/utils/message'
 import {
   IconArrowDown,
@@ -43,17 +36,7 @@ import {
 import clsx from 'clsx'
 import * as dateFns from 'date-fns'
 import type React from 'react'
-import {
-  type FC,
-  Fragment,
-  forwardRef,
-  type MouseEventHandler,
-  memo,
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { type FC, forwardRef, type MouseEventHandler, memo, useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { trackAgentModeSuggestionAction } from '@/analytics/agent-mode'
 import { trackJkClickEvent } from '@/analytics/jk'
@@ -927,28 +910,15 @@ const _Message: FC<Props> = (props) => {
                     </div>
                   )
                 ) : 'parts' in item && item.type === 'step_group' ? (
-                  item.parts.some((p) => p.type !== 'reasoning') ? (
-                    <StepTimelineUI
-                      key={`step-group-${msg.id}-${index}`}
-                      parts={item.parts}
-                      message={msg}
-                      sessionId={sessionId}
-                      messageId={msg.id}
-                      onCopyReasoningContent={onCopyReasoningContent}
-                      renderText={renderTimelineText}
-                    />
-                  ) : (
-                    <Fragment key={`reasoning-group-${msg.id}-${index}`}>
-                      {item.parts.map((p, pIdx) => (
-                        <ReasoningContentUI
-                          key={`reasoning-${msg.id}-${index}-${pIdx}`}
-                          message={msg}
-                          part={p as MessageReasoningPart}
-                          onCopyReasoningContent={onCopyReasoningContent}
-                        />
-                      ))}
-                    </Fragment>
-                  )
+                  <StepTimelineUI
+                    key={`step-group-${msg.id}-${index}`}
+                    parts={item.parts}
+                    message={msg}
+                    sessionId={sessionId}
+                    messageId={msg.id}
+                    onCopyReasoningContent={onCopyReasoningContent}
+                    renderText={renderTimelineText}
+                  />
                 ) : item.type === 'tool-call' ? (
                   <ToolCallPartUI
                     key={item.toolCallId}
