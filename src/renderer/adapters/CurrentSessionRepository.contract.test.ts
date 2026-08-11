@@ -118,6 +118,7 @@ describe('CurrentSessionRepository contract', () => {
       messageForksHash: {},
     })
     expect(harness.getItem).toHaveBeenCalledWith('session:session-1', null)
+    expect(harness.setItemNow).not.toHaveBeenCalled()
   })
 
   test('returns null for a missing session', async () => {

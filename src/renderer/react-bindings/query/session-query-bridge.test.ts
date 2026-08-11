@@ -50,6 +50,17 @@ describe('session query definitions', () => {
 })
 
 describe('SessionQueryBridge', () => {
+  test('distinguishes an absent cache entry from a cached missing session', () => {
+    const repository = new MemorySessionRepository()
+    const events = new SessionEventBus()
+    const queryClient = new QueryClient()
+    const bridge = new SessionQueryBridge(queryClient, createService(repository, events), events)
+
+    expect(bridge.getCachedSession('session-1')).toBeUndefined()
+    queryClient.setQueryData(QueryKeys.ChatSession('session-1'), null)
+    expect(bridge.getCachedSession('session-1')).toBeNull()
+  })
+
   test('failed deletion evicts stale session data before writes reopen', async () => {
     const repository = new MemorySessionRepository()
     const session = createTestSession('session-1')
@@ -106,14 +117,21 @@ describe('SessionQueryBridge', () => {
     }
     const metadataError = new Error('metadata update failed')
     vi.spyOn(repository.meta, 'update').mockRejectedValueOnce(metadataError)
+    const onFullSessionPersisted = vi.fn()
 
     await expect(
-      service.updateSessionWithMessages(session.id, (current) => {
-        if (!current) throw new Error('Expected current session')
-        return { ...current, messages: [...current.messages, queuedMessage] }
-      })
+      service.updateSessionWithMessages(
+        session.id,
+        (current) => {
+          if (!current) throw new Error('Expected current session')
+          return { ...current, messages: [...current.messages, queuedMessage] }
+        },
+        { onFullSessionPersisted }
+      )
     ).rejects.toBe(metadataError)
 
+    expect(onFullSessionPersisted).toHaveBeenCalledOnce()
+    expect(onFullSessionPersisted).toHaveBeenCalledWith(repository.sessions.get(session.id))
     expect(repository.sessions.get(session.id)?.messages).toEqual([queuedMessage])
     expect(queryClient.getQueryData<Session>(QueryKeys.ChatSession(session.id))?.messages).toEqual([queuedMessage])
     expect(repository.records.get(session.id)?.name).toBe(session.name)

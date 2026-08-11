@@ -114,6 +114,30 @@ export class GenerationRuntimeStore {
   }
 
   /**
+   * Abort an active runtime for a removed message, or leave a one-shot tombstone
+   * when registration has not happened yet.
+   */
+  discard(sessionId: string, messageId: string, reason?: unknown): boolean {
+    let pendingAbortReasons = this.pendingAbortReasons.get(sessionId)
+    const hadPendingAbort = pendingAbortReasons?.has(messageId) ?? false
+    const current = this.states.get(sessionId)?.get(messageId)
+    if (current) {
+      current.abortController.abort(reason)
+      this.deleteState(sessionId, messageId)
+      pendingAbortReasons?.delete(messageId)
+      if (pendingAbortReasons?.size === 0) this.pendingAbortReasons.delete(sessionId)
+      this.notify()
+    } else {
+      if (!pendingAbortReasons) {
+        pendingAbortReasons = new Map()
+        this.pendingAbortReasons.set(sessionId, pendingAbortReasons)
+      }
+      pendingAbortReasons.set(messageId, reason)
+    }
+    return Boolean(current || hadPendingAbort)
+  }
+
+  /**
    * Abort a runtime while retaining it as a generation lock until the caller
    * settles the terminal Message write and explicitly clears it.
    */

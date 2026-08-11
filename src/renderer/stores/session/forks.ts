@@ -1,6 +1,8 @@
 import { ForkService } from '@shared/application/session'
+import { getReachableSessionMessages } from '@shared/session/generation-state'
 import {
   buildCreateInactiveForkPatch,
+  buildDeleteForkPatch,
   buildSwitchForkToPatch,
   findMessageLocation,
   forkTailStartIndex,
@@ -9,6 +11,7 @@ import type { Message } from '@shared/types'
 import { v4 as uuidv4 } from 'uuid'
 import * as chatStore from '../chatStore'
 import { guardSessionAction } from './action-guard'
+import { generationRuntimeStore } from './generation-runtime'
 
 const forkIdentity = {
   createId: uuidv4,
@@ -105,7 +108,40 @@ export async function deleteFork(sessionId: string, forkMessageId: string) {
   if (!(await guardSessionAction(sessionId, 'delete-fork'))) {
     return
   }
-  return forkService.delete(sessionId, forkMessageId)
+  let removedMessageIds = new Set<string>()
+  const discardRemovedRuntimes = () => {
+    for (const messageId of removedMessageIds) {
+      generationRuntimeStore.discard(sessionId, messageId, 'fork-deleted')
+    }
+  }
+  await chatStore.updateSessionWithMessages(
+    sessionId,
+    (session) => {
+      if (!session) {
+        throw new Error('Session not found')
+      }
+      const patch = buildDeleteForkPatch(session, forkMessageId)
+      if (!patch) return session
+
+      const updated = { ...session, ...patch }
+      const reachableAfter = new Set(getReachableSessionMessages(updated).map((message) => message.id))
+      removedMessageIds = new Set(
+        getReachableSessionMessages(session)
+          .filter(
+            (message) =>
+              !reachableAfter.has(message.id) &&
+              message.role === 'assistant' &&
+              (message.generating || generationRuntimeStore.get(sessionId, message.id) !== undefined)
+          )
+          .map((message) => message.id)
+      )
+      return updated
+    },
+    {
+      preserveCachedGeneratingMessages: true,
+      onFullSessionPersisted: discardRemovedRuntimes,
+    }
+  )
 }
 
 /** Expand all fork branches into the current message list. @deprecated */

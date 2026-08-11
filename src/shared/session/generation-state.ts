@@ -53,6 +53,14 @@ function collectReachableMessages(session: Session, initialLists: Message[][]): 
   return messages
 }
 
+/** Return every message reachable from the active conversation or a historical thread. */
+export function getReachableSessionMessages(session: Session): Message[] {
+  return collectReachableMessages(session, [
+    session.messages,
+    ...(session.threads ?? []).map((thread) => thread.messages),
+  ])
+}
+
 /**
  * Return messages reachable from the current conversation, including saved
  * fork branches but excluding historical threads.
@@ -82,10 +90,7 @@ function getGenerationControlBase(session: Session): GenerationControlBase {
   const currentMessages = getCurrentConversationMessages(session)
   const result = {
     currentMessageIds: new Set(currentMessages.map((message) => message.id)),
-    visibleMessages: collectReachableMessages(session, [
-      session.messages,
-      ...(session.threads ?? []).map((thread) => thread.messages),
-    ]),
+    visibleMessages: getReachableSessionMessages(session),
   }
   generationControlBaseCache.set(session, result)
   return result

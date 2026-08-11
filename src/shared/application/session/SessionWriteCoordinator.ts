@@ -82,6 +82,21 @@ export class SessionWriteCoordinator {
     return this.enqueue(sessionId, () => this.performUpdate(sessionId, updater, options))
   }
 
+  /**
+   * Serialize a repair derived from a repository read without re-reading through
+   * an external cache that may currently be resolving that same request.
+   */
+  updateFromSnapshot(
+    snapshot: Session,
+    updater: Updater<Session>,
+    options: SessionWriteOptions = {}
+  ): Promise<SessionWriteResult> {
+    if (this.unavailable.has(snapshot.id)) {
+      return Promise.reject(new SessionNotFoundError(snapshot.id))
+    }
+    return this.enqueue(snapshot.id, () => this.performUpdate(snapshot.id, updater, options, snapshot))
+  }
+
   delete(sessionId: string, operation: () => Promise<void>): Promise<void> {
     return this.deleteMany([sessionId], operation)
   }
@@ -161,9 +176,10 @@ export class SessionWriteCoordinator {
   private async performUpdate(
     sessionId: string,
     updater: Updater<Session>,
-    options: SessionWriteOptions
+    options: SessionWriteOptions,
+    fallbackSnapshot?: Session
   ): Promise<SessionWriteResult> {
-    const previous = this.current.get(sessionId) ?? (await this.readCurrentSession(sessionId))
+    const previous = this.current.get(sessionId) ?? fallbackSnapshot ?? (await this.readCurrentSession(sessionId))
     if (!previous) {
       throw new SessionNotFoundError(sessionId)
     }

@@ -88,6 +88,24 @@ describe('GenerationRuntimeStore', () => {
     expect(store.start('session-1', 'message-1').abortController.signal.aborted).toBe(false)
   })
 
+  it('discards active controls and aborts one late registration for a removed message', () => {
+    const store = createStore()
+    const active = store.start('session-1', 'active')
+    store.requestAbort('session-1', 'pending', 'stopped')
+
+    expect(store.discard('session-1', 'active', 'fork-deleted')).toBe(true)
+    expect(store.discard('session-1', 'pending', 'fork-deleted')).toBe(true)
+
+    expect(active.abortController.signal.aborted).toBe(true)
+    expect(active.abortController.signal.reason).toBe('fork-deleted')
+    expect(store.start('session-1', 'active').abortController.signal.aborted).toBe(false)
+    expect(store.start('session-1', 'pending').abortController.signal).toMatchObject({
+      aborted: true,
+      reason: 'fork-deleted',
+    })
+    expect(store.start('session-1', 'pending').abortController.signal.aborted).toBe(false)
+  })
+
   it('finishes active runtimes but preserves paused runtimes', () => {
     const store = createStore()
     store.start('session-1', 'message-1')

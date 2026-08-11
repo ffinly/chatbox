@@ -23,6 +23,7 @@ export interface SessionServiceOptions {
     picture?: Partial<SessionSettings>
   }
   getVisibleSessionMetas?: () => SessionMetaRecord[]
+  repairSessionOnRead?: (session: Session) => { session: Session; changed: boolean }
 }
 
 function describeError(error: unknown): unknown {
@@ -38,6 +39,8 @@ function describeError(error: unknown): unknown {
 
 export interface UpdateSessionOptions {
   preserveCachedGeneratingMessages?: boolean
+  /** Runs once the full Session is durable, even if its metadata projection fails afterward. */
+  onFullSessionPersisted?: (session: Session) => void
 }
 
 async function runInChunks<T>(items: T[], chunkSize: number, worker: (item: T) => Promise<void>): Promise<void> {
@@ -75,7 +78,28 @@ export class SessionService {
   async getSession(sessionId: string): Promise<Session | null> {
     await this.initialize()
     try {
-      return await this.repository.getSession(sessionId)
+      const session = await this.repository.getSession(sessionId)
+      const repairSessionOnRead = this.options.repairSessionOnRead
+      if (!session || !repairSessionOnRead || !repairSessionOnRead(session).changed) {
+        return session
+      }
+
+      const result = await this.writes.updateFromSnapshot(
+        session,
+        (current) => {
+          if (!current) throw new Error(`Session ${sessionId} not found`)
+          const repair = repairSessionOnRead(current)
+          return repair.changed ? repair.session : current
+        },
+        { updateMeta: false }
+      )
+      await this.events.publish({
+        type: 'session-updated',
+        session: result.session,
+        meta: null,
+        preserveCachedGeneratingMessages: false,
+      })
+      return result.session
     } catch (error) {
       await this.log('error', 'Failed to read session from repository', {
         sessionId,
@@ -186,6 +210,7 @@ export class SessionService {
       // current snapshot. Project it even though the list metadata write failed,
       // otherwise staleTime: Infinity leaves external read models permanently
       // behind and a retry can append the same message again.
+      options.onFullSessionPersisted?.(error.session)
       await this.events.publish({
         type: 'session-updated',
         session: error.session,
@@ -194,6 +219,7 @@ export class SessionService {
       })
       throw error.metadataError
     }
+    options.onFullSessionPersisted?.(result.session)
     await this.events.publish({
       type: 'session-updated',
       session: result.session,
@@ -300,7 +326,7 @@ export class SessionService {
 
     for (const sessionId of sessionIds) {
       try {
-        const session = await this.repository.getSession(sessionId)
+        const session = await this.getSession(sessionId)
         if (session?.id) {
           sessionsWithTimestamp.push({
             session,

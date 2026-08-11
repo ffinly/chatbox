@@ -1,4 +1,5 @@
 import type { Message, Session, SessionThread } from '../types/session'
+import { getReachableSessionMessages } from './generation-state'
 
 /**
  * Pure message-fork transforms shared by the web renderer and the mobile-native
@@ -214,13 +215,9 @@ function buildSwitchForkTargetPatch(
     }
   }
 
-  if (!session.threads?.length) {
-    return null
-  }
-
   let updatedFork: MessageForkEntry | null = null
   let forkWasProcessed = false
-  const updatedThreads = session.threads.map((thread) => {
+  const updatedThreads = session.threads?.map((thread) => {
     if (forkWasProcessed) {
       return thread
     }
@@ -236,13 +233,43 @@ function buildSwitchForkTargetPatch(
     }
   })
 
-  if (!forkWasProcessed) {
-    return null
+  if (forkWasProcessed) {
+    return {
+      threads: updatedThreads,
+      messageForksHash: computeNextMessageForksHash(messageForksHash, forkMessageId, updatedFork),
+    }
   }
 
+  let containingForkId: string | null = null
+  let containingListIndex = -1
+  let updatedContainingMessages: Message[] | null = null
+  for (const [candidateForkId, candidateFork] of Object.entries(messageForksHash)) {
+    if (candidateForkId === forkMessageId) continue
+    for (const [listIndex, list] of candidateFork.lists.entries()) {
+      const result = switchForkInMessages(list.messages, forkEntry, forkMessageId, target)
+      if (!result) continue
+      containingForkId = candidateForkId
+      containingListIndex = listIndex
+      updatedContainingMessages = result.messages
+      updatedFork = result.fork
+      break
+    }
+    if (containingForkId) break
+  }
+  if (!containingForkId || containingListIndex < 0 || !updatedContainingMessages) return null
+
+  const containingFork = messageForksHash[containingForkId]
+  const withUpdatedContainer = {
+    ...messageForksHash,
+    [containingForkId]: {
+      ...containingFork,
+      lists: containingFork.lists.map((list, listIndex) =>
+        listIndex === containingListIndex ? { ...list, messages: updatedContainingMessages } : list
+      ),
+    },
+  }
   return {
-    threads: updatedThreads,
-    messageForksHash: computeNextMessageForksHash(messageForksHash, forkMessageId, updatedFork),
+    messageForksHash: computeNextMessageForksHash(withUpdatedContainer, forkMessageId, updatedFork),
   }
 }
 
@@ -453,7 +480,7 @@ export function buildCreateInactiveForkPatch(
 }
 
 export function buildDeleteForkPatch(session: Session, forkMessageId: string): Partial<Session> | null {
-  return applyForkTransform(
+  const patch = applyForkTransform(
     session,
     forkMessageId,
     () => session.messageForksHash?.[forkMessageId] ?? null,
@@ -494,6 +521,20 @@ export function buildDeleteForkPatch(session: Session, forkMessageId: string): P
       }
     }
   )
+  if (!patch) return null
+
+  const updated = { ...session, ...patch }
+  const messageForksHash = updated.messageForksHash
+  if (!messageForksHash) return patch
+
+  const reachableMessageIds = new Set(getReachableSessionMessages(updated).map((message) => message.id))
+  const reachableForks = Object.fromEntries(
+    Object.entries(messageForksHash).filter(([pivotId]) => reachableMessageIds.has(pivotId))
+  )
+  return {
+    ...patch,
+    messageForksHash: Object.keys(reachableForks).length ? reachableForks : undefined,
+  }
 }
 
 export function buildExpandForkPatch(session: Session, forkMessageId: string): Partial<Session> | null {

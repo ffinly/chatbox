@@ -3,6 +3,7 @@ import type { Message, Session } from '../types'
 import {
   buildCreateForkPatch,
   buildCreateInactiveForkPatch,
+  buildDeleteForkPatch,
   buildSwitchForkToPatch,
   findMessageContext,
   findMessageLocation,
@@ -133,6 +134,45 @@ describe('buildCreateInactiveForkPatch', () => {
   })
 })
 
+describe('buildDeleteForkPatch', () => {
+  test('prunes nested fork entries whose parent branch was deleted', () => {
+    const rootPivot = message('root-pivot', 'user')
+    const removedReply = message('removed-reply', 'assistant')
+    const nestedPivot = message('nested-pivot', 'user')
+    const nestedReply = message('nested-reply', 'assistant')
+    const keptReply = message('kept-reply', 'assistant')
+    const session: Session = {
+      id: 'session-delete-nested',
+      name: 'Session',
+      messages: [rootPivot, removedReply, nestedPivot],
+      messageForksHash: {
+        [rootPivot.id]: {
+          position: 0,
+          lists: [
+            { id: 'root-current', messages: [] },
+            { id: 'root-saved', messages: [keptReply] },
+          ],
+          createdAt: 1,
+        },
+        [nestedPivot.id]: {
+          position: 0,
+          lists: [
+            { id: 'nested-current', messages: [] },
+            { id: 'nested-saved', messages: [nestedReply] },
+          ],
+          createdAt: 2,
+        },
+      },
+    }
+
+    const patch = buildDeleteForkPatch(session, rootPivot.id)
+
+    expect(patch?.messages?.map((item) => item.id)).toEqual([rootPivot.id, keptReply.id])
+    expect(patch?.messageForksHash?.[rootPivot.id]).toBeDefined()
+    expect(patch?.messageForksHash?.[nestedPivot.id]).toBeUndefined()
+  })
+})
+
 describe('buildSwitchForkToPatch', () => {
   test('switches directly to the selected saved branch', () => {
     const pivot = message('user-1', 'user')
@@ -168,6 +208,41 @@ describe('buildSwitchForkToPatch', () => {
         { id: 'selected', messages: [] },
       ],
     })
+  })
+
+  test('switches a fork whose active tail lives inside another saved branch', () => {
+    const outerPivot = message('outer-pivot', 'user')
+    const currentReply = message('current-reply', 'assistant')
+    const innerPivot = message('inner-pivot', 'user')
+    const innerSavedReply = message('inner-saved-reply', 'assistant')
+    const session: Session = {
+      id: 'nested-switch',
+      name: 'Session',
+      messages: [outerPivot, currentReply],
+      messageForksHash: {
+        [outerPivot.id]: {
+          position: 0,
+          lists: [
+            { id: 'outer-active', messages: [] },
+            { id: 'outer-saved', messages: [innerPivot] },
+          ],
+          createdAt: 1,
+        },
+        [innerPivot.id]: {
+          position: 0,
+          lists: [
+            { id: 'inner-active', messages: [] },
+            { id: 'inner-saved', messages: [innerSavedReply] },
+          ],
+          createdAt: 2,
+        },
+      },
+    }
+
+    const patch = buildSwitchForkToPatch(session, innerPivot.id, 1)
+
+    expect(patch?.messageForksHash?.[outerPivot.id].lists[1].messages).toEqual([innerPivot, innerSavedReply])
+    expect(patch?.messageForksHash?.[innerPivot.id]).toBeUndefined()
   })
 
   test('ignores the active branch and invalid positions', () => {

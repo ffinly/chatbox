@@ -4,6 +4,7 @@ import {
   countCancellableGeneratingAssistantMessages,
   getCurrentConversationMessages,
   getGenerationControlMessages,
+  getReachableSessionMessages,
   isCancellableGeneratingAssistantMessage,
 } from './generation-state'
 
@@ -117,5 +118,28 @@ describe('generation state', () => {
     expect(
       countCancellableGeneratingAssistantMessages(getGenerationControlMessages(session, activeIds), activeIds)
     ).toBe(2)
+  })
+
+  it('excludes nested fork data after its parent branch becomes unreachable', () => {
+    const rootPivot = message({ id: 'root-pivot', role: 'user' })
+    const nestedPivot = message({ id: 'nested-pivot', role: 'user' })
+    const nestedReply = message({ id: 'nested-reply', generating: true })
+    const session: Session = {
+      id: 'session-3',
+      name: 'Session',
+      messages: [rootPivot],
+      messageForksHash: {
+        [nestedPivot.id]: {
+          position: 0,
+          lists: [
+            { id: 'nested-current', messages: [] },
+            { id: 'nested-saved', messages: [nestedReply] },
+          ],
+          createdAt: 1,
+        },
+      },
+    }
+
+    expect(getReachableSessionMessages(session).map((item) => item.id)).toEqual(['root-pivot'])
   })
 })

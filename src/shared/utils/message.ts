@@ -81,6 +81,10 @@ export function cloneMessage(message: Message): Message {
 // last persist predates this module's load is not actually generating anymore.
 const MODULE_BOOT_TIME = Date.now()
 
+export function isStaleGeneratingMessage(message: Message, bootTime = MODULE_BOOT_TIME): boolean {
+  return message.generating === true && (message.timestamp === undefined || message.timestamp < bootTime)
+}
+
 /**
  * Finalize a message left `generating: true` in storage by a crash, force-quit,
  * or reload. Streaming persists refresh `timestamp` every couple of seconds, so a
@@ -92,7 +96,7 @@ const MODULE_BOOT_TIME = Date.now()
  * last-tool-step retry); `paused` parts keep their approval cards.
  */
 export function finalizeStaleGeneratingMessage(message: Message, bootTime = MODULE_BOOT_TIME): Message {
-  if (!message.generating || (message.timestamp !== undefined && message.timestamp >= bootTime)) {
+  if (!isStaleGeneratingMessage(message, bootTime)) {
     return message
   }
   const now = Date.now()

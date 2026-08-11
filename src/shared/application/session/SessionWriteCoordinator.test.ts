@@ -46,6 +46,24 @@ describe('SessionWriteCoordinator', () => {
     ])
   })
 
+  test('applies a read repair after already queued updates instead of overwriting them with its snapshot', async () => {
+    const repository = new MemorySessionRepository()
+    const snapshot = createTestSession('session-1')
+    repository.sessions.set(snapshot.id, snapshot)
+    const coordinator = new SessionWriteCoordinator(repository)
+
+    const ordinaryWrite = coordinator.update(snapshot.id, (session) => appendMessage(session, 'newer'))
+    const repair = coordinator.updateFromSnapshot(snapshot, (session) => {
+      if (!session) throw new Error('Expected current session')
+      return { ...session, name: 'Repaired' }
+    })
+
+    await Promise.all([ordinaryWrite, repair])
+
+    expect(repository.sessions.get(snapshot.id)).toMatchObject({ name: 'Repaired' })
+    expect(repository.sessions.get(snapshot.id)?.messages.map(({ id }) => id)).toEqual(['newer'])
+  })
+
   test('continues accepting writes after a rejected updater', async () => {
     const repository = new MemorySessionRepository()
     const session = createTestSession('session-1')
@@ -72,9 +90,9 @@ describe('SessionWriteCoordinator', () => {
     const metadataError = new Error('metadata update failed')
     vi.spyOn(repository.meta, 'update').mockRejectedValueOnce(metadataError)
 
-    const failure = await coordinator.update(session.id, (current) => appendMessage(current, 'persisted')).catch(
-      (error: unknown) => error
-    )
+    const failure = await coordinator
+      .update(session.id, (current) => appendMessage(current, 'persisted'))
+      .catch((error: unknown) => error)
 
     expect(failure).toBeInstanceOf(SessionMetadataUpdateError)
     expect(failure).toMatchObject({ metadataError })

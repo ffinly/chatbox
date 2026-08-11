@@ -12,6 +12,7 @@ import {
   fixMessageRoleSequence,
   getMessageText,
   isEmptyMessage,
+  isStaleGeneratingMessage,
   mergeMessages,
   migrateMessage,
   sequenceMessages,
@@ -888,5 +889,21 @@ describe('finalizeStaleGeneratingMessage', () => {
     })
 
     expect(finalizeStaleGeneratingMessage(message, bootTime)).toBe(message)
+  })
+})
+
+describe('isStaleGeneratingMessage', () => {
+  const bootTime = 1_000_000
+
+  it('identifies generating messages persisted before boot or without a timestamp', () => {
+    expect(isStaleGeneratingMessage(createMessage({ generating: true, timestamp: bootTime - 1 }), bootTime)).toBe(true)
+    expect(isStaleGeneratingMessage(createMessage({ generating: true, timestamp: undefined }), bootTime)).toBe(true)
+  })
+
+  it('ignores current-process and completed messages', () => {
+    expect(isStaleGeneratingMessage(createMessage({ generating: true, timestamp: bootTime }), bootTime)).toBe(false)
+    expect(isStaleGeneratingMessage(createMessage({ generating: false, timestamp: bootTime - 1 }), bootTime)).toBe(
+      false
+    )
   })
 })

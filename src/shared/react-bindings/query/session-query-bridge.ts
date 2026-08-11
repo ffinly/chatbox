@@ -58,6 +58,10 @@ export class SessionQueryBridge {
     return data?.pages.flatMap((page) => page.items) ?? []
   }
 
+  getCachedSession(sessionId: string): Session | null | undefined {
+    return this.queryClient.getQueryData<Session | null>(QueryKeys.ChatSession(sessionId))
+  }
+
   async listSessionsMeta(): Promise<SessionMetaRecord[]> {
     const cached = this.getCachedSessionsMeta()
     if (cached.length > 0) return cached

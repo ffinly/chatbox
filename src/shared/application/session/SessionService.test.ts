@@ -4,7 +4,12 @@ import { SessionService } from './SessionService'
 import { SessionNotFoundError, SessionWriteCoordinator } from './SessionWriteCoordinator'
 import { type SessionApplicationEvent, SessionEventBus } from './session-events'
 
-function createHarness() {
+function createHarness(
+  repairSessionOnRead?: (session: ReturnType<typeof createTestSession>) => {
+    session: ReturnType<typeof createTestSession>
+    changed: boolean
+  }
+) {
   const repository = new MemorySessionRepository()
   const events = new SessionEventBus()
   const published: SessionApplicationEvent[] = []
@@ -20,6 +25,7 @@ function createHarness() {
     getLastUsedModels: () => ({
       chat: { provider: 'openai', modelId: 'last-used-model' },
     }),
+    repairSessionOnRead,
   })
   return { repository, events, log, published, service }
 }
@@ -52,6 +58,29 @@ describe('SessionService', () => {
       'Failed to read session list page from repository',
       expect.objectContaining({ cursor: 20, limit: 10 })
     )
+  })
+
+  test('persists read repairs through the write coordinator and publishes the repaired session', async () => {
+    const harness = createHarness((session) => ({
+      session: session.name === 'Recovered' ? session : { ...session, name: 'Recovered' },
+      changed: session.name !== 'Recovered',
+    }))
+    const persisted = createTestSession('session-1')
+    harness.repository.sessions.set(persisted.id, persisted)
+    const setSession = vi.spyOn(harness.repository, 'setSession')
+
+    await expect(harness.service.getSession(persisted.id)).resolves.toMatchObject({ name: 'Recovered' })
+
+    expect(setSession).toHaveBeenCalledOnce()
+    expect(harness.repository.sessions.get(persisted.id)?.name).toBe('Recovered')
+    expect(harness.published.at(-1)).toMatchObject({
+      type: 'session-updated',
+      session: { id: persisted.id, name: 'Recovered' },
+      meta: null,
+    })
+
+    await harness.service.getSession(persisted.id)
+    expect(setSession).toHaveBeenCalledOnce()
   })
 
   test('logs each unreadable session and a recovery summary', async () => {
