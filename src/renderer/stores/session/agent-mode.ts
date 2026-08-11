@@ -11,6 +11,24 @@ export function createDefaultAgentModeEntry(smartSwitchingDefault = uiStore.getS
   } satisfies AgentModeEntry
 }
 
+/**
+ * Default entry for a brand-new chat ('new'): starts from the mode the user last
+ * explicitly selected in the mode panel, so Work Mode users don't have to re-select
+ * it for every conversation. Chat Mode keeps the smart switching preference.
+ *
+ * Existing sessions without a stored agentMode must NOT use this fallback —
+ * createDefaultAgentModeEntry keeps them in chat mode.
+ */
+export function createNewChatAgentModeEntry(
+  lastSelected = uiStore.getState().agentModeLastSelected,
+  smartSwitchingDefault = uiStore.getState().agentModeSmartSwitchingDefault
+): AgentModeEntry {
+  if (lastSelected === 'on') {
+    return { value: 'on', locked: false, lockReason: null }
+  }
+  return createDefaultAgentModeEntry(smartSwitchingDefault)
+}
+
 export function getSessionAgentModeFromSession(
   session: Pick<Session, 'settings'> | null | undefined
 ): AgentModeEntry | undefined {
@@ -22,21 +40,28 @@ export function getSessionAgentModeEntry(
   session?: Pick<Session, 'settings'> | null,
   legacyMap = uiStore.getState().sessionAgentModeMap
 ): AgentModeEntry {
-  return getSessionAgentModeFromSession(session) ?? legacyMap[sessionId] ?? createDefaultAgentModeEntry()
+  return (
+    getSessionAgentModeFromSession(session) ??
+    legacyMap[sessionId] ??
+    (sessionId === 'new' ? createNewChatAgentModeEntry() : createDefaultAgentModeEntry())
+  )
 }
 
 export function useSessionAgentMode(sessionId: string): AgentModeEntry {
   const legacyMap = useUIStore((state) => state.sessionAgentModeMap)
   const smartSwitchingDefault = useUIStore((state) => state.agentModeSmartSwitchingDefault)
+  const lastSelected = useUIStore((state) => state.agentModeLastSelected)
   const { session } = chatStore.useSession(sessionId === 'new' ? null : sessionId)
 
   return useMemo(() => {
     return (
       getSessionAgentModeFromSession(session) ??
       legacyMap[sessionId] ??
-      createDefaultAgentModeEntry(smartSwitchingDefault)
+      (sessionId === 'new'
+        ? createNewChatAgentModeEntry(lastSelected, smartSwitchingDefault)
+        : createDefaultAgentModeEntry(smartSwitchingDefault))
     )
-  }, [legacyMap, session, sessionId, smartSwitchingDefault])
+  }, [legacyMap, session, sessionId, smartSwitchingDefault, lastSelected])
 }
 
 function setNewSessionAgentMode(value: AgentModeValue): AgentModeEntry {

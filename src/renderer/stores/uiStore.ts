@@ -1,4 +1,4 @@
-import type { AgentModeEntry, KnowledgeBase, MessagePicture, Toast } from '@shared/types'
+import type { AgentModeEntry, AgentModeValue, KnowledgeBase, MessagePicture, Toast } from '@shared/types'
 import type { RefObject } from 'react'
 import type { VirtuosoHandle } from 'react-virtuoso'
 import { v4 as uuidv4 } from 'uuid'
@@ -57,6 +57,9 @@ export const uiStore = createStore(
         showCopilotsInNewSession: false,
         sidebarWidth: null as number | null, // Custom sidebar width, null means use default
         agentModeSmartSwitchingDefault: true,
+        // Last mode the user explicitly picked in the mode panel; new chats start in this
+        // mode so users don't have to re-select Work Mode for every conversation.
+        agentModeLastSelected: 'off' as Extract<AgentModeValue, 'on' | 'off'>,
         sessionAgentModeMap: {} as Record<string, AgentModeEntry>,
       },
       (set, get) => ({
@@ -216,6 +219,10 @@ export const uiStore = createStore(
           set({ agentModeSmartSwitchingDefault: enabled })
         },
 
+        setAgentModeLastSelected: (mode: Extract<AgentModeValue, 'on' | 'off'>) => {
+          set({ agentModeLastSelected: mode })
+        },
+
         clearSessionAgentMode: (sessionId?: string) => {
           if (sessionId) {
             set((state) => {
@@ -237,6 +244,7 @@ export const uiStore = createStore(
         showCopilotsInNewSession: state.showCopilotsInNewSession,
         sidebarWidth: state.sidebarWidth,
         agentModeSmartSwitchingDefault: state.agentModeSmartSwitchingDefault,
+        agentModeLastSelected: state.agentModeLastSelected,
         sessionWebBrowsingMap: state.sessionWebBrowsingMap,
       }),
       storage: safeStorage,

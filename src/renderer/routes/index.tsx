@@ -36,6 +36,7 @@ import { useAuthInfoStore } from '@/stores/authInfoStore'
 import { createSession as createSessionStore } from '@/stores/chatStore'
 import { resolveChatboxLicenseDefaultModel } from '@/stores/defaultChatModel'
 import { getHasCompletedFirstSuccessfulChat } from '@/stores/firstSuccessfulChat'
+import { getSessionAgentModeEntry } from '@/stores/session/agent-mode'
 import { generate, submitNewUserMessage, switchCurrentSession } from '@/stores/sessionActions'
 import { initEmptyChatSession } from '@/stores/sessionHelpers'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -289,7 +290,9 @@ function Index() {
         settings: {
           ...session.settings,
           ...options?.settingsPatch,
-          ...(sessionAgentModeMap.new ? { agentMode: sessionAgentModeMap.new } : {}),
+          // Bake the exact mode shown while the chat was "new" into the created session, so
+          // remembered defaults and transient selections follow the same resolution path.
+          agentMode: getSessionAgentModeEntry('new', undefined, sessionAgentModeMap),
           // Working directories bound while the chat was still "new" (not yet persisted).
           ...(newSessionState.workingDirectories?.length
             ? { workingDirectories: newSessionState.workingDirectories }

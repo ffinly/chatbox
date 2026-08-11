@@ -42,6 +42,7 @@ const mocks = vi.hoisted(() => {
   const uiState = {
     newSessionState: {},
     setAgentModeSmartSwitchingDefault: vi.fn(),
+    setAgentModeLastSelected: vi.fn(),
     setNewSessionState: vi.fn(),
   }
   const agentModeEntry = {
@@ -52,11 +53,13 @@ const mocks = vi.hoisted(() => {
   const knowledgeBases: Array<{ id: number; name: string }> = []
   const openDirectoryDialogMock = vi.fn()
   const trackWebSearchClickMock = vi.fn()
+  const setSessionAgentModeMock = vi.fn()
 
   return {
     agentModeEntry,
     knowledgeBases,
     openDirectoryDialogMock,
+    setSessionAgentModeMock,
     settingsState,
     trackWebSearchClickMock,
     uiState,
@@ -114,7 +117,7 @@ vi.mock('@/stores/premiumActions', () => ({
 }))
 
 vi.mock('@/stores/session/agent-mode', () => ({
-  setSessionAgentMode: vi.fn(),
+  setSessionAgentMode: mocks.setSessionAgentModeMock,
   useSessionAgentMode: () => mocks.agentModeEntry,
 }))
 
@@ -172,6 +175,50 @@ describe('AgentModePanel mode buttons', () => {
     renderPanel()
 
     expect(screen.queryByRole('button', { name: 'Soul & Memories' })).toBeNull()
+  })
+
+  test('remembers an explicit switch to Chat Mode for future new chats', () => {
+    mocks.agentModeEntry.value = 'on'
+    renderPanel()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Chat Mode' }))
+
+    expect(mocks.uiState.setAgentModeLastSelected).toHaveBeenCalledWith('off')
+    expect(mocks.setSessionAgentModeMock).toHaveBeenCalledWith('new', 'off')
+  })
+
+  test('remembers an explicit switch to Work Mode for future new chats', () => {
+    mocks.agentModeEntry.value = 'off'
+    renderPanel()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Work Mode' }))
+
+    expect(mocks.uiState.setAgentModeLastSelected).toHaveBeenCalledWith('on')
+    expect(mocks.setSessionAgentModeMock).toHaveBeenCalledWith('new', 'on')
+  })
+
+  test('keeps the remembered mode untouched when re-selecting the current mode', () => {
+    mocks.agentModeEntry.value = 'on'
+    renderPanel()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Work Mode' }))
+
+    expect(mocks.uiState.setAgentModeLastSelected).not.toHaveBeenCalled()
+    expect(mocks.setSessionAgentModeMock).not.toHaveBeenCalled()
+  })
+
+  test('keeps the remembered mode untouched when toggling Smart Switching', () => {
+    mocks.agentModeEntry.value = 'off'
+    renderPanel()
+
+    const smartSwitchingRow = screen.getByText('Smart Switching').closest('.mantine-Flex-root')
+    const smartSwitchingToggle = smartSwitchingRow?.querySelector('input[type="checkbox"]')
+    expect(smartSwitchingToggle).toBeTruthy()
+    fireEvent.click(smartSwitchingToggle as HTMLInputElement)
+
+    expect(mocks.uiState.setAgentModeSmartSwitchingDefault).toHaveBeenCalledWith(true)
+    expect(mocks.setSessionAgentModeMock).toHaveBeenCalledWith('new', 'auto')
+    expect(mocks.uiState.setAgentModeLastSelected).not.toHaveBeenCalled()
   })
 })
 

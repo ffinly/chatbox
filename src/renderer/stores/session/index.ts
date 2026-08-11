@@ -18,6 +18,7 @@
 export { getSessionLockStateNow, guardSessionAction } from './action-guard'
 export {
   createDefaultAgentModeEntry,
+  createNewChatAgentModeEntry,
   getSessionAgentModeEntry,
   getSessionAgentModeFromSession,
   lockSessionAgentMode,

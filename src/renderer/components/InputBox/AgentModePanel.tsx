@@ -141,6 +141,7 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
 
   // Agent mode state
   const setAgentModeSmartSwitchingDefault = useUIStore((s) => s.setAgentModeSmartSwitchingDefault)
+  const setAgentModeLastSelected = useUIStore((s) => s.setAgentModeLastSelected)
   const entry = useSessionAgentMode(sessionId)
   const agentModeUIState = useMemo(
     () => getAgentModeUIState(entry, modelSupportsAgentMode),
@@ -222,9 +223,13 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
         provider: providerId,
         model: modelId,
       })
+      // Remember the explicit choice so new chats start in the same mode.
+      if (value !== 'auto') {
+        setAgentModeLastSelected(value)
+      }
       void setSessionAgentMode(sessionId, value)
     },
-    [entry.value, modelId, providerId, sessionId]
+    [entry.value, modelId, providerId, sessionId, setAgentModeLastSelected]
   )
   const handleSmartSwitchingChange = useCallback(
     (enabled: boolean) => {
