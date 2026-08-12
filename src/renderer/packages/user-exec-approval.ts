@@ -22,10 +22,26 @@ export class UserExecApprovalPausedError extends Error {
     readonly toolCallId: string,
     readonly command: string,
     readonly explanation?: string,
-    readonly explanationError?: boolean
+    readonly explanationError?: boolean,
+    readonly workdir?: string
   ) {
     super(`User approval required before executing command: ${command}`)
     this.name = 'UserExecApprovalPausedError'
+  }
+}
+
+export class CommandEscalationApprovalPausedError extends Error {
+  readonly kind = 'command_escalation'
+
+  constructor(
+    readonly toolCallId: string,
+    readonly command: string,
+    readonly retryOf: string,
+    readonly justification: string,
+    readonly workdir: string
+  ) {
+    super(`User approval required before retrying command with full access: ${command}`)
+    this.name = 'CommandEscalationApprovalPausedError'
   }
 }
 
@@ -70,7 +86,8 @@ export async function requestUserExecApproval(
   toolCallId: string,
   command: string,
   explanationCtx?: ExplanationContext,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  workdir?: string
 ): Promise<UserExecApprovalSource> {
   // Auto-approve safe read-only commands (no caching needed — idempotent)
   if (isCommandAutoApprovable(command)) {
@@ -81,7 +98,7 @@ export async function requestUserExecApproval(
   const { explanation, explanationError, safe } = await generateApprovalAssessment(command, explanationCtx, signal)
   if (aiEligibility.eligible && safe) return 'ai'
 
-  throw new UserExecApprovalPausedError(toolCallId, command, explanation, explanationError)
+  throw new UserExecApprovalPausedError(toolCallId, command, explanation, explanationError, workdir)
 }
 
 function throwIfAborted(signal?: AbortSignal): void {

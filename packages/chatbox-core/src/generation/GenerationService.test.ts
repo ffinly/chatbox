@@ -966,7 +966,7 @@ describe('GenerationService', () => {
           toolCallId: 'tool-1',
           toolName: 'user_exec',
           args: { command: 'pwd' },
-          pauseReason: { type: 'user_exec_approval', command: 'pwd' },
+          pauseReason: { type: 'user_exec_approval', command: 'pwd', workdir: '/workspace' },
         },
       ],
     }
@@ -980,6 +980,7 @@ describe('GenerationService', () => {
       expect.objectContaining({
         toolCallId: 'tool-1',
         approved: true,
+        approvalWorkdir: '/workspace',
         approvalDetails: undefined,
         abortSignal: expect.any(AbortSignal),
       })

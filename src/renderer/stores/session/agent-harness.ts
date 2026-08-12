@@ -351,6 +351,11 @@ export async function prepareAgentGenerationHarness(
     agentMode: effectiveAgentMode,
     sessionSettings: settings,
     codeExecution: codeExecutionOption,
+    commandExecution:
+      effectiveAgentMode === 'on' && sandboxProvider
+        ? { sessionId: session.id, provider: canExecuteCode ? sandboxProvider : undefined }
+        : undefined,
+    agentToolContractVersion: promptContextSnapshot?.agentToolContractVersion ?? 1,
     onAgentModeActivated: () => {
       sideEffects?.lockAgentMode?.('load_skill')
     },

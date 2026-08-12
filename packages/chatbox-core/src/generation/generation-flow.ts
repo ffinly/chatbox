@@ -18,6 +18,7 @@ type ExecutableTool = {
     context: {
       toolCallId?: string
       approved?: boolean
+      approvalWorkdir?: string
       approvalDetails?: AppActionApprovalDetails
       abortSignal?: AbortSignal
     }
@@ -28,7 +29,13 @@ export function createPausedToolCallExecutionContext(
   part: Pick<MessageContentToolCallPart, 'toolCallId' | 'pauseReason'>,
   approvedToolCallId: string | undefined,
   abortSignal?: AbortSignal
-): { toolCallId: string; approved: boolean; approvalDetails?: AppActionApprovalDetails; abortSignal?: AbortSignal } {
+): {
+  toolCallId: string
+  approved: boolean
+  approvalWorkdir?: string
+  approvalDetails?: AppActionApprovalDetails
+  abortSignal?: AbortSignal
+} {
   // Approval is scoped to the exact call the user reviewed. Never infer authorization
   // from batch membership: a sibling call must pass through its own approval gate.
   const approved = part.toolCallId === approvedToolCallId
@@ -36,6 +43,11 @@ export function createPausedToolCallExecutionContext(
     toolCallId: part.toolCallId,
     approved,
     ...(abortSignal ? { abortSignal } : {}),
+    ...(approved &&
+    (part.pauseReason?.type === 'user_exec_approval' || part.pauseReason?.type === 'command_escalation_approval') &&
+    part.pauseReason.workdir
+      ? { approvalWorkdir: part.pauseReason.workdir }
+      : {}),
     approvalDetails:
       approved && part.pauseReason?.type === 'app_action_approval' ? part.pauseReason.details : undefined,
   }
@@ -64,6 +76,7 @@ interface UserExecPauseError {
   command: string
   explanation?: string
   explanationError?: boolean
+  workdir?: string
 }
 
 interface FileMutationPauseError {
@@ -71,6 +84,26 @@ interface FileMutationPauseError {
   toolCallId: string
   title: string
   preview: string
+}
+
+interface CommandEscalationPauseError {
+  name: 'CommandEscalationApprovalPausedError'
+  toolCallId: string
+  command: string
+  retryOf: string
+  justification: string
+  workdir: string
+}
+
+function isCommandEscalationApprovalPausedError(error: unknown): error is CommandEscalationPauseError {
+  return (
+    isRecordWithName(error, 'CommandEscalationApprovalPausedError') &&
+    typeof error.toolCallId === 'string' &&
+    typeof error.command === 'string' &&
+    typeof error.retryOf === 'string' &&
+    typeof error.justification === 'string' &&
+    typeof error.workdir === 'string'
+  )
 }
 
 interface AppActionPauseError {
@@ -139,6 +172,19 @@ export function getToolCallPause(error: unknown): {
         command: error.command,
         explanation: typeof error.explanation === 'string' ? error.explanation : undefined,
         explanationError: typeof error.explanationError === 'boolean' ? error.explanationError : undefined,
+        workdir: typeof error.workdir === 'string' ? error.workdir : undefined,
+      },
+    }
+  }
+  if (isCommandEscalationApprovalPausedError(error)) {
+    return {
+      toolCallId: error.toolCallId,
+      pauseReason: {
+        type: 'command_escalation_approval',
+        command: error.command,
+        retryOf: error.retryOf,
+        justification: error.justification,
+        workdir: error.workdir,
       },
     }
   }

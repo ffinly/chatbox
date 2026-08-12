@@ -156,3 +156,16 @@ describe('SessionSettingsSchema per-model provider options', () => {
     expect(parsed.provider).toBe('chatbox-ai')
   })
 })
+
+describe('SessionSettingsSchema command approval mode', () => {
+  test.each(['always_ask', 'smart', 'full_access'] as const)('accepts %s', (commandApprovalMode) => {
+    expect(SessionSettingsSchema.parse({ commandApprovalMode }).commandApprovalMode).toBe(commandApprovalMode)
+  })
+
+  test('drops an unknown mode while retaining the legacy full-access field', () => {
+    const parsed = SessionSettingsSchema.parse({ commandApprovalMode: 'unknown', agentFullAccess: true })
+
+    expect(parsed.commandApprovalMode).toBeUndefined()
+    expect(parsed.agentFullAccess).toBe(true)
+  })
+})

@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process'
 import { describe, expect, test } from 'vitest'
 import { shellQuote } from '../../shared/utils/shell'
-import { buildSandboxStdinScript, stripCodesignNoise } from './exec-script'
+import { buildPowerShellStdinScript, buildSandboxStdinScript, stripCodesignNoise } from './exec-script'
 
 describe('stripCodesignNoise', () => {
   test('removes the Electron code-signing warning while preserving user stderr', () => {
@@ -99,5 +99,18 @@ describe('buildSandboxStdinScript', () => {
     expect(result.status).toBe(0)
     expect(result.stdout).toBe('after\n')
     expect(result.stderr).toBe('')
+  })
+})
+
+describe('buildPowerShellStdinScript', () => {
+  test('can expose the bundled Electron runtime as node', () => {
+    const script = buildPowerShellStdinScript('node script.mjs', "C:\\Program Files\\Chatbox's\\Chatbox.exe")
+
+    expect(script).toContain('function node {')
+    expect(script).toContain("$env:ELECTRON_RUN_AS_NODE = '1'")
+    expect(script).toContain("& 'C:\\Program Files\\Chatbox''s\\Chatbox.exe' @args")
+    expect(script).toContain('$chatboxNodeExitCode = $LASTEXITCODE')
+    expect(script).toContain('$global:LASTEXITCODE = $chatboxNodeExitCode')
+    expect(script.endsWith('node script.mjs')).toBe(true)
   })
 })

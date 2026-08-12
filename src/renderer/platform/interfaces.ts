@@ -159,6 +159,14 @@ export interface Platform extends Storage {
     sessionId?: string
     toolCallId?: string
   }): Promise<SandboxExecResult>
+  sandboxRunCommand?(params: {
+    command: string
+    shell: 'bash' | 'powershell'
+    workdir?: string
+    timeout?: number
+    sessionId?: string
+    toolCallId: string
+  }): Promise<import('@shared/sandbox-provider').SandboxRunCommandResult>
   sandboxRead?(params: {
     filePath: string
     offset?: number

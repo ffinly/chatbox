@@ -1354,5 +1354,9 @@
   "Found {{count}} new local memories.": "发现 {{count}} 条新的本地记忆。",
   "Review": "审阅",
   "No new local memories were found.": "未发现新的本地记忆。",
-  "View Image": "查看图片"
+  "View Image": "查看图片",
+  "Always Ask": "始终询问",
+  "Ask before every command that needs host access.": "每次命令需要访问主机环境时都询问。",
+  "Automatically approve safe commands and ask when uncertain.": "自动批准安全命令，无法确定时再询问。",
+  "Smart Approval": "智能批准"
 }

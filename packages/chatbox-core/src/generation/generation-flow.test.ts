@@ -49,6 +49,7 @@ describe('generation flow', () => {
         command: 'pwd',
         explanation: 'Inspect directory',
         explanationError: true,
+        workdir: '/workspace/project',
       },
       {
         toolCallId: 'exec-1',
@@ -57,6 +58,27 @@ describe('generation flow', () => {
           command: 'pwd',
           explanation: 'Inspect directory',
           explanationError: true,
+          workdir: '/workspace/project',
+        },
+      },
+    ],
+    [
+      {
+        name: 'CommandEscalationApprovalPausedError',
+        toolCallId: 'retry-1',
+        command: 'git status',
+        retryOf: 'failed-1',
+        justification: 'The sandbox denied access to repository metadata.',
+        workdir: '/workspace/project',
+      },
+      {
+        toolCallId: 'retry-1',
+        pauseReason: {
+          type: 'command_escalation_approval',
+          command: 'git status',
+          retryOf: 'failed-1',
+          justification: 'The sandbox denied access to repository metadata.',
+          workdir: '/workspace/project',
         },
       },
     ],
@@ -178,7 +200,7 @@ describe('generation flow', () => {
 
   it('finds limit and parallel approval batches without crossing step boundaries', () => {
     const limitReason = { type: 'tool_call_limit' as const, maxToolCalls: 25 }
-    const approvalReason = { type: 'user_exec_approval' as const, command: 'pwd' }
+    const approvalReason = { type: 'user_exec_approval' as const, command: 'pwd', workdir: '/workspace/project' }
     const current = message([
       { ...toolPart('limit-1', 'paused', 0), pauseReason: limitReason },
       { ...toolPart('limit-2', 'paused', 1), pauseReason: limitReason },

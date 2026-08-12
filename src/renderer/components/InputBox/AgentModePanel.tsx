@@ -12,7 +12,12 @@ import {
   UnstyledButton,
 } from '@mantine/core'
 import { TestId } from '@shared/automation/testids'
-import type { AgentModeValue, KnowledgeBase } from '@shared/types'
+import {
+  type AgentModeValue,
+  type CommandApprovalMode,
+  type KnowledgeBase,
+  resolveCommandApprovalMode,
+} from '@shared/types'
 import {
   IconCheck,
   IconChevronRight,
@@ -264,10 +269,14 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
     () => recentDirectories.filter((dir) => !workingDirectories.includes(dir)),
     [recentDirectories, workingDirectories]
   )
-  const agentFullAccess = isNewSession
-    ? (newSessionState.agentFullAccess ?? false)
-    : (sessionSettings.agentFullAccess ?? false)
-
+  const commandApprovalMode = resolveCommandApprovalMode(
+    isNewSession
+      ? {
+          commandApprovalMode: newSessionState.commandApprovalMode,
+          agentFullAccess: newSessionState.agentFullAccess,
+        }
+      : sessionSettings
+  )
   const updateWorkingDirectories = useCallback(
     async (next: string[]) => {
       const value = next.length ? next : undefined
@@ -314,9 +323,9 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
     [workingDirectories, updateWorkingDirectories]
   )
 
-  const updateAgentFullAccess = useCallback(
-    async (enabled: boolean) => {
-      if (enabled === agentFullAccess) return
+  const updateCommandApprovalMode = useCallback(
+    async (mode: CommandApprovalMode) => {
+      if (mode === commandApprovalMode) return
       trackCodeExecutionClick(
         {
           sessionId,
@@ -324,11 +333,15 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
           provider: providerId,
           model: modelId,
         },
-        enabled ? 'full_access' : 'approval'
+        mode === 'full_access' ? 'full_access' : 'approval'
       )
-      const value = enabled || undefined
+      const legacyFullAccess = mode === 'full_access' || undefined
       if (isNewSession) {
-        setNewSessionState((prev) => ({ ...prev, agentFullAccess: value }))
+        setNewSessionState((prev) => ({
+          ...prev,
+          agentFullAccess: legacyFullAccess,
+          commandApprovalMode: mode,
+        }))
         return
       }
       try {
@@ -336,13 +349,20 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
           if (!session) {
             throw new Error('Session not found')
           }
-          return { ...session, settings: { ...session.settings, agentFullAccess: value } }
+          return {
+            ...session,
+            settings: {
+              ...session.settings,
+              agentFullAccess: legacyFullAccess,
+              commandApprovalMode: mode,
+            },
+          }
         })
       } catch (err) {
-        console.error('Failed to update agent full access:', err)
+        console.error('Failed to update command approval mode:', err)
       }
     },
-    [agentFullAccess, isNewSession, modelId, providerId, sessionId, setNewSessionState]
+    [commandApprovalMode, isNewSession, modelId, providerId, sessionId, setNewSessionState]
   )
 
   const selectedKB = useMemo(
@@ -650,18 +670,48 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
             }`}
             onClick={() => {
               if (workModeCapabilitiesDisabled) return
-              void updateAgentFullAccess(false)
+              void updateCommandApprovalMode('always_ask')
             }}
           >
             <Stack gap={0} className="min-w-0">
-              <Text size="sm" c={!agentFullAccess ? 'chatbox-brand' : undefined}>
-                {t('Approve')}
+              <Text size="sm" c={commandApprovalMode === 'always_ask' ? 'chatbox-brand' : undefined}>
+                {t('Always Ask')}
               </Text>
               <Text size="xs" c="chatbox-secondary" className="leading-snug">
-                {t('Ask before running commands or changing files.')}
+                {t('Ask before every command that needs host access.')}
               </Text>
             </Stack>
-            {!agentFullAccess && <IconCheck size={14} className="text-[var(--chatbox-tint-brand)] shrink-0" />}
+            {commandApprovalMode === 'always_ask' && (
+              <IconCheck size={14} className="text-[var(--chatbox-tint-brand)] shrink-0" />
+            )}
+          </Flex>
+          <Flex
+            justify="space-between"
+            align="center"
+            px="sm"
+            py={6}
+            gap="sm"
+            className={`rounded ${
+              workModeCapabilitiesDisabled
+                ? 'cursor-default opacity-50'
+                : 'cursor-pointer hover:bg-[var(--mantine-color-gray-0)] dark:hover:bg-[var(--mantine-color-dark-5)]'
+            }`}
+            onClick={() => {
+              if (workModeCapabilitiesDisabled) return
+              void updateCommandApprovalMode('smart')
+            }}
+          >
+            <Stack gap={0} className="min-w-0">
+              <Text size="sm" c={commandApprovalMode === 'smart' ? 'chatbox-brand' : undefined}>
+                {t('Smart Approval')}
+              </Text>
+              <Text size="xs" c="chatbox-secondary" className="leading-snug">
+                {t('Automatically approve safe commands and ask when uncertain.')}
+              </Text>
+            </Stack>
+            {commandApprovalMode === 'smart' && (
+              <IconCheck size={14} className="text-[var(--chatbox-tint-brand)] shrink-0" />
+            )}
           </Flex>
           <Flex
             justify="space-between"
@@ -676,7 +726,7 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
             }`}
             onClick={() => {
               if (workModeCapabilitiesDisabled) return
-              void updateAgentFullAccess(true)
+              void updateCommandApprovalMode('full_access')
             }}
           >
             <Stack gap={0} className="min-w-0">
@@ -687,7 +737,7 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
                 {t('Skip approval prompts for commands and file changes.')}
               </Text>
             </Stack>
-            {agentFullAccess && <IconCheck size={14} className="text-red-600 shrink-0" />}
+            {commandApprovalMode === 'full_access' && <IconCheck size={14} className="text-red-600 shrink-0" />}
           </Flex>
         </>
       )
@@ -1043,13 +1093,13 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
             subPanelAlign="top"
             rightContent={
               <Flex gap="xs" align="center" className="shrink-0">
-                {agentFullAccess ? (
+                {commandApprovalMode === 'full_access' ? (
                   <Badge size="xs" variant="light" color="red">
                     {t('Full Access')}
                   </Badge>
                 ) : (
                   <Badge size="xs" variant="light">
-                    {t('Approve')}
+                    {commandApprovalMode === 'always_ask' ? t('Always Ask') : t('Smart Approval')}
                   </Badge>
                 )}
                 <IconChevronRight size={14} className="text-[var(--chatbox-tint-tertiary)]" />

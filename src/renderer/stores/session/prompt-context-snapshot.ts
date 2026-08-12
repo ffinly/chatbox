@@ -47,7 +47,20 @@ export async function resolveSessionPromptContextSnapshot(
     ) {
       return existing
     }
-    const snapshot = await captureSessionPromptContextSnapshot(settings.workingDirectories, 'agent')
+    const hasLegacyCommandHistory = messages
+      .slice(0, targetMsgIx)
+      .some((message) =>
+        message.contentParts.some(
+          (part) => part.type === 'tool-call' && (part.toolName === 'user_exec' || part.toolName === 'code_execution')
+        )
+      )
+    const captured = await captureSessionPromptContextSnapshot(settings.workingDirectories, 'agent')
+    const snapshot = {
+      ...captured,
+      agentToolContractVersion:
+        existing?.agentToolContractVersion ??
+        (hasLegacyCommandHistory ? (1 as const) : (captured.agentToolContractVersion ?? (1 as const))),
+    }
     persist?.(snapshot)
     return snapshot
   }

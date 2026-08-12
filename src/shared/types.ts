@@ -454,6 +454,7 @@ export type FileMeta = {
 }
 
 export * from './types/agent-persona'
+export * from './types/command-execution'
 export * from './types/image-generation'
 export * from './types/session'
 export * from './types/settings'

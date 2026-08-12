@@ -14,6 +14,7 @@ import type {
   SessionSettings,
   Settings,
 } from '@shared/types'
+import { resolveCommandApprovalMode } from '@shared/types/command-execution'
 import { getMessageText } from '@shared/utils/message'
 import { resolveReasoningProviderOptions } from '@shared/utils/reasoning-control'
 import { MAX_TOOL_CALLS_BEFORE_CONFIRMATION, shouldPauseOnToolCallLimit } from '@shared/utils/tool-call-limit-pause'
@@ -74,6 +75,7 @@ type ExecutableTool = {
     context: {
       toolCallId?: string
       approved?: boolean
+      approvalWorkdir?: string
       approvalDetails?: AppActionApprovalDetails
       abortSignal?: AbortSignal
     }
@@ -908,11 +910,12 @@ export class GenerationService<TContext> {
     const pauseReason = part.pauseReason
     if (
       pauseReason?.type === 'user_exec_approval' ||
+      pauseReason?.type === 'command_escalation_approval' ||
       pauseReason?.type === 'file_mutation_approval' ||
       pauseReason?.type === 'app_action_approval'
     ) {
       const deniedResult =
-        pauseReason.type === 'user_exec_approval'
+        pauseReason.type === 'user_exec_approval' || pauseReason.type === 'command_escalation_approval'
           ? { success: false, exitCode: null, stdout: '', stderr: 'Command denied by user.' }
           : pauseReason.type === 'file_mutation_approval'
             ? { success: false, error: 'File mutation denied by user.' }
@@ -1119,7 +1122,7 @@ export class GenerationService<TContext> {
         provider: settings.provider,
         model: settings.modelId,
         agentMode: host.getAgentModeEntry(sessionId, session).value,
-        fullAccess: settings.agentFullAccess === true,
+        fullAccess: resolveCommandApprovalMode(settings) === 'full_access',
         toolName: part.toolName,
         pauseType: part.pauseReason?.type,
       })
@@ -1204,6 +1207,10 @@ export class GenerationService<TContext> {
         const result = await executableTool.execute(part.args, {
           toolCallId,
           approved: true,
+          ...(part.pauseReason?.type === 'user_exec_approval' ||
+          part.pauseReason?.type === 'command_escalation_approval'
+            ? { approvalWorkdir: part.pauseReason.workdir }
+            : {}),
           approvalDetails: part.pauseReason?.type === 'app_action_approval' ? part.pauseReason.details : undefined,
         })
         retryMessage = updateToolCallPart(retryMessage, toolCallId, (toolPart) => ({
@@ -1226,7 +1233,7 @@ export class GenerationService<TContext> {
           provider: settings.provider,
           model: settings.modelId,
           agentMode: host.getAgentModeEntry(sessionId, session).value,
-          fullAccess: settings.agentFullAccess === true,
+          fullAccess: resolveCommandApprovalMode(settings) === 'full_access',
           toolName: part.toolName,
         })
         const errorMessage = error instanceof Error ? error.message : String(error)

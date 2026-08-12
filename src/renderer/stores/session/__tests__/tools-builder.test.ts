@@ -11,12 +11,14 @@ const {
   isProMock,
   webSearchProvider,
   buildCodeExecutionToolsMock,
+  buildRunCommandToolMock,
   getSessionAttachmentRagToolSetMock,
   skillsChangedListeners,
   requestUserExecApprovalMock,
   cancelUserExecMock,
   userExecMock,
   readWorkspaceInstructionsMock,
+  platformName,
 } = vi.hoisted(() => ({
   discoverSkillsMock: vi.fn(),
   installFromSandboxMock: vi.fn(),
@@ -32,12 +34,14 @@ const {
   isProMock: vi.fn(),
   webSearchProvider: { current: 'build-in' },
   buildCodeExecutionToolsMock: vi.fn(),
+  buildRunCommandToolMock: vi.fn(),
   getSessionAttachmentRagToolSetMock: vi.fn(),
   skillsChangedListeners: new Set<() => void>(),
   requestUserExecApprovalMock: vi.fn(),
   cancelUserExecMock: vi.fn(),
   userExecMock: vi.fn(),
   readWorkspaceInstructionsMock: vi.fn(),
+  platformName: { current: 'darwin' },
 }))
 
 vi.hoisted(() => {
@@ -59,6 +63,7 @@ vi.hoisted(() => {
 vi.mock('@/platform', () => ({
   default: {
     type: 'web',
+    getPlatform: vi.fn().mockImplementation(() => Promise.resolve(platformName.current)),
     readWorkspaceInstructions: readWorkspaceInstructionsMock,
     // Presence enables view_image registration (isViewImageAvailable).
     fsReadImage: vi.fn(),
@@ -94,6 +99,18 @@ vi.mock('@/packages/skills/controller', () => ({
 
 vi.mock('@/packages/user-exec-approval', () => ({
   requestUserExecApproval: requestUserExecApprovalMock,
+  UserExecApprovalPausedError: class UserExecApprovalPausedError extends Error {
+    constructor(
+      readonly toolCallId: string,
+      readonly command: string,
+      readonly explanation?: string,
+      readonly explanationError?: boolean,
+      readonly workdir?: string
+    ) {
+      super(`User approval required before executing command: ${command}`)
+      this.name = 'UserExecApprovalPausedError'
+    }
+  },
 }))
 
 vi.mock('@/stores/settingsStore', () => ({
@@ -123,6 +140,10 @@ vi.mock('@/stores/settingActions', () => ({
 
 vi.mock('@/packages/model-calls/toolsets/code-execution', () => ({
   buildCodeExecutionTools: buildCodeExecutionToolsMock,
+}))
+
+vi.mock('@/packages/model-calls/toolsets/run-command', () => ({
+  buildRunCommandTool: buildRunCommandToolMock,
 }))
 
 vi.mock('@/packages/model-calls/toolsets/web-search', () => {
@@ -226,6 +247,7 @@ beforeEach(() => {
   settingsState.licenseActivationMethod = undefined
   settingsState.hasExpiredLicense = false
   webSearchProvider.current = 'build-in'
+  platformName.current = 'darwin'
   isProMock.mockReturnValue(true)
   buildCodeExecutionToolsMock.mockReturnValue({
     description: 'code execution toolset',
@@ -233,6 +255,11 @@ beforeEach(() => {
       code_execution: { execute: async () => ({}) },
       parse_file: { execute: async () => ({}) },
     },
+    ensureSandbox: vi.fn().mockResolvedValue({ success: true }),
+  })
+  buildRunCommandToolMock.mockReturnValue({
+    description: 'run command toolset',
+    tool: { execute: async () => ({}) },
   })
   getSessionAttachmentRagToolSetMock.mockResolvedValue({
     description: 'session attachment rag toolset',
@@ -351,6 +378,131 @@ describe('buildToolsForSession', () => {
     expect(result.tools.code_execution).toBeDefined()
     expect(result.instructions).toContain('## Git Commits')
     expect(result.instructions).toContain('Co-authored-by: Chatbox <chatbox@chatboxai.com>')
+  })
+
+  test('v2 command contract exposes run_command and retires legacy command tools', async () => {
+    const provider = createMockSandboxProvider()
+    vi.mocked(provider.resolveWorkingDirectory).mockResolvedValue('/sandbox/session-1')
+    const result = await buildToolsForSession(createMockModel(), {
+      webBrowsing: false,
+      messages: [],
+      agentMode: 'on',
+      agentToolContractVersion: 2,
+      sessionSettings: { commandApprovalMode: 'smart', workingDirectories: ['/workspace/project'] },
+      codeExecution: { sessionId: 'session-1', provider, files: [] },
+      commandExecution: { sessionId: 'session-1', provider },
+    })
+
+    expect(result.tools.run_command).toBeDefined()
+    expect(result.tools.code_execution).toBeUndefined()
+    expect(result.tools.user_exec).toBeUndefined()
+    expect(result.tools.parse_file).toBeDefined()
+    expect(result.instructions).toContain('run_command')
+    expect(result.instructions).toContain('workdir set to /sandbox/session-1')
+    expect(result.tools.install_skill.description).toContain('Set run_command workdir to /sandbox/session-1')
+    expect(buildRunCommandToolMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: 'session-1',
+        platform: 'darwin',
+        approvalMode: 'smart',
+        workingDirectories: ['/workspace/project'],
+      })
+    )
+  })
+
+  test('v2 command contract preserves Node code_execution on HarmonyOS', async () => {
+    platformName.current = 'harmony'
+    const provider = createMockSandboxProvider()
+    const result = await buildToolsForSession(createMockModel(), {
+      webBrowsing: false,
+      messages: [],
+      agentMode: 'on',
+      agentToolContractVersion: 2,
+      sessionSettings: { commandApprovalMode: 'smart', workingDirectories: ['/workspace/project'] },
+      codeExecution: { sessionId: 'session-1', provider, files: [] },
+      commandExecution: { sessionId: 'session-1', provider },
+    })
+
+    expect(result.tools.code_execution).toBeDefined()
+    expect(result.tools.run_command).toBeUndefined()
+    expect(result.tools.user_exec).toBeUndefined()
+    expect(result.tools.install_skill.description).toContain('code_execution (sandbox)')
+    expect(result.instructions).toContain('HarmonyOS currently supports sandboxed Node.js through code_execution')
+    expect(result.instructions).not.toContain('Use run_command')
+    expect(buildRunCommandToolMock).not.toHaveBeenCalled()
+  })
+
+  test('v2 Windows command instructions describe PowerShell host execution without Bash claims', async () => {
+    platformName.current = 'win32'
+    const provider = createMockSandboxProvider()
+    vi.mocked(provider.resolveWorkingDirectory).mockResolvedValue('C:\\sandbox\\session-1')
+    const result = await buildToolsForSession(createMockModel(), {
+      webBrowsing: false,
+      messages: [],
+      agentMode: 'on',
+      agentToolContractVersion: 2,
+      sessionSettings: { commandApprovalMode: 'smart' },
+      codeExecution: { sessionId: 'session-1', provider, files: [] },
+      commandExecution: { sessionId: 'session-1', provider },
+    })
+
+    expect(result.instructions).toContain('run_command executes PowerShell on the host')
+    expect(result.instructions).toContain('session approval policy')
+    expect(result.instructions).toContain('Bash is unavailable')
+    expect(result.instructions).not.toContain('sandboxed environment for lightweight code execution')
+  })
+
+  test.each(['web', 'ios', 'android'])('v2 command contract does not expose Electron commands on %s', async (name) => {
+    platformName.current = name
+    const provider = createMockSandboxProvider()
+    const result = await buildToolsForSession(createMockModel(), {
+      webBrowsing: false,
+      messages: [],
+      agentMode: 'on',
+      agentToolContractVersion: 2,
+      sessionSettings: { commandApprovalMode: 'smart', workingDirectories: ['/workspace/project'] },
+      codeExecution: { sessionId: 'session-1', provider, files: [] },
+      commandExecution: { sessionId: 'session-1', provider },
+    })
+
+    expect(result.tools.code_execution).toBeDefined()
+    expect(result.tools.run_command).toBeUndefined()
+    expect(result.tools.user_exec).toBeUndefined()
+    expect(result.instructions).toContain('Host command execution is unavailable')
+    expect(result.instructions).not.toContain('Use run_command')
+    expect(buildRunCommandToolMock).not.toHaveBeenCalled()
+  })
+
+  test('Windows legacy code_execution pauses before unconstrained execution', async () => {
+    platformName.current = 'win32'
+    const originalExecute = vi.fn().mockResolvedValue({ stdout: 'ok', stderr: '', exitCode: 0 })
+    buildCodeExecutionToolsMock.mockReturnValue({
+      description: 'code execution toolset',
+      tools: { code_execution: { execute: originalExecute } },
+      ensureSandbox: vi.fn().mockResolvedValue({ success: true }),
+    })
+    const result = await buildToolsForSession(createMockModel(), {
+      webBrowsing: false,
+      messages: [],
+      agentMode: 'on',
+      codeExecution: { sessionId: 'session-1', provider: createMockSandboxProvider(), files: [] },
+    })
+    if (!result.tools.code_execution.execute) throw new Error('code_execution execute missing')
+
+    await expect(
+      result.tools.code_execution.execute({ code: 'console.log(1)', language: 'node' }, {
+        toolCallId: 'tool-call-code',
+        messages: [],
+      } as never)
+    ).rejects.toMatchObject({ name: 'UserExecApprovalPausedError', toolCallId: 'tool-call-code' })
+    expect(originalExecute).not.toHaveBeenCalled()
+
+    await result.tools.code_execution.execute({ code: 'console.log(1)', language: 'node' }, {
+      toolCallId: 'tool-call-code',
+      messages: [],
+      approved: true,
+    } as never)
+    expect(originalExecute).toHaveBeenCalledTimes(1)
   })
 
   test('agentMode="on" keeps Knowledge Base alongside Work Mode tools', async () => {
@@ -606,6 +758,26 @@ describe('buildToolsForSession', () => {
       approvalSource: 'ai',
     })
     expect(trackAgentModeFullAccessBypassMock).not.toHaveBeenCalled()
+  })
+
+  test('always_ask pauses legacy user_exec without running smart approval', async () => {
+    const result = await buildToolsForSession(createMockModel(), {
+      webBrowsing: false,
+      messages: [],
+      agentMode: 'on',
+      sessionSettings: { commandApprovalMode: 'always_ask', workingDirectories: ['/workspace/project'] },
+    })
+    if (!result.tools.user_exec.execute) throw new Error('user_exec execute missing')
+
+    await expect(
+      result.tools.user_exec.execute({ command: 'pwd' }, { toolCallId: 'tool-call-always', messages: [] } as never)
+    ).rejects.toMatchObject({
+      name: 'UserExecApprovalPausedError',
+      toolCallId: 'tool-call-always',
+      workdir: '/workspace/project',
+    })
+    expect(requestUserExecApprovalMock).not.toHaveBeenCalled()
+    expect(userExecMock).not.toHaveBeenCalled()
   })
 
   test('records whitelist auto-approval as the execution source', async () => {
@@ -1176,6 +1348,27 @@ describe('user_exec tool', () => {
     ).resolves.toEqual({
       type: 'text',
       value: 'Exit code: 0\n\nStdout:\nok\n',
+    })
+  })
+
+  test('exposes retained legacy command output captures to the model', async () => {
+    const result = await buildToolsForSession(createMockModel(), {
+      webBrowsing: false,
+      messages: [],
+      agentMode: 'on',
+    })
+
+    await expect(
+      toModelOutput(result.tools.user_exec, {
+        success: true,
+        exitCode: 0,
+        stdout: 'preview',
+        stderr: '',
+        outputFile: '/tmp/chatbox-command-output/capture.txt',
+      })
+    ).resolves.toEqual({
+      type: 'text',
+      value: 'Exit code: 0\n\nStdout:\npreview\n\nOutput capture: /tmp/chatbox-command-output/capture.txt',
     })
   })
 

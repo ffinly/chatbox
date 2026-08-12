@@ -1334,19 +1334,23 @@ const PausedToolCallDetails: FC<{ part: MessageToolCallPart } & ToolCallActionCo
         })
       : pauseReason?.type === 'user_exec_approval'
         ? t('Approval required before executing this command.')
-        : pauseReason?.type === 'file_mutation_approval'
-          ? t('Approval required before modifying files.')
-          : pauseReason?.type === 'app_action_approval'
-            ? pauseReason.title
-            : t('Tool execution is paused.')
+        : pauseReason?.type === 'command_escalation_approval'
+          ? t('Approval required before executing this command.')
+          : pauseReason?.type === 'file_mutation_approval'
+            ? t('Approval required before modifying files.')
+            : pauseReason?.type === 'app_action_approval'
+              ? pauseReason.title
+              : t('Tool execution is paused.')
   const payload =
     pauseReason?.type === 'user_exec_approval'
-      ? pauseReason.command
-      : pauseReason?.type === 'file_mutation_approval'
-        ? `${pauseReason.title}\n\n${pauseReason.preview}`
-        : pauseReason?.type === 'app_action_approval'
-          ? pauseReason.preview
-          : stringifyToolPayload(part.args)
+      ? `${pauseReason.command}${pauseReason.workdir ? `\n\nWorking directory: ${pauseReason.workdir}` : ''}`
+      : pauseReason?.type === 'command_escalation_approval'
+        ? `${pauseReason.command}\n\n${pauseReason.justification}\n\nWorking directory: ${pauseReason.workdir}`
+        : pauseReason?.type === 'file_mutation_approval'
+          ? `${pauseReason.title}\n\n${pauseReason.preview}`
+          : pauseReason?.type === 'app_action_approval'
+            ? pauseReason.preview
+            : stringifyToolPayload(part.args)
   const handleDontAskAgain = (scope: 'session' | 'global') => {
     if (!sessionId || !messageId || pauseReason?.type !== 'tool_call_limit') return
     const count = pauseReason.maxToolCalls

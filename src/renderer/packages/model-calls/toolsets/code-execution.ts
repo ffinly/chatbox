@@ -75,7 +75,11 @@ function formatDownloadOutput(output: unknown): string {
  * Build code execution tools for a session.
  * Returns tool definitions and a system prompt description.
  */
-export function buildCodeExecutionTools(context: CodeExecutionContext): { tools: ToolSet; description: string } {
+export function buildCodeExecutionTools(context: CodeExecutionContext): {
+  tools: ToolSet
+  description: string
+  ensureSandbox: () => Promise<{ success: boolean; error?: string }>
+} {
   const { provider, files } = context
   let sandboxInitialized = false
   let filesSeeded = false
@@ -484,5 +488,6 @@ After creating a file the user should receive — whether via write_file, edit_f
       create_download,
     },
     description,
+    ensureSandbox,
   }
 }

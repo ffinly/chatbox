@@ -1354,5 +1354,9 @@
   "Found {{count}} new local memories.": "新しいローカルメモリーが {{count}} 件見つかりました。",
   "Review": "確認",
   "No new local memories were found.": "新しいローカルメモリーは見つかりませんでした。",
-  "View Image": "画像を表示"
+  "View Image": "画像を表示",
+  "Always Ask": "常に確認",
+  "Ask before every command that needs host access.": "ホストへのアクセスが必要なコマンドごとに確認します。",
+  "Automatically approve safe commands and ask when uncertain.": "安全なコマンドは自動承認し、判断できない場合は確認します。",
+  "Smart Approval": "スマート承認"
 }

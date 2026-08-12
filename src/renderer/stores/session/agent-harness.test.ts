@@ -251,7 +251,8 @@ describe('prepareAgentGenerationHarness', () => {
     expect(prepared.debug.instructions).toContain('## Response Language')
     expect(prepared.debug.instructions).toContain("same language as the user's latest message")
 
-    expect(prepared.tools.code_execution).toBeDefined()
+    expect(prepared.tools.run_command).toBeDefined()
+    expect(prepared.tools.code_execution).toBeUndefined()
     expect(prepared.tools.read_file).toBeDefined()
     expect(prepared.tools.write_file).toBeDefined()
     expect(prepared.tools.load_skill).toBeDefined()
@@ -269,7 +270,7 @@ describe('prepareAgentGenerationHarness', () => {
     expect(serializedCoreMessages).toContain('Current model: test-model')
     expect(serializedCoreMessages).toContain('## Response Language')
     expect(serializedCoreMessages).toContain("same language as the user's latest message")
-    expect(serializedCoreMessages).toContain('code_execution')
+    expect(serializedCoreMessages).toContain('run_command')
     expect(serializedCoreMessages).toContain('Available Skills')
     expect(prepared.systemPrompt).toContain('Current model: test-model')
     expect(prepared.systemPrompt).toContain('## Response Language')
@@ -518,6 +519,8 @@ describe('prepareAgentGenerationHarness', () => {
     const serialized = JSON.stringify(prepared.coreMessages)
     expect(serialized).toContain('tool-26')
     expect(serialized).toContain('console.log(26)')
+    expect(prepared.tools.code_execution).toBeDefined()
+    expect(prepared.tools.run_command).toBeUndefined()
   })
 
   test.each([

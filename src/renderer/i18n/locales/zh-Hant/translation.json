@@ -1354,5 +1354,9 @@
   "Found {{count}} new local memories.": "找到 {{count}} 條新的本機記憶。",
   "Review": "檢視",
   "No new local memories were found.": "找不到新的本機記憶。",
-  "View Image": "查看圖片"
+  "View Image": "查看圖片",
+  "Always Ask": "一律詢問",
+  "Ask before every command that needs host access.": "每次命令需要存取主機環境時都詢問。",
+  "Automatically approve safe commands and ask when uncertain.": "自動批准安全命令，無法確定時再詢問。",
+  "Smart Approval": "智慧批准"
 }

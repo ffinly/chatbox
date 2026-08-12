@@ -15,11 +15,20 @@ function makeToolCallPart(overrides: Partial<MessageToolCallPart>): MessageToolC
 }
 
 describe('isApprovalPauseReason', () => {
-  it('accepts the three approval pause types and rejects the rest', () => {
+  it('accepts the four approval pause types and rejects the rest', () => {
     expect(isApprovalPauseReason({ type: 'user_exec_approval', command: 'ls' })).toBe(true)
     expect(isApprovalPauseReason({ type: 'file_mutation_approval', title: 'Edit', preview: '' })).toBe(true)
     expect(
       isApprovalPauseReason({ type: 'app_action_approval', action: 'image.generate', title: 'Generate', preview: '' })
+    ).toBe(true)
+    expect(
+      isApprovalPauseReason({
+        type: 'command_escalation_approval',
+        command: 'git status',
+        retryOf: 'tc-failed',
+        justification: 'The sandbox cannot read the repository metadata.',
+        workdir: '/workspace/project',
+      })
     ).toBe(true)
     expect(isApprovalPauseReason({ type: 'tool_call_limit', maxToolCalls: 25 })).toBe(false)
     expect(isApprovalPauseReason(undefined)).toBe(false)
@@ -92,6 +101,15 @@ describe('listPendingApprovalToolCalls', () => {
 describe('getApprovalPreview', () => {
   it('previews the command / file title / action title', () => {
     expect(getApprovalPreview({ type: 'user_exec_approval', command: 'ls -la' })).toBe('ls -la')
+    expect(
+      getApprovalPreview({
+        type: 'command_escalation_approval',
+        command: 'git status',
+        retryOf: 'tc-failed',
+        justification: 'The sandbox cannot read the repository metadata.',
+        workdir: '/workspace/project',
+      })
+    ).toBe('git status')
     expect(getApprovalPreview({ type: 'file_mutation_approval', title: 'Edit a.ts', preview: 'diff' })).toBe(
       'Edit a.ts'
     )

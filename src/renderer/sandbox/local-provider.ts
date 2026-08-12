@@ -4,6 +4,7 @@ import type {
   SandboxOperationResult,
   SandboxProvider,
   SandboxReadResult,
+  SandboxRunCommandResult,
   SandboxSearchParams,
   SandboxSearchResult,
 } from '@shared/sandbox-provider'
@@ -112,7 +113,10 @@ export class LocalSandboxProvider implements SandboxProvider {
     return result.workingDirectory ?? null
   }
 
-  async copyFileIn(content: string, targetFilename: string): Promise<{ success: boolean; error?: string }> {
+  async copyFileIn(
+    content: string,
+    targetFilename: string
+  ): Promise<{ success: boolean; sandboxPath?: string; error?: string }> {
     if (!platform.sandboxCopyFile) {
       return { success: false, error: 'Sandbox copy not available' }
     }
@@ -180,6 +184,23 @@ export class LocalSandboxProvider implements SandboxProvider {
       timeout,
       sessionId: this.sessionId ?? undefined,
       ...(params.toolCallId ? { toolCallId: params.toolCallId } : {}),
+    })
+  }
+
+  async runCommand(params: {
+    command: string
+    shell: 'bash' | 'powershell'
+    workdir?: string
+    timeout?: number
+    toolCallId: string
+  }): Promise<SandboxRunCommandResult> {
+    if (!platform.sandboxRunCommand) {
+      return { stdout: '', stderr: 'Sandbox command execution is unavailable on this platform', exitCode: 1 }
+    }
+    return platform.sandboxRunCommand({
+      ...params,
+      timeout: params.timeout ?? DEFAULT_EXEC_TIMEOUT,
+      sessionId: this.sessionId ?? undefined,
     })
   }
 

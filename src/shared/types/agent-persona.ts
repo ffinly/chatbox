@@ -39,6 +39,13 @@ export const SessionPromptContextSnapshotSchema = z.object({
   // edits made before enabling Work Mode must still apply); chat mode accepts
   // both. Missing scope means a pre-scope agent-mode snapshot.
   scope: z.enum(['chat', 'agent']).optional().catch(undefined),
+  // The model-facing command-tool contract is frozen with the thread because the
+  // snapshot already follows thread switching/new-thread lifecycle semantics.
+  // Missing means a pre-run_command thread and is treated as the legacy v1 contract.
+  agentToolContractVersion: z
+    .union([z.literal(1), z.literal(2)])
+    .optional()
+    .catch(undefined),
 })
 
 export type SessionPromptContextSnapshot = z.infer<typeof SessionPromptContextSnapshotSchema>

@@ -1,4 +1,11 @@
-import type { AgentModeEntry, AgentModeValue, KnowledgeBase, MessagePicture, Toast } from '@shared/types'
+import type {
+  AgentModeEntry,
+  AgentModeValue,
+  CommandApprovalMode,
+  KnowledgeBase,
+  MessagePicture,
+  Toast,
+} from '@shared/types'
 import type { RefObject } from 'react'
 import type { VirtuosoHandle } from 'react-virtuoso'
 import { v4 as uuidv4 } from 'uuid'
@@ -44,6 +51,7 @@ export const uiStore = createStore(
           // created session's settings on first submit (see routes/index.tsx).
           workingDirectories?: string[]
           agentFullAccess?: boolean
+          commandApprovalMode?: CommandApprovalMode
         },
         pictureShow: null as {
           picture: MessagePicture

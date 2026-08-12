@@ -1354,5 +1354,9 @@
   "Found {{count}} new local memories.": "Trovati {{count}} nuovi ricordi locali.",
   "Review": "Rivedi",
   "No new local memories were found.": "Non sono stati trovati nuovi ricordi locali.",
-  "View Image": "Visualizza immagine"
+  "View Image": "Visualizza immagine",
+  "Always Ask": "Chiedi sempre",
+  "Ask before every command that needs host access.": "Chiedi prima di ogni comando che richiede l’accesso all’host.",
+  "Automatically approve safe commands and ask when uncertain.": "Approva automaticamente i comandi sicuri e chiedi in caso di dubbio.",
+  "Smart Approval": "Approvazione intelligente"
 }

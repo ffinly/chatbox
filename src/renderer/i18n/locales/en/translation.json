@@ -1354,5 +1354,9 @@
   "Found {{count}} new local memories.": "Found {{count}} new local memories.",
   "Review": "Review",
   "No new local memories were found.": "No new local memories were found.",
-  "View Image": "View Image"
+  "View Image": "View Image",
+  "Always Ask": "Always Ask",
+  "Ask before every command that needs host access.": "Ask before every command that needs host access.",
+  "Automatically approve safe commands and ask when uncertain.": "Automatically approve safe commands and ask when uncertain.",
+  "Smart Approval": "Smart Approval"
 }

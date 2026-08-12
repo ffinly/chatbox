@@ -687,27 +687,29 @@ describe('processStreamChunk', () => {
     })
   })
 
-  it.each(['UserExecApprovalPausedError', 'FileMutationApprovalPausedError', 'AppActionApprovalPausedError'])(
-    'returns %s for orchestration instead of storing it as a tool result',
-    async (errorName) => {
-      const state = createInitialState()
-      const r1 = await processStreamChunk(
-        chunk('tool-call', { toolCallId: 'tc1', toolName: 'user_exec', args: {} }),
-        state,
-        callbacks
-      )
-      const error = new Error('approval required')
-      error.name = errorName
+  it.each([
+    'UserExecApprovalPausedError',
+    'CommandEscalationApprovalPausedError',
+    'FileMutationApprovalPausedError',
+    'AppActionApprovalPausedError',
+  ])('returns %s for orchestration instead of storing it as a tool result', async (errorName) => {
+    const state = createInitialState()
+    const r1 = await processStreamChunk(
+      chunk('tool-call', { toolCallId: 'tc1', toolName: 'user_exec', args: {} }),
+      state,
+      callbacks
+    )
+    const error = new Error('approval required')
+    error.name = errorName
 
-      const result = await processStreamChunk(
-        chunk('tool-error', { toolCallId: 'tc1', error, input: {}, toolName: 'user_exec' }),
-        r1.state,
-        callbacks
-      )
-      expect(result.persistentToolCallPause).toBe(error)
-      expect((r1.state.contentParts[0] as { state: string }).state).toBe('call')
-    }
-  )
+    const result = await processStreamChunk(
+      chunk('tool-error', { toolCallId: 'tc1', error, input: {}, toolName: 'user_exec' }),
+      r1.state,
+      callbacks
+    )
+    expect(result.persistentToolCallPause).toBe(error)
+    expect((r1.state.contentParts[0] as { state: string }).state).toBe('call')
+  })
 
   // AI SDK v6 dropped the dedicated `tool-input-error` chunk; input-parse failures now
   // arrive as `tool-error` without a preceding `tool-call`, so the part is created here.

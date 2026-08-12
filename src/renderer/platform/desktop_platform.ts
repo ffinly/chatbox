@@ -393,6 +393,17 @@ export default class DesktopPlatform implements Platform {
     return this.ipc.invoke('sandbox:exec-code', params)
   }
 
+  public async sandboxRunCommand(params: {
+    command: string
+    shell: 'bash' | 'powershell'
+    workdir?: string
+    timeout?: number
+    sessionId?: string
+    toolCallId: string
+  }): Promise<import('@shared/sandbox-provider').SandboxRunCommandResult> {
+    return this.ipc.invoke('sandbox:run-command', params)
+  }
+
   public async sandboxRead(params: {
     filePath: string
     offset?: number

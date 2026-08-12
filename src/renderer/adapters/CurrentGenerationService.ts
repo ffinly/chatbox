@@ -159,6 +159,11 @@ async function buildToolsForPausedToolCall(session: Session, settings: SessionSe
     agentMode: effectiveAgentMode,
     sessionSettings: settings,
     codeExecution,
+    commandExecution:
+      effectiveAgentMode === 'on' && sandboxProvider
+        ? { sessionId: session.id, provider: canExecuteCode ? sandboxProvider : undefined }
+        : undefined,
+    agentToolContractVersion: settings.sessionPromptContextSnapshot?.agentToolContractVersion ?? 1,
     onAgentModeActivated: () => {
       void lockSessionAgentMode(session.id, 'load_skill')
     },

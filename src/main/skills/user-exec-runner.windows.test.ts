@@ -56,4 +56,17 @@ describe.skipIf(process.platform !== 'win32')('user_exec on native Windows', () 
       exitCode: 7,
     })
   })
+
+  test('exposes the bundled Electron runtime as node when requested', async () => {
+    const result = await executeUserExecCommand({
+      command: 'node -e "process.stdout.write(process.execPath)"',
+      cwd: workDir,
+      injectBundledNode: true,
+    })
+
+    expect(result).toMatchObject({ success: true, stderr: '', exitCode: 0 })
+    expect(path.win32.normalize(result.stdout.trim()).toLowerCase()).toBe(
+      path.win32.normalize(process.execPath).toLowerCase()
+    )
+  })
 })

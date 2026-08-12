@@ -1354,5 +1354,9 @@
   "Found {{count}} new local memories.": "Fant {{count}} nye lokale minner.",
   "Review": "Se gjennom",
   "No new local memories were found.": "Fant ingen nye lokale minner.",
-  "View Image": "Vis bilde"
+  "View Image": "Vis bilde",
+  "Always Ask": "Spør alltid",
+  "Ask before every command that needs host access.": "Spør før hver kommando som trenger tilgang til vertssystemet.",
+  "Automatically approve safe commands and ask when uncertain.": "Godkjenn trygge kommandoer automatisk og spør ved usikkerhet.",
+  "Smart Approval": "Smart godkjenning"
 }

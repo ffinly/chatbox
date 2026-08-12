@@ -20,6 +20,7 @@ import {
   removeSessionArtifacts,
   resetSandbox,
   resolveSandboxWorkingDir,
+  runSandboxCommand,
   searchFiles,
   writeFile,
 } from './manager'
@@ -51,6 +52,30 @@ export function registerSandboxIPCHandlers() {
         const msg = error instanceof Error ? error.message : String(error)
         log.error('sandbox:exec-code failed', msg)
         return { stdout: '', stderr: msg, exitCode: 1 }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'sandbox:run-command',
+    async (
+      _event,
+      params: {
+        command: string
+        shell: 'bash' | 'powershell'
+        workdir?: string
+        timeout?: number
+        sessionId?: string
+        toolCallId: string
+      }
+    ) => {
+      try {
+        log.debug(`sandbox:run-command shell=${params.shell} bytes=${params.command.length}`)
+        return await runSandboxCommand(params)
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error)
+        log.error('sandbox:run-command failed', msg)
+        return { stdout: '', stderr: msg, exitCode: 1, cwd: params.workdir }
       }
     }
   )

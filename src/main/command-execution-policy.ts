@@ -1,0 +1,112 @@
+import { realpathSync } from 'node:fs'
+import path from 'node:path'
+import type { RunCommandFailureReference, RunCommandShell } from '../shared/types/command-execution'
+
+interface FailedCommandEntry extends RunCommandFailureReference {
+  sessionId: string
+  canonicalCwd: string
+  createdAt: number
+}
+
+const FAILURE_TTL_MS = 30 * 60 * 1000
+const MAX_FAILURES_PER_SESSION = 64
+const failedCommands = new Map<string, FailedCommandEntry>()
+
+function failureKey(sessionId: string, toolCallId: string): string {
+  return JSON.stringify([sessionId, toolCallId])
+}
+
+function normalizeCwd(cwd: string): string {
+  return path.resolve(cwd)
+}
+
+function canonicalCwd(cwd: string): string | undefined {
+  try {
+    return realpathSync.native(cwd)
+  } catch {
+    return undefined
+  }
+}
+
+function prune(now = Date.now()): void {
+  for (const [key, entry] of failedCommands) {
+    if (now - entry.createdAt >= FAILURE_TTL_MS) failedCommands.delete(key)
+  }
+}
+
+export function recordFailedSandboxCommand(params: {
+  sessionId: string
+  toolCallId: string
+  command: string
+  cwd: string
+  canonicalCwd: string
+  shell: RunCommandShell
+}): void {
+  prune()
+  const entry: FailedCommandEntry = {
+    retryOf: params.toolCallId,
+    sessionId: params.sessionId,
+    command: params.command,
+    cwd: normalizeCwd(params.cwd),
+    canonicalCwd: params.canonicalCwd,
+    shell: params.shell,
+    createdAt: Date.now(),
+  }
+  failedCommands.set(failureKey(params.sessionId, params.toolCallId), entry)
+
+  const sessionEntries = [...failedCommands.entries()]
+    .filter(([, candidate]) => candidate.sessionId === params.sessionId)
+    .sort((a, b) => a[1].createdAt - b[1].createdAt)
+  for (const [key] of sessionEntries.slice(0, Math.max(0, sessionEntries.length - MAX_FAILURES_PER_SESSION))) {
+    failedCommands.delete(key)
+  }
+}
+
+export function checkFailedCommandRetry(params: {
+  sessionId: string
+  retryOf: string
+  command: string
+  cwd: string
+  shell: RunCommandShell
+}): { valid: true } | { valid: false; error: string } {
+  prune()
+  const entry = failedCommands.get(failureKey(params.sessionId, params.retryOf))
+  if (!entry) {
+    return {
+      valid: false,
+      error: 'The referenced sandbox failure is unavailable or expired. Run the command in the sandbox again.',
+    }
+  }
+  if (
+    entry.command !== params.command ||
+    entry.cwd !== normalizeCwd(params.cwd) ||
+    entry.canonicalCwd !== canonicalCwd(params.cwd) ||
+    entry.shell !== params.shell
+  ) {
+    return { valid: false, error: 'The escalated command, working directory, and shell must match the failed call.' }
+  }
+  return { valid: true }
+}
+
+export function consumeFailedCommandRetry(params: {
+  sessionId: string
+  retryOf: string
+  command: string
+  cwd: string
+  shell: RunCommandShell
+}): { valid: true } | { valid: false; error: string } {
+  const validation = checkFailedCommandRetry(params)
+  if (!validation.valid) return validation
+  failedCommands.delete(failureKey(params.sessionId, params.retryOf))
+  return { valid: true }
+}
+
+export function clearFailedCommandRetries(sessionId?: string): void {
+  if (!sessionId) {
+    failedCommands.clear()
+    return
+  }
+  for (const [key, entry] of failedCommands) {
+    if (entry.sessionId === sessionId) failedCommands.delete(key)
+  }
+}

@@ -18,6 +18,19 @@ export interface SandboxExecResult {
   stderr: string
   exitCode: number
   errorCode?: SandboxExecErrorCode
+  /** Complete output streamed to disk when the inline preview is truncated. */
+  outputFile?: string
+}
+
+export interface SandboxRunCommandResult extends SandboxExecResult {
+  /** Canonical working directory actually used by the sandbox process. */
+  cwd?: string
+  /** True only when the command actually ran and its failure may be referenced by a host retry. */
+  retryable?: boolean
+  sandbox?: {
+    denied: boolean
+    confidence?: 'high' | 'heuristic'
+  }
 }
 
 export interface SandboxOperationResult {
@@ -77,7 +90,10 @@ export interface SandboxProvider {
   resolveWorkingDirectory(sessionId: string): Promise<string | null>
 
   /** Copy a file into the sandbox working directory */
-  copyFileIn(content: string, targetFilename: string): Promise<{ success: boolean; error?: string }>
+  copyFileIn(
+    content: string,
+    targetFilename: string
+  ): Promise<{ success: boolean; sandboxPath?: string; error?: string }>
 
   /** Copy a file from the blob store into the sandbox (avoids sending content through IPC) */
   copyBlobIn(blobKey: string, targetFilename: string): Promise<{ success: boolean; error?: string }>
@@ -112,6 +128,15 @@ export interface SandboxProvider {
     timeout?: number
     toolCallId?: string
   }): Promise<SandboxExecResult>
+
+  /** Execute one platform shell command under the configured local sandbox. */
+  runCommand?(params: {
+    command: string
+    shell: 'bash' | 'powershell'
+    workdir?: string
+    timeout?: number
+    toolCallId: string
+  }): Promise<SandboxRunCommandResult>
 
   /** Search file contents inside the sandbox with the shared bounded search engine. */
   search(params: SandboxSearchParams): Promise<SandboxSearchResult>

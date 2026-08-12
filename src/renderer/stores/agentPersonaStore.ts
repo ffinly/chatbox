@@ -10,6 +10,7 @@ import {
 import { t } from 'i18next'
 import { z } from 'zod'
 import { buildWorkspaceInstructions, normalizeWorkspaceDirectory } from '@/packages/model-calls/workspace-instructions'
+import platform from '@/platform'
 import storage from '@/storage'
 
 /**
@@ -220,11 +221,14 @@ export async function captureSessionPromptContextSnapshot(
   scope: 'chat' | 'agent'
 ): Promise<SessionPromptContextSnapshot> {
   const directories = normalizedDirectories(workingDirectories)
-  const [soul, memories, workspaceInstructions] = await Promise.all([
+  const [soul, memories, workspaceInstructions, commandPlatform] = await Promise.all([
     readSoul(),
     listMemories(),
     buildWorkspaceInstructions(workingDirectories),
+    scope === 'agent' ? platform.getPlatform().catch(() => undefined) : Promise.resolve(undefined),
   ])
+  const desktopCommandContract =
+    commandPlatform === 'darwin' || commandPlatform === 'linux' || commandPlatform === 'win32'
   return {
     version: SESSION_PROMPT_CONTEXT_SNAPSHOT_VERSION,
     soul: soul.content,
@@ -233,6 +237,7 @@ export async function captureSessionPromptContextSnapshot(
     workspaceDirectories: directories,
     capturedAt: Date.now(),
     scope,
+    ...(scope === 'agent' ? { agentToolContractVersion: desktopCommandContract ? (2 as const) : (1 as const) } : {}),
   }
 }
 

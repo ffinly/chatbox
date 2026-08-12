@@ -1,6 +1,13 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
-const { storageValues } = vi.hoisted(() => ({ storageValues: new Map<string, unknown>() }))
+const { platformName, storageValues } = vi.hoisted(() => ({
+  platformName: { current: 'darwin' },
+  storageValues: new Map<string, unknown>(),
+}))
+
+vi.mock('@/platform', () => ({
+  default: { getPlatform: vi.fn(() => Promise.resolve(platformName.current)) },
+}))
 
 vi.mock('@/storage', () => ({
   default: {
@@ -23,8 +30,9 @@ vi.mock('@/packages/model-calls/workspace-instructions', () => ({
 }))
 
 import {
-  addMemory,
   AGENT_MEMORIES_STORAGE_KEY,
+  addMemory,
+  captureSessionPromptContextSnapshot,
   deleteMemory,
   importMemories,
   listMemories,
@@ -35,6 +43,23 @@ import {
 
 beforeEach(() => {
   storageValues.clear()
+  platformName.current = 'darwin'
+})
+
+describe('agent tool contract snapshot', () => {
+  test.each(['darwin', 'linux', 'win32'])('freezes v2 on the %s desktop command backend', async (name) => {
+    platformName.current = name
+    await expect(captureSessionPromptContextSnapshot([], 'agent')).resolves.toMatchObject({
+      agentToolContractVersion: 2,
+    })
+  })
+
+  test.each(['web', 'ios', 'android', 'harmony'])('freezes the legacy fallback contract on %s', async (name) => {
+    platformName.current = name
+    await expect(captureSessionPromptContextSnapshot([], 'agent')).resolves.toMatchObject({
+      agentToolContractVersion: 1,
+    })
+  })
 })
 
 describe('memory mutation serialization', () => {

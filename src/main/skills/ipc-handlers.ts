@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import type { MarketplaceSkill } from '@shared/types/skills'
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { checkFailedCommandRetry } from '../command-execution-policy'
 import { getLoginShellPath } from '../sandbox/login-shell-env'
 import { getLogger } from '../util'
 import { discoverBuiltinSkills, ensureBuiltinSeeded, syncBuiltinSkills } from './builtin-sync'
@@ -18,7 +19,12 @@ import {
 } from './installer'
 import { parseSkillFile } from './parser'
 import { collectSkillFiles, MAX_SKILL_FILES } from './skill-files'
-import { cancelUserExecCommand, createDefaultUserExecRunner, type UserExecParams } from './user-exec-runner'
+import {
+  cancelUserExecCommand,
+  createDefaultUserExecRunner,
+  resolveUserExecCwd,
+  type UserExecParams,
+} from './user-exec-runner'
 import { isValidSkillName } from './validation'
 
 const log = getLogger('skills:ipc-handlers')
@@ -341,6 +347,16 @@ export function registerSkillsHandlers() {
   })
 
   ipcMain.handle('skills:user-exec', (_event, params: UserExecParams) => userExecRunner.run(params))
+  ipcMain.handle('skills:resolve-user-exec-cwd', (_event, params: Pick<UserExecParams, 'cwd' | 'baseCwd'>) =>
+    resolveUserExecCwd(params)
+  )
+  ipcMain.handle(
+    'skills:check-command-retry',
+    (
+      _event,
+      params: { sessionId: string; retryOf: string; command: string; cwd: string; shell: 'bash' | 'powershell' }
+    ) => checkFailedCommandRetry(params)
+  )
   ipcMain.handle('skills:user-exec-cancel', (_event, params: Pick<UserExecParams, 'sessionId' | 'toolCallId'>) =>
     cancelUserExecCommand(params)
   )

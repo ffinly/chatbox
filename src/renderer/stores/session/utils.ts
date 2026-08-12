@@ -13,6 +13,7 @@ import type {
   Settings,
 } from '@shared/types'
 import { ModelProviderEnum } from '@shared/types'
+import { resolveCommandApprovalMode } from '@shared/types/command-execution'
 import { normalizeErrorForSentry } from '@shared/utils/sentry_policy'
 import { identity, pickBy } from 'lodash'
 import {
@@ -91,7 +92,7 @@ export function trackGenerateEvent(
       agent_mode: agentModeEntry.value,
       agent_mode_active: toBooleanString(agentModeActive),
       agent_mode_entry_source: agentModeEntrySource,
-      agent_full_access_enabled: toBooleanString(settings.agentFullAccess === true),
+      agent_full_access_enabled: toBooleanString(resolveCommandApprovalMode(settings) === 'full_access'),
       has_knowledge_base: toBooleanString(knowledgeBaseEnabled),
       enabled_mcp_count: bucketCount(enabledMcpCount),
       enabled_skill_count: bucketCount(enabledSkillCount),
@@ -166,7 +167,7 @@ export function handleGenerationError(
         provider: settings.provider,
         model: settings.modelId,
         agentMode: sentryContext.agentMode,
-        fullAccess: settings.agentFullAccess === true,
+        fullAccess: resolveCommandApprovalMode(settings) === 'full_access',
         operationType: sentryContext.operationType,
       })
     } else {

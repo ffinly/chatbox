@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { DEFAULT_INTERFACE_COLORS, getDefaultInterfaceColors } from '../../theme-colors'
 import { SessionPromptContextSnapshotSchema } from '../../types/agent-persona'
+import { COMMAND_APPROVAL_MODES } from '../../types/command-execution'
 import { ModelProviderEnum, ModelProviderType } from '../../types/provider'
 import { DEFAULT_ENABLED_BUILTIN_SKILL_NAMES, SkillSettingsSchema } from '../../types/skills'
 
@@ -215,6 +216,9 @@ export const SessionSettingsSchema = GlobalSessionSettingsSchema.extend({
   workingDirectories: z.array(z.string()).optional().catch(undefined),
   // When enabled, Work Mode skips per-action approval for user_exec and real filesystem mutations.
   agentFullAccess: z.boolean().optional().catch(undefined),
+  // Per-session command policy. Keep agentFullAccess for older clients; readers
+  // fall back to it when this newer field is missing or stripped during sync.
+  commandApprovalMode: z.enum(COMMAND_APPROVAL_MODES).optional().catch(undefined),
   agentMode: AgentModeEntrySchema.optional().catch(undefined),
   // Frozen session prompt-context inputs (Soul + memories + workspace AGENTS.md),
   // captured on the session's first agent-mode generation so the system prompt

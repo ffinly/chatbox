@@ -28,6 +28,13 @@ import {
 } from '../../shared/task-sandbox'
 import { shellQuote } from '../../shared/utils/shell'
 import { normalizeWindowsAbsolutePath } from '../../shared/utils/windows-path'
+import { clearFailedCommandRetries, recordFailedSandboxCommand } from '../command-execution-policy'
+import {
+  COMMAND_OUTPUT_CAPTURE_FAILED_MESSAGE,
+  createCommandOutputCapture,
+  createCommandOutputCapturePath,
+  getCommandOutputCaptureRoot,
+} from '../command-output-capture'
 import { buildOperationFinishLog, buildOperationStartLog, createOperationId } from '../operation-log'
 import { killProcessTree } from '../process-tree'
 import { getChatboxQaPaths } from '../qa-runtime'
@@ -359,6 +366,7 @@ function buildConfig(
     TASK_SANDBOX_DENY_WRITE_PATHS.flatMap((name) => [`${base}/${name}`, `${base}/**/${name}`])
   )
   const denyWrite = [...new Set([...TASK_SANDBOX_DENY_WRITE_PATHS, ...userDenyWrite])]
+  const captureRoot = getCommandOutputCaptureRoot()
 
   // WARN: `allowedDomains: ['*']` is NOT a wildcard — it's a literal match.
   // Omit `allowedDomains` so wrapWithSandbox generates `(allow network*)`.
@@ -368,7 +376,7 @@ function buildConfig(
       deniedDomains: [] as string[],
     },
     filesystem: {
-      denyRead: [...TASK_SANDBOX_DENY_READ_PATHS],
+      denyRead: [...TASK_SANDBOX_DENY_READ_PATHS, captureRoot, safeRealpathSync(captureRoot)],
       allowWrite,
       denyWrite,
     },
@@ -492,10 +500,7 @@ function isProtectedUserWritePath(
   )
 }
 
-async function validateSessionWritePath(
-  session: SandboxSession,
-  resolved: string
-): Promise<{ valid: boolean; error?: string }> {
+async function validateSessionWritePath(session: SandboxSession, resolved: string): Promise<WritePathValidationResult> {
   const allowedRoots = [session.workingDirectoryGrant, ...session.userWriteGrants].filter(
     (grant): grant is WritePathGrant => grant !== null
   )
@@ -621,6 +626,7 @@ export async function execCode(params: {
   cwd?: string
   sessionId?: string
   toolCallId?: string
+  outputFilePath?: string
 }): Promise<ExecResult> {
   const session = getSession(params.sessionId)
   if (!session || session.state !== 'initialized') {
@@ -743,15 +749,19 @@ export async function execCode(params: {
   // process.execPath is not executable inside WSL. PowerShell reads its script directly.
   // macOS/Linux Bash needs the bundled-node shim.
   const script = buildSandboxStdinScript(params.code, params.language, process.execPath, !isWindows, isWindows)
-  const MAX_BUFFER_BYTES = 10 * 1024 * 1024 // 10MB cap to prevent OOM from runaway output
+  const MAX_BUFFER_BYTES = params.outputFilePath ? 6_000 : 10 * 1024 * 1024
+  const outputCapture = params.outputFilePath ? createCommandOutputCapture(params.outputFilePath) : undefined
 
   return new Promise((resolve, reject) => {
-    const stdoutChunks: Uint8Array[] = []
-    const stderrChunks: Uint8Array[] = []
+    const stdoutChunks: string[] = []
+    const stderrChunks: string[] = []
+    const stdoutDecoder = new StringDecoder('utf8')
+    const stderrDecoder = new StringDecoder('utf8')
     let stdoutBytes = 0
     let stderrBytes = 0
     let stdoutCapped = false
     let stderrCapped = false
+    let outputLimitExceeded = false
 
     const child = spawn(spawnCmd, spawnArgs, {
       cwd,
@@ -772,62 +782,99 @@ export async function execCode(params: {
       setTimeout(() => killProcessTree(child, 'SIGKILL'), 3_000)
     }, timeout)
 
-    child.stdout.on('data', (chunk: Uint8Array) => {
+    child.stdout.on('data', (chunk: Buffer) => {
       stdoutBytes += chunk.byteLength
+      if (outputCapture && !outputCapture.append('stdout', chunk)) {
+        child.stdout.pause()
+        outputCapture.onDrain(() => child.stdout.resume())
+      }
+      if (outputCapture?.isLimitExceeded() && !outputLimitExceeded) {
+        outputLimitExceeded = true
+        terminateTrackedChild(child)
+      }
       if (!stdoutCapped) {
+        const remaining = MAX_BUFFER_BYTES - (stdoutBytes - chunk.byteLength)
+        if (remaining > 0) stdoutChunks.push(stdoutDecoder.write(chunk.slice(0, remaining)))
         if (stdoutBytes > MAX_BUFFER_BYTES) stdoutCapped = true
-        else stdoutChunks.push(chunk)
       }
     })
-    child.stderr.on('data', (chunk: Uint8Array) => {
+    child.stderr.on('data', (chunk: Buffer) => {
       stderrBytes += chunk.byteLength
+      if (outputCapture && !outputCapture.append('stderr', chunk)) {
+        child.stderr.pause()
+        outputCapture.onDrain(() => child.stderr.resume())
+      }
+      if (outputCapture?.isLimitExceeded() && !outputLimitExceeded) {
+        outputLimitExceeded = true
+        terminateTrackedChild(child)
+      }
       if (!stderrCapped) {
+        const remaining = MAX_BUFFER_BYTES - (stderrBytes - chunk.byteLength)
+        if (remaining > 0) stderrChunks.push(stderrDecoder.write(chunk.slice(0, remaining)))
         if (stderrBytes > MAX_BUFFER_BYTES) stderrCapped = true
-        else stderrChunks.push(chunk)
       }
     })
     child.on('error', (err) => {
       clearTimeout(timer)
       if (settled) return
       settled = true
-      log.warn(
-        buildOperationFinishLog({
-          operationId,
-          success: false,
-          exitCode: null,
-          durationMs: Date.now() - startedAt,
-          stdout: Buffer.concat(stdoutChunks).toString('utf-8'),
-          stderr: err.message,
-          stdoutBytes,
-          stderrBytes,
-        })
-      )
-      reject(err)
+      void (async () => {
+        await outputCapture?.finish()
+        log.warn(
+          buildOperationFinishLog({
+            operationId,
+            success: false,
+            exitCode: null,
+            durationMs: Date.now() - startedAt,
+            stdout: stdoutChunks.join('') + stdoutDecoder.end(),
+            stderr: err.message,
+            stdoutBytes,
+            stderrBytes,
+          })
+        )
+        reject(err)
+      })()
     })
     child.on('close', (code) => {
       clearTimeout(timer)
       if (settled) return
       settled = true
-      let stdout = tailTruncate(Buffer.concat(stdoutChunks).toString('utf-8'))
-      let stderr = tailTruncate(stripCodesignNoise(Buffer.concat(stderrChunks).toString('utf-8')))
-      const exitCode = timedOut ? 124 : (code ?? 1)
-      if (stdoutCapped) stdout += `\n[Output truncated: exceeded ${MAX_BUFFER_BYTES / 1024 / 1024}MB buffer limit]`
-      if (stderrCapped) stderr += `\n[Stderr truncated: exceeded ${MAX_BUFFER_BYTES / 1024 / 1024}MB buffer limit]`
-      if (timedOut) stderr += `\n[Process timed out after ${timeout}ms]`
-      const finishLog = buildOperationFinishLog({
-        operationId,
-        success: exitCode === 0,
-        exitCode,
-        durationMs: Date.now() - startedAt,
-        timedOut,
-        stdout,
-        stderr,
-        stdoutBytes,
-        stderrBytes,
-      })
-      if (exitCode === 0) log.info(finishLog)
-      else log.warn(finishLog)
-      resolve({ stdout, stderr, exitCode })
+      void (async () => {
+        const outputFile = await outputCapture?.finish()
+        const captureFailed = outputCapture?.isFailed() === true
+        let stdout = tailTruncate(stdoutChunks.join('') + stdoutDecoder.end())
+        let stderr = tailTruncate(stripCodesignNoise(stderrChunks.join('') + stderrDecoder.end()))
+        const exitCode = timedOut ? 124 : outputLimitExceeded ? 1 : (code ?? 1)
+        if (stdoutCapped) {
+          stdout +=
+            params.outputFilePath && !captureFailed
+              ? '\n[Inline stdout preview truncated; see full output file]'
+              : `\n[Output truncated: exceeded ${MAX_BUFFER_BYTES / 1024 / 1024}MB buffer limit]`
+        }
+        if (stderrCapped) {
+          stderr +=
+            params.outputFilePath && !captureFailed
+              ? '\n[Inline stderr preview truncated; see full output file]'
+              : `\n[Stderr truncated: exceeded ${MAX_BUFFER_BYTES / 1024 / 1024}MB buffer limit]`
+        }
+        if (captureFailed) stderr += `\n${COMMAND_OUTPUT_CAPTURE_FAILED_MESSAGE}`
+        if (timedOut) stderr += `\n[Process timed out after ${timeout}ms]`
+        if (outputLimitExceeded) stderr += '\n[Command terminated: output exceeded the 10MB capture limit]'
+        const finishLog = buildOperationFinishLog({
+          operationId,
+          success: exitCode === 0,
+          exitCode,
+          durationMs: Date.now() - startedAt,
+          timedOut,
+          stdout,
+          stderr,
+          stdoutBytes,
+          stderrBytes,
+        })
+        if (exitCode === 0) log.info(finishLog)
+        else log.warn(finishLog)
+        resolve({ stdout, stderr, exitCode, ...(outputFile ? { outputFile } : {}) })
+      })()
     })
 
     // Feed the program via stdin only after cancellation listeners are ready: node executes
@@ -840,6 +887,76 @@ export async function execCode(params: {
       child.stdin.end()
     }
   })
+}
+
+const SANDBOX_DENIAL_PATTERNS = [
+  /operation not permitted/i,
+  /permission denied/i,
+  /read-only file system/i,
+  /\bEACCES\b/i,
+  /\bEPERM\b/i,
+  /\bEROFS\b/i,
+]
+
+/** Execute one model-facing shell command under confinement and retain failed-call identity for an optional retry. */
+export async function runSandboxCommand(params: {
+  command: string
+  shell: 'bash' | 'powershell'
+  workdir?: string
+  timeout?: number
+  sessionId?: string
+  toolCallId: string
+}): Promise<import('../../shared/sandbox-provider').SandboxRunCommandResult> {
+  const session = getSession(params.sessionId)
+  if (!session || session.state !== 'initialized' || !session.workingDirectory) {
+    throw new Error('Sandbox not initialized. Call initSandbox first.')
+  }
+  if (!params.sessionId) throw new Error('Session ID is required for run_command')
+  if (process.platform === 'win32') {
+    throw new Error('Windows has no confined command runner; use the host approval path')
+  }
+  if (params.shell !== 'bash') {
+    throw new Error('Sandboxed run_command uses Bash on macOS and Linux')
+  }
+
+  const defaultCwd = session.userWriteGrants[0]?.root ?? session.workingDirectory
+  const cwd = params.workdir ? path.resolve(defaultCwd, normalizeWindowsShellPath(params.workdir)) : defaultCwd
+  const cwdValidation = await validateSessionWritePath(session, cwd)
+  if (!cwdValidation.valid || !existsSync(cwd) || !statSync(cwd).isDirectory()) {
+    return {
+      stdout: '',
+      stderr: cwdValidation.error ?? 'Working directory does not exist or is not an authorized directory',
+      exitCode: 1,
+      cwd,
+    }
+  }
+
+  const result = await execCode({
+    code: params.command,
+    language: 'bash',
+    timeout: params.timeout,
+    cwd,
+    sessionId: params.sessionId,
+    toolCallId: params.toolCallId,
+    outputFilePath: createCommandOutputCapturePath(params.toolCallId),
+  })
+  if (result.exitCode !== 0) {
+    recordFailedSandboxCommand({
+      sessionId: params.sessionId,
+      toolCallId: params.toolCallId,
+      command: params.command,
+      cwd,
+      canonicalCwd: cwdValidation.canonicalTarget ?? cwd,
+      shell: params.shell,
+    })
+  }
+  const denied = result.exitCode !== 0 && SANDBOX_DENIAL_PATTERNS.some((pattern) => pattern.test(result.stderr))
+  return {
+    ...result,
+    cwd,
+    ...(result.exitCode !== 0 ? { retryable: true } : {}),
+    sandbox: { denied, ...(denied ? { confidence: 'heuristic' as const } : {}) },
+  }
 }
 
 export function killRunningCommand(sessionId?: string, toolCallId?: string): { killed: boolean } {
@@ -1114,6 +1231,7 @@ export async function findFiles(
 
 export async function resetSandbox(sessionId?: string): Promise<{ success: boolean; error?: string }> {
   const id = sessionId || DEFAULT_SESSION
+  clearFailedCommandRetries(id)
   const session = sessions.get(id)
   if (!session) {
     return { success: true }
@@ -1134,6 +1252,7 @@ export async function resetSandbox(sessionId?: string): Promise<{ success: boole
 
 /** Reset all active sandbox sessions. Called on app quit to clean up. */
 export async function resetAllSessions(): Promise<void> {
+  clearFailedCommandRetries()
   const ids = [...sessions.keys()]
   for (const id of ids) {
     try {

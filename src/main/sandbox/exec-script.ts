@@ -44,8 +44,27 @@ export function stripCodesignNoise(stderr: string): string {
     .join('\n')
 }
 
-export function buildPowerShellStdinScript(code: string): string {
-  return `${POWERSHELL_UTF8_PREAMBLE}\n${code}`
+export function buildPowerShellStdinScript(code: string, nodeExecPath?: string): string {
+  const quotedNodeExecPath = nodeExecPath ? `'${nodeExecPath.replaceAll("'", "''")}'` : undefined
+  const nodeShim = quotedNodeExecPath
+    ? `function node {
+  $chatboxPreviousElectronRunAsNode = $env:ELECTRON_RUN_AS_NODE
+  try {
+    $env:ELECTRON_RUN_AS_NODE = '1'
+    & ${quotedNodeExecPath} @args
+    $chatboxNodeExitCode = $LASTEXITCODE
+  } finally {
+    if ($null -eq $chatboxPreviousElectronRunAsNode) {
+      Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
+    } else {
+      $env:ELECTRON_RUN_AS_NODE = $chatboxPreviousElectronRunAsNode
+    }
+  }
+  $global:LASTEXITCODE = $chatboxNodeExitCode
+}
+`
+    : ''
+  return `${POWERSHELL_UTF8_PREAMBLE}\n${nodeShim}${code}`
 }
 
 /**

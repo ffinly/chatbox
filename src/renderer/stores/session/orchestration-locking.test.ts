@@ -59,13 +59,18 @@ describe('paused tool-call approval binding', () => {
     const context = createPausedToolCallExecutionContext(
       {
         toolCallId: 'tool-1',
-        pauseReason: { type: 'user_exec_approval', command: 'sleep 30' },
+        pauseReason: { type: 'user_exec_approval', command: 'sleep 30', workdir: '/workspace/project' },
       },
       'tool-1',
       controller.signal
     )
 
-    expect(context).toMatchObject({ toolCallId: 'tool-1', approved: true, abortSignal: controller.signal })
+    expect(context).toMatchObject({
+      toolCallId: 'tool-1',
+      approved: true,
+      approvalWorkdir: '/workspace/project',
+      abortSignal: controller.signal,
+    })
   })
 
   it('authorizes only the tool call explicitly approved by the user', () => {

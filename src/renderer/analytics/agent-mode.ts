@@ -164,7 +164,9 @@ export function trackAgentModePauseAction(props: {
   }
 }
 
-export function trackAgentModeFullAccessBypass(props: { tool: 'user_exec' | 'write_file' | 'edit_file' }) {
+export function trackAgentModeFullAccessBypass(props: {
+  tool: 'run_command' | 'user_exec' | 'write_file' | 'edit_file'
+}) {
   trackEvent('agent_mode_full_access_bypass', props)
 }
 

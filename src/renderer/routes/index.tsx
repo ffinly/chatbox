@@ -298,6 +298,7 @@ function Index() {
             ? { workingDirectories: newSessionState.workingDirectories }
             : {}),
           ...(newSessionState.agentFullAccess ? { agentFullAccess: true } : {}),
+          ...(newSessionState.commandApprovalMode ? { commandApprovalMode: newSessionState.commandApprovalMode } : {}),
           ...options?.settingsOverride,
         },
       })
@@ -310,7 +311,7 @@ function Index() {
 
       // Transfer knowledge base / Work Mode settings from newSessionState to the actual
       // session, then clear it so nothing bleeds into the next new chat. (workingDirectories
-      // and agentFullAccess are already baked into the created session's settings above;
+      // and the command approval policy are already baked into the created session's settings above;
       // this only clears them.)
       if (newSessionState.knowledgeBase) {
         addSessionKnowledgeBase(newSession.id, newSessionState.knowledgeBase)
@@ -318,7 +319,8 @@ function Index() {
       if (
         newSessionState.knowledgeBase ||
         newSessionState.workingDirectories?.length ||
-        newSessionState.agentFullAccess
+        newSessionState.agentFullAccess ||
+        newSessionState.commandApprovalMode
       ) {
         setNewSessionState({})
       }
@@ -346,6 +348,7 @@ function Index() {
       newSessionState.knowledgeBase,
       newSessionState.workingDirectories,
       newSessionState.agentFullAccess,
+      newSessionState.commandApprovalMode,
       setNewSessionState,
       sessionWebBrowsingMap,
       setSessionWebBrowsing,

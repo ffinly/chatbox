@@ -187,6 +187,14 @@ export const MessageToolCallPartSchema = z.object({
         command: z.string(),
         explanation: z.string().optional(),
         explanationError: z.boolean().optional(),
+        workdir: z.string().optional(),
+      }),
+      z.object({
+        type: z.literal('command_escalation_approval'),
+        command: z.string(),
+        retryOf: z.string(),
+        justification: z.string(),
+        workdir: z.string(),
       }),
       z.object({
         type: z.literal('file_mutation_approval'),
