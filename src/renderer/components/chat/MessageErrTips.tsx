@@ -163,6 +163,7 @@ export default function MessageErrTips(props: {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const licenseKey = useSettingsStore((state) => state.licenseKey)
+  const isProPlusPlan = useSettingsStore((state) => state.licenseDetail?.plan === 'pro_plus')
   const language = useLanguage()
   const [translatedText, setTranslatedText] = useState<string | null>(null)
   const [isTranslating, setIsTranslating] = useState(false)
@@ -198,6 +199,10 @@ export default function MessageErrTips(props: {
   const isTruncated = shouldTruncate(errorMessage)
   const showTranslateButton = language !== 'en' && errorMessage.length > 0
   const errorPresentation = resolveMessageErrorPresentation(msg)
+  const quotaAction =
+    isProPlusPlan && (errorPresentation === 'quota-exhausted' || errorPresentation === 'ocr-quota-exhausted')
+      ? 'buy-expansion-pack'
+      : 'upgrade-plan'
   const agentModeTrackingContext = useMemo(
     () =>
       sessionId
@@ -286,7 +291,7 @@ export default function MessageErrTips(props: {
     }
   }, [agentModeRewardClaimed, agentModeTrackingContext, isHandlingAgentModeReward, licenseKey, onRetry, t])
 
-  const handleUpgradePlan = useCallback(() => {
+  const handleQuotaAction = useCallback(() => {
     platform.openLink(
       buildChatboxUrl(`/redirect_app/view_more_plans/${language}?utm_source=app&utm_content=msg_quota_exhausted`)
     )
@@ -307,7 +312,12 @@ export default function MessageErrTips(props: {
     errorPresentation === 'free-ocr-quota-exhausted'
   ) {
     return (
-      <QuotaExhaustedCard kind={errorPresentation} onUpgrade={handleUpgradePlan} onConfigureOcr={handleConfigureOcr} />
+      <QuotaExhaustedCard
+        kind={errorPresentation}
+        action={quotaAction}
+        onAction={handleQuotaAction}
+        onConfigureOcr={handleConfigureOcr}
+      />
     )
   }
 

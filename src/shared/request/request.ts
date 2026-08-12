@@ -60,6 +60,11 @@ function getChatboxErrorCode(response: string): string | undefined {
   return getStringProperty(getChatboxErrorPayload(response), 'code')
 }
 
+function isAccountUnavailableError(error: BaseError): boolean {
+  const response = error instanceof ApiError ? error.responseBody : error.message
+  return response ? getChatboxErrorCode(response) === 'account_unavailable' : false
+}
+
 function getChatboxRequestId(response: string, headers?: Headers): string | undefined {
   return headers?.get('x-request-id') || getStringProperty(getChatboxErrorPayload(response), 'request_id')
 }
@@ -146,6 +151,9 @@ export function createAfetch(platformInfo: PlatformInfo) {
           const err = toError(e)
           const origin = getRequestOrigin(url)
           requestError = new NetworkError(err.message, origin)
+        }
+        if (isAccountUnavailableError(requestError)) {
+          throw requestError
         }
         await new Promise((resolve) => setTimeout(resolve, 500))
       }
@@ -345,6 +353,9 @@ export function createAuthenticatedAfetch(config: AuthenticatedAfetchConfig) {
           const err = toError(e)
           const origin = getRequestOrigin(url)
           requestError = new NetworkError(err.message, origin)
+        }
+        if (isAccountUnavailableError(requestError)) {
+          throw requestError
         }
         await new Promise((resolve) => setTimeout(resolve, 500))
       }
