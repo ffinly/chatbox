@@ -9,22 +9,12 @@ import { projectSessionMeta } from '@shared/application/session'
 import { isSessionAttachmentRagSupportedFilePath, isSupportedFile, isTextFilePath } from '@shared/file-extensions'
 import { EMPTY_ATTACHMENT_CONTENT_ERROR, NON_RECOVERABLE_LOCAL_PARSER_ERROR_CODES } from '@shared/file-parse-errors'
 import { searchSessionMessages } from '@shared/services/native-session-search'
-import type {
-  ExportChatFormat,
-  ExportChatScope,
-  Session,
-  SessionMeta,
-  SessionSettings,
-  SessionThread,
-  SessionThreadBrief,
-  Settings,
-} from '@shared/types'
+import type { Session, SessionMeta, SessionSettings, SessionThreadBrief, Settings } from '@shared/types'
 import type { DocumentParserConfig } from '@shared/types/settings'
 import { migrateMessage } from '@shared/utils/message'
 import { BrowserAttachmentAdapter } from '@/adapters/BrowserAttachmentAdapter'
 import { CapacitorAttachmentAdapter } from '@/adapters/CapacitorAttachmentAdapter'
 import { DesktopAttachmentAdapter } from '@/adapters/DesktopAttachmentAdapter'
-import { formatChatAsHtml, formatChatAsMarkdown, formatChatAsTxt } from '@/lib/format-chat'
 import { getLogger } from '@/lib/utils'
 import { PREVIEW_LINES } from '@/packages/context-management/attachment-payload'
 import * as localParser from '@/packages/local-parser'
@@ -907,27 +897,6 @@ export function constructUserMessage(
   }
 
   return msg
-}
-
-export async function exportChat(session: Session, scope: ExportChatScope, format: ExportChatFormat) {
-  const threads: SessionThread[] = scope === 'all_threads' ? [...(session.threads || [])] : []
-  threads.push({
-    id: session.id,
-    name: session.threadName || session.name,
-    messages: session.messages,
-    createdAt: Date.now(),
-  })
-
-  if (format === 'Markdown') {
-    const content = formatChatAsMarkdown(session.name, threads)
-    platform.exporter.exportTextFile(`${session.name}.md`, content)
-  } else if (format === 'TXT') {
-    const content = formatChatAsTxt(session.name, threads)
-    platform.exporter.exportTextFile(`${session.name}.txt`, content)
-  } else if (format === 'HTML') {
-    const content = await formatChatAsHtml(session.name, threads)
-    platform.exporter.exportTextFile(`${session.name}.html`, content)
-  }
 }
 
 export function mergeSettings(

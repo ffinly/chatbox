@@ -4,9 +4,9 @@ import ReactDOMServer from 'react-dom/server'
 import Markdown, { BlockCodeCollapsedStateProvider } from '@/components/Markdown'
 import * as base64 from '@/packages/base64'
 import storage from '@/storage'
-import type { SessionThread } from '../../shared/types'
 import {
   collectToolCallSummaries,
+  type ExportableThread,
   getAttachmentNames,
   stringifyDataForExport,
   type ToolCallSummary,
@@ -32,7 +32,7 @@ function renderToolCallHtml(summary: ToolCallSummary): string {
   return html
 }
 
-export async function formatChatAsHtml(sessionName: string, threads: SessionThread[]) {
+export async function formatChatAsHtml(sessionName: string, threads: ExportableThread[]) {
   let content = '<div class="prose-sm">\n'
   for (let i = 0; i < threads.length; i++) {
     const thread = threads[i]

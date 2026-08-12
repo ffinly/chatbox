@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from 'vitest'
 import type { Message, Session, SessionPromptContextSnapshot, Updater } from '../../types'
+import { buildSessionExportThreads } from '../../utils/chat-export'
 import type { SessionMetadataUpdate } from './session-metadata'
 import type { SessionUseCasePort } from './session-use-case-port'
 import { ThreadService } from './ThreadService'
@@ -123,15 +124,25 @@ describe('ThreadService', () => {
     expect(harness.session.threads?.at(-1)?.sessionPromptContextSnapshot).toBe(snapshot)
   })
 
-  test('compresses into a continuation prompt and clears fork state', async () => {
+  test('compresses into a continuation prompt and preserves archived fork branches', async () => {
     const snapshot = promptContextSnapshot('Current Soul')
+    const pivot = message('user', 'user')
+    const activeReply = message('active-reply', 'assistant')
+    const savedReply = message('saved-reply', 'assistant')
     const harness = createHarness({
       id: 'session-1',
       name: 'Session',
-      messages: [message('system', 'system', 'System'), message('user', 'user')],
+      messages: [message('system', 'system', 'System'), pivot, activeReply],
       settings: { sessionPromptContextSnapshot: snapshot },
       messageForksHash: {
-        user: { position: 0, lists: [{ id: 'branch', messages: [] }], createdAt: 1 },
+        [pivot.id]: {
+          position: 1,
+          lists: [
+            { id: 'saved', messages: [savedReply] },
+            { id: 'active', messages: [] },
+          ],
+          createdAt: 1,
+        },
       },
     })
 
@@ -141,10 +152,15 @@ describe('ThreadService', () => {
     expect(harness.session.messages[1].contentParts).toEqual([
       { type: 'text', text: 'Previous conversation summary:\n\nSummary' },
     ])
-    expect(harness.session.messageForksHash).toBeUndefined()
+    expect(harness.session.messageForksHash?.[pivot.id]).toBeDefined()
     expect(harness.session.threads).toHaveLength(1)
     expect(harness.session.settings?.sessionPromptContextSnapshot).toBeUndefined()
     expect(harness.session.threads?.[0].sessionPromptContextSnapshot).toBe(snapshot)
+    expect(
+      buildSessionExportThreads(harness.session, true).map(
+        (thread) => thread.messages.at(-1)?.contentParts.find((part) => part.type === 'text')?.text
+      )
+    ).toEqual(['saved-reply', 'active-reply', 'Previous conversation summary:\n\nSummary'])
   })
 
   test('moves a history thread into a copied conversation before removing it', async () => {

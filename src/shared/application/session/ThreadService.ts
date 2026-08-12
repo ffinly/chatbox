@@ -134,7 +134,6 @@ export class ThreadService {
         threads: [...(current.threads ?? []), this.createThreadSnapshot(current)],
         messages,
         threadName: '',
-        messageForksHash: undefined,
         compactionPoints: undefined,
         settings: current.settings
           ? { ...current.settings, sessionPromptContextSnapshot: undefined }

@@ -1,8 +1,71 @@
-import type { Message, MessageToolCallPart, SessionThread } from '../types/session'
+import { forkTailStartIndex } from '../session/message-forks'
+import type { Message, MessageToolCallPart, Session, SessionThread } from '../types/session'
 import { getMessageText } from './message'
 
-/** Minimal thread shape the text exporters need (renderer passes full `SessionThread`). */
+/** Minimal thread shape shared by every export formatter. */
 export type ExportableThread = Pick<SessionThread, 'name' | 'messages'>
+
+function expandMessageBranches(
+  messages: Message[],
+  messageForksHash: Session['messageForksHash'],
+  visitedForkIds: ReadonlySet<string> = new Set()
+): Message[][] {
+  if (!messageForksHash) {
+    return [messages]
+  }
+
+  const forkMessageIndex = messages.findIndex(
+    (message) => Boolean(messageForksHash[message.id]) && !visitedForkIds.has(message.id)
+  )
+  if (forkMessageIndex < 0) {
+    return [messages]
+  }
+
+  const forkMessage = messages[forkMessageIndex]
+  const fork = messageForksHash[forkMessage.id]
+  if (!fork || fork.lists.length === 0) {
+    return [messages]
+  }
+
+  const tailStart = forkTailStartIndex(messages, forkMessageIndex)
+  const sharedPrefix = messages.slice(0, tailStart)
+  const activeTail = messages.slice(tailStart)
+  const activePosition =
+    Number.isInteger(fork.position) && fork.position >= 0 && fork.position < fork.lists.length ? fork.position : 0
+  const nextVisitedForkIds = new Set(visitedForkIds).add(forkMessage.id)
+
+  return fork.lists.flatMap((branch, position) => {
+    const branchTail = position === activePosition ? activeTail : branch.messages
+    return expandMessageBranches(branchTail, messageForksHash, nextVisitedForkIds).map((expandedTail) => [
+      ...sharedPrefix,
+      ...expandedTail,
+    ])
+  })
+}
+
+/**
+ * Turn the active message path plus every saved fork into ordinary export
+ * threads. The active fork slot is intentionally empty in persisted data, so
+ * its tail must come from the containing message list rather than `lists`.
+ */
+export function buildSessionExportThreads(session: Session, includeArchivedThreads: boolean): ExportableThread[] {
+  const threads: ExportableThread[] = includeArchivedThreads ? [...(session.threads ?? [])] : []
+  threads.push({
+    name: session.threadName || session.name,
+    messages: session.messages,
+  })
+
+  return threads.flatMap((thread) => {
+    const branches = expandMessageBranches(thread.messages, session.messageForksHash)
+    if (branches.length === 1) {
+      return [thread]
+    }
+    return branches.map((messages, index) => ({
+      name: `${thread.name} (Branch ${index + 1}/${branches.length})`,
+      messages,
+    }))
+  })
+}
 
 export type ToolCallSummary = {
   id: string
