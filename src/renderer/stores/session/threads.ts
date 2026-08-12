@@ -1,4 +1,4 @@
-import { ThreadService } from '@shared/application/session'
+import { ThreadService } from '@chatbox/core/application/session'
 import * as defaults from '@shared/defaults'
 import type { SessionThread } from '@shared/types'
 import { v4 as uuidv4 } from 'uuid'

@@ -67,9 +67,9 @@ chatStore 兼容 Facade
 
 | 层 | 路径 | 职责 |
 |----|------|------|
-| Application | `src/shared/application/session/` | Session 创建、更新、归档、恢复、删除、事件和串行写入 |
+| Application | `packages/chatbox-core/src/application/session/` | Session 创建、更新、归档、恢复、删除、事件和串行写入 |
 | Adapter | `src/renderer/adapters/CurrentSessionRepository.ts` | 沿用当前 storage key、migration 和 Session meta 实现 |
-| React bindings | `src/renderer/react-bindings/query/` | Query keys/options/hooks、分页 read model 和应用事件投影 |
+| React bindings | `packages/chatbox-react/src/query/` | Query keys/options/hooks、分页 read model 和应用事件投影 |
 | Presentation | `src/renderer/presentation/session/` | 删除确认、滚动缓存、UI/Jotai 状态和宿主资源清理 |
 | Composition | `src/renderer/session-runtime.ts`、`session-bootstrap.ts` | 组装实现并在 Renderer 启动时注册 Presentation effects |
 | Compatibility | `src/renderer/stores/chatStore.ts` | 保留既有命令和 hooks 的 import 路径 |

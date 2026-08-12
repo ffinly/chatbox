@@ -1,3 +1,4 @@
+import { areSessionsInSamePinGroup } from '@chatbox/core/utils/session-sort'
 import type { DragEndEvent } from '@dnd-kit/core'
 import {
   closestCenter,
@@ -20,7 +21,6 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { Button, Flex, Text } from '@mantine/core'
 import type { SessionMetaRecord } from '@shared/types'
-import { areSessionsInSamePinGroup } from '@shared/utils/session-sort'
 import { IconArrowsMoveVertical, IconGripVertical, IconLoader2 } from '@tabler/icons-react'
 import { useRouterState } from '@tanstack/react-router'
 import { type CSSProperties, type MutableRefObject, useCallback, useMemo, useState } from 'react'

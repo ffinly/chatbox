@@ -1,1 +1,1 @@
-export * from '@shared/generation/generation-lock'
+export { resetSessionGenerationLocksForTests, withSessionGenerationLock } from '@chatbox/core/generation'

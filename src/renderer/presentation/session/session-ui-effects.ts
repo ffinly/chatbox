@@ -1,4 +1,4 @@
-import type { SessionApplicationEvent, SessionEventBus } from '@shared/application/session'
+import type { SessionApplicationEvent, SessionEventBus } from '@chatbox/core/application/session'
 import { clearScrollPositionCache } from '@/components/chat/MessageList'
 import platform from '@/platform'
 import { cleanupSessionAtomCache } from '@/stores/atoms/throttleWriteSessionAtom'

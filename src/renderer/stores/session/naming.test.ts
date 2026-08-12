@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   clearSessionState: vi.fn(),
 }))
 
-vi.mock('@shared/application/session', () => ({
+vi.mock('@chatbox/core/application/session', () => ({
   SessionNamingService: class {
     scheduleNameAndThreadName = mocks.scheduleNameAndThreadName
     scheduleThreadName = mocks.scheduleThreadName

@@ -1,7 +1,7 @@
 /** biome-ignore-all lint/suspicious/useAwait: In-memory async adapters mirror Promise-based host ports. */
 
-import type { SessionRepositoryPort, SettingsStoragePort } from '@shared/ports'
-import { createAuthInfoStore, createChatQueryClient, createLastUsedModelStore, QueryKeys } from '@shared/react-bindings'
+import type { SessionRepositoryPort, SettingsStoragePort } from '@chatbox/core/ports'
+import { createAuthInfoStore, createChatQueryClient, createLastUsedModelStore, QueryKeys } from '@chatbox/react'
 import type { Session, SessionMetaPage, SessionMetaRecord } from '@shared/types'
 import { describe, expect, test, vi } from 'vitest'
 import type { PersistStorage, StorageValue } from 'zustand/middleware'

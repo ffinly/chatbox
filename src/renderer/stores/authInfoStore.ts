@@ -3,7 +3,7 @@ import {
   type AuthTokens,
   createAuthInfoStore,
   useAuthInfoStore as useSharedAuthInfoStore,
-} from '@shared/react-bindings/stores'
+} from '@chatbox/react/stores'
 import { getSafeStorage } from './safeStorage'
 
 export type { AuthTokens }

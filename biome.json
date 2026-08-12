@@ -22,6 +22,7 @@
     "useEditorconfig": true,
     "includes": [
       "src/**",
+      "packages/**",
       "test/integration/**/*.ts",
       "test/e2e/**/*.ts",
       "!src/main/mcp/shell-env.cjs",
@@ -64,6 +65,7 @@
     },
     "includes": [
       "src/**",
+      "packages/**",
       "test/integration/**/*.ts",
       "test/e2e/**/*.ts",
       "!src/main/mcp/shell-env.cjs",

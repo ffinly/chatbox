@@ -1,4 +1,4 @@
-import type { ReactQueryHostLifecycle } from '@shared/react-bindings/query'
+import type { ReactQueryHostLifecycle } from '@chatbox/react/query'
 import platform from '@/platform'
 
 function isVisible(): boolean {

@@ -1,4 +1,4 @@
-import { applyLegacyToolFallback as applySharedLegacyToolFallback } from '@shared/generation/legacy-tool-fallback'
+import { applyLegacyToolFallback as applySharedLegacyToolFallback } from '@chatbox/core/generation'
 import { uniqueId } from 'lodash'
 import {
   combinedSearchByPromptEngineering,
@@ -15,7 +15,7 @@ export type {
   LegacyToolFallbackOptions,
   LegacyToolFallbackResult,
   LegacyWebSearchResult,
-} from '@shared/generation/legacy-tool-fallback'
+} from '@chatbox/core/generation'
 
 export function applyLegacyToolFallback(
   options: Parameters<typeof applySharedLegacyToolFallback>[0]

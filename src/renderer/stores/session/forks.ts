@@ -1,5 +1,5 @@
-import { ForkService } from '@shared/application/session'
-import { getReachableSessionMessages } from '@shared/session/generation-state'
+import { ForkService } from '@chatbox/core/application/session'
+import { getReachableSessionMessages } from '@chatbox/core/session/generation-state'
 import {
   buildCreateInactiveForkPatch,
   buildDeleteForkPatch,

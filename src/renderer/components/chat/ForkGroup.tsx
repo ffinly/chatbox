@@ -1,6 +1,6 @@
+import { getSessionActionGate, type SessionLockState } from '@chatbox/core/session/action-gates'
 import { ActionIcon, Box, Button, Flex, Stack, Text, Tooltip } from '@mantine/core'
 import { TestId } from '@shared/automation/testids'
-import { getSessionActionGate, type SessionLockState } from '@shared/session/action-gates'
 import { supportsSessionGeneration } from '@shared/session/capabilities'
 import type { Session, SessionType } from '@shared/types'
 import { IconAlignRight, IconChevronLeft, IconChevronRight, IconFold, IconTrash } from '@tabler/icons-react'

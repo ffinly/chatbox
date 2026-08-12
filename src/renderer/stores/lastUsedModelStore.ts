@@ -3,7 +3,7 @@ import {
   type LastUsedModelState,
   type LastUsedModelStoreState,
   useLastUsedModelStore as useSharedLastUsedModelStore,
-} from '@shared/react-bindings/stores'
+} from '@chatbox/react/stores'
 import { getSafeStorage } from './safeStorage'
 
 export const lastUsedModelStore = createLastUsedModelStore({

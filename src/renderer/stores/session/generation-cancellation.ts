@@ -1,9 +1,13 @@
-import { finishAbortedGeneration, type GenerationRuntimeState, type GenerationRuntimeStore } from '@shared/generation'
-import { getCurrentConversationMessages } from '@shared/session/generation-state'
+import {
+  finishAbortedGeneration,
+  type GenerationRuntimeState,
+  type GenerationRuntimeStore,
+} from '@chatbox/core/generation'
+import { getCurrentConversationMessages } from '@chatbox/core/session/generation-state'
 import { findMessageLocation } from '@shared/session/message-forks'
 import type { Message, Session } from '@shared/types'
 
-export { cancelRunningToolCallBatch, finishAbortedGeneration } from '@shared/generation'
+export { cancelRunningToolCallBatch, finishAbortedGeneration } from '@chatbox/core/generation'
 
 export interface GenerationCancellationDependencies {
   runtime: Pick<GenerationRuntimeStore, 'beginStop' | 'clear' | 'get' | 'list' | 'requestAbort'>

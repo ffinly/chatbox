@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
+import { IDLE_SESSION_LOCK_STATE, type SessionLockState } from '@chatbox/core/session/action-gates'
 import { MantineProvider } from '@mantine/core'
 import { TestId } from '@shared/automation/testids'
-import { IDLE_SESSION_LOCK_STATE, type SessionLockState } from '@shared/session/action-gates'
 import type { Message, Session } from '@shared/types'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, test, vi } from 'vitest'

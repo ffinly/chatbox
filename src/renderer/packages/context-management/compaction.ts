@@ -1,4 +1,8 @@
-import { CompactionService, type CompactionServiceResult, isAutoCompactionEnabled } from '@shared/application/context'
+import {
+  CompactionService,
+  type CompactionServiceResult,
+  isAutoCompactionEnabled,
+} from '@chatbox/core/application/context'
 import type { Settings } from '@shared/types'
 import { v4 as uuidv4 } from 'uuid'
 import { getLogger } from '@/lib/utils'

@@ -1,7 +1,7 @@
 import {
   countCancellableGeneratingAssistantMessages,
   getGenerationControlMessages,
-} from '@shared/session/generation-state'
+} from '@chatbox/core/session/generation-state'
 import { createMessage, type Message, type Session } from '@shared/types'
 import { createStore } from 'zustand'
 import { getLogger } from '@/lib/utils'

@@ -1,1 +1,4 @@
-export { queryClient, queryClient as default } from '@/react-bindings/query/query-client'
+import { rendererApplication } from '@/app/renderer-application'
+
+export const queryClient = rendererApplication.queryClient
+export default queryClient

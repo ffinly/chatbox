@@ -7,6 +7,11 @@ export default defineConfig(({ mode }) => {
   // Live-API suite must be opted into explicitly (set by the test:model-provider script);
   // an argv/path heuristic could silently run real API calls with keys auto-loaded from .env
   const isModelProviderRun = process.env.RUN_MODEL_PROVIDER_TESTS === '1'
+  const defaultInclude = [
+    'src/**/*.{test,spec}.{ts,tsx}',
+    'packages/**/*.{test,spec}.{ts,tsx}',
+    'test/integration/**/*.{test,spec}.{ts,tsx}',
+  ]
 
   return {
     plugins: [
@@ -24,7 +29,7 @@ export default defineConfig(({ mode }) => {
         ...loadEnv(mode, process.cwd(), ''),
         NODE_ENV: 'test',
       },
-      include: ['src/**/*.{test,spec}.{ts,tsx}', 'test/integration/**/*.{test,spec}.{ts,tsx}'],
+      include: defaultInclude,
       exclude: [
         'node_modules',
         'dist',

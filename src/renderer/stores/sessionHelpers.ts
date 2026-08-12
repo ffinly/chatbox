@@ -4,8 +4,8 @@ import {
   AttachmentService,
   type ParsedAttachmentContent,
   type PickedAsset,
-} from '@shared/application/attachments'
-import { projectSessionMeta } from '@shared/application/session'
+} from '@chatbox/core/application/attachments'
+import { projectSessionMeta } from '@chatbox/core/application/session'
 import { isSessionAttachmentRagSupportedFilePath, isSupportedFile, isTextFilePath } from '@shared/file-extensions'
 import { EMPTY_ATTACHMENT_CONTENT_ERROR, NON_RECOVERABLE_LOCAL_PARSER_ERROR_CODES } from '@shared/file-parse-errors'
 import { searchSessionMessages } from '@shared/services/native-session-search'

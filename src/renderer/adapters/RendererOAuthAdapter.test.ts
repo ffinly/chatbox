@@ -1,5 +1,5 @@
+import type { SettingsRepositoryPort, SettingsUpdate } from '@chatbox/core/ports'
 import type { OAuthCredentials } from '@shared/oauth'
-import type { SettingsRepositoryPort, SettingsUpdate } from '@shared/ports'
 import type { Settings } from '@shared/types'
 import { describe, expect, it, vi } from 'vitest'
 import { RendererOAuthAdapter } from './RendererOAuthAdapter'

@@ -1,4 +1,4 @@
-import type { SettingsService } from '@shared/application/settings'
+import type { SettingsService } from '@chatbox/core/application/settings'
 import type { Settings } from '@shared/types'
 
 export interface RendererSettingsEffectsHost {

@@ -1,1 +1,1 @@
-export { findLastCompactionBoundaryMessage } from '@shared/application/context'
+export { findLastCompactionBoundaryMessage } from '@chatbox/core/application/context'

@@ -1,4 +1,4 @@
-import type { AttachmentContentPort, BlobStoragePort } from '@shared/ports'
+import type { AttachmentContentPort, BlobStoragePort } from '@chatbox/core/ports'
 import { CurrentBlobStorage } from './CurrentBlobStorage'
 
 /**

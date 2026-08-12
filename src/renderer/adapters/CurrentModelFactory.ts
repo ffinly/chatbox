@@ -1,4 +1,4 @@
-import { ModelFactory } from '@shared/application/model'
+import { ModelFactory } from '@chatbox/core/application/model'
 import { getModel } from '@shared/models'
 import platform from '@/platform'
 import { settingsService } from '@/settings-runtime'

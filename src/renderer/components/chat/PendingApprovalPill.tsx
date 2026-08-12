@@ -1,6 +1,6 @@
+import { getApprovalPreview, listPendingApprovalToolCalls } from '@chatbox/core/message-approval'
 import { Box, Button, Text, Transition, UnstyledButton } from '@mantine/core'
 import { TestId } from '@shared/automation/testids'
-import { getApprovalPreview, listPendingApprovalToolCalls } from '@shared/message-approval'
 import type { Session } from '@shared/types'
 import { IconArrowUp } from '@tabler/icons-react'
 import { type FC, useMemo } from 'react'

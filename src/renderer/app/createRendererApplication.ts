@@ -1,6 +1,6 @@
-import type { LoggerPort, SettingsStoragePort } from '@shared/ports'
-import { type ChatApplication, type CreateChatApplicationOptions, createChatApplication } from '@shared/react-bindings'
-import type { AuthInfoStore, LastUsedModelStore } from '@shared/react-bindings/stores'
+import type { LoggerPort, SettingsStoragePort } from '@chatbox/core/ports'
+import { type ChatApplication, type CreateChatApplicationOptions, createChatApplication } from '@chatbox/react'
+import type { AuthInfoStore, LastUsedModelStore } from '@chatbox/react/stores'
 import { RendererSettingsEffects, type RendererSettingsEffectsHost } from '@/adapters/RendererSettingsEffects'
 
 export type RendererHostKind = 'desktop' | 'web' | 'capacitor'

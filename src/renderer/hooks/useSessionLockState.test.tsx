@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { IDLE_SESSION_LOCK_STATE } from '@shared/session/action-gates'
+import { IDLE_SESSION_LOCK_STATE } from '@chatbox/core/session/action-gates'
 import type { Session } from '@shared/types'
 import { act, renderHook } from '@testing-library/react'
 import { getDefaultStore } from 'jotai'

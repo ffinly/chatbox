@@ -1,4 +1,5 @@
-import { getGenerationControlMessages } from '@shared/session/generation-state'
+import { getGenerationControlMessages } from '@chatbox/core/session/generation-state'
+import { areSessionsInSamePinGroup } from '@chatbox/core/utils/session-sort'
 import {
   copyMessageForksWithMapping,
   copyMessagesWithMapping,
@@ -8,7 +9,6 @@ import {
   type Session,
   type SessionMeta,
 } from '@shared/types'
-import { areSessionsInSamePinGroup } from '@shared/utils/session-sort'
 import { getDefaultStore } from 'jotai'
 import { omit } from 'lodash'
 import platform from '@/platform'

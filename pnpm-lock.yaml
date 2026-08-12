@@ -207,6 +207,12 @@ importers:
       '@capacitor/toast':
         specifier: ^7.0.0
         version: 7.0.3(@capacitor/core@7.4.5)
+      '@chatbox/core':
+        specifier: workspace:*
+        version: link:packages/chatbox-core
+      '@chatbox/react':
+        specifier: workspace:*
+        version: link:packages/chatbox-react
       '@dnd-kit/core':
         specifier: ^6.0.8
         version: 6.3.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -824,6 +830,47 @@ importers:
         specifier: 4.48.1
         version: 4.48.1
 
+  packages/chatbox-core:
+    dependencies:
+      ai:
+        specifier: ^6.0.11
+        version: 6.0.67(zod@4.3.6)
+      deepmerge:
+        specifier: ^4.3.1
+        version: 4.3.1
+      zod:
+        specifier: ^4.0.17
+        version: 4.3.6
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+
+  packages/chatbox-react:
+    dependencies:
+      '@chatbox/core':
+        specifier: workspace:*
+        version: link:../chatbox-core
+      immer:
+        specifier: ^10.1.1
+        version: 10.2.0
+    devDependencies:
+      '@tanstack/react-query':
+        specifier: ^5.74.4
+        version: 5.90.20(react@18.3.1)
+      '@types/react':
+        specifier: ^18.3.31
+        version: 18.3.31
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      zustand:
+        specifier: ^5.0.6
+        version: 5.0.11(@types/react@18.3.31)(immer@10.2.0)(react@18.3.1)(use-sync-external-store@1.6.0(react@18.3.1))
+
   release/app:
     dependencies:
       '@anthropic-ai/sandbox-runtime':
@@ -835,15 +882,27 @@ importers:
 
   test/react-native-smoke:
     dependencies:
+      '@chatbox/core':
+        specifier: workspace:*
+        version: link:../../packages/chatbox-core
+      '@chatbox/react':
+        specifier: workspace:*
+        version: link:../../packages/chatbox-react
       '@tanstack/react-query':
         specifier: 5.90.20
         version: 5.90.20(react@19.2.3)
+      immer:
+        specifier: ^10.1.1
+        version: 10.2.0
       react:
         specifier: 19.2.3
         version: 19.2.3
       react-native:
         specifier: 0.86.0
         version: 0.86.0(@babel/core@7.28.4)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.86.0(@babel/core@7.28.4)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.28.4))(@types/react@19.2.14)(react@19.2.3)
+      zustand:
+        specifier: ^5.0.6
+        version: 5.0.11(@types/react@19.2.14)(immer@10.2.0)(react@19.2.3)(use-sync-external-store@1.6.0(react@19.2.3))
     devDependencies:
       '@babel/core':
         specifier: 7.28.4
@@ -15731,8 +15790,8 @@ snapshots:
 
   '@babel/generator@7.29.0':
     dependencies:
-      '@babel/parser': 7.29.0
-      '@babel/types': 7.29.0
+      '@babel/parser': 7.29.7
+      '@babel/types': 7.29.7
       '@jridgewell/gen-mapping': 0.3.13
       '@jridgewell/trace-mapping': 0.3.31
       jsesc: 3.1.0
@@ -15938,7 +15997,7 @@ snapshots:
 
   '@babel/parser@7.29.0':
     dependencies:
-      '@babel/types': 7.29.0
+      '@babel/types': 7.29.7
 
   '@babel/parser@7.29.7':
     dependencies:
@@ -17075,14 +17134,14 @@ snapshots:
     dependencies:
       '@babel/core': 7.28.4
       '@babel/helper-plugin-utils': 7.28.6
-      '@babel/types': 7.29.0
+      '@babel/types': 7.29.7
       esutils: 2.0.3
 
   '@babel/preset-modules@0.1.6-no-external-plugins(@babel/core@7.29.0)':
     dependencies:
       '@babel/core': 7.29.0
       '@babel/helper-plugin-utils': 7.28.6
-      '@babel/types': 7.29.0
+      '@babel/types': 7.29.7
       esutils: 2.0.3
 
   '@babel/preset-react@7.28.5(@babel/core@7.28.4)':
@@ -17131,9 +17190,9 @@ snapshots:
       '@babel/code-frame': 7.29.0
       '@babel/generator': 7.29.0
       '@babel/helper-globals': 7.28.0
-      '@babel/parser': 7.29.0
+      '@babel/parser': 7.29.7
       '@babel/template': 7.28.6
-      '@babel/types': 7.29.0
+      '@babel/types': 7.29.7
       debug: 4.4.3
     transitivePeerDependencies:
       - supports-color
@@ -32099,6 +32158,11 @@ snapshots:
     dependencies:
       react: 18.3.1
 
+  use-sync-external-store@1.6.0(react@19.2.3):
+    dependencies:
+      react: 19.2.3
+    optional: true
+
   utf8-byte-length@1.0.5: {}
 
   util-deprecate@1.0.2: {}
@@ -32789,5 +32853,12 @@ snapshots:
       immer: 10.2.0
       react: 18.3.1
       use-sync-external-store: 1.6.0(react@18.3.1)
+
+  zustand@5.0.11(@types/react@19.2.14)(immer@10.2.0)(react@19.2.3)(use-sync-external-store@1.6.0(react@19.2.3)):
+    optionalDependencies:
+      '@types/react': 19.2.14
+      immer: 10.2.0
+      react: 19.2.3
+      use-sync-external-store: 1.6.0(react@19.2.3)
 
   zwitch@2.0.4: {}

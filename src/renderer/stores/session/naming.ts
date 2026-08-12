@@ -1,5 +1,5 @@
-import { SessionNamingService } from '@shared/application/session'
-import type { Message } from '@shared/types'
+import type { Message } from '@chatbox/core'
+import { SessionNamingService } from '@chatbox/core/application/session'
 import { currentModelFactory } from '@/adapters/CurrentModelFactory'
 import { languageNameMap } from '@/i18n/locales'
 import { convertToModelMessages } from '@/packages/model-calls/message-utils'

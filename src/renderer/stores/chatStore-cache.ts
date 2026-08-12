@@ -2,5 +2,5 @@ export {
   assertNoMessageDataUpdate,
   getSessionMetadataSnapshot,
   type SessionMetadataUpdate,
-} from '@shared/application/session'
-export { mergeCachedGeneratingMessages } from '@/react-bindings/query/session-cache-policy'
+} from '@chatbox/core/application/session'
+export { mergeCachedGeneratingMessages } from '@chatbox/react/query'

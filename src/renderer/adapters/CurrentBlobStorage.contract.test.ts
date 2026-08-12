@@ -1,4 +1,4 @@
-import type { BlobStoragePort } from '@shared/ports'
+import type { BlobStoragePort } from '@chatbox/core/ports'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { getRecentlyWrittenBlobKeys, isBlobRecentlyWritten } from '@/storage/blob-write-tracker'
 import { CurrentBlobStorage, type CurrentBlobStorageBackend } from './CurrentBlobStorage'

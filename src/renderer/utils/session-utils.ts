@@ -191,7 +191,7 @@ export function migrateSession(session: Session): Session {
 }
 
 // Single source shared with the native mobile shell.
-import { sortSessions } from '@shared/utils/session-sort'
+import { sortSessions } from '@chatbox/core/utils/session-sort'
 
 export { sortSessions }
 

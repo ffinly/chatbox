@@ -1,11 +1,11 @@
-import { getDefaultDocumentParser } from '@shared/domain/settings'
+import { getDefaultDocumentParser } from '@chatbox/core/domain/settings'
 import {
   type SettingsStoreState,
   selectLanguage,
   selectMcpSettings,
   selectTheme,
   useSettingsStore as useSharedSettingsStore,
-} from '@shared/react-bindings/stores'
+} from '@chatbox/react/stores'
 import type { DocumentParserConfig } from '@shared/types/settings'
 import { getLogger } from '@/lib/utils'
 import platform from '@/platform'

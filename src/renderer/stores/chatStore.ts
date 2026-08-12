@@ -3,8 +3,9 @@
  * It uses react-query for caching.
  * */
 
-import type { SessionMetadataUpdate } from '@shared/application/session'
-import type { SessionMetaRepositoryPort } from '@shared/ports'
+import type { SessionMetadataUpdate } from '@chatbox/core/application/session'
+import type { SessionMetaRepositoryPort } from '@chatbox/core/ports'
+import { QueryKeys } from '@chatbox/react/query'
 import {
   type Message,
   type Session,
@@ -15,7 +16,6 @@ import {
 } from '@shared/types'
 import compact from 'lodash/compact'
 import { useMemo } from 'react'
-import { QueryKeys } from '@/react-bindings/query/query-keys'
 import { sessionHooks, sessionQueryBridge, sessionRepository, sessionService } from '@/session-runtime'
 import * as defaults from '../../shared/defaults'
 import { settingsStore, useSettingsStore } from './settingsStore'

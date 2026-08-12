@@ -2,4 +2,4 @@ export {
   hasContentForAutoTitle,
   hasSuccessfulUserAssistantTurn,
   isSuccessfulAssistantReply,
-} from '@shared/session/message-success'
+} from '@chatbox/core/session/message-success'

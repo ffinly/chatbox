@@ -1,5 +1,5 @@
 import { SplashScreen } from '@capacitor/splash-screen'
-import { ChatboxProvider } from '@shared/react-bindings'
+import { ChatboxProvider } from '@chatbox/react'
 import '@mantine/core/styles.css'
 import '@mantine/spotlight/styles.css'
 import { RouterProvider } from '@tanstack/react-router'

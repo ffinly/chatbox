@@ -3,4 +3,4 @@
  *
  * The implementation now belongs to the Settings domain.
  */
-export * from '../domain/settings/settings-schema'
+export * from '@chatbox/core/domain/settings/settings-schema'

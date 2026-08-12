@@ -194,8 +194,8 @@ describe('Context Management Integration Tests', () => {
 
       const result = buildContextForAI({ messages, compactionPoints })
 
-      // A point is a paired contract (boundary + summary); with the summary
-      // missing it must not be applied, so the full history is used
+      // A point is only valid when both its summary and boundary exist on the
+      // current path. Otherwise retain the full non-summary history.
       expect(result).toHaveLength(4)
       expect(result[0].contentParts[0]).toEqual({ type: 'text', text: 'Old message' })
     })

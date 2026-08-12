@@ -1,4 +1,4 @@
-import type { PickedAsset, PickedAssetContentPort } from '@shared/application/attachments'
+import type { PickedAsset, PickedAssetContentPort } from '@chatbox/core/application/attachments'
 import { getFileUniqKey } from '@/storage/file-uniq-key'
 
 /**

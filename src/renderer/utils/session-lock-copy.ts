@@ -1,4 +1,4 @@
-import type { SessionActionBlockReason } from '@shared/session/action-gates'
+import type { SessionActionBlockReason } from '@chatbox/core/session/action-gates'
 import type { TFunction } from 'i18next'
 
 /** Map a shared gate block reason to the renderer's user-facing copy. */

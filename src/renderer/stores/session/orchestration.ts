@@ -10,7 +10,7 @@ export {
   finishPausedToolCallContinuation,
   isRetryableToolCallStep,
   shouldPersistStreamingChunk,
-} from '@shared/generation'
+} from '@chatbox/core/generation'
 
 /**
  * Compatibility facade for existing Renderer callers.

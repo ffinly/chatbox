@@ -10,7 +10,7 @@ vi.mock('../chatStore', () => ({ getSession: getSessionMock }))
 vi.mock('../toastActions', () => ({ add: toastMock }))
 vi.mock('i18next', () => ({ t: (key: string) => key }))
 vi.mock('@/app/renderer-application', async () => {
-  const { GenerationRuntimeStore } = await import('@shared/generation/runtime-store')
+  const { GenerationRuntimeStore } = await import('@chatbox/core/generation')
   return { rendererApplication: { generationRuntime: new GenerationRuntimeStore() } }
 })
 

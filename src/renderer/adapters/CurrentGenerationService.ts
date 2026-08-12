@@ -1,7 +1,11 @@
-import { SessionNotFoundError } from '@shared/application/session'
+import { SessionNotFoundError } from '@chatbox/core/application/session'
+import {
+  GenerationService,
+  type GenerationServiceDependencies,
+  type GenerationSessionPort,
+} from '@chatbox/core/generation'
+import type { LoggerPort } from '@chatbox/core/ports'
 import { buildContext } from '@shared/context'
-import { GenerationService, type GenerationServiceDependencies, type GenerationSessionPort } from '@shared/generation'
-import type { LoggerPort } from '@shared/ports'
 import type { Message, Session, SessionSettings } from '@shared/types'
 import type { ModelDependencies } from '@shared/types/adapters'
 import {

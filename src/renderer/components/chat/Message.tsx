@@ -1,7 +1,3 @@
-import NiceModal from '@ebay/nice-modal-react'
-import { ActionIcon, type ActionIconProps, Button, Flex, Loader, Modal, Stack, Text } from '@mantine/core'
-import { Box, Grid, useTheme } from '@mui/material'
-import { TestId } from '@shared/automation/testids'
 import {
   getSessionActionGate,
   IDLE_SESSION_LOCK_STATE,
@@ -9,8 +5,12 @@ import {
   type SessionActionBlockReason,
   type SessionLockState,
   shouldShowConcurrentReplyStop,
-} from '@shared/session/action-gates'
-import { isCancellableGeneratingAssistantMessage } from '@shared/session/generation-state'
+} from '@chatbox/core/session/action-gates'
+import { isCancellableGeneratingAssistantMessage } from '@chatbox/core/session/generation-state'
+import NiceModal from '@ebay/nice-modal-react'
+import { ActionIcon, type ActionIconProps, Button, Flex, Loader, Modal, Stack, Text } from '@mantine/core'
+import { Box, Grid, useTheme } from '@mui/material'
+import { TestId } from '@shared/automation/testids'
 import { findMessageLocation } from '@shared/session/message-forks'
 import type { Message, MessageBackgroundTask, MessageTextPart, MessageToolCallPart, SessionType } from '@shared/types'
 import { getMessageText } from '@shared/utils/message'

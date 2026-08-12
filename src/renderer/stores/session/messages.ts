@@ -1,4 +1,4 @@
-import { SessionNotFoundError } from '@shared/application/session'
+import { SessionNotFoundError } from '@chatbox/core'
 import { isExpectedGenerationError } from '@shared/models/error-classification'
 import { BaseError, ChatboxAIAPIError } from '@shared/models/errors'
 import { extractStreamErrorMessage } from '@shared/models/utils/stream-error-message'

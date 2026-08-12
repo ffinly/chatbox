@@ -3,7 +3,7 @@ import {
   IDLE_SESSION_LOCK_STATE,
   type SessionLockState,
   sessionLockStatesEqual,
-} from '@shared/session/action-gates'
+} from '@chatbox/core/session/action-gates'
 import type { Session } from '@shared/types'
 import { useAtomValue } from 'jotai'
 import { selectAtom } from 'jotai/utils'

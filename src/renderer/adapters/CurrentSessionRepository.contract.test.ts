@@ -1,6 +1,10 @@
 import 'fake-indexeddb/auto'
-import { type SessionMetaRepositoryPort, SessionRepositoryError, type SessionRepositoryPort } from '@shared/ports'
-import { createSessionRepositoryContract } from '@shared/ports/testing/session-repository-contract'
+import { type SessionMetaRepositoryPort, SessionRepositoryError, type SessionRepositoryPort } from '@chatbox/core/ports'
+import {
+  createSessionRepositoryContract,
+  runSessionRepositoryContract,
+} from '@chatbox/core/ports/testing/session-repository-contract'
+import { InMemorySessionRepository } from '@chatbox/core/testing'
 import type { Session, SessionMetaPage, SessionMetaRecord } from '@shared/types'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { IndexedDBSessionMetaStorage } from '@/storage/SessionMetaStorage'
@@ -89,6 +93,29 @@ describe('CurrentSessionRepository contract', () => {
 
   beforeEach(() => {
     harness = createHarness()
+  })
+
+  test('satisfies the reusable portable repository contract', async () => {
+    const values = new Map<string, unknown>()
+    const inMemoryMeta = new InMemorySessionRepository()
+    const repository = new CurrentSessionRepository({
+      dataStorage: {
+        getItem: <T>(key: string, initialValue: T) =>
+          Promise.resolve(values.has(key) ? (values.get(key) as T) : initialValue),
+        setItemNow: (key, value) => {
+          values.set(key, value)
+          return Promise.resolve()
+        },
+        removeItem: (key) => {
+          values.delete(key)
+          return Promise.resolve()
+        },
+        getAllKeys: () => Promise.resolve([...values.keys()]),
+      },
+      metaStorage: inMemoryMeta.meta,
+    })
+
+    await runSessionRepositoryContract(() => repository)
   })
 
   test('initializes the current meta storage through the repository boundary', async () => {

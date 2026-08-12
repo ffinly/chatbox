@@ -1,5 +1,5 @@
+import { buildSessionExportThreads } from '@chatbox/core/utils/chat-export'
 import type { ExportChatFormat, ExportChatScope } from '@shared/types'
-import { buildSessionExportThreads } from '@shared/utils/chat-export'
 import { formatChatAsHtml, formatChatAsMarkdown, formatChatAsTxt } from '@/lib/format-chat'
 import platform from '@/platform'
 import * as chatStore from '../chatStore'

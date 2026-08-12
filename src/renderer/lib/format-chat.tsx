@@ -1,19 +1,19 @@
-import { MantineProvider } from '@mantine/core'
-import { escape as escapeHtml } from 'lodash'
-import ReactDOMServer from 'react-dom/server'
-import Markdown, { BlockCodeCollapsedStateProvider } from '@/components/Markdown'
-import * as base64 from '@/packages/base64'
-import storage from '@/storage'
 import {
   collectToolCallSummaries,
   type ExportableThread,
   getAttachmentNames,
   stringifyDataForExport,
   type ToolCallSummary,
-} from '../../shared/utils/chat-export'
+} from '@chatbox/core/utils/chat-export'
+import { MantineProvider } from '@mantine/core'
+import { escape as escapeHtml } from 'lodash'
+import ReactDOMServer from 'react-dom/server'
+import Markdown, { BlockCodeCollapsedStateProvider } from '@/components/Markdown'
+import * as base64 from '@/packages/base64'
+import storage from '@/storage'
 
 // Plain-text Markdown / TXT exporters are shared with the native mobile shell.
-export { formatChatAsMarkdown, formatChatAsTxt } from '../../shared/utils/chat-export'
+export { formatChatAsMarkdown, formatChatAsTxt } from '@chatbox/core/utils/chat-export'
 
 function renderToolCallHtml(summary: ToolCallSummary): string {
   let html = '<div class="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">\n'

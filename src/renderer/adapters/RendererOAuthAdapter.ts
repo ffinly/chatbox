@@ -1,5 +1,5 @@
+import type { SettingsRepositoryPort } from '@chatbox/core/ports'
 import { type OAuthCredentials, OAuthIpcChannels, toOAuthSettingsProviderId } from '@shared/oauth'
-import type { SettingsRepositoryPort } from '@shared/ports'
 import type { OAuthAdapter } from '@shared/types/adapters'
 
 export interface OAuthIpcInvoker {

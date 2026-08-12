@@ -1,5 +1,5 @@
+import { createDefaultSettings, DEFAULT_SYSTEM_PROMPT } from '@chatbox/core/domain/settings'
 import { v4 as uuidv4 } from 'uuid'
-import { createDefaultSettings, DEFAULT_SYSTEM_PROMPT } from './domain/settings/settings-defaults'
 import { type Config, ModelProviderEnum, type SessionSettings, type Settings } from './types'
 
 /**

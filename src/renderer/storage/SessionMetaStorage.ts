@@ -1,6 +1,6 @@
-import type { SessionMetaRepositoryPort } from '@shared/ports'
+import type { SessionMetaRepositoryPort } from '@chatbox/core/ports'
+import { sortSessionRecords } from '@chatbox/core/utils/session-sort'
 import type { SessionMetaPage, SessionMetaRecord } from '@shared/types'
-import { sortSessionRecords } from '@shared/utils/session-sort'
 import { reportDbOpenSucceeded, toDbOpenError, watchDbOpenBlocked, watchDbVersionChange } from './db-schema-guard'
 
 const DB_NAME = 'chatbox-session-meta'

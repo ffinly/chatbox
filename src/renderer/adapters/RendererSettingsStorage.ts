@@ -1,4 +1,4 @@
-import type { SettingsStoragePort } from '@shared/ports'
+import type { SettingsStoragePort } from '@chatbox/core/ports'
 import storage from '@/storage'
 
 export const SETTINGS_STORAGE_KEY = 'settings'

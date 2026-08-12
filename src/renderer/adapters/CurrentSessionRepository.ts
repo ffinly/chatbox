@@ -3,7 +3,7 @@ import {
   SessionRepositoryError,
   type SessionRepositoryOperation,
   type SessionRepositoryPort,
-} from '@shared/ports'
+} from '@chatbox/core/ports'
 import type { Session, SessionMetaPage, SessionMetaRecord } from '@shared/types'
 import platform from '@/platform'
 import storage from '@/storage'

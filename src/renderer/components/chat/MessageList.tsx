@@ -1,7 +1,7 @@
+import { getSessionActionGate } from '@chatbox/core/session/action-gates'
 import NiceModal from '@ebay/nice-modal-react'
 import { Button, Flex, Stack, Transition } from '@mantine/core'
 import { useThrottledCallback } from '@mantine/hooks'
-import { getSessionActionGate } from '@shared/session/action-gates'
 import type { Session, Message as SessionMessage, SessionThreadBrief } from '@shared/types'
 import {
   IconArrowBarToUp,

@@ -1,4 +1,4 @@
-import type { PlatformCapabilitiesPort, PlatformCapability } from '@shared/ports'
+import type { PlatformCapabilitiesPort, PlatformCapability } from '@chatbox/core/ports'
 import platform from '@/platform'
 
 export interface CurrentPlatformCapabilitySource {

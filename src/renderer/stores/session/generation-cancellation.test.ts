@@ -1,4 +1,4 @@
-import { GenerationRuntimeStore } from '@shared/generation'
+import { GenerationRuntimeStore } from '@chatbox/core/generation'
 import type { Message, Session } from '@shared/types'
 import { describe, expect, it, vi } from 'vitest'
 import {

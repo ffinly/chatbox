@@ -1,1 +1,1 @@
-export { buildCompactionCommitPatch } from '@shared/application/context'
+export { buildCompactionCommitPatch } from '@chatbox/core/application/context'

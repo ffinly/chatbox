@@ -1,4 +1,4 @@
-import type { BlobStoragePort } from '@shared/ports'
+import type { BlobStoragePort } from '@chatbox/core/ports'
 import storage from '@/storage'
 import { trackBlobWrite } from '@/storage/blob-write-tracker'
 

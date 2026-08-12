@@ -4,7 +4,7 @@ import {
   type SessionAction,
   type SessionActionContext,
   type SessionLockState,
-} from '@shared/session/action-gates'
+} from '@chatbox/core/session/action-gates'
 import { supportsSessionGeneration } from '@shared/session/capabilities'
 import type { Session } from '@shared/types'
 import { t } from 'i18next'

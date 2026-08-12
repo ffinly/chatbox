@@ -1,5 +1,5 @@
-import { SettingsService } from '@shared/application/settings'
-import type { SettingsStoragePort } from '@shared/ports'
+import { SettingsService } from '@chatbox/core/application/settings'
+import type { SettingsStoragePort } from '@chatbox/core/ports'
 import { describe, expect, test, vi } from 'vitest'
 import { RendererSettingsEffects, type RendererSettingsEffectsHost } from './RendererSettingsEffects'
 

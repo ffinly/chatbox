@@ -1,6 +1,6 @@
+import { getSessionActionGate } from '@chatbox/core/session/action-gates'
 import NiceModal, { useModal } from '@ebay/nice-modal-react'
 import { Button, Combobox, Input, InputBase, Stack, Text, Textarea, useCombobox } from '@mantine/core'
-import { getSessionActionGate } from '@shared/session/action-gates'
 import { findMessageLocation } from '@shared/session/message-forks'
 import { type Message, type MessageContentParts, type MessageRole, MessageRoleEnum } from '@shared/types'
 import { useCallback, useMemo, useState } from 'react'

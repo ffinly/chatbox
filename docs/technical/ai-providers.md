@@ -1,6 +1,6 @@
 # AI 供应商系统
 
-> Last updated: 2026-03
+> Last updated: 2026-08
 
 ## 概述
 
@@ -64,6 +64,28 @@ import './definitions/claude'
 2. 若找到 → 调用 `providerDefinition.createModel(config)` 创建实例
 3. 若未找到 → 检查是否为用户自建供应商，通过 `createCustomProviderModel()` 创建
 4. 均未匹配 → 抛出错误
+
+### 跨宿主 ModelFactory 组装
+
+Provider Registry 和具体模型实现仍是单一数据源，但应用核心不再直接读取 Renderer settings、network 或 OAuth 单例：
+
+```text
+Host composition
+  → 显式加载 @chatbox/core/model（注册 builtin providers）
+  → 创建 ModelFactory
+      ├─ SettingsRepositoryPort
+      ├─ loadConfig()
+      ├─ Request / Storage / OAuth adapters
+      └─ resolveModel() → Provider Registry
+  → GenerationService
+```
+
+- `@chatbox/core` 根入口不触发 Provider 注册副作用，适合纯 Core、contract tests 和多个 application graph 共存。
+- `@chatbox/core/model` 是显式模型入口；加载它时注册 builtin providers，并导出 registry/model API 与 Core `ModelFactory`。
+- `ModelFactory` 位于 `packages/chatbox-core/src/application/model/`，从注入的 Settings Repository、Config loader 和 `ModelDependencies` 组装模型，不读取 Renderer store。
+- 当前 Renderer 注入 fetch、OAuth、blob storage 等现有 Adapters；未来 React Native 注入自己的等价实现，无需复制 Provider 选择和模型创建规则。
+
+这种显式入口同时避免 package re-export 导致重复 Provider side effects，并让 Metro/Hermes 可以直接消费经过声明的 public exports。
 
 ### 控制面优先级（Precedence）
 
