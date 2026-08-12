@@ -11,12 +11,24 @@ describe('global scrollbar defaults', () => {
     const entrySource = readRendererSource('index.tsx')
     const indexStyles = readRendererSource('static/index.css')
     const globalStyles = readRendererSource('static/globals.css')
-    const unscopedScrollbarSelector = /^\s*(?:(?:\*|html|body)\s*)?::(?:-webkit-)?scrollbar/m
+    const unscopedScrollbarGeometry =
+      /^\s*(?:(?:\*|html|body)\s*)?::(?:-webkit-)?scrollbar\s*{[^}]*(?:width|height|display)\s*:/ms
 
     expect(entrySource).not.toContain("import './setup/scrollbar_visibility'")
     expect(indexStyles).not.toContain('scrollbar-scrolling')
-    expect(indexStyles).not.toMatch(unscopedScrollbarSelector)
-    expect(globalStyles).not.toMatch(unscopedScrollbarSelector)
+    expect(indexStyles).not.toMatch(unscopedScrollbarGeometry)
+    expect(globalStyles).not.toMatch(unscopedScrollbarGeometry)
+  })
+
+  test('keeps native scrollbar surfaces transparent', () => {
+    const indexStyles = readRendererSource('static/index.css')
+
+    expect(indexStyles).toMatch(
+      /::-webkit-scrollbar,\s*::-webkit-scrollbar-track,\s*::-webkit-scrollbar-corner\s*{\s*background: transparent;/
+    )
+    expect(indexStyles).toMatch(
+      /::-webkit-scrollbar-thumb\s*{[^}]*background-color: color-mix\(in srgb, var\(--chatbox-tint-secondary\) 70%, transparent\);/s
+    )
   })
 
   test('keeps explicitly scoped scrollbar behavior', () => {

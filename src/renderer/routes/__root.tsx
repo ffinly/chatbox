@@ -624,6 +624,9 @@ const creteMantineTheme = (scale = 1) =>
             height: rem('24px'),
             color: 'var(--chatbox-tint-secondary)',
           },
+          header: {
+            backgroundColor: 'var(--chatbox-background-primary)',
+          },
           content: {
             backgroundColor: 'var(--chatbox-background-primary)',
           },

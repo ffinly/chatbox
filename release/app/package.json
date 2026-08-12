@@ -11,8 +11,7 @@
   "main": "./dist/main/main.js",
   "scripts": {
     "rebuild": "node ../../.erb/scripts/electron-rebuild.cjs",
-    "postinstall": "pnpm run rebuild && pnpm run link-modules && node ../../.erb/scripts/patch-libsql.cjs",
-    "link-modules": "node ../../.erb/scripts/link-modules.cjs"
+    "postinstall": "pnpm run rebuild && node ../../.erb/scripts/patch-libsql.cjs"
   },
   "dependencies": {
     "@anthropic-ai/sandbox-runtime": "^0.0.54",
