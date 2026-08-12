@@ -126,6 +126,28 @@ describe('getModel', () => {
     expect(model).toBeInstanceOf(OpenAIResponses)
   })
 
+  it('inherits built-in tool capabilities for an older persisted DeepSeek model', () => {
+    const sessionSettings: SessionSettings = {
+      provider: ModelProviderEnum.DeepSeek,
+      modelId: 'deepseek-v4-flash',
+    }
+    const defaultSettings = getDefaultSettings()
+    const globalSettings: Settings = {
+      ...defaultSettings,
+      providers: {
+        ...defaultSettings.providers,
+        [ModelProviderEnum.DeepSeek]: {
+          apiKey: 'test-key',
+          models: [{ modelId: 'deepseek-v4-flash' }],
+        },
+      },
+    }
+
+    const model = getModel(sessionSettings, globalSettings, newConfigs(), mockDependencies)
+
+    expect(model.isSupportToolUse('agent')).toBe(true)
+  })
+
   it.each([
     [ModelProviderEnum.Qwen, 'qwen3.5-plus', 'https://dashscope.aliyuncs.com/compatible-mode/v1', Qwen],
     [ModelProviderEnum.QwenPortal, 'coder-model', 'https://portal.qwen.ai/v1', Qwen],

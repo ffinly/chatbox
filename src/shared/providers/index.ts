@@ -5,6 +5,7 @@ import type { Config, ProviderModelInfo, SessionSettings, Settings } from '../ty
 import type { ModelDependencies } from '../types/adapters'
 import { apiStyleFromProviderType } from './api-style'
 import './builtin-registration'
+import { mergeProviderModelCapabilities } from './model-config'
 import {
   clearProviderRegistry,
   defineProvider,
@@ -75,17 +76,13 @@ export function getProviderSettings(setting: SessionSettings, globalSettings: Se
  */
 function getModelConfig(settings: SessionSettings, globalSettings: Settings, provider: string): ProviderModelInfo {
   const providerSetting = globalSettings.providers?.[provider] || {}
-
-  let model = providerSetting.models?.find((m) => m.modelId === settings.modelId)
-  if (!model) {
-    model = getSystemProviders()
+  const storedModel = providerSetting.models?.find((m) => m.modelId === settings.modelId)
+  const defaultModel =
+    getSystemProviders()
       .find((p) => p.id === provider)
-      ?.defaultSettings?.models?.find((m) => m.modelId === settings.modelId)
-  }
-  if (!model) {
-    const registryProvider = getProviderDefinition(provider)
-    model = registryProvider?.defaultSettings?.models?.find((m) => m.modelId === settings.modelId)
-  }
+      ?.defaultSettings?.models?.find((m) => m.modelId === settings.modelId) ??
+    getProviderDefinition(provider)?.defaultSettings?.models?.find((m) => m.modelId === settings.modelId)
+  let model = mergeProviderModelCapabilities(storedModel, defaultModel)
   if (!model) {
     model = {
       modelId: settings.modelId ?? '',

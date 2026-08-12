@@ -13,7 +13,6 @@ import {
 } from '@shared/file-extensions'
 import { KNOWLEDGE_BASE_MAX_FILE_SIZE, KNOWLEDGE_BASE_MAX_FILE_SIZE_LABEL } from '@shared/knowledge-base'
 import { isDeepSeekWeakToolUse } from '@shared/models/utils/deepseek'
-import { getModel } from '@shared/providers'
 import { formatNumber } from '@shared/utils'
 import { resolveReasoningProviderOptions } from '@shared/utils/reasoning-control'
 import {
@@ -53,7 +52,6 @@ import { useDropzone } from 'react-dropzone'
 import { useTranslation } from 'react-i18next'
 import { v4 as uuidv4 } from 'uuid'
 import { useStore } from 'zustand'
-import { createModelDependencies } from '@/adapters'
 import { JK_PAGE_NAMES } from '@/analytics/jk-events'
 import { AppTooltip as Tooltip } from '@/components/ui/tooltip'
 import useInputBoxHistory from '@/hooks/useInputBoxHistory'
@@ -128,6 +126,7 @@ import ReasoningControlButton from './ReasoningControlButton'
 import { getTrailingSkillCommand, insertSkillCommandText } from './skillCommand'
 import { getSubmitAction, getSubmitControl } from './submitAction'
 import TokenCountMenu from './TokenCountMenu'
+import { useModelToolCapabilities } from './useModelToolCapabilities'
 import { useReasoningControlState } from './useReasoningControlState'
 
 export type InputBoxPayload = {
@@ -672,43 +671,8 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
     // Check model tool use capabilities for agent mode and file handling.
     // Uses 'agent' scope as the gate — models with weak function calling
     // (e.g. DeepSeek V3/R1) return false, disabling agent mode entirely.
-    const {
-      data: modelToolCapabilities = { agentMode: false, readFile: false },
-      isFetched: isModelToolCapabilityFetched,
-    } = useQuery({
-      queryKey: ['model-tool-capability', model?.provider, model?.modelId],
-      queryFn: async () => {
-        if (!model?.provider || !model?.modelId) {
-          return { agentMode: false, readFile: false }
-        }
-
-        try {
-          const globalSettings = settingsStore.getState().getSettings()
-          const configs = await platform.getConfig()
-          const dependencies = await createModelDependencies()
-
-          const settings = {
-            provider: model.provider,
-            modelId: model.modelId,
-            ...currentSessionMergedSettings,
-          }
-
-          const modelInstance = getModel(settings, globalSettings, configs, dependencies)
-          return {
-            agentMode: modelInstance.isSupportToolUse('agent'),
-            readFile: modelInstance.isSupportToolUse('read-file'),
-          }
-        } catch (e) {
-          console.debug('useModelToolCapability: failed to check capability', e)
-          return { agentMode: false, readFile: false }
-        }
-      },
-      enabled: !!(model?.provider && model?.modelId),
-      staleTime: 5 * 60 * 1000,
-      gcTime: 10 * 60 * 1000,
-    })
-    const modelSupportToolUseForFile = modelToolCapabilities.readFile
-    const modelSupportsAgentMode = modelToolCapabilities.agentMode
+    const { modelSupportToolUseForFile, modelSupportsAgentMode, isModelToolCapabilityFetched } =
+      useModelToolCapabilities(model, currentSessionMergedSettings)
     const showSessionRetrievalToolWarning =
       hasSessionRetrievalFiles && isModelToolCapabilityFetched && !modelSupportToolUseForFile
     const agentModeUIState = useMemo(
