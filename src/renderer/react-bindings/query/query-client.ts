@@ -1,9 +1,7 @@
-import { QueryClient } from '@tanstack/react-query'
+import { rendererApplication } from '@/app/renderer-application'
+import { createChatQueryClient } from '../../../shared/react-bindings/query/query-client'
 
-export function createChatQueryClient(): QueryClient {
-  return new QueryClient()
-}
+export const queryClient = rendererApplication.queryClient
 
-export const queryClient = createChatQueryClient()
-
+export { createChatQueryClient }
 export default queryClient

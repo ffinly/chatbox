@@ -1,11 +1,8 @@
-import { GenerationRuntimeStore } from '@shared/generation/runtime-store'
+import { rendererApplication } from '@/app/renderer-application'
 import { useSyncExternalStore } from 'react'
 
-/**
- * Current Renderer composition instance. A future host creates its own store
- * and injects it through that host's Composition Root.
- */
-export const generationRuntimeStore = new GenerationRuntimeStore()
+/** Compatibility facade for the runtime owned by the Renderer Composition Root. */
+export const generationRuntimeStore = rendererApplication.generationRuntime
 
 export function getActiveGenerationMessageIds(sessionId: string): ReadonlySet<string> {
   return new Set(generationRuntimeStore.list(sessionId).map((runtime) => runtime.messageId))

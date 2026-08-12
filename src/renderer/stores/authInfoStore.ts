@@ -8,6 +8,8 @@ import { getSafeStorage } from './safeStorage'
 
 export type { AuthTokens }
 
+// This low-level host adapter is imported while Platform is initialized.
+// Keep it independent from the Renderer Composition Root to avoid an ESM cycle.
 export const authInfoStore = createAuthInfoStore({
   storage: getSafeStorage(),
 })

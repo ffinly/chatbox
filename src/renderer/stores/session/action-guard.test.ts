@@ -9,6 +9,10 @@ const { getSessionMock, toastMock } = vi.hoisted(() => ({
 vi.mock('../chatStore', () => ({ getSession: getSessionMock }))
 vi.mock('../toastActions', () => ({ add: toastMock }))
 vi.mock('i18next', () => ({ t: (key: string) => key }))
+vi.mock('@/app/renderer-application', async () => {
+  const { GenerationRuntimeStore } = await import('@shared/generation/runtime-store')
+  return { rendererApplication: { generationRuntime: new GenerationRuntimeStore() } }
+})
 
 import { setCompactionUIState } from '../atoms/compactionAtoms'
 import { guardSessionAction } from './action-guard'

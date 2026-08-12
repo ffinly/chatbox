@@ -12,14 +12,14 @@ export const lastUsedModelStore = createLastUsedModelStore({
 })
 
 let initLastUsedModelStorePromise: Promise<LastUsedModelState> | undefined
-export async function initLastUsedModelStore(): Promise<LastUsedModelState> {
+export function initLastUsedModelStore(): Promise<LastUsedModelState> {
   if (!initLastUsedModelStorePromise) {
     initLastUsedModelStorePromise = new Promise<LastUsedModelState>((resolve) => {
       const unsubscribe = lastUsedModelStore.persist.onFinishHydration((state) => {
         unsubscribe()
         resolve(state)
       })
-      lastUsedModelStore.persist.rehydrate()
+      void lastUsedModelStore.persist.rehydrate()
     })
   }
   return initLastUsedModelStorePromise
