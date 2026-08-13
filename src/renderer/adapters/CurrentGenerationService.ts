@@ -85,6 +85,9 @@ const sessions: GenerationSessionPort = {
   initializeTargetMessage: (message, settings, globalSettings, sessionType) =>
     initializeTargetMessage(message, settings, globalSettings, sessionType),
   persistStreamingMessage: (sessionId, message, options) => persistStreamingMessage(sessionId, message, options),
+  insertMessageAfter: async (sessionId, message, afterMessageId) => {
+    await insertMessageAfter(sessionId, message, afterMessageId, { requireAnchor: true })
+  },
   updateStreamingCache: (sessionId, message) => updateStreamingCache(sessionId, message),
   findTargetMessageIndex: (session, messageId) => findTargetMessageIndex(session, messageId),
   getCompactionPointsForTarget: (session, messageId) => getCompactionPointsForTarget(session, messageId),
@@ -244,9 +247,12 @@ const dependencies: GenerationServiceDependencies<ModelDependencies> = {
     wakeBackgroundTaskFollowUps: (sessionId) => wakeBackgroundTaskFollowUps(sessionId),
   },
   steering: {
-    register: (sessionId, anchorMessageId, conversationMessageIds) =>
-      registerSteeringConsumer(sessionId, anchorMessageId, conversationMessageIds, (message, afterMessageId) =>
-        insertMessageAfter(sessionId, message, afterMessageId)
+    register: (sessionId, conversationMessageIds) =>
+      registerSteeringConsumer(sessionId, conversationMessageIds, (message, afterMessageId) =>
+        // Fail closed: a steered user appended somewhere other than its anchor
+        // would reorder the transcript. The consumer leaves the item queued for
+        // the next boundary instead.
+        insertMessageAfter(sessionId, message, afterMessageId, { requireAnchor: true })
       ),
     wake: (sessionId) => wakeQueuedUserMessages(sessionId),
   },

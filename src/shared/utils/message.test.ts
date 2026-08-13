@@ -15,6 +15,7 @@ import {
   isStaleGeneratingMessage,
   mergeMessages,
   migrateMessage,
+  orderSteeredMessagesForModel,
   sequenceMessages,
 } from './message'
 import { countWord } from './word_count'
@@ -683,6 +684,83 @@ describe('sequenceMessages', () => {
     ])
     expect(result[1].contentParts).toEqual([toolCallPart, { type: 'text', text: 'done' }])
     expect(result[2].contentParts).toEqual([{ type: 'text', text: 'and Y' }])
+  })
+
+  it('keeps true-order steering records unchanged (finalized segment before steered user)', () => {
+    // Shape produced by split-at-steer persistence: the interrupted segment is
+    // finalized with finishReason 'steered', the steered user follows it, and
+    // the continuation streams below — storage order is already causal order.
+    const toolCallPart = {
+      type: 'tool-call' as const,
+      state: 'result' as const,
+      toolCallId: 'tool-1',
+      toolName: 'search',
+      args: {},
+      result: 'done',
+    }
+    const input = [
+      createMessage({ id: 'u1', role: 'user', contentParts: [{ type: 'text', text: 'start' }] }),
+      createMessage({
+        id: 'a1',
+        role: 'assistant',
+        finishReason: 'steered',
+        contentParts: [{ type: 'text', text: 'before' }, toolCallPart],
+      }),
+      createMessage({
+        id: 'steered',
+        role: 'user',
+        steered: true,
+        contentParts: [{ type: 'text', text: 'change direction' }],
+      }),
+      createMessage({ id: 'a2', role: 'assistant', contentParts: [{ type: 'text', text: 'after' }] }),
+    ]
+
+    const result = orderSteeredMessagesForModel(input)
+
+    expect(result.map((message) => message.id)).toEqual(['u1', 'a1', 'steered', 'a2'])
+    expect(orderSteeredMessagesForModel(result)).toEqual(result)
+
+    const requestSequence = sequenceMessages(input)
+    expect(requestSequence.map((message) => message.role)).toEqual(['user', 'assistant', 'user', 'assistant'])
+    expect(requestSequence[1].contentParts).toEqual([{ type: 'text', text: 'before' }, toolCallPart])
+    expect(requestSequence[2].id).toBe('steered')
+    expect(requestSequence[3].contentParts).toEqual([{ type: 'text', text: 'after' }])
+  })
+
+  it('reorders only legacy steering records that trail a normally finished assistant', () => {
+    const input = [
+      createMessage({
+        id: 'a1',
+        role: 'assistant',
+        contentParts: [textPart('legacy reply')],
+      }),
+      createMessage({
+        id: 'legacy-steer',
+        role: 'user',
+        steered: true,
+        contentParts: [textPart('legacy')],
+      }),
+      createMessage({
+        id: 'a2',
+        role: 'assistant',
+        finishReason: 'steered',
+        contentParts: [textPart('segment')],
+      }),
+      createMessage({
+        id: 'true-order-steer',
+        role: 'user',
+        steered: true,
+        contentParts: [textPart('true order')],
+      }),
+      createMessage({ id: 'a3', role: 'assistant', contentParts: [textPart('continuation')] }),
+    ]
+
+    const result = orderSteeredMessagesForModel(input)
+
+    // The legacy record (stored after its reply) moves before it; the
+    // true-order record after a 'steered'-finalized segment stays in place.
+    expect(result.map((message) => message.id)).toEqual(['legacy-steer', 'a1', 'a2', 'true-order-steer', 'a3'])
+    expect(orderSteeredMessagesForModel(result)).toEqual(result)
   })
 
   it('quotes first assistant message into first user message', () => {

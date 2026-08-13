@@ -92,6 +92,12 @@ export function deriveSessionLockState(
   } = {}
 ): SessionLockState {
   const activeGenerationMessageIds = runtime.activeGenerationMessageIds ?? new Set<string>()
+  // Locks are derived from durable `generating` messages only. A runtime id with
+  // no reachable message is NOT treated as generation: paused/stopping runtimes
+  // deliberately outlive `finishActive`, and deleting their message would then
+  // lock the session with nothing left to Stop. The steering split keeps a
+  // generating message visible at every instant instead (see
+  // GenerationService.splitTargetMessageForSteering).
   const controlMessages = getGenerationControlMessages(session, activeGenerationMessageIds)
   return {
     generatingReplyCount: countCancellableGeneratingAssistantMessages(controlMessages, activeGenerationMessageIds),

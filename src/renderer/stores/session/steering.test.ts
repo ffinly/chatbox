@@ -50,8 +50,8 @@ async function enqueueRequested(sessionId: string, message: Message): Promise<vo
   requestSteerQueuedMessage(sessionId, message.id)
 }
 
-function register(sessionId = 'session-1', anchor = 'a1', ids: ReadonlySet<string> = conversationIds) {
-  return registerSteeringConsumer(sessionId, anchor, ids, persistMock)
+function register(sessionId = 'session-1', ids: ReadonlySet<string> = conversationIds) {
+  return registerSteeringConsumer(sessionId, ids, persistMock)
 }
 
 const persistMock = vi.fn<(message: Message, afterMessageId: string) => Promise<void>>()
@@ -100,16 +100,17 @@ describe('steering consumer', () => {
     expect(register()).not.toBeNull()
   })
 
-  it('returns undefined when there is nothing to steer', async () => {
+  it('returns unchanged messages when there is nothing to steer', async () => {
     const consumer = register()
-    await expect(consumer?.inject(baseMessages)).resolves.toBeUndefined()
+    await expect(consumer?.inject(baseMessages, 'a1')).resolves.toEqual({ messages: undefined, consumed: [] })
   })
 
   it('does not consume queued items by default — only user-requested jumps', async () => {
     await enqueueStamped('session-1', userMessage('m1'))
     const consumer = register()
 
-    await expect(consumer?.inject(baseMessages)).resolves.toBeUndefined()
+    const result = await consumer?.inject(baseMessages, 'a1')
+    expect(result).toEqual({ messages: undefined, consumed: [] })
     expect(persistMock).not.toHaveBeenCalled()
     expect((messageQueueStore.getState().queues['session-1'] ?? []).map((item) => item.id)).toEqual(['m1'])
   })
@@ -119,15 +120,39 @@ describe('steering consumer', () => {
     await enqueueRequested('session-1', userMessage('m2'))
     const consumer = register()
 
-    const result = await consumer?.inject(baseMessages)
+    const result = await consumer?.inject(baseMessages, 'a1')
 
     expect(persistMock).toHaveBeenCalledTimes(2)
     expect(persistMock.mock.calls[0][0]).toMatchObject({ id: 'm1', generating: false, steered: true })
     expect(persistMock.mock.calls[0][1]).toBe('a1')
     expect(persistMock.mock.calls[1][0]).toMatchObject({ id: 'm2' })
     expect(persistMock.mock.calls[1][1]).toBe('m1')
-    expect(result).toEqual([...baseMessages, steeredModelMessage('text-m1'), steeredModelMessage('text-m2')])
+    expect(result?.messages).toEqual([...baseMessages, steeredModelMessage('text-m1'), steeredModelMessage('text-m2')])
+    expect(result?.consumed.map((message) => message.id)).toEqual(['m1', 'm2'])
     expect(messageQueueStore.getState().queues['session-1']).toBeUndefined()
+  })
+
+  it('anchors a later boundary at the caller-provided continuation message', async () => {
+    const consumer = register()
+    if (!consumer) throw new Error('consumer not registered')
+
+    await enqueueRequested('session-1', userMessage('m1'))
+    await consumer.inject(baseMessages, 'a1')
+
+    // The generation finalized segment a1, created continuation a2, and passes
+    // it as the anchor of the next boundary.
+    getSessionMock.mockResolvedValue({
+      id: 'session-1',
+      name: 'Session',
+      messages: [{ id: 'a2', role: 'assistant', contentParts: [], generating: true }],
+    })
+    consumer.admitAnchor('a2')
+    await enqueueRequested('session-1', userMessage('m2'))
+    const result = await consumer.inject([...baseMessages], 'a2')
+
+    expect(persistMock).toHaveBeenCalledTimes(2)
+    expect(persistMock.mock.calls[1][1]).toBe('a2')
+    expect(result.consumed.map((message) => message.id)).toEqual(['m2'])
   })
 
   it('re-splices earlier records at their original positions as the step messages grow', async () => {
@@ -136,8 +161,8 @@ describe('steering consumer', () => {
 
     // Step 1: consume m1 at the tail of the current context.
     await enqueueRequested('session-1', userMessage('m1'))
-    const step1 = await consumer.inject(baseMessages)
-    expect(step1).toEqual([...baseMessages, steeredModelMessage('text-m1')])
+    const step1 = await consumer.inject(baseMessages, 'a1')
+    expect(step1.messages).toEqual([...baseMessages, steeredModelMessage('text-m1')])
 
     // Step 2: the SDK appended its own assistant output and tool result to the
     // base (without our override), and a new steering message arrives.
@@ -150,8 +175,8 @@ describe('steering consumer', () => {
     ]
     const step2Base = [...baseMessages, ...sdkAppended]
     await enqueueRequested('session-1', userMessage('m2'))
-    const step2 = await consumer.inject(step2Base)
-    expect(step2).toEqual([
+    const step2 = await consumer.inject(step2Base, 'a2')
+    expect(step2.messages).toEqual([
       ...baseMessages,
       steeredModelMessage('text-m1'),
       ...sdkAppended,
@@ -160,8 +185,9 @@ describe('steering consumer', () => {
 
     // Step 3: nothing new to consume; both records stay at their positions.
     const step3Base = [...step2Base, { role: 'assistant' as const, content: [{ type: 'text' as const, text: 'more' }] }]
-    const step3 = await consumer.inject(step3Base)
-    expect(step3).toEqual([
+    const step3 = await consumer.inject(step3Base, 'a3')
+    expect(step3.consumed).toEqual([])
+    expect(step3.messages).toEqual([
       ...baseMessages,
       steeredModelMessage('text-m1'),
       ...sdkAppended,
@@ -177,9 +203,9 @@ describe('steering consumer', () => {
     persistMock.mockRejectedValueOnce(new Error('storage failure'))
     const consumer = register()
 
-    const result = await consumer?.inject(baseMessages)
+    const result = await consumer?.inject(baseMessages, 'a1')
 
-    expect(result).toBeUndefined()
+    expect(result).toEqual({ messages: undefined, consumed: [] })
     expect((messageQueueStore.getState().queues['session-1'] ?? []).map((item) => item.id)).toEqual(['m1', 'm2'])
   })
 
@@ -190,7 +216,8 @@ describe('steering consumer', () => {
     })
     const consumer = register()
 
-    await expect(consumer?.inject(baseMessages)).resolves.toBeUndefined()
+    const result = await consumer?.inject(baseMessages, 'a1')
+    expect(result).toEqual({ messages: undefined, consumed: [] })
     expect(persistMock).not.toHaveBeenCalled()
     expect((messageQueueStore.getState().queues['session-1'] ?? []).map((item) => item.id)).toEqual(['m1'])
   })
@@ -207,7 +234,8 @@ describe('steering consumer', () => {
     requestSteerQueuedMessage('session-1', 'm1')
     const consumer = register()
 
-    await expect(consumer?.inject(baseMessages)).resolves.toBeUndefined()
+    const result = await consumer?.inject(baseMessages, 'a1')
+    expect(result).toEqual({ messages: undefined, consumed: [] })
     expect(persistMock).not.toHaveBeenCalled()
     expect((messageQueueStore.getState().queues['session-1'] ?? []).map((item) => item.id)).toEqual(['m1'])
   })
@@ -218,7 +246,8 @@ describe('steering consumer', () => {
     const consumer = register()
 
     // Inject synchronously before the async stamp resolves.
-    await expect(consumer?.inject(baseMessages)).resolves.toBeUndefined()
+    const result = await consumer?.inject(baseMessages, 'a1')
+    expect(result).toEqual({ messages: undefined, consumed: [] })
     expect(persistMock).not.toHaveBeenCalled()
     expect((messageQueueStore.getState().queues['session-1'] ?? []).map((item) => item.id)).toEqual(['m1'])
   })
@@ -228,7 +257,7 @@ describe('steering consumer', () => {
     if (!consumer) throw new Error('consumer not registered')
 
     await enqueueRequested('session-1', userMessage('m1'))
-    await consumer.inject(baseMessages)
+    await consumer.inject(baseMessages, 'a1')
 
     // A follow-up queued while the steered message is the newest conversation message.
     getSessionMock.mockResolvedValue({
@@ -237,10 +266,10 @@ describe('steering consumer', () => {
       messages: [{ id: 'm1', role: 'user', contentParts: [{ type: 'text', text: 'text-m1' }] }],
     })
     await enqueueRequested('session-1', userMessage('m2'))
-    const result = await consumer.inject([...baseMessages])
+    const result = await consumer.inject([...baseMessages], 'a2')
 
     expect(persistMock).toHaveBeenCalledTimes(2)
     expect((messageQueueStore.getState().queues['session-1'] ?? []).length).toBe(0)
-    expect(result?.at(-1)).toEqual(steeredModelMessage('text-m2'))
+    expect(result.messages?.at(-1)).toEqual(steeredModelMessage('text-m2'))
   })
 })

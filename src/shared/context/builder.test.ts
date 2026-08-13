@@ -90,6 +90,47 @@ describe('buildContext', () => {
       expect(result.map((message) => message.id)).toEqual(['steered', 'reply', 'next'])
     })
 
+    it('passes true-order steering records through unchanged', async () => {
+      const messages: Message[] = [
+        createMessage({ id: 'original', role: 'user' }),
+        createMessage({
+          id: 'segment',
+          role: 'assistant',
+          finishReason: 'steered',
+          contentParts: [{ type: 'text', text: 'before' }],
+        }),
+        createMessage({
+          id: 'steered',
+          role: 'user',
+          steered: true,
+          contentParts: [{ type: 'text', text: 'change direction' }],
+        }),
+        createMessage({ id: 'continuation', role: 'assistant', contentParts: [{ type: 'text', text: 'after' }] }),
+      ]
+
+      const result = await buildContext(messages, { attachmentResolver: createMockResolver() })
+
+      expect(result.map((message) => message.id)).toEqual(['original', 'segment', 'steered', 'continuation'])
+    })
+
+    it('keeps true-order steering records adjacent under a history limit', async () => {
+      const messages: Message[] = [
+        createMessage({ id: 'old', role: 'user' }),
+        createMessage({ id: 'segment', role: 'assistant', finishReason: 'steered' }),
+        createMessage({ id: 'steered', role: 'user', steered: true }),
+        createMessage({ id: 'continuation', role: 'assistant' }),
+      ]
+
+      const result = await buildContext(messages, {
+        attachmentResolver: createMockResolver(),
+        maxContextMessageCount: 2,
+      })
+
+      // Split segments are ordinary history messages: plain tail slicing keeps
+      // the steer between its segment and continuation without special casing.
+      expect(result.map((message) => message.id)).toEqual(['segment', 'steered', 'continuation'])
+    })
+
     it('should limit messages to maxContextMessageCount', async () => {
       const messages: Message[] = [
         createMessage({ id: '1', role: 'user', contentParts: [{ type: 'text', text: 'First' }] }),
@@ -212,6 +253,31 @@ describe('buildContext', () => {
       expect(result.map((m) => m.id)).toContain('summary')
       expect(result.map((m) => m.id)).not.toContain('1')
       expect(result.map((m) => m.id)).not.toContain('2')
+    })
+
+    it('summarizes a finalized segment behind the compaction boundary', async () => {
+      // A steer can land while compaction is running. With true-order
+      // persistence the interrupted segment is finalized before the steered
+      // user, so a boundary at the steered user cleanly covers the segment.
+      const messages: Message[] = [
+        createMessage({ id: 'original', role: 'user' }),
+        createMessage({
+          id: 'segment',
+          role: 'assistant',
+          finishReason: 'steered',
+          contentParts: [{ type: 'text', text: 'before' }],
+        }),
+        createMessage({ id: 'steered', role: 'user', steered: true }),
+        createMessage({ id: 'summary', role: 'assistant', isSummary: true }),
+        createMessage({ id: 'continuation', role: 'assistant', contentParts: [{ type: 'text', text: 'after' }] }),
+      ]
+
+      const result = await buildContext(messages, {
+        attachmentResolver: createMockResolver(),
+        compactionPoints: [{ boundaryMessageId: 'steered', summaryMessageId: 'summary', createdAt: Date.now() }],
+      })
+
+      expect(result.map((message) => message.id)).toEqual(['summary', 'continuation'])
     })
 
     it('should use latest compaction point', async () => {
@@ -395,6 +461,39 @@ describe('buildContext', () => {
       expect(preservedMessage?.contentParts.some((p) => p.type === 'tool-call')).toBe(true)
       expect(cleanedMessage?.contentParts.some((p) => p.type === 'tool-call')).toBe(false)
       expect(recentMessage?.contentParts.some((p) => p.type === 'tool-call')).toBe(true)
+    })
+
+    it('keeps recent split-segment tool calls under the round policy', async () => {
+      // Split segments are ordinary rounds for tool-call cleanup: each steered
+      // user counts as a round boundary like any other user turn.
+      const messages: Message[] = [
+        createMessage({ id: 'original', role: 'user' }),
+        createMessage({
+          id: 'segment',
+          role: 'assistant',
+          finishReason: 'steered',
+          contentParts: [
+            { type: 'tool-call', state: 'result', toolCallId: 'tc1', toolName: 'search', args: {}, result: {} },
+          ],
+        }),
+        createMessage({ id: 'steered', role: 'user', steered: true }),
+        createMessage({
+          id: 'continuation',
+          role: 'assistant',
+          contentParts: [
+            { type: 'tool-call', state: 'result', toolCallId: 'tc2', toolName: 'search', args: {}, result: {} },
+          ],
+        }),
+      ]
+
+      const result = await buildContext(messages, { attachmentResolver: createMockResolver() })
+
+      expect(result.find((message) => message.id === 'segment')?.contentParts).toEqual([
+        expect.objectContaining({ type: 'tool-call', toolCallId: 'tc1' }),
+      ])
+      expect(result.find((message) => message.id === 'continuation')?.contentParts).toEqual([
+        expect.objectContaining({ type: 'tool-call', toolCallId: 'tc2' }),
+      ])
     })
   })
 

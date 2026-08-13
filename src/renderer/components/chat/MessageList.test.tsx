@@ -61,9 +61,11 @@ vi.mock('react-virtuoso', async () => {
 })
 
 const messageRenderLog = vi.hoisted(() => [] as Array<{ id: string; readOnly?: boolean }>)
+const messageButtonGroupLog = vi.hoisted(() => [] as Array<{ id: string; buttonGroup?: string }>)
 vi.mock('./Message', () => ({
-  default: ({ msg, readOnly }: { msg: Message; readOnly?: boolean }) => {
+  default: ({ msg, readOnly, buttonGroup }: { msg: Message; readOnly?: boolean; buttonGroup?: string }) => {
     messageRenderLog.push({ id: msg.id, readOnly })
+    messageButtonGroupLog.push({ id: msg.id, buttonGroup })
     return <div data-testid={`message-${msg.id}`}>{msg.role}</div>
   },
 }))
@@ -225,6 +227,7 @@ function message(id: string, role: Message['role'], content: string): Message {
 describe('MessageList new message layout', () => {
   beforeEach(() => {
     messageRenderLog.length = 0
+    messageButtonGroupLog.length = 0
     Object.defineProperty(window, 'matchMedia', {
       configurable: true,
       value: vi.fn().mockImplementation((query: string) => ({
@@ -324,6 +327,46 @@ describe('MessageList new message layout', () => {
     })
 
     expect(container.querySelector<HTMLElement>('[style*="min-height"]')?.style.minHeight).toBe('510px')
+  })
+
+  test('renders a steered run in stored order: segment, steered user, continuation', () => {
+    const session: Session = {
+      id: 'session-1',
+      type: 'chat',
+      name: 'Session',
+      messages: [
+        message('user-1', MessageRoleEnum.User, 'start'),
+        {
+          ...message('assistant-1', MessageRoleEnum.Assistant, 'before steer'),
+          finishReason: 'steered',
+        },
+        {
+          ...message('steered-1', MessageRoleEnum.User, 'change direction'),
+          steered: true,
+        },
+        {
+          ...message('assistant-2', MessageRoleEnum.Assistant, 'after steer'),
+          generating: true,
+        },
+      ],
+    }
+
+    render(
+      <MantineProvider>
+        <MessageList currentSession={session} />
+      </MantineProvider>
+    )
+
+    // True-order persistence: the transcript renders as stored, every message
+    // is durable, and ordinary message actions stay available on all of them.
+    expect(messageRenderLog.slice(-4).map(({ id }) => id)).toEqual([
+      'user-1',
+      'assistant-1',
+      'steered-1',
+      'assistant-2',
+    ])
+    expect(messageButtonGroupLog).toContainEqual({ id: 'assistant-1', buttonGroup: 'auto' })
+    expect(messageButtonGroupLog).toContainEqual({ id: 'assistant-2', buttonGroup: 'always' })
   })
 })
 

@@ -493,6 +493,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
     const [showCompressionModal, setShowCompressionModal] = useState(false)
 
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const activeSubmitRef = useRef<{ token: symbol; startedWhileGenerating: boolean } | null>(null)
     const [unreadyAttachmentSubmitPrompt, setUnreadyAttachmentSubmitPrompt] = useState<{
       opened: boolean
       count: number
@@ -703,10 +704,11 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
 
     // The session-level share of the submit gate comes from the shared
     // availability model; the remaining flags are renderer-local draft state.
+    const submitInProgress = isSubmitting && !generating
     const submitBlocked =
       disableSubmit ||
       isPreprocessing ||
-      isSubmitting ||
+      submitInProgress ||
       submitAvailability.blockReason !== undefined ||
       hasPreprocessErrors ||
       hasBlockedSessionRagFiles
@@ -827,7 +829,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
         queueLength: currentSessionId ? (messageQueueStore.getState().queues[currentSessionId]?.length ?? 0) : 0,
         blockedForOtherReasons:
           disableSubmit ||
-          isSubmitting ||
+          submitInProgress ||
           isPreprocessing ||
           submitAvailability.blockReason !== undefined ||
           hasPreprocessErrors ||
@@ -842,7 +844,17 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
         }
         return
       }
-
+      if (generating && activeSubmitRef.current?.startedWhileGenerating === false) {
+        activeSubmitRef.current = null
+      }
+      if (activeSubmitRef.current) return
+      const submitAttempt = Symbol('input-submit')
+      activeSubmitRef.current = { token: submitAttempt, startedWhileGenerating: generating }
+      const finishSubmitting = () => {
+        if (activeSubmitRef.current?.token !== submitAttempt) return
+        activeSubmitRef.current = null
+        setIsSubmitting(false)
+      }
       // Cancel any pending debounce so it won't overwrite the reset after send
       clearTimeout(debouncedUpdateTimerRef.current)
 
@@ -891,6 +903,10 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
         const messageTextForHistory = latestMessage.contentParts.find((p) => p.type === 'text')?.text || ''
 
         const finalizeUserMessageDraft = () => {
+          // clearDraft updates the child on its next render; clear the parent's
+          // immediate source too so a following submit cannot reuse this text.
+          latestInputRef.current = ''
+          setHasTextContent(false)
           messageInputFieldRef.current?.clearDraft()
           draftMessageIdRef.current = undefined
           setPreConstructedMessage({
@@ -956,7 +972,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
         console.error('Error submitting message:', e)
         toastActions.add((e as Error)?.message || t('An error occurred while sending the message.'))
       } finally {
-        setIsSubmitting(false)
+        finishSubmitting()
       }
     }
     handleSubmitRef.current = handleSubmit

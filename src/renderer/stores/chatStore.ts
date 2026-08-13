@@ -143,7 +143,32 @@ export async function listMessages(sessionId?: string | null): Promise<Message[]
   return session.messages
 }
 
-export async function insertMessage(sessionId: string, message: Message, previousId?: string) {
+/** Thrown by `insertMessage({ requireAnchor: true })` when `previousId` is unreachable. */
+export class MessageAnchorNotFoundError extends Error {
+  constructor(
+    readonly sessionId: string,
+    readonly anchorMessageId: string
+  ) {
+    super(`Anchor message ${anchorMessageId} not found in session ${sessionId}`)
+    this.name = 'MessageAnchorNotFoundError'
+  }
+}
+
+export async function insertMessage(
+  sessionId: string,
+  message: Message,
+  previousId?: string,
+  options: {
+    /**
+     * Fail instead of appending to the current list when `previousId` cannot be
+     * located. Writers whose correctness depends on the insert landing directly
+     * after a specific message (the steering continuation) must opt in: a fork
+     * switch can move the anchor into `messageForksHash`, which this lookup does
+     * not search, and a silent tail append would stream into the wrong branch.
+     */
+    requireAnchor?: boolean
+  } = {}
+) {
   await updateSessionWithMessages(sessionId, (session) => {
     if (!session) {
       throw new Error(`session ${sessionId} not found`)
@@ -198,6 +223,18 @@ export async function insertMessage(sessionId: string, message: Message, previou
             } satisfies Session
           }
         }
+      }
+
+      if (options.requireAnchor) {
+        // Idempotent retry: a caller that re-inserts after an ambiguous write
+        // failure must not be told the anchor vanished when the row landed.
+        if (
+          session.messages.some((existing) => existing.id === message.id) ||
+          session.threads?.some((thread) => thread.messages.some((existing) => existing.id === message.id))
+        ) {
+          return session
+        }
+        throw new MessageAnchorNotFoundError(sessionId, previousId)
       }
     }
     // no previous message, insert to tail of current thread

@@ -53,10 +53,13 @@ interface Harness {
   trackPauseAction: ReturnType<typeof vi.fn>
   afterMessageGenerated: ReturnType<typeof vi.fn>
   steeringInject: ReturnType<typeof vi.fn>
+  steeringAdmitAnchor: ReturnType<typeof vi.fn>
   steeringRegister: ReturnType<typeof vi.fn>
   steeringRelease: ReturnType<typeof vi.fn>
   steeringWake: ReturnType<typeof vi.fn>
   model: ModelInterface
+  preparedTargetMessageIndexes: number[]
+  inserted: Array<{ message: Message; afterMessageId: string }>
   setStreamFactory(factory: () => AsyncGenerator<ModelStreamPart<ToolSet>>): void
   setChatStreamFactory(
     factory: (messages: ModelMessage[], options: ChatStreamOptions) => AsyncGenerator<ModelStreamPart<ToolSet>>
@@ -68,6 +71,8 @@ interface Harness {
   failSessionSettingsUpdate(error: Error): void
   failPersistenceFromCall(call: number, error: Error): void
   failPersistenceOnCall(call: number, error: Error): void
+  /** `commit: true` emulates a write that landed but still rejected (metadata failure). */
+  failInsertion(error: Error, options?: { commit?: boolean }): void
   runOnPersistenceCall(call: number, action: () => void): void
   runBeforeProviderDispatch(action: () => void): void
   enableAgentModeSuggestion(result: Message['contentParts']): void
@@ -102,16 +107,23 @@ function createHarness(): Harness {
   let suggestionResult: Message['contentParts'] = []
   let sessionSettingsUpdateError: Error | undefined
   let persistenceFailure: { call: number; error: Error; exact?: boolean; missing?: boolean } | undefined
+  let insertionFailure: { error: Error; commit?: boolean } | undefined
   let persistenceAction: { call: number; action: () => void } | undefined
   let beforeProviderDispatch: (() => void) | undefined
   let persistenceCallCount = 0
+  const preparedTargetMessageIndexes: number[] = []
+  const inserted: Array<{ message: Message; afterMessageId: string }> = []
   const trackPauseAction = vi.fn()
   const afterMessageGenerated = vi.fn()
-  const steeringInject = vi.fn((_messages: ModelMessage[]) => Promise.resolve(undefined as ModelMessage[] | undefined))
+  const steeringInject = vi.fn((_messages: ModelMessage[], _anchorMessageId: string) =>
+    Promise.resolve({ messages: undefined as ModelMessage[] | undefined, consumed: [] as Message[] })
+  )
   let steeredMessageIds: string[] = []
   const steeringRelease = vi.fn()
+  const steeringAdmitAnchor = vi.fn()
   const steeringRegister = vi.fn(() => ({
     inject: steeringInject,
+    admitAnchor: steeringAdmitAnchor,
     getInjectedMessageIds: () => steeredMessageIds,
     release: steeringRelease,
   }))
@@ -213,6 +225,19 @@ function createHarness(): Harness {
     updateStreamingCache: (_sessionId, message) => {
       cached.push({ ...message, contentParts: [...message.contentParts] })
     },
+    insertMessageAfter: (_sessionId, message, afterMessageId) => {
+      if (insertionFailure && !insertionFailure.commit) return Promise.reject(insertionFailure.error)
+      const copy = { ...message, contentParts: [...message.contentParts] }
+      const index = session.messages.findIndex((candidate) => candidate.id === afterMessageId)
+      // The port fails closed on an unreachable anchor rather than appending
+      // elsewhere; mirror that so tests cannot rely on a silent tail insert.
+      if (index < 0) return Promise.reject(new Error(`anchor ${afterMessageId} not found`))
+      session.messages.splice(index + 1, 0, copy)
+      inserted.push({ message: copy, afterMessageId })
+      // A committed write can still reject when the session's list metadata
+      // update fails afterwards (SessionMetadataUpdateError).
+      return insertionFailure ? Promise.reject(insertionFailure.error) : Promise.resolve()
+    },
     findTargetMessageIndex: (current, messageId) => {
       const index = current.messages.findIndex((message) => message.id === messageId)
       return index < 0 ? null : { messages: current.messages, index }
@@ -253,15 +278,17 @@ function createHarness(): Harness {
       createWithContext: () => Promise.resolve(model),
     },
     preparation: {
-      prepare: (request) =>
-        Promise.resolve({
+      prepare: (request) => {
+        preparedTargetMessageIndexes.push(request.targetMessageIndex)
+        return Promise.resolve({
           promptMessages: request.messages.slice(0, request.targetMessageIndex),
           coreMessages: [{ role: 'user', content: 'Hello' }],
           tools: preparedTools,
           chatOptions: { signal: request.signal, prepareStep },
           infoParts: [],
           fallbackToolCallPart: undefined,
-        }),
+        })
+      },
     },
     tools: {
       buildToolsForPausedToolCall: () => Promise.resolve(pausedTools),
@@ -332,10 +359,13 @@ function createHarness(): Harness {
     trackPauseAction,
     afterMessageGenerated,
     steeringInject,
+    steeringAdmitAnchor,
     steeringRegister,
     steeringRelease,
     steeringWake,
     model,
+    preparedTargetMessageIndexes,
+    inserted,
     setStreamFactory(factory) {
       streamFactory = factory
     },
@@ -362,6 +392,9 @@ function createHarness(): Harness {
     },
     failPersistenceOnCall(call, error) {
       persistenceFailure = { call, error, exact: true }
+    },
+    failInsertion(error, options) {
+      insertionFailure = { error, commit: options?.commit === true }
     },
     runOnPersistenceCall(call, action) {
       persistenceAction = { call, action }
@@ -453,7 +486,7 @@ describe('GenerationService', () => {
     const preparedMessages: ModelMessage[] = [{ role: 'user', content: 'original' }]
     const effectiveMessages: ModelMessage[] = [...preparedMessages, { role: 'user', content: 'steered' }]
     harness.setPrepareStep(() => ({ messages: preparedMessages, activeTools: ['tool_b'] }))
-    harness.steeringInject.mockResolvedValueOnce(effectiveMessages)
+    harness.steeringInject.mockResolvedValueOnce({ messages: effectiveMessages, consumed: [] })
     harness.setSteeredMessageIds(['steered-1'])
 
     await harness.service.orchestrate('session-1', targetMessage())
@@ -498,6 +531,381 @@ describe('GenerationService', () => {
     )
 
     expect(lastPersisted(harness).generationRequests?.map(({ capturedAt }) => capturedAt)).toEqual([1_000, 2_000])
+  })
+
+  it('anchors steering at the continued assistant message when it already has output', async () => {
+    const continuedMessage: Message = {
+      ...targetMessage(),
+      contentParts: [
+        { type: 'text', text: 'first step' },
+        {
+          type: 'tool-call',
+          state: 'result',
+          toolCallId: 'tool-1',
+          toolName: 'search',
+          stepIndex: 2,
+        },
+      ],
+    }
+
+    await harness.service.orchestrate('session-1', continuedMessage, {
+      operationType: 'regenerate',
+      appendToMessage: true,
+    })
+
+    expect(harness.steeringInject).toHaveBeenCalledWith(expect.any(Array), 'assistant-1')
+  })
+
+  it('includes prior segments and steered users when continuing a continuation message', async () => {
+    const finalizedSegment: Message = {
+      ...targetMessage(),
+      generating: false,
+      finishReason: 'steered',
+      contentParts: [{ type: 'text', text: 'before steer' }],
+    }
+    const steeredMessage: Message = {
+      id: 'steered-user',
+      role: 'user',
+      steered: true,
+      contentParts: [{ type: 'text', text: 'change direction' }],
+    }
+    const continuation: Message = {
+      ...targetMessage(),
+      id: 'assistant-2',
+      contentParts: [{ type: 'text', text: 'after steer' }],
+    }
+    harness.session.messages = [harness.session.messages[0], finalizedSegment, steeredMessage, continuation]
+
+    await harness.service.orchestrate('session-1', continuation, {
+      operationType: 'regenerate',
+      appendToMessage: true,
+    })
+
+    // The resumed context slices at the continuation and therefore keeps the
+    // finalized segment and the steered user as ordinary history messages.
+    expect(harness.preparedTargetMessageIndexes.at(-1)).toBe(4)
+  })
+
+  it('finalizes the interrupted segment and continues the run in a new message after a steer', async () => {
+    const steeredUser: Message = {
+      id: 'steered-user',
+      role: 'user',
+      steered: true,
+      contentParts: [{ type: 'text', text: 'change direction' }],
+    }
+    harness.steeringInject
+      .mockResolvedValueOnce({ messages: undefined, consumed: [] })
+      .mockImplementationOnce((messages: ModelMessage[], anchorMessageId: string) => {
+        // Emulate the renderer consumer persisting the steered user after the anchor.
+        const anchorIndex = harness.session.messages.findIndex((candidate) => candidate.id === anchorMessageId)
+        harness.session.messages.splice(anchorIndex + 1, 0, steeredUser)
+        return Promise.resolve({
+          messages: [...messages, { role: 'user', content: [{ type: 'text', text: 'change direction' }] }],
+          consumed: [steeredUser],
+        })
+      })
+    harness.setChatStreamFactory((_messages, options) =>
+      (async function* twoStepStream() {
+        harness.setNow(1_500)
+        yield { type: 'text-delta', text: 'step one output' } as ModelStreamPart<ToolSet>
+        yield { type: 'finish-step' } as ModelStreamPart<ToolSet>
+        harness.setNow(2_000)
+        await options.prepareStep?.({
+          steps: [],
+          stepNumber: 1,
+          model: {},
+          messages: [{ role: 'user', content: 'Hello' }] as ModelMessage[],
+          experimental_context: undefined,
+        } as unknown as Parameters<NonNullable<ChatStreamOptions['prepareStep']>>[0])
+        harness.setNow(2_250)
+        yield { type: 'text-delta', text: 'step two output' } as ModelStreamPart<ToolSet>
+        harness.setNow(2_600)
+        yield { type: 'finish', finishReason: 'stop' } as ModelStreamPart<ToolSet>
+      })()
+    )
+
+    await harness.service.orchestrate(
+      'session-1',
+      { ...targetMessage(), isStreamingMode: true },
+      { operationType: 'send_message' }
+    )
+
+    // The steer arrived at the second boundary: it anchors after the segment output.
+    expect(harness.steeringInject).toHaveBeenLastCalledWith(expect.any(Array), 'assistant-1')
+
+    // The interrupted segment is finalized in place with a steering finish.
+    const finalizedSegment = harness.persisted.find(
+      ({ message }) => message.id === 'assistant-1' && message.finishReason === 'steered'
+    )?.message
+    expect(finalizedSegment).toMatchObject({
+      generating: false,
+      status: [],
+      firstTokenLatency: 500,
+      generationDuration: 1_000,
+    })
+    expect(finalizedSegment?.contentParts).toEqual([{ type: 'text', text: 'step one output' }])
+
+    // The continuation is a fresh message inserted after the steered user.
+    expect(harness.inserted).toHaveLength(1)
+    const continuation = harness.inserted[0]
+    expect(continuation.afterMessageId).toBe('steered-user')
+    expect(continuation.message.role).toBe('assistant')
+    expect(continuation.message.id).not.toBe('assistant-1')
+    expect(continuation.message.isStreamingMode).toBe(true)
+    expect(harness.steeringAdmitAnchor).toHaveBeenCalledWith(continuation.message.id)
+
+    // The rest of the run streams into the continuation and finishes there.
+    const finalMessage = lastPersisted(harness)
+    expect(finalMessage.id).toBe(continuation.message.id)
+    expect(finalMessage).toMatchObject({
+      generating: false,
+      finishReason: 'stop',
+      firstTokenLatency: 600,
+      generationDuration: 600,
+    })
+    expect(finalMessage.contentParts).toEqual([{ type: 'text', text: 'step two output' }])
+
+    // Durable storage keeps true causal order with no read-time reordering.
+    expect(harness.session.messages.map((message) => message.id)).toEqual([
+      'user-1',
+      'assistant-1',
+      'steered-user',
+      continuation.message.id,
+    ])
+    expect(harness.afterMessageGenerated).toHaveBeenCalledWith('session-1', finalMessage)
+    expect(harness.runtime.get('session-1')).toBeUndefined()
+  })
+
+  it('abandons the split and keeps streaming in place when the continuation cannot be inserted', async () => {
+    const steeredUser: Message = {
+      id: 'steered-user',
+      role: 'user',
+      steered: true,
+      contentParts: [{ type: 'text', text: 'change direction' }],
+    }
+    harness.steeringInject
+      .mockResolvedValueOnce({ messages: undefined, consumed: [] })
+      .mockImplementationOnce((messages: ModelMessage[], anchorMessageId: string) => {
+        const anchorIndex = harness.session.messages.findIndex((candidate) => candidate.id === anchorMessageId)
+        harness.session.messages.splice(anchorIndex + 1, 0, steeredUser)
+        return Promise.resolve({
+          messages: [...messages, { role: 'user', content: [{ type: 'text', text: 'change direction' }] }],
+          consumed: [steeredUser],
+        })
+      })
+    harness.failInsertion(new Error('continuation insert failed'))
+    harness.setChatStreamFactory((_messages, options) =>
+      (async function* twoStepStream() {
+        yield { type: 'text-delta', text: 'step one output' } as ModelStreamPart<ToolSet>
+        yield { type: 'finish-step' } as ModelStreamPart<ToolSet>
+        await options.prepareStep?.({
+          steps: [],
+          stepNumber: 1,
+          model: {},
+          messages: [{ role: 'user', content: 'Hello' }] as ModelMessage[],
+          experimental_context: undefined,
+        } as unknown as Parameters<NonNullable<ChatStreamOptions['prepareStep']>>[0])
+        yield { type: 'text-delta', text: ' step two output' } as ModelStreamPart<ToolSet>
+        yield { type: 'finish', finishReason: 'stop' } as ModelStreamPart<ToolSet>
+      })()
+    )
+
+    await harness.service.orchestrate('session-1', targetMessage())
+
+    // No half-applied split: the segment is never finalized as 'steered', the
+    // run completes normally in place, and the transcript degrades to the legacy
+    // shape (steered user trailing its assistant) that the read-time shim covers.
+    expect(harness.inserted).toHaveLength(0)
+    expect(harness.session.messages.map((message) => message.id)).toEqual(['user-1', 'assistant-1', 'steered-user'])
+    expect(harness.persisted.some(({ message }) => message.finishReason === 'steered')).toBe(false)
+    const finalMessage = lastPersisted(harness)
+    expect(finalMessage).toMatchObject({ id: 'assistant-1', generating: false, finishReason: 'stop' })
+    expect(finalMessage.error).toBeUndefined()
+    expect(finalMessage.contentParts).toEqual([{ type: 'text', text: 'step one output step two output' }])
+    expect(harness.steeringAdmitAnchor).not.toHaveBeenCalled()
+    expect(harness.runtime.get('session-1')).toBeUndefined()
+  })
+
+  it('anchors a later steer after the previous one when a split was abandoned', async () => {
+    const firstSteer: Message = {
+      id: 'steer-1',
+      role: 'user',
+      steered: true,
+      contentParts: [{ type: 'text', text: 'first steer' }],
+    }
+    const secondSteer: Message = {
+      id: 'steer-2',
+      role: 'user',
+      steered: true,
+      contentParts: [{ type: 'text', text: 'second steer' }],
+    }
+    const persistSteer = (steer: Message, anchorMessageId: string) => {
+      const anchorIndex = harness.session.messages.findIndex((candidate) => candidate.id === anchorMessageId)
+      harness.session.messages.splice(anchorIndex + 1, 0, steer)
+    }
+    harness.steeringInject
+      .mockResolvedValueOnce({ messages: undefined, consumed: [] })
+      .mockImplementationOnce((messages: ModelMessage[], anchorMessageId: string) => {
+        persistSteer(firstSteer, anchorMessageId)
+        return Promise.resolve({ messages, consumed: [firstSteer] })
+      })
+      .mockImplementationOnce((messages: ModelMessage[], anchorMessageId: string) => {
+        persistSteer(secondSteer, anchorMessageId)
+        return Promise.resolve({ messages, consumed: [secondSteer] })
+      })
+    harness.failInsertion(new Error('continuation insert failed'))
+    harness.setChatStreamFactory((_messages, options) =>
+      (async function* threeStepStream() {
+        const boundary = (stepNumber: number) =>
+          options.prepareStep?.({
+            steps: [],
+            stepNumber,
+            model: {},
+            messages: [{ role: 'user', content: 'Hello' }] as ModelMessage[],
+            experimental_context: undefined,
+          } as unknown as Parameters<NonNullable<ChatStreamOptions['prepareStep']>>[0])
+        yield { type: 'text-delta', text: 'step one' } as ModelStreamPart<ToolSet>
+        yield { type: 'finish-step' } as ModelStreamPart<ToolSet>
+        await boundary(1)
+        yield { type: 'text-delta', text: ' step two' } as ModelStreamPart<ToolSet>
+        yield { type: 'finish-step' } as ModelStreamPart<ToolSet>
+        await boundary(2)
+        yield { type: 'text-delta', text: ' step three' } as ModelStreamPart<ToolSet>
+        yield { type: 'finish', finishReason: 'stop' } as ModelStreamPart<ToolSet>
+      })()
+    )
+
+    await harness.service.orchestrate('session-1', targetMessage())
+
+    // The second steer must not anchor back at the assistant both interrupted:
+    // it lands after the first stored steer, keeping the steers' arrival order.
+    expect(harness.steeringInject).toHaveBeenNthCalledWith(2, expect.any(Array), 'assistant-1')
+    expect(harness.steeringInject).toHaveBeenNthCalledWith(3, expect.any(Array), 'steer-1')
+    expect(harness.session.messages.map((message) => message.id)).toEqual([
+      'user-1',
+      'assistant-1',
+      'steer-1',
+      'steer-2',
+    ])
+    expect(lastPersisted(harness)).toMatchObject({ id: 'assistant-1', finishReason: 'stop' })
+  })
+
+  it('splits on a rejected insert that already committed the continuation', async () => {
+    const steeredUser: Message = {
+      id: 'steered-user',
+      role: 'user',
+      steered: true,
+      contentParts: [{ type: 'text', text: 'change direction' }],
+    }
+    harness.steeringInject
+      .mockResolvedValueOnce({ messages: undefined, consumed: [] })
+      .mockImplementationOnce((messages: ModelMessage[], anchorMessageId: string) => {
+        const anchorIndex = harness.session.messages.findIndex((candidate) => candidate.id === anchorMessageId)
+        harness.session.messages.splice(anchorIndex + 1, 0, steeredUser)
+        return Promise.resolve({
+          messages: [...messages, { role: 'user', content: [{ type: 'text', text: 'change direction' }] }],
+          consumed: [steeredUser],
+        })
+      })
+    // A session whose messages persisted can still reject on its list-metadata
+    // write; treating that as "not inserted" would strand a durable orphan.
+    harness.failInsertion(new Error('session metadata update failed'), { commit: true })
+    harness.setChatStreamFactory((_messages, options) =>
+      (async function* twoStepStream() {
+        yield { type: 'text-delta', text: 'step one output' } as ModelStreamPart<ToolSet>
+        yield { type: 'finish-step' } as ModelStreamPart<ToolSet>
+        await options.prepareStep?.({
+          steps: [],
+          stepNumber: 1,
+          model: {},
+          messages: [{ role: 'user', content: 'Hello' }] as ModelMessage[],
+          experimental_context: undefined,
+        } as unknown as Parameters<NonNullable<ChatStreamOptions['prepareStep']>>[0])
+        yield { type: 'text-delta', text: 'step two output' } as ModelStreamPart<ToolSet>
+        yield { type: 'finish', finishReason: 'stop' } as ModelStreamPart<ToolSet>
+      })()
+    )
+
+    await harness.service.orchestrate('session-1', targetMessage())
+
+    const continuation = harness.inserted[0]
+    expect(continuation.afterMessageId).toBe('steered-user')
+    expect(harness.session.messages.map((message) => message.id)).toEqual([
+      'user-1',
+      'assistant-1',
+      'steered-user',
+      continuation.message.id,
+    ])
+    const finalMessage = lastPersisted(harness)
+    expect(finalMessage).toMatchObject({ id: continuation.message.id, generating: false, finishReason: 'stop' })
+    expect(finalMessage.contentParts).toEqual([{ type: 'text', text: 'step two output' }])
+  })
+
+  it('leaves Stop in control of its message instead of splitting mid-stop', async () => {
+    const steeredUser: Message = {
+      id: 'steered-user',
+      role: 'user',
+      steered: true,
+      contentParts: [{ type: 'text', text: 'change direction' }],
+    }
+    harness.steeringInject
+      .mockResolvedValueOnce({ messages: undefined, consumed: [] })
+      .mockImplementationOnce((messages: ModelMessage[], anchorMessageId: string) => {
+        const anchorIndex = harness.session.messages.findIndex((candidate) => candidate.id === anchorMessageId)
+        harness.session.messages.splice(anchorIndex + 1, 0, steeredUser)
+        return Promise.resolve({
+          messages: [...messages, { role: 'user', content: [{ type: 'text', text: 'change direction' }] }],
+          consumed: [steeredUser],
+        })
+      })
+    harness.setChatStreamFactory((_messages, options) =>
+      (async function* twoStepStream() {
+        yield { type: 'text-delta', text: 'step one output' } as ModelStreamPart<ToolSet>
+        yield { type: 'finish-step' } as ModelStreamPart<ToolSet>
+        // Stop lands before the boundary: it owns cleanup of 'assistant-1' and
+        // must not have the runtime moved out from under it.
+        harness.runtime.beginStop('session-1', 'assistant-1', 42)
+        await options.prepareStep?.({
+          steps: [],
+          stepNumber: 1,
+          model: {},
+          messages: [{ role: 'user', content: 'Hello' }] as ModelMessage[],
+          experimental_context: undefined,
+        } as unknown as Parameters<NonNullable<ChatStreamOptions['prepareStep']>>[0])
+      })()
+    )
+
+    await harness.service.orchestrate('session-1', targetMessage())
+
+    expect(harness.inserted).toHaveLength(0)
+    expect(harness.steeringAdmitAnchor).not.toHaveBeenCalled()
+    // The stopping runtime stays on its original id for stopMessageGeneration to clear.
+    expect(harness.runtime.get('session-1', 'assistant-1')?.phase).toBe('stopping')
+  })
+
+  it('persists a pre-output steer before the segment without splitting', async () => {
+    const steeredUser: Message = {
+      id: 'steered-user',
+      role: 'user',
+      steered: true,
+      contentParts: [{ type: 'text', text: 'also do X' }],
+    }
+    harness.steeringInject.mockImplementationOnce((messages: ModelMessage[], _anchorMessageId: string) =>
+      Promise.resolve({
+        messages: [...messages, { role: 'user', content: [{ type: 'text', text: 'also do X' }] }],
+        consumed: [steeredUser],
+      })
+    )
+
+    await harness.service.orchestrate('session-1', targetMessage())
+
+    // No output yet: the steered user anchors before the segment, which keeps
+    // generating in place — no finalization, no continuation message.
+    expect(harness.steeringInject).toHaveBeenCalledWith(expect.any(Array), 'user-1')
+    expect(harness.inserted).toHaveLength(0)
+    const finalMessage = lastPersisted(harness)
+    expect(finalMessage.id).toBe('assistant-1')
+    expect(finalMessage.finishReason).not.toBe('steered')
   })
 
   it('records a snapshot for every provider step before its dispatch', async () => {
@@ -629,8 +1037,8 @@ describe('GenerationService', () => {
     const basePrepareStep = vi.fn(() => Promise.resolve({ activeTools: ['tool_a'] }))
     harness.setPrepareStep(basePrepareStep)
     harness.steeringInject
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce([{ role: 'user', content: 'steered' }])
+      .mockResolvedValueOnce({ messages: undefined, consumed: [] })
+      .mockResolvedValueOnce({ messages: [{ role: 'user', content: 'steered' }], consumed: [] })
 
     const stepResults: unknown[] = []
     harness.setChatStreamFactory((_messages, options) =>
@@ -645,24 +1053,27 @@ describe('GenerationService', () => {
           experimental_context: undefined,
         } as unknown as Parameters<NonNullable<ChatStreamOptions['prepareStep']>>[0]
         stepResults.push(await prepareStep(prepareOptions))
-        stepResults.push(await prepareStep(prepareOptions))
+        stepResults.push(await prepareStep({ ...prepareOptions, stepNumber: 1 }))
         yield { type: 'finish', finishReason: 'stop' } as ModelStreamPart<ToolSet>
       })()
     )
 
     await harness.service.orchestrate('session-1', targetMessage())
 
-    // Steered messages anchor after the target assistant message: the send
-    // order in the conversation follows the reply the user interjected below.
-    expect(harness.steeringRegister).toHaveBeenCalledWith(
-      'session-1',
-      'assistant-1',
-      new Set(['user-1', 'assistant-1'])
-    )
+    // The conversation gate covers every message of this generation's own
+    // conversation; mid-run continuations are admitted separately.
+    expect(harness.steeringRegister).toHaveBeenCalledWith('session-1', new Set(['user-1', 'assistant-1']))
     expect(stepResults).toEqual([
       { activeTools: ['tool_a'] },
       { activeTools: ['tool_a'], messages: [{ role: 'user', content: 'steered' }] },
     ])
+    // No segment output was streamed before either boundary, so both anchor at
+    // the target's predecessor.
+    expect(harness.steeringInject.mock.calls.map(([, anchorMessageId]) => anchorMessageId)).toEqual([
+      'user-1',
+      'user-1',
+    ])
+    expect(harness.persisted.every(({ message }) => message.id === 'assistant-1')).toBe(true)
     expect(harness.steeringRelease).toHaveBeenCalledOnce()
     expect(harness.steeringWake).toHaveBeenCalledWith('session-1')
   })
@@ -670,8 +1081,8 @@ describe('GenerationService', () => {
   it('applies steering after an inner prepareStep message rewrite', async () => {
     const rewrittenMessages = [{ role: 'user', content: 'with injected image' }] as ModelMessage[]
     harness.setPrepareStep(() => Promise.resolve({ activeTools: ['tool_a'], messages: rewrittenMessages }))
-    harness.steeringInject.mockImplementationOnce((messages: ModelMessage[]) =>
-      Promise.resolve([...messages, { role: 'user', content: 'steered' }])
+    harness.steeringInject.mockImplementationOnce((messages: ModelMessage[], _anchorMessageId: string) =>
+      Promise.resolve({ messages: [...messages, { role: 'user', content: 'steered' }], consumed: [] })
     )
 
     let stepResult: unknown
@@ -692,7 +1103,7 @@ describe('GenerationService', () => {
 
     await harness.service.orchestrate('session-1', targetMessage())
 
-    expect(harness.steeringInject).toHaveBeenCalledWith(rewrittenMessages)
+    expect(harness.steeringInject).toHaveBeenCalledWith(rewrittenMessages, 'user-1')
     expect(stepResult).toEqual({
       activeTools: ['tool_a'],
       messages: [

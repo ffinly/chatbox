@@ -15,12 +15,33 @@ const log = getLogger('steering')
 // from being injected into two streams at once.
 const activeConsumers = new Map<string, symbol>()
 
+export interface SteeringInjectResult {
+  /**
+   * Messages to use for this step, or undefined to leave them unchanged.
+   * Includes replayed earlier steering turns plus any newly consumed ones.
+   */
+  messages: ModelMessage[] | undefined
+  /**
+   * Steered user messages persisted at this boundary, in consumption order.
+   * The caller finalizes the interrupted assistant segment and continues the
+   * run in a fresh message stored after them, keeping true causal order.
+   */
+  consumed: Message[]
+}
+
 export interface SteeringConsumer {
   /**
    * Called from prepareStep with the messages the SDK is about to send.
-   * Returns the messages to use for this step, or undefined to leave them unchanged.
+   * `anchorMessageId` is where a newly consumed message is persisted after —
+   * the current target assistant segment, or its predecessor when the segment
+   * has produced no output yet.
    */
-  inject(stepMessages: ModelMessage[]): Promise<ModelMessage[] | undefined>
+  inject(stepMessages: ModelMessage[], anchorMessageId: string): Promise<SteeringInjectResult>
+  /**
+   * Allow queue items anchored at a message created mid-run (a steered user or
+   * a continuation assistant segment) to steer this same run.
+   */
+  admitAnchor(messageId: string): void
   /** IDs of durable user messages currently injected into model-visible context. */
   getInjectedMessageIds(): readonly string[]
   release(): void
@@ -62,12 +83,13 @@ function getMessageText(contentParts: { type: string; text?: string }[]): string
  * inactive fork's generation cannot steal a message queued for another fork.
  *
  * `persistSteeredMessage` must durably insert the steered user message into the
- * session (anchored after the previous steered message or the prompt
- * predecessor) before it is shown to the model.
+ * session (anchored after the previous steered message or the caller-provided
+ * anchor) before it is shown to the model. Steered messages are persisted in
+ * true causal order: assistant segment(s) so far -> steered user -> the
+ * continuation segment the caller creates.
  */
 export function registerSteeringConsumer(
   sessionId: string,
-  anchorMessageId: string,
   conversationMessageIds: ReadonlySet<string>,
   persistSteeredMessage: (message: Message, afterMessageId: string) => Promise<void>
 ): SteeringConsumer | null {
@@ -76,50 +98,60 @@ export function registerSteeringConsumer(
   activeConsumers.set(sessionId, token)
 
   const records: ConsumedRecord[] = []
-  const steeredIds = new Set<string>()
-  let anchorId = anchorMessageId
+  const steeredUserIds = new Set<string>()
+  // Messages created mid-run (steered users, continuation segments) are valid
+  // anchors for later queue items targeting this same conversation.
+  const admittedAnchorIds = new Set<string>()
 
   return {
-    async inject(stepMessages: ModelMessage[]): Promise<ModelMessage[] | undefined> {
+    async inject(stepMessages: ModelMessage[], anchorMessageId: string): Promise<SteeringInjectResult> {
       const effective = [...stepMessages]
       for (const record of records) {
         effective.splice(record.index, 0, record.modelMessage)
       }
 
-      let consumed = false
+      const consumed: Message[] = []
+      let anchorId = anchorMessageId
       while (true) {
         // Only items the user explicitly asked to jump the queue are injected;
         // everything else waits for this reply to finish and is delivered in
         // order, one per generation.
         const head = takeRequestedSteerableMessage(
           sessionId,
-          (queuedAnchorId) => conversationMessageIds.has(queuedAnchorId) || steeredIds.has(queuedAnchorId)
+          (queuedAnchorId) => conversationMessageIds.has(queuedAnchorId) || admittedAnchorIds.has(queuedAnchorId)
         )
         if (!head) break
         const text = getMessageText(head.message.contentParts)
+        const durable: Message = { ...head.message, generating: false, steered: true }
         try {
           // Persist first: the model must never see a message the session lost.
           // The item stays queued (in-flight) until this write lands, so a
           // crash mid-persist cannot lose it.
-          await persistSteeredMessage({ ...head.message, generating: false, steered: true }, anchorId)
+          await persistSteeredMessage(durable, anchorId)
         } catch (error) {
           log.error('Failed to persist steered message, leaving it queued:', error)
           releaseInFlightQueuedMessage(sessionId, head.id)
           break
         }
         removeQueuedMessage(sessionId, head.id)
-        anchorId = head.message.id
-        steeredIds.add(head.message.id)
+        anchorId = durable.id
+        steeredUserIds.add(durable.id)
+        admittedAnchorIds.add(durable.id)
         records.push({ index: effective.length, modelMessage: toModelMessage(text) })
         effective.push(toModelMessage(text))
-        consumed = true
+        consumed.push(durable)
       }
 
-      if (!consumed && records.length === 0) return undefined
-      return effective
+      return {
+        messages: consumed.length > 0 || records.length > 0 ? effective : undefined,
+        consumed,
+      }
+    },
+    admitAnchor(messageId: string) {
+      admittedAnchorIds.add(messageId)
     },
     getInjectedMessageIds() {
-      return Array.from(steeredIds)
+      return Array.from(steeredUserIds)
     },
     release() {
       if (activeConsumers.get(sessionId) === token) {

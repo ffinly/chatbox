@@ -36,6 +36,7 @@ describe('createInitialState', () => {
     const state = createInitialState(parts)
     expect(state.contentParts).toHaveLength(1)
     expect(state.contentParts[0]).toEqual({ type: 'text', text: 'hello' })
+    expect(state.stepIndex).toBe(0)
   })
 })
 

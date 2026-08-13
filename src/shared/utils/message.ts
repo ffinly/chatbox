@@ -267,10 +267,19 @@ export function sequenceMessages(msgs: Message[]): Message[] {
 }
 
 /**
- * Steering messages are stored after the assistant message they interrupted so
- * the transcript follows the queue UI's visual order. For future model calls,
- * restore the causal order: the model saw those user messages before completing
- * that assistant reply, so they must not remain as unanswered trailing turns.
+ * Legacy steering records (alpha builds before true-order persistence) stored
+ * the steered user AFTER the assistant reply it interrupted, so old transcripts
+ * need their causal order restored before model calls: the model saw those user
+ * messages before completing that assistant reply, and they must not remain as
+ * unanswered trailing turns.
+ *
+ * Current builds persist steering in true causal order instead — the
+ * interrupted assistant segment is finalized with finishReason 'steered' before
+ * the steered user is inserted — so their records are skipped here and need no
+ * reordering. (This also covers the degraded failure shape where a
+ * continuation could not be created: the owning assistant then keeps a normal
+ * finishReason and its trailing steered user is reordered like a legacy
+ * record.)
  *
  * Multiple consecutive steered messages keep their original order. The
  * transform is idempotent, which lets both context construction (before message
@@ -283,7 +292,7 @@ export function orderSteeredMessagesForModel(messages: Message[]): Message[] {
     if (message.role !== 'user' || !message.steered) continue
 
     const previous = ordered[index - 1]
-    if (previous.role !== 'assistant') continue
+    if (previous.role !== 'assistant' || previous.finishReason === 'steered') continue
 
     ordered.splice(index, 1)
     ordered.splice(index - 1, 0, message)

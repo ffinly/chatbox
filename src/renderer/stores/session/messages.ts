@@ -89,15 +89,22 @@ export async function insertMessage(sessionId: string, msg: Message) {
  * @param msg
  * @param afterMsgId
  */
-export async function insertMessageAfter(sessionId: string, msg: Message, afterMsgId: string) {
+export async function insertMessageAfter(
+  sessionId: string,
+  msg: Message,
+  afterMsgId: string,
+  options: { requireAnchor?: boolean } = {}
+) {
   const session = await chatStore.getSession(sessionId)
   if (!session) {
-    return
+    // A caller that requires the anchor cannot treat a missing session as a
+    // successful write; let insertMessage raise the same error it always does.
+    if (!options.requireAnchor) return
   }
   msg.wordCount = countMessageWords(msg)
   msg.tokenCount = estimateTokensFromMessages([msg])
 
-  await chatStore.insertMessage(sessionId, msg, afterMsgId)
+  await chatStore.insertMessage(sessionId, msg, afterMsgId, options)
 }
 
 /**

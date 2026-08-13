@@ -120,6 +120,48 @@ describe('GenerationRuntimeStore', () => {
     expect(store.get('session-1')).toBeUndefined()
   })
 
+  it('retargets a live runtime to a continuation message, keeping its controller', () => {
+    const store = createStore()
+    const state = store.start('session-1', 'segment-1')
+    store.setPhase('session-1', 'segment-1', 'streaming', state)
+
+    const next = store.retarget('session-1', 'segment-1', 'continuation-1', state)
+
+    expect(next).toMatchObject({ messageId: 'continuation-1', phase: 'streaming' })
+    expect(next?.abortController).toBe(state.abortController)
+    expect(store.get('session-1', 'segment-1')).toBeUndefined()
+    expect(store.get('session-1', 'continuation-1')?.abortController).toBe(state.abortController)
+
+    // Stop targeting the continuation id aborts the shared run.
+    store.requestAbort('session-1', 'continuation-1', 42)
+    expect(state.abortController.signal.aborted).toBe(true)
+  })
+
+  it('leaves a stale-id Stop as a pending abort instead of aborting the moved run', () => {
+    const store = createStore()
+    const state = store.start('session-1', 'segment-1')
+    store.retarget('session-1', 'segment-1', 'continuation-1', state)
+
+    // A Stop click against the finalized segment's id (stale UI) must not
+    // abort the continuation run; it is recorded for the placeholder window
+    // like any abort against an unregistered id.
+    store.requestAbort('session-1', 'segment-1', 7)
+    expect(state.abortController.signal.aborted).toBe(false)
+    expect(store.get('session-1', 'continuation-1')?.phase).toBe('preparing')
+  })
+
+  it('keeps a stopping runtime on the id owned by the Stop operation', () => {
+    const store = createStore()
+    const state = store.start('session-1', 'segment-1')
+    const stopping = store.beginStop('session-1', 'segment-1', 7, state)
+
+    expect(store.retarget('session-1', 'segment-1', 'continuation-1', state)).toBeUndefined()
+    expect(store.get('session-1', 'segment-1')).toBe(stopping)
+    expect(store.get('session-1', 'continuation-1')).toBeUndefined()
+
+    expect(store.clear('session-1', 'segment-1', stopping)).toBe(true)
+  })
+
   it('keeps concurrent alternative-message runtimes in the same Session', () => {
     const store = createStore()
     const first = store.start('session-1', 'message-1')

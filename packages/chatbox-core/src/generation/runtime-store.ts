@@ -159,6 +159,30 @@ export class GenerationRuntimeStore {
   }
 
   /**
+   * Move a live runtime to a new message id while keeping its AbortController.
+   *
+   * A steering boundary finalizes the interrupted assistant segment and
+   * continues the same provider run in a fresh continuation message; Stop and
+   * phase changes must follow that continuation id from then on.
+   */
+  retarget(
+    sessionId: string,
+    fromMessageId: string,
+    toMessageId: string,
+    expected?: GenerationRuntimeState
+  ): GenerationRuntimeState | undefined {
+    const current = this.getMatchingState(sessionId, fromMessageId, expected)
+    if (!current || current.phase === 'stopping') return undefined
+    const sessionStates = this.states.get(sessionId)
+    if (!sessionStates || sessionStates.has(toMessageId)) return undefined
+    sessionStates.delete(fromMessageId)
+    const next = { ...current, messageId: toMessageId }
+    sessionStates.set(toMessageId, next)
+    this.notify()
+    return next
+  }
+
+  /**
    * Releases a finished active runtime while preserving a paused runtime for
    * the later continue/stop action.
    */

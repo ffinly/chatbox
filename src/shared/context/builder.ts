@@ -27,10 +27,10 @@ export async function buildContext(messages: Message[], options: ContextBuilderO
     return []
   }
 
-  // Steered users are stored after the assistant reply for transcript display,
-  // but the model consumed them before that reply completed. Restore causal
-  // order before compaction and message limits so they are never replayed as an
-  // unanswered trailing turn (including with a small context-message limit).
+  // Legacy steering records stored the steered user after the assistant reply
+  // it interrupted; restore causal order before compaction and message limits
+  // so it is never replayed as an unanswered trailing turn. Current records are
+  // already persisted in true causal order and pass through unchanged.
   const completedMessages = orderSteeredMessagesForModel(messages).filter(isContextEligibleMessage)
 
   if (completedMessages.length === 0) {
