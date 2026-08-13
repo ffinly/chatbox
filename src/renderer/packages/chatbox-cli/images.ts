@@ -3,7 +3,7 @@ import { requestAppActionApproval } from '@/packages/app-action-approval'
 import { type AvailableImageModel, getAvailableImageModels } from '@/packages/image-model-catalog'
 import platform from '@/platform'
 import storage from '@/storage'
-import * as chatStore from '@/stores/chatStore'
+import { rendererApplication } from '@/app/renderer-application'
 import { startImageGeneration } from '@/stores/imageGenerationActions'
 import { imageGenerationStore } from '@/stores/imageGenerationStore'
 import { settingsStore } from '@/stores/settingsStore'
@@ -162,7 +162,7 @@ function displayCandidateToolCallId(record: ImageGeneration, currentSessionId: s
 }
 
 async function getDisplayedImageToolCallIds(sessionId: string): Promise<ReadonlySet<string>> {
-  const session = await chatStore.getSession(sessionId)
+  const session = await rendererApplication.sessionQueryBridge.getSession(sessionId)
   const ids = new Set<string>()
   for (const message of session?.messages ?? []) {
     for (const part of message.contentParts ?? []) {

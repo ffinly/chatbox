@@ -6,7 +6,8 @@ import { findMessageContext } from '@shared/session/message-forks'
 import { type CompactionPoint, createMessage, type Message, type Session, type SessionSettings } from '@shared/types'
 import type { AgentModeEntrySource } from '@/analytics/agent-mode'
 import { currentGenerationService } from '@/adapters/CurrentGenerationService'
-import * as chatStore from '../chatStore'
+import { rendererApplication } from '@/app/renderer-application'
+import { getSessionSettings } from './session-settings'
 import { guardSessionAction } from './action-guard'
 import { createAttachmentResolver } from './attachment-resolver'
 import { createInactiveFork, createNewFork, findMessageLocation } from './forks'
@@ -23,8 +24,8 @@ export async function _generateWithoutSessionLock(
     contextMessages?: Message[]
   }
 ) {
-  const session = await chatStore.getSession(sessionId)
-  const settings = await chatStore.getSessionSettings(sessionId)
+  const session = await rendererApplication.sessionQueryBridge.getSession(sessionId)
+  const settings = await getSessionSettings(sessionId)
   if (!session || !settings) {
     return
   }
@@ -87,7 +88,7 @@ async function generateInactiveReply(sessionId: string, msgId: string) {
 }
 
 export async function generateMore(sessionId: string, msgId: string) {
-  const session = await chatStore.getSession(sessionId)
+  const session = await rendererApplication.sessionQueryBridge.getSession(sessionId)
   if (!session || !supportsSessionGeneration(session.type)) {
     return
   }
@@ -101,7 +102,7 @@ export function generateMoreInNewFork(sessionId: string, msgId: string) {
   return withSessionGenerationLock(sessionId, async () => {
     let session: Session | null
     try {
-      session = await chatStore.getSession(sessionId)
+      session = await rendererApplication.sessionQueryBridge.getSession(sessionId)
     } catch {
       // MessageEdit intentionally void-calls this action. Keep storage/query
       // read failures from escaping as unhandled rejections.
@@ -147,7 +148,7 @@ async function regenerateInNewForkWithoutSessionLock(
   options?: { runGenerateMore?: GenerateMoreFn }
 ) {
   const runGenerateMore = options?.runGenerateMore ?? generateActiveReplyWithoutSessionLock
-  const session = await chatStore.getSession(sessionId)
+  const session = await rendererApplication.sessionQueryBridge.getSession(sessionId)
   if (!session || !supportsSessionGeneration(session.type)) {
     return
   }
@@ -240,7 +241,7 @@ function createAttachmentResolverFromAdapter(adapter: {
  * @returns The thread message list containing the message
  */
 export async function getMessageThreadContext(sessionId: string, messageId: string): Promise<Message[]> {
-  const session = await chatStore.getSession(sessionId)
+  const session = await rendererApplication.sessionQueryBridge.getSession(sessionId)
   if (!session) {
     return []
   }

@@ -6,11 +6,19 @@ const { getSessionMock, updateSessionWithMessagesMock } = vi.hoisted(() => ({
   updateSessionWithMessagesMock: vi.fn(),
 }))
 
-vi.mock('../chatStore', () => ({
-  getSession: getSessionMock,
-  updateSession: vi.fn(),
-  updateSessionWithMessages: updateSessionWithMessagesMock,
-}))
+vi.mock('@/app/renderer-application', async () => {
+  const { GenerationRuntimeStore } = await import('@chatbox/core/generation')
+  return {
+    rendererApplication: {
+      generationRuntime: new GenerationRuntimeStore(),
+      sessions: {
+        updateSession: vi.fn(),
+        updateSessionWithMessages: updateSessionWithMessagesMock,
+      },
+      sessionQueryBridge: { getSession: getSessionMock },
+    },
+  }
+})
 vi.mock('../scrollActions', () => ({ scrollToBottom: vi.fn() }))
 vi.mock('@/hooks/dom', () => ({ focusMessageInput: vi.fn() }))
 vi.mock('./crud', () => ({ _copySession: vi.fn(), switchCurrentSession: vi.fn() }))

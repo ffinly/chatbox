@@ -5,12 +5,12 @@ import { languageNameMap } from '@/i18n/locales'
 import { convertToModelMessages } from '@/packages/model-calls/message-utils'
 import { settingsService } from '@/settings-runtime'
 import { reportError } from '@/utils/sentry'
-import * as chatStore from '../chatStore'
+import { rendererApplication } from '@/app/renderer-application'
 
 const namingService = new SessionNamingService({
   sessions: {
-    getSession: (sessionId) => chatStore.getSession(sessionId),
-    updateSession: (sessionId, updater) => chatStore.updateSession(sessionId, updater),
+    getSession: (sessionId) => rendererApplication.sessionQueryBridge.getSession(sessionId),
+    updateSession: (sessionId, updater) => rendererApplication.sessions.updateSession(sessionId, updater),
   },
   settings: settingsService,
   models: currentModelFactory,

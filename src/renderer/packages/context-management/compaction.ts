@@ -9,7 +9,8 @@ import { getLogger } from '@/lib/utils'
 import { getTokenizerType } from '@/packages/token-estimation'
 import { settingsService } from '@/settings-runtime'
 import { setCompactionUIState } from '@/stores/atoms/compactionAtoms'
-import * as chatStore from '@/stores/chatStore'
+import { rendererApplication } from '@/app/renderer-application'
+import { getSessionSettings } from '@/stores/session/session-settings'
 import queryClient from '@/stores/queryClient'
 import { sumCachedTokensFromMessages } from '../token'
 import { checkOverflow } from './compaction-detector'
@@ -34,9 +35,9 @@ function getModelContextWindowFromSettings(
 
 const compactionService = new CompactionService({
   sessions: {
-    getSession: (sessionId) => chatStore.getSession(sessionId),
-    getSessionSettings: (sessionId) => chatStore.getSessionSettings(sessionId),
-    updateSessionWithMessages: (sessionId, updater) => chatStore.updateSessionWithMessages(sessionId, updater),
+    getSession: (sessionId) => rendererApplication.sessionQueryBridge.getSession(sessionId),
+    getSessionSettings: (sessionId) => getSessionSettings(sessionId),
+    updateSessionWithMessages: (sessionId, updater) => rendererApplication.sessions.updateSessionWithMessages(sessionId, updater),
   },
   settings: settingsService,
   policy: {
@@ -124,9 +125,13 @@ export async function runCompactionWithUIState(
   }
 
   setCompactionUIState(sessionId, { status: 'running', error: null, streamingText: '' })
+  // The pre-check above is only a cheap fast-path for UI state; pass the
+  // caller's real `force` through so the auto path is re-validated inside
+  // run() (behind its ongoing-set), closing the window where the session
+  // changes between the two checks and gets compacted twice.
   const result = mapResult(
     await compactionService.run(sessionId, {
-      force: true,
+      force: options.force === true,
       onStreamUpdate: (text) => setCompactionUIState(sessionId, { streamingText: text }),
     })
   )

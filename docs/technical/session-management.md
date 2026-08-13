@@ -51,7 +51,7 @@ Renderer Presentation：
 现有组件 / stores/session/*
           │
           ▼
-chatStore 兼容 Facade
+rendererApplication（组合根）/ stores/session/* 域模块
           │
           ├──────────────► SessionService ──► SessionWriteCoordinator
           │                        │                    │
@@ -72,7 +72,7 @@ chatStore 兼容 Facade
 | React bindings | `packages/chatbox-react/src/query/` | Query keys/options/hooks、分页 read model 和应用事件投影 |
 | Presentation | `src/renderer/presentation/session/` | 删除确认、滚动缓存、UI/Jotai 状态和宿主资源清理 |
 | Composition | `src/renderer/app/renderer-application.ts`、`session-bootstrap.ts` | 组装应用图（`rendererApplication`）并在 Renderer 启动时注册 Presentation effects |
-| Compatibility | `src/renderer/stores/chatStore.ts` | 保留既有命令和 hooks 的 import 路径 |
+| Session 域模块 | `src/renderer/stores/session/`（crud / messages / session-settings 等） | 调用方直接 import 域模块或 `rendererApplication`（chatStore 兼容 facade 已删除） |
 
 ### 写入一致性
 
@@ -91,7 +91,7 @@ storage/meta 操作完成后重新读取第一页，避免仅过滤已加载 pag
 Renderer effects 先清理 Session attachment RAG；持久化删除完成后再通过 `session-deleted` 清理
 Web browsing、知识库、Agent Mode、Jotai atom、滚动位置和 Sandbox artifacts。
 
-`session-bootstrap.ts` 由 Renderer 入口初始化，使 `chatStore` 的数据依赖链不再反向 import
+`session-bootstrap.ts` 由 Renderer 入口初始化，使 session 数据依赖链不再反向 import
 `MessageList`。
 
 ---

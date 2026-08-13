@@ -7,7 +7,7 @@ import { IconAlignRight, IconChevronLeft, IconChevronRight, IconFold, IconTrash 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
-import { deleteFork, switchFork, switchForkTo } from '@/stores/sessionActions'
+import { deleteFork, switchFork, switchForkTo } from '@/stores/session/forks'
 import { getSessionLockNotice, notifySessionLockBlocked } from '@/utils/session-lock-copy'
 import ActionMenu, { type ActionMenuItemProps } from '../ActionMenu'
 import Message from './Message'

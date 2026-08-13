@@ -40,11 +40,15 @@ vi.mock('@/platform', () => ({
   default: { type: 'web' },
 }))
 
-vi.mock('../../chatStore', () => ({
-  getSession: getSessionMock,
-  updateSessionCacheSync: updateSessionCacheSyncMock,
-  updateSession: updateSessionMock,
-  useSession: () => ({ session: null }),
+vi.mock('@/app/renderer-application', () => ({
+  rendererApplication: {
+    sessions: { updateSession: updateSessionMock },
+    sessionQueryBridge: {
+      getSession: getSessionMock,
+      updateSessionCache: updateSessionCacheSyncMock,
+    },
+    sessionHooks: { useSession: () => ({ session: null }) },
+  },
 }))
 
 import { uiStore } from '../../uiStore'

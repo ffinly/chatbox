@@ -7,9 +7,11 @@ const { generateMock, getSessionMock, updateSessionWithMessagesMock } = vi.hoist
   updateSessionWithMessagesMock: vi.fn(),
 }))
 
-vi.mock('@/stores/chatStore', () => ({
-  getSession: getSessionMock,
-  updateSessionWithMessages: updateSessionWithMessagesMock,
+vi.mock('@/app/renderer-application', () => ({
+  rendererApplication: {
+    sessions: { updateSessionWithMessages: updateSessionWithMessagesMock },
+    sessionQueryBridge: { getSession: getSessionMock },
+  },
 }))
 vi.mock('@/stores/session/generation', () => ({ _generateWithoutSessionLock: generateMock }))
 vi.mock('@/lib/utils', () => ({

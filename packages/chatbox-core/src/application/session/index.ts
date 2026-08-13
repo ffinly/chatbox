@@ -1,4 +1,5 @@
 export * from './ForkService'
+export * from './message-tree'
 export * from './SessionNamingService'
 export * from './SessionService'
 export * from './SessionWriteCoordinator'

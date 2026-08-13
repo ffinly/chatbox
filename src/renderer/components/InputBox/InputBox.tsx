@@ -77,11 +77,11 @@ import * as picUtils from '@/packages/pic_utils'
 import { skillsController, subscribeSkillsChanged } from '@/packages/skills/controller'
 import platform from '@/platform'
 import { StorageKeyGenerator } from '@/storage/StoreStorage'
+import { rendererApplication } from '@/app/renderer-application'
 import { notifyApprovalInputNudge } from '@/stores/approvalAttentionStore'
 import * as atoms from '@/stores/atoms'
-import * as chatStore from '@/stores/chatStore'
-import { useSession, useSessionSettings } from '@/stores/chatStore'
 import { useSessionAgentMode } from '@/stores/session/agent-mode'
+import { useSessionSettings } from '@/stores/session/session-settings'
 import { settingsStore, useSettingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
 import { getSessionLockNotice, notifySessionLockBlocked } from '@/utils/session-lock-copy'
@@ -128,6 +128,8 @@ import { getSubmitAction, getSubmitControl } from './submitAction'
 import TokenCountMenu from './TokenCountMenu'
 import { useModelToolCapabilities } from './useModelToolCapabilities'
 import { useReasoningControlState } from './useReasoningControlState'
+
+const useSession = (sessionId: string | null) => rendererApplication.sessionHooks.useSession(sessionId)
 
 export type InputBoxPayload = {
   constructedMessage: Message
@@ -768,7 +770,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
     const handleAutoCompactionChange = useCallback(
       async (enabled: boolean) => {
         if (!currentSessionId || isNewSession) return
-        await chatStore.updateSession(currentSessionId, (session) => {
+        await rendererApplication.sessions.updateSession(currentSessionId, (session) => {
           if (!session) {
             throw new Error('Session not found')
           }

@@ -41,7 +41,7 @@ vi.mock('../stores/scrollActions', () => ({
   scrollToMessage: vi.fn(),
 }))
 
-vi.mock('../stores/sessionActions', () => ({
+vi.mock('../stores/session/crud', () => ({
   switchCurrentSession: vi.fn(),
 }))
 

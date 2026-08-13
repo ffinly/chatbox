@@ -20,7 +20,7 @@ import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { trackingEvent } from '@/packages/event'
 import storage from '@/storage'
 import { StorageKeyGenerator } from '@/storage/StoreStorage'
-import { updateSessionWithMessages } from '@/stores/chatStore'
+import { rendererApplication } from '@/app/renderer-application'
 import { getSessionMeta } from '@/stores/sessionHelpers'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { add as addToast } from '@/stores/toastActions'
@@ -106,7 +106,7 @@ const SessionSettingsModal = NiceModal.create(
       }
 
       if (!disableAutoSave) {
-        void updateSessionWithMessages(editingData.id, (s) => {
+        void rendererApplication.sessions.updateSessionWithMessages(editingData.id, (s) => {
           const merged = {
             ...(s ?? {}),
             ...getSessionMeta(editingData),

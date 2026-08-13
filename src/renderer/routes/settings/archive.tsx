@@ -8,7 +8,10 @@ import { AssistantAvatar } from '@/components/common/Avatar'
 import { ScalableIcon } from '@/components/common/ScalableIcon'
 import { AppTooltip as Tooltip } from '@/components/ui/tooltip'
 import { confirmSessionDeletion } from '@/presentation/session/session-deletion-confirmation'
-import { deleteSession, restoreSession, useArchivedSessionList } from '@/stores/chatStore'
+import { rendererApplication } from '@/app/renderer-application'
+import { deleteSession } from '@/stores/session/crud'
+
+const useArchivedSessionList = () => rendererApplication.sessionHooks.useArchivedSessionList()
 
 export const Route = createFileRoute('/settings/archive')({
   component: RouteComponent,
@@ -118,7 +121,7 @@ function ArchivedSessionRow({
             onClick={async () => {
               setSessionBusy(session.id, true)
               try {
-                await restoreSession(session.id)
+                await rendererApplication.sessions.restoreSession(session.id)
               } catch (error) {
                 console.error('Failed to restore archived session:', error)
                 setSessionBusy(session.id, false)

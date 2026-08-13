@@ -6,12 +6,17 @@ vi.mock('@/packages/initial_data', () => ({
   defaultSessionsForEN: [{ id: 'builtin-en' }],
 }))
 
-vi.mock('./chatStore', () => ({
-  getSession: vi.fn(),
-  listAllSessionsMeta: vi.fn(),
+const { getSessionMock, listAllSessionsMetaMock } = vi.hoisted(() => ({
+  getSessionMock: vi.fn(),
+  listAllSessionsMetaMock: vi.fn(),
 }))
 
-import * as chatStore from './chatStore'
+vi.mock('@/app/renderer-application', () => ({
+  rendererApplication: {
+    sessions: { listAllSessionsMeta: listAllSessionsMetaMock },
+    sessionQueryBridge: { getSession: getSessionMock },
+  },
+}))
 import {
   FIRST_SUCCESSFUL_CHAT_KEY,
   getHasCompletedFirstSuccessfulChat,
@@ -59,8 +64,8 @@ class ThrowingStorage extends MemoryStorage {
   }
 }
 
-const listAllSessionsMeta = vi.mocked(chatStore.listAllSessionsMeta)
-const getSession = vi.mocked(chatStore.getSession)
+const listAllSessionsMeta = listAllSessionsMetaMock
+const getSession = getSessionMock
 
 function installLocalStorage(storage: Storage = new MemoryStorage()) {
   Object.defineProperty(globalThis, 'localStorage', {

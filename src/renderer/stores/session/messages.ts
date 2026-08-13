@@ -16,7 +16,8 @@ import { estimateTokensFromMessages } from '@/packages/token'
 import platform from '@/platform'
 import { reportError } from '@/utils/sentry'
 import { SESSION_ATTACHMENT_RAG_LOG_PREFIX } from '../../../shared/session-attachment-rag/logging'
-import * as chatStore from '../chatStore'
+import { rendererApplication } from '@/app/renderer-application'
+import { getSessionSettings } from './session-settings'
 import { ensureMessageFileSessionAttachment } from '../sessionAttachmentRagIndexing'
 import * as settingActions from '../settingActions'
 import { settingsStore } from '../settingsStore'
@@ -64,7 +65,7 @@ export async function attachLargeFileRagMetadata(sessionId: string, message: Mes
   log.debug(
     `${SESSION_ATTACHMENT_RAG_LOG_PREFIX} Attachment metadata attached to message: session=${sessionId}, message=${message.id}`
   )
-  await chatStore.updateMessage(sessionId, message.id, updatedMessage)
+  await rendererApplication.sessions.updateMessage(sessionId, message.id, updatedMessage)
   return updatedMessage
 }
 
@@ -74,13 +75,13 @@ export async function attachLargeFileRagMetadata(sessionId: string, message: Mes
  * @param msg
  */
 export async function insertMessage(sessionId: string, msg: Message) {
-  const session = await chatStore.getSession(sessionId)
+  const session = await rendererApplication.sessionQueryBridge.getSession(sessionId)
   if (!session) {
     return
   }
   msg.wordCount = countMessageWords(msg)
   msg.tokenCount = estimateTokensFromMessages([msg])
-  return await chatStore.insertMessage(session.id, msg)
+  return await rendererApplication.sessions.insertMessage(session.id, msg)
 }
 
 /**
@@ -95,7 +96,7 @@ export async function insertMessageAfter(
   afterMsgId: string,
   options: { requireAnchor?: boolean } = {}
 ) {
-  const session = await chatStore.getSession(sessionId)
+  const session = await rendererApplication.sessionQueryBridge.getSession(sessionId)
   if (!session) {
     // A caller that requires the anchor cannot treat a missing session as a
     // successful write; let insertMessage raise the same error it always does.
@@ -104,7 +105,7 @@ export async function insertMessageAfter(
   msg.wordCount = countMessageWords(msg)
   msg.tokenCount = estimateTokensFromMessages([msg])
 
-  await chatStore.insertMessage(sessionId, msg, afterMsgId, options)
+  await rendererApplication.sessions.insertMessage(sessionId, msg, afterMsgId, options)
 }
 
 /**
@@ -119,7 +120,7 @@ export async function modifyMessage(
   refreshCounting?: boolean,
   updateOnlyCache?: boolean
 ) {
-  const session = await chatStore.getSession(sessionId)
+  const session = await rendererApplication.sessionQueryBridge.getSession(sessionId)
   if (!session) {
     return
   }
@@ -132,9 +133,9 @@ export async function modifyMessage(
   // 更新消息时间戳
   updated.timestamp = Date.now()
   if (updateOnlyCache) {
-    await chatStore.updateMessageCache(sessionId, updated.id, updated)
+    await rendererApplication.sessionQueryBridge.updateMessageCache(sessionId, updated.id, updated)
   } else {
-    await chatStore.updateMessage(sessionId, updated.id, updated)
+    await rendererApplication.sessions.updateMessage(sessionId, updated.id, updated)
   }
 }
 
@@ -144,7 +145,7 @@ export async function modifyMessage(
  */
 export function updateStreamingCache(sessionId: string, message: Message): void {
   message.timestamp = Date.now()
-  chatStore.updateMessageCache(sessionId, message.id, message).catch((err) => {
+  rendererApplication.sessionQueryBridge.updateMessageCache(sessionId, message.id, message).catch((err) => {
     console.error('Failed to update streaming cache:', err)
   })
 }
@@ -164,7 +165,7 @@ export async function persistStreamingMessage(
     message.tokenCountMap = undefined
   }
   message.timestamp = Date.now()
-  await chatStore.updateMessage(sessionId, message.id, message)
+  await rendererApplication.sessions.updateMessage(sessionId, message.id, message)
 }
 
 /**
@@ -178,7 +179,7 @@ export async function removeMessage(sessionId: string, messageId: string) {
   // replies stream would yank the compacted context out from under them.
   // The fetched session is handed to the guard so the summary case doesn't
   // read it twice.
-  const session = await chatStore.getSession(sessionId)
+  const session = await rendererApplication.sessionQueryBridge.getSession(sessionId)
   const location = session ? findMessageLocation(session, messageId) : null
   if (
     location?.list[location.index]?.isSummary &&
@@ -193,7 +194,7 @@ export async function removeMessage(sessionId: string, messageId: string) {
       console.warn('Failed to cleanup session attachment RAG entries for message deletion:', error)
     }
   }
-  await chatStore.removeMessage(sessionId, messageId)
+  await rendererApplication.sessions.removeMessage(sessionId, messageId)
 }
 
 /**
@@ -226,8 +227,8 @@ export async function submitNewUserMessageUnlocked(
   // avoid reacquiring the session lock already held by submitNewUserMessage().
   const { _generateWithoutSessionLock } = await import('./generation.js')
 
-  const session = await chatStore.getSession(sessionId)
-  const settings = await chatStore.getSessionSettings(sessionId)
+  const session = await rendererApplication.sessionQueryBridge.getSession(sessionId)
+  const settings = await getSessionSettings(sessionId)
   if (!session || !settings) {
     return
   }

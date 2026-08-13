@@ -22,7 +22,15 @@ const { getSessionMock, submitMock, insertMessageMock, generateMock } = vi.hoist
   }
 })
 
-vi.mock('@/stores/chatStore', () => ({ getSession: getSessionMock }))
+vi.mock('@/app/renderer-application', async () => {
+  const { GenerationRuntimeStore } = await import('@chatbox/core/generation')
+  return {
+    rendererApplication: {
+      generationRuntime: new GenerationRuntimeStore(),
+      sessionQueryBridge: { getSession: getSessionMock },
+    },
+  }
+})
 vi.mock('@/stores/session/messages', () => ({
   submitNewUserMessageUnlocked: submitMock,
   insertMessage: insertMessageMock,

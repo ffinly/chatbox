@@ -4,8 +4,10 @@ import { computationQueue } from '../computation-queue'
 import { executeTask, initializeExecutor, setResultPersister } from '../task-executor'
 import type { ComputationTask } from '../types'
 
-vi.mock('@/stores/chatStore', () => ({
-  getSession: vi.fn(),
+const { getSessionMock } = vi.hoisted(() => ({ getSessionMock: vi.fn() }))
+
+vi.mock('@/app/renderer-application', () => ({
+  rendererApplication: { sessionQueryBridge: { getSession: getSessionMock } },
 }))
 
 vi.mock('@/storage', () => ({
@@ -15,9 +17,8 @@ vi.mock('@/storage', () => ({
 }))
 
 import storage from '@/storage'
-import * as chatStore from '@/stores/chatStore'
 
-const mockGetSession = vi.mocked(chatStore.getSession)
+const mockGetSession = getSessionMock
 const mockGetBlob = vi.mocked(storage.getBlob)
 
 function createMessage(overrides: Partial<Message> = {}): Message {

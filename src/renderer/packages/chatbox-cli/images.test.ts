@@ -25,7 +25,9 @@ const {
 }))
 
 vi.mock('@/packages/app-action-approval', () => ({ requestAppActionApproval: requestAppActionApprovalMock }))
-vi.mock('@/stores/chatStore', () => ({ getSession: getSessionMock }))
+vi.mock('@/app/renderer-application', () => ({
+  rendererApplication: { sessionQueryBridge: { getSession: getSessionMock } },
+}))
 vi.mock('@/packages/image-model-catalog', () => ({
   getAvailableImageModels: getAvailableImageModelsMock,
 }))

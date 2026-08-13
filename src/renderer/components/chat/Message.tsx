@@ -52,7 +52,6 @@ import { cn } from '@/lib/utils'
 import { navigateToSettings } from '@/modals/Settings'
 import { copyToClipboard } from '@/packages/navigator'
 import { countWord } from '@/packages/word-count'
-import { getSession } from '@/stores/chatStore'
 import { lockSessionAgentMode, setSessionAgentMode } from '@/stores/session/agent-mode'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
@@ -60,12 +59,11 @@ import '../../static/Block.css'
 import {
   generate,
   generateMore,
-  modifyMessage,
   regenerateInNewFork,
-  removeMessage,
   retryFromLastToolCallAfterApiError,
-  stopMessageGeneration,
-} from '@/stores/sessionActions'
+} from '@/stores/session/generation'
+import { stopMessageGeneration } from '@/stores/session/generation-cancellation'
+import { modifyMessage, removeMessage } from '@/stores/session/messages'
 import * as toastActions from '@/stores/toastActions'
 import { getSessionLockNotice, notifySessionLockBlocked } from '@/utils/session-lock-copy'
 import ActionMenu, { type ActionMenuItemProps } from '../ActionMenu'
@@ -89,7 +87,8 @@ import { createMessageTimelineLayout } from './message-timeline'
 import { getMessageTokenDisplay } from './message-token-display'
 import { PictureGallery } from './PictureGallery'
 
-const useIsGenerationRuntimeActive = rendererApplication.generationHooks.useIsActive
+const useIsGenerationRuntimeActive = (sessionId: string, messageId: string) =>
+  rendererApplication.generationHooks.useIsActive(sessionId, messageId)
 
 // Reset an assistant message back to a clean generating state, reusing the same
 // message slot (e.g. when acting on an agent-mode suggestion callout).
@@ -242,7 +241,7 @@ const _Message: FC<Props> = (props) => {
   // action, so this fetches the session on its own and swallows failures.
   const trackAgentModeSuggestionActionAsync = useCallback(
     (action: 'accept' | 'decline') => {
-      void getSession(sessionId)
+      void rendererApplication.sessionQueryBridge.getSession(sessionId)
         .then((session) => {
           let fileCount = 0
           const location = session ? findMessageLocation(session, msg.id) : null
@@ -458,7 +457,7 @@ const _Message: FC<Props> = (props) => {
 
   const trackWithSessionName = useCallback(
     async (event: string) => {
-      const session = await getSession(sessionId).catch(() => null)
+      const session = await rendererApplication.sessionQueryBridge.getSession(sessionId).catch(() => null)
       trackJkClickEvent(event, {
         pageName: JK_PAGE_NAMES.CHAT_PAGE,
         content: session?.name,
@@ -594,7 +593,7 @@ const _Message: FC<Props> = (props) => {
 
   const onClickAssistantAvatar = async () => {
     await NiceModal.show('session-settings', {
-      session: await getSession(props.sessionId),
+      session: await rendererApplication.sessionQueryBridge.getSession(props.sessionId),
     })
   }
 

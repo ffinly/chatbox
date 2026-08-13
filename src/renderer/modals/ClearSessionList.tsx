@@ -4,7 +4,7 @@ import { type ChangeEvent, useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { AdaptiveModal } from '@/components/common/AdaptiveModal'
 import { trackingEvent } from '@/packages/event'
-import { clearConversationList } from '@/stores/sessionActions'
+import { clearConversationList } from '@/stores/session/crud'
 
 const ClearSessionList = NiceModal.create(() => {
   const modal = useModal()

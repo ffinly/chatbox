@@ -50,8 +50,8 @@ import { BUILTIN_MCP_SERVERS } from '@/packages/mcp/builtin'
 import { skillsController, subscribeSkillsChanged } from '@/packages/skills/controller'
 import { WEB_SEARCH_PROVIDERS, type WebSearchProviderValue } from '@/packages/web-search/constants'
 import platform from '@/platform'
-import * as chatStore from '@/stores/chatStore'
-import { useSession, useSessionSettings } from '@/stores/chatStore'
+import { rendererApplication } from '@/app/renderer-application'
+import { useSessionSettings } from '@/stores/session/session-settings'
 import { useAutoValidate } from '@/stores/premiumActions'
 import { recentDirectoriesStore, useRecentDirectories } from '@/stores/recentDirectoriesStore'
 import { setSessionAgentMode, useSessionAgentMode } from '@/stores/session/agent-mode'
@@ -61,6 +61,8 @@ import { ScalableIcon } from '../common/ScalableIcon'
 import MCPStatus from '../mcp/MCPStatus'
 import AgentModeStatusIcon from './AgentModeStatusIcon'
 import { getAgentModeUIState } from './agentModeState'
+
+const useSession = (sessionId: string | null) => rendererApplication.sessionHooks.useSession(sessionId)
 
 type PanelPage = 'main' | 'web-search' | 'code-execution' | 'skills' | 'mcp' | 'knowledge-base' | 'working-directory'
 
@@ -285,7 +287,7 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
         return
       }
       try {
-        await chatStore.updateSession(sessionId, (session) => {
+        await rendererApplication.sessions.updateSession(sessionId, (session) => {
           if (!session) {
             throw new Error('Session not found')
           }
@@ -345,7 +347,7 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
         return
       }
       try {
-        await chatStore.updateSession(sessionId, (session) => {
+        await rendererApplication.sessions.updateSession(sessionId, (session) => {
           if (!session) {
             throw new Error('Session not found')
           }

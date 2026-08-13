@@ -14,7 +14,7 @@ import { currentSessionIdAtom } from '@/stores/atoms'
 import { searchSessions } from '@/stores/sessionHelpers'
 import { useUIStore } from '@/stores/uiStore'
 import * as scrollActions from '../stores/scrollActions'
-import { switchCurrentSession } from '../stores/sessionActions'
+import { switchCurrentSession } from '../stores/session/crud'
 
 type Props = {}
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import * as chatStore from '@/stores/chatStore'
+import { rendererApplication } from '@/app/renderer-application'
 import { apiStyleFromProviderType } from '../../../shared/providers/api-style'
 import type { ProviderInfo, ProviderModelInfo, ProviderOptions, SessionSettings } from '../../../shared/types'
 import {
@@ -159,7 +159,7 @@ export function useReasoningControlState({
 
   const persistProviderOptions = useCallback(
     async (sessionId: string, nextProviderOptions?: ProviderOptions) => {
-      await chatStore.updateSession(sessionId, (session) => {
+      await rendererApplication.sessions.updateSession(sessionId, (session) => {
         if (!session) {
           throw new Error('Session not found')
         }

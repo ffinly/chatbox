@@ -29,7 +29,7 @@ import { AgentModeRewardResumeError, claimAgentModeRewardAndResume } from '@/pac
 import { buildChatboxUrl, claimFreeAgentModeReward } from '@/packages/remote'
 import { translateTexts } from '@/packages/translation'
 import platform from '@/platform'
-import { getSession } from '@/stores/chatStore'
+import { rendererApplication } from '@/app/renderer-application'
 import { getSessionAgentModeFromSession } from '@/stores/session/agent-mode'
 import * as settingActions from '@/stores/settingActions'
 import { useLanguage, useSettingsStore } from '@/stores/settingsStore'
@@ -72,7 +72,7 @@ function trackTokenExhaustedCardWithResolvedMode(options: {
     return
   }
 
-  void getSession(sessionId)
+  void rendererApplication.sessionQueryBridge.getSession(sessionId)
     .then((session) => {
       trackWithMode(getSessionAgentModeFromSession(session)?.value === 'on' ? 'work_mode' : 'chat_mode')
     })

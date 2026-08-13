@@ -34,9 +34,12 @@ vi.mock('@/stores/imageGenerationStore', () => ({
   useImageGenerationRecord: () => ({ data: undefined, isFetched: true }),
 }))
 
-vi.mock('@/stores/sessionActions', () => ({
-  continuePausedToolCall: vi.fn(),
-  stopPausedToolCall: vi.fn(),
+vi.mock('@/adapters/CurrentGenerationService', () => ({
+  currentGenerationService: {
+    continuePausedToolCall: vi.fn(),
+    stopPausedToolCall: vi.fn(),
+    disableToolCallLimitPauseAndContinue: vi.fn(),
+  },
 }))
 
 vi.mock('@/stores/toastActions', () => ({ add: vi.fn() }))

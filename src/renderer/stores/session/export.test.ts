@@ -10,8 +10,8 @@ const { mockGetSession, mockExportTextFile, mockFormatHtml, mockFormatMarkdown, 
   mockFormatTxt: vi.fn(() => 'export'),
 }))
 
-vi.mock('../chatStore', () => ({
-  getSession: mockGetSession,
+vi.mock('@/app/renderer-application', () => ({
+  rendererApplication: { sessionQueryBridge: { getSession: mockGetSession } },
 }))
 
 vi.mock('@/platform', () => ({

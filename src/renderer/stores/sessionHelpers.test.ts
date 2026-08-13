@@ -153,8 +153,10 @@ vi.mock('@/i18n', () => ({
   default: {},
 }))
 
-vi.mock('@/stores/chatStore', () => ({
-  getMetaStorage: vi.fn(),
+vi.mock('@/app/renderer-application', () => ({
+  rendererApplication: {
+    sessions: { initialize: vi.fn(), repository: { meta: {} } },
+  },
 }))
 
 import {

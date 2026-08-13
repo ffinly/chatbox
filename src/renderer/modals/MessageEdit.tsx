@@ -7,9 +7,11 @@ import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AdaptiveModal } from '@/components/common/AdaptiveModal'
 import { AssistantAvatar, SystemAvatar, UserAvatar } from '@/components/common/Avatar'
+import { rendererApplication } from '@/app/renderer-application'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
-import { getSession } from '@/stores/chatStore'
-import { generateMoreInNewFork, getSessionLockStateNow, modifyMessage } from '@/stores/sessionActions'
+import { getSessionLockStateNow } from '@/stores/session/action-guard'
+import { generateMoreInNewFork } from '@/stores/session/generation'
+import { modifyMessage } from '@/stores/session/messages'
 import * as toastActions from '@/stores/toastActions'
 import { notifySessionLockBlocked } from '@/utils/session-lock-copy'
 
@@ -127,7 +129,7 @@ const MessageEditModal = ({
   // so both actions read the live state at click time instead of holding a
   // subscription for their whole lifetime.
   const findLiveMessage = async (): Promise<Message | null | 'missing'> => {
-    const session = await getSession(sessionId)
+    const session = await rendererApplication.sessionQueryBridge.getSession(sessionId)
     if (!session) {
       return 'missing'
     }

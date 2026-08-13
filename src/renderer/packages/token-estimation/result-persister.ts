@@ -1,6 +1,6 @@
 import type { Message, MessageFile, MessageLink, TokenCacheKey, TokenCountMap } from '@shared/types'
 import { getLogger } from '@/lib/utils'
-import * as chatStore from '@/stores/chatStore'
+import { rendererApplication } from '@/app/renderer-application'
 import type { AttachmentType, ContentMode, TaskResult, TokenizerType } from './types'
 
 const log = getLogger('token-estimation:persister')
@@ -219,7 +219,7 @@ class ResultPersister {
 
     for (const [sessionId, sessionUpdates] of bySession) {
       try {
-        await chatStore.updateMessages(sessionId, (messages) => applyUpdatesToMessages(messages, sessionUpdates))
+        await rendererApplication.sessions.updateMessages(sessionId, (messages) => applyUpdatesToMessages(messages, sessionUpdates))
 
         log.debug('Flush completed for session', { sessionId, updateCount: sessionUpdates.length })
       } catch (error) {

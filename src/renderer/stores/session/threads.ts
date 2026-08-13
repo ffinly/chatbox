@@ -4,15 +4,14 @@ import type { SessionThread } from '@shared/types'
 import { v4 as uuidv4 } from 'uuid'
 import { rendererApplication } from '@/app/renderer-application'
 import * as dom from '@/hooks/dom'
-import * as chatStore from '../chatStore'
 import * as scrollActions from '../scrollActions'
 import { _copySession as copySession, switchCurrentSession } from './crud'
 
 const threadService = new ThreadService({
   sessions: {
-    getSession: (sessionId) => chatStore.getSession(sessionId),
-    updateSession: (sessionId, updater) => chatStore.updateSession(sessionId, updater),
-    updateSessionWithMessages: (sessionId, updater) => chatStore.updateSessionWithMessages(sessionId, updater),
+    getSession: (sessionId) => rendererApplication.sessionQueryBridge.getSession(sessionId),
+    updateSession: (sessionId, updater) => rendererApplication.sessions.updateSession(sessionId, updater),
+    updateSessionWithMessages: (sessionId, updater) => rendererApplication.sessions.updateSessionWithMessages(sessionId, updater),
   },
   createId: uuidv4,
   now: Date.now,

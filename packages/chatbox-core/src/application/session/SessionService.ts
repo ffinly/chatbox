@@ -1,5 +1,12 @@
 import type { LoggerPort, SessionRepositoryPort } from '../../ports'
-import type { Session, SessionMetaPage, SessionMetaRecord, SessionSettings, Updater } from '../../types'
+import type { Message, Session, SessionMetaPage, SessionMetaRecord, SessionSettings, Updater } from '../../types'
+import {
+  applyMessageInsert,
+  applyMessageRemoval,
+  applyMessagesReplace,
+  applyMessageUpdate,
+  type MessageInsertOptions,
+} from './message-tree'
 import {
   SessionMetadataUpdateError,
   type SessionWriteCoordinator,
@@ -227,6 +234,42 @@ export class SessionService {
       preserveCachedGeneratingMessages: options.preserveCachedGeneratingMessages === true,
     })
     return result.session
+  }
+
+  async insertMessage(
+    sessionId: string,
+    message: Message,
+    previousId?: string,
+    options: MessageInsertOptions = {}
+  ): Promise<void> {
+    await this.updateSessionWithMessages(sessionId, (session) =>
+      applyMessageInsert(session, sessionId, message, previousId, options)
+    )
+  }
+
+  async updateMessage(sessionId: string, messageId: string, updater: Updater<Message>): Promise<void> {
+    await this.updateSessionWithMessages(
+      sessionId,
+      (session) => applyMessageUpdate(session, sessionId, messageId, updater),
+      { preserveCachedGeneratingMessages: true }
+    )
+  }
+
+  async updateMessages(sessionId: string, updater: Updater<Message[]>): Promise<Session> {
+    return await this.updateSessionWithMessages(sessionId, (session) =>
+      applyMessagesReplace(session, sessionId, updater)
+    )
+  }
+
+  async removeMessage(sessionId: string, messageId: string): Promise<Session> {
+    // Messages can be deleted while other replies stream; their cache-only chunk
+    // updates must survive this full-session write. Preserving never resurrects
+    // the removed message: the merge only maps over messages that still exist.
+    return await this.updateSessionWithMessages(
+      sessionId,
+      (session) => applyMessageRemoval(session, sessionId, messageId),
+      { preserveCachedGeneratingMessages: true }
+    )
   }
 
   updateSession(sessionId: string, updater: Updater<SessionMetadataUpdate>): Promise<Session> {

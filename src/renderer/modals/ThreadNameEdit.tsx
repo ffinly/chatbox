@@ -5,8 +5,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AdaptiveModal } from '@/components/common/AdaptiveModal'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
-import { useSession } from '@/stores/chatStore'
-import { editThread } from '@/stores/sessionActions'
+import { rendererApplication } from '@/app/renderer-application'
+
+const useSession = (sessionId: string | null) => rendererApplication.sessionHooks.useSession(sessionId)
+import { editThread } from '@/stores/session/threads'
 
 const ThreadNameEdit = NiceModal.create((props: { sessionId: string; threadId: string }) => {
   const { sessionId, threadId } = props

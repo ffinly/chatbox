@@ -53,7 +53,8 @@ import platform from '@/platform'
 import { canShareFile, shareFile } from '@/platform/web_file_share'
 import storage from '@/storage'
 import { withAgentPersonaLocks } from '@/stores/agentPersonaStore'
-import { getMetaStorage, recoverSessionList } from '@/stores/chatStore'
+import { rendererApplication } from '@/app/renderer-application'
+import { getMetaStorage } from '@/stores/sessionHelpers'
 import { migrateOnData } from '@/stores/migration'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
@@ -524,7 +525,7 @@ const DataRecoverySection = () => {
     setIsRecovering(true)
     setRecoveryResult(null)
     try {
-      const result = await recoverSessionList()
+      const result = await rendererApplication.sessions.recoverSessionList()
       setRecoveryResult({ success: true, recovered: result.recovered, failed: result.failed })
     } catch (error) {
       console.error('Failed to recover session list:', error)
@@ -801,7 +802,7 @@ const ImportExportDataSection = () => {
           metaStorage: await getMetaStorage(),
           migrateData: (dataStore) => migrateOnData(dataStore, false),
           recoverSessionList: async () => {
-            await recoverSessionList()
+            await rendererApplication.sessions.recoverSessionList()
           },
         })
       }

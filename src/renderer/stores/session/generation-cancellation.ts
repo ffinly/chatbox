@@ -30,14 +30,13 @@ function serializeSessionStop(sessionId: string, operation: () => Promise<void>)
 }
 
 async function getDefaultDependencies(): Promise<GenerationCancellationDependencies> {
-  const [chatStore, { rendererApplication }, { modifyMessage, removeMessage }] = await Promise.all([
-    import('../chatStore'),
+  const [{ rendererApplication }, { modifyMessage, removeMessage }] = await Promise.all([
     import('@/app/renderer-application'),
     import('./messages'),
   ])
   return {
     runtime: rendererApplication.generationRuntime,
-    getSession: (sessionId) => chatStore.getSession(sessionId),
+    getSession: (sessionId) => rendererApplication.sessionQueryBridge.getSession(sessionId),
     removeMessage,
     persistMessage: (sessionId, message) => modifyMessage(sessionId, message, true),
   }

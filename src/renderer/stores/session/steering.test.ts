@@ -7,7 +7,15 @@ const { getSessionMock } = vi.hoisted(() => ({ getSessionMock: vi.fn() }))
 vi.mock('@/lib/utils', () => ({
   getLogger: () => ({ error: vi.fn() }),
 }))
-vi.mock('@/stores/chatStore', () => ({ getSession: getSessionMock }))
+vi.mock('@/app/renderer-application', async () => {
+  const { GenerationRuntimeStore } = await import('@chatbox/core/generation')
+  return {
+    rendererApplication: {
+      generationRuntime: new GenerationRuntimeStore(),
+      sessionQueryBridge: { getSession: getSessionMock },
+    },
+  }
+})
 
 import {
   enqueueUserMessage,

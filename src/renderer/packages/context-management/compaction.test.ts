@@ -9,10 +9,14 @@ const { generateSummaryWithStreamMock, getSessionMock, updateSessionWithMessages
   updateSessionWithMessagesMock: vi.fn(),
 }))
 
-vi.mock('@/stores/chatStore', () => ({
-  getSession: getSessionMock,
+vi.mock('@/app/renderer-application', () => ({
+  rendererApplication: {
+    sessions: { updateSessionWithMessages: updateSessionWithMessagesMock },
+    sessionQueryBridge: { getSession: getSessionMock },
+  },
+}))
+vi.mock('@/stores/session/session-settings', () => ({
   getSessionSettings: vi.fn(async () => ({})),
-  updateSessionWithMessages: updateSessionWithMessagesMock,
 }))
 vi.mock('@/settings-runtime', () => ({
   settingsService: { getSettings: () => ({ defaultChatModel: { model: 'test-model' } }) },

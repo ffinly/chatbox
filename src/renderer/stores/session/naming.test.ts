@@ -21,7 +21,12 @@ vi.mock('@/adapters/CurrentModelFactory', () => ({ currentModelFactory: {} }))
 vi.mock('@/packages/model-calls/message-utils', () => ({ convertToModelMessages: vi.fn() }))
 vi.mock('@/settings-runtime', () => ({ settingsService: {} }))
 vi.mock('@/utils/sentry', () => ({ reportError: vi.fn() }))
-vi.mock('../chatStore', () => ({ getSession: vi.fn(), updateSession: vi.fn() }))
+vi.mock('@/app/renderer-application', () => ({
+  rendererApplication: {
+    sessions: { updateSession: vi.fn() },
+    sessionQueryBridge: { getSession: vi.fn() },
+  },
+}))
 
 import {
   clearSessionNameGenerationState,

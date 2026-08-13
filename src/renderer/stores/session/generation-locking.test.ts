@@ -21,8 +21,10 @@ const {
   guardSessionActionMock: vi.fn(),
 }))
 
-vi.mock('../chatStore', () => ({
-  getSession: getSessionMock,
+vi.mock('@/app/renderer-application', () => ({
+  rendererApplication: { sessionQueryBridge: { getSession: getSessionMock } },
+}))
+vi.mock('./session-settings', () => ({
   getSessionSettings: getSessionSettingsMock,
 }))
 vi.mock('./attachment-resolver', () => ({ createAttachmentResolver: vi.fn() }))

@@ -44,7 +44,7 @@ vi.mock('../storage/blob-write-tracker', () => ({
   isBlobRecentlyWritten: vi.fn((key: string) => recentBlobKeys.includes(key) || lateTouchedBlobKeys.has(key)),
 }))
 
-vi.mock('@/stores/chatStore', () => ({
+vi.mock('@/stores/sessionHelpers', () => ({
   getMetaStorage: async () => ({
     getAllIncludingHidden: async () => metaRecords,
   }),

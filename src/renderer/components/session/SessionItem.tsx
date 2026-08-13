@@ -13,8 +13,8 @@ import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { navigateToSettings } from '@/modals/Settings'
 import platform from '@/platform'
 import { router } from '@/router'
-import { archiveSession, countArchivedSessionsMeta, updateSession as updateSessionStore } from '@/stores/chatStore'
-import { switchCurrentSession } from '@/stores/sessionActions'
+import { rendererApplication } from '@/app/renderer-application'
+import { switchCurrentSession } from '@/stores/session/crud'
 import { useSessionActivity } from '@/stores/sessionActivityStore'
 import * as toastActions from '@/stores/toastActions'
 import { useUIStore } from '@/stores/uiStore'
@@ -121,7 +121,7 @@ function SessionItem(props: Props) {
     if (!name || name === session.name) {
       return
     }
-    void updateSessionStore(session.id, { name }).catch((error) => {
+    void rendererApplication.sessions.updateSession(session.id, { name }).catch((error) => {
       console.error('Failed to rename session:', error)
     })
   }
@@ -145,11 +145,11 @@ function SessionItem(props: Props) {
     }
     setArchiving(true)
     try {
-      await archiveSession(session.id)
+      await rendererApplication.sessions.archiveSession(session.id)
       if (selected) {
         await router.navigate({ to: '/', replace: true })
       }
-      const archivedSessionCount = await countArchivedSessionsMeta()
+      const archivedSessionCount = await rendererApplication.sessions.countArchivedSessionsMeta()
       if (archivedSessionCount > ARCHIVED_SESSION_CLEANUP_THRESHOLD) {
         const confirmed = await NiceModal.show('confirm', {
           title: t('Too many archived chats'),
@@ -231,7 +231,7 @@ function SessionItem(props: Props) {
       text: pinActionLabel || '',
       icon: session.starred ? IconPinnedFilled : IconPinned,
       onClick: () => {
-        void updateSessionStore(session.id, { starred: !session.starred })
+        void rendererApplication.sessions.updateSession(session.id, { starred: !session.starred })
       },
     },
     {
@@ -385,7 +385,7 @@ function SessionItem(props: Props) {
             onClick={(event) => {
               stopItemClick(event)
               dismissActionTooltip()
-              void updateSessionStore(session.id, { starred: !session.starred })
+              void rendererApplication.sessions.updateSession(session.id, { starred: !session.starred })
             }}
           >
             {session.starred ? (

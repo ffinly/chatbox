@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { Message, Session, SessionMetaRecord, SessionThread } from '../../shared/types'
 import { rendererApplication } from '@/app/renderer-application'
-import * as sessionActions from './sessionActions'
+import * as sessionActions from './session'
 import { sessionActivityStore } from './sessionActivityStore'
 
 const generationRuntimeStore = rendererApplication.generationRuntime
@@ -85,16 +85,30 @@ vi.mock('uuid', () => ({
 
 vi.mock('i18next', () => ({ t: (key: string) => key }))
 
-vi.mock('./chatStore', () => ({
-  updateSessionWithMessages,
-  updateSession: updateSessionMock,
-  createSession: createSessionMock,
-  getSession: getSessionMock,
-  useSession: useSessionMock,
-  listAllSessionsMeta: listAllSessionsMetaMock,
-  archiveSessions: archiveSessionsMock,
-  deleteSessions: deleteSessionsMock,
-}))
+vi.mock('@/app/renderer-application', async () => {
+  const { GenerationRuntimeStore } = await import('@chatbox/core/generation')
+  const { QueryClient } = await import('@tanstack/react-query')
+  return {
+    rendererApplication: {
+      generationRuntime: new GenerationRuntimeStore(),
+      queryClient: new QueryClient(),
+      sessions: {
+        updateSessionWithMessages,
+        updateSession: updateSessionMock,
+        createSession: createSessionMock,
+        listAllSessionsMeta: listAllSessionsMetaMock,
+        archiveSessions: archiveSessionsMock,
+        deleteSessions: deleteSessionsMock,
+      },
+      sessionQueryBridge: {
+        getSession: getSessionMock,
+        listSessionsMeta: vi.fn().mockResolvedValue([]),
+        updateSessionListData: vi.fn(),
+      },
+      sessionHooks: { useSession: useSessionMock },
+    },
+  }
+})
 
 vi.mock('./toastActions', () => ({ add: toastMock }))
 

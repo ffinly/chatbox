@@ -28,8 +28,10 @@ import { useTranslation } from 'react-i18next'
 import { Virtuoso } from 'react-virtuoso'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import platform from '@/platform'
-import { useSessionList } from '@/stores/chatStore'
-import { reorderSessions } from '@/stores/sessionActions'
+import { rendererApplication } from '@/app/renderer-application'
+
+const useSessionList = () => rendererApplication.sessionHooks.useSessionList()
+import { reorderSessions } from '@/stores/session/crud'
 import SessionItem from './SessionItem'
 
 export interface Props {

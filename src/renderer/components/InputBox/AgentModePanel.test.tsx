@@ -106,9 +106,13 @@ vi.mock('@/platform', () => ({
   default: { type: 'desktop', isDesktopLike: true, openDirectoryDialog: mocks.openDirectoryDialogMock },
 }))
 
-vi.mock('@/stores/chatStore', () => ({
-  updateSession: vi.fn(),
-  useSession: () => ({ session: undefined }),
+vi.mock('@/app/renderer-application', () => ({
+  rendererApplication: {
+    sessions: { updateSession: vi.fn() },
+    sessionHooks: { useSession: () => ({ session: undefined }) },
+  },
+}))
+vi.mock('@/stores/session/session-settings', () => ({
   useSessionSettings: () => ({ sessionSettings: {} }),
 }))
 

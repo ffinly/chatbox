@@ -10,7 +10,6 @@ import {
 import type { Message } from '@shared/types'
 import { v4 as uuidv4 } from 'uuid'
 import { rendererApplication } from '@/app/renderer-application'
-import * as chatStore from '../chatStore'
 import { guardSessionAction } from './action-guard'
 
 const forkIdentity = {
@@ -21,7 +20,7 @@ const forkIdentity = {
 const forkService = new ForkService(
   {
     updateSessionWithMessages: (sessionId, updater) =>
-      chatStore.updateSessionWithMessages(sessionId, updater, { preserveCachedGeneratingMessages: true }),
+      rendererApplication.sessions.updateSessionWithMessages(sessionId, updater, { preserveCachedGeneratingMessages: true }),
   },
   forkIdentity
 )
@@ -51,7 +50,7 @@ export async function createInactiveFork(
 ): Promise<Message[] | null> {
   let branchContext: Message[] | null = null
 
-  await chatStore.updateSessionWithMessages(
+  await rendererApplication.sessions.updateSessionWithMessages(
     sessionId,
     (session) => {
       if (!session) {
@@ -90,7 +89,7 @@ export async function switchForkTo(sessionId: string, forkMessageId: string, pos
   if (!(await guardSessionAction(sessionId, 'switch-fork'))) {
     return
   }
-  await chatStore.updateSessionWithMessages(
+  await rendererApplication.sessions.updateSessionWithMessages(
     sessionId,
     (session) => {
       if (!session) {
@@ -114,7 +113,7 @@ export async function deleteFork(sessionId: string, forkMessageId: string) {
       rendererApplication.generationRuntime.discard(sessionId, messageId, 'fork-deleted')
     }
   }
-  await chatStore.updateSessionWithMessages(
+  await rendererApplication.sessions.updateSessionWithMessages(
     sessionId,
     (session) => {
       if (!session) {

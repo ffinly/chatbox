@@ -16,7 +16,7 @@ const { deleteForkMock, isSmallScreenMock, switchForkMock, switchForkToMock, toa
 }))
 
 vi.mock('@/hooks/useScreenChange', () => ({ useIsSmallScreen: isSmallScreenMock }))
-vi.mock('@/stores/sessionActions', () => ({
+vi.mock('@/stores/session/forks', () => ({
   deleteFork: deleteForkMock,
   switchFork: switchForkMock,
   switchForkTo: switchForkToMock,

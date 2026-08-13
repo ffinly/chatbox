@@ -60,7 +60,9 @@ import { router } from '@/router'
 import Sidebar from '@/Sidebar'
 import storage from '@/storage'
 import * as atoms from '@/stores/atoms'
-import { getSession, useSession } from '@/stores/chatStore'
+import { rendererApplication } from '@/app/renderer-application'
+
+const useSession = (sessionId: string | null) => rendererApplication.sessionHooks.useSession(sessionId)
 import { initOnboardingStore, onboardingStore } from '@/stores/onboardingStore'
 import * as premiumActions from '@/stores/premiumActions'
 import * as settingActions from '@/stores/settingActions'
@@ -302,7 +304,7 @@ function Root() {
 
       if (pathname.startsWith('/session/')) {
         const sessionId = pathname.slice('/session/'.length)
-        const session = await getSession(sessionId).catch(() => null)
+        const session = await rendererApplication.sessionQueryBridge.getSession(sessionId).catch(() => null)
         content = session?.name
       }
 

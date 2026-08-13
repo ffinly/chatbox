@@ -7,7 +7,7 @@ import {
   PREVIEW_LINES,
 } from '@/packages/context-management/attachment-payload'
 import storage from '@/storage'
-import * as chatStore from '@/stores/chatStore'
+import { rendererApplication } from '@/app/renderer-application'
 import { computationQueue } from './computation-queue'
 import { estimateTokens } from './tokenizer'
 import type { ComputationTask, TaskResult, TokenizerType } from './types'
@@ -227,7 +227,7 @@ function getTokenModel(tokenizerType: TokenizerType): { provider: string; modelI
 type TokenEstimationSession = Pick<Session, 'messages' | 'threads'>
 
 async function getSessionForTokenEstimation(sessionId: string): Promise<TokenEstimationSession | null> {
-  return await chatStore.getSession(sessionId)
+  return await rendererApplication.sessionQueryBridge.getSession(sessionId)
 }
 
 export function initializeExecutor(): void {

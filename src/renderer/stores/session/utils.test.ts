@@ -13,8 +13,10 @@ vi.mock('@/platform', () => ({ default: { type: 'desktop' } }))
 vi.mock('@/utils/track', () => ({ trackEvent: trackEventMock }))
 vi.mock('@/utils/sentry', () => ({ reportError: reportErrorMock }))
 vi.mock('@/packages/model-setting-utils', () => ({ getModelDisplayName: vi.fn() }))
-vi.mock('../chatStore', () => ({
-  useSession: vi.fn(() => ({ session: null })),
+vi.mock('@/app/renderer-application', () => ({
+  rendererApplication: {
+    sessionHooks: { useSession: vi.fn(() => ({ session: null })) },
+  },
 }))
 
 import { uiStore } from '../uiStore'

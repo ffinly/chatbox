@@ -1,4 +1,5 @@
 import type {
+  Message,
   Session,
   SessionApplicationEvent,
   SessionEventBus,
@@ -6,6 +7,7 @@ import type {
   SessionMetaRecord,
   Updater,
 } from '@chatbox/core'
+import { applyMessageUpdate } from '@chatbox/core/application/session'
 import { sortSessionRecords } from '@chatbox/core/utils/session-sort'
 import type { InfiniteData, QueryClient } from '@tanstack/react-query'
 import { QueryKeys } from './query-keys'
@@ -110,6 +112,17 @@ export class SessionQueryBridge {
       if (!old) return old
       return typeof updater === 'function' ? updater(old) : { ...old, ...updater }
     })
+  }
+
+  /**
+   * Cache-only message update for streaming-frequency writes. Loads the session
+   * through the query cache first so a missing session fails loudly instead of
+   * silently dropping the update.
+   */
+  async updateMessageCache(sessionId: string, messageId: string, updater: Updater<Message>): Promise<void> {
+    const session = await this.getSession(sessionId)
+    if (!session) throw new Error(`Session ${sessionId} not found`)
+    this.updateSessionCache(sessionId, (current) => applyMessageUpdate(current, sessionId, messageId, updater))
   }
 
   private project(event: SessionApplicationEvent): void {

@@ -8,7 +8,7 @@ import { createMemoryHistory, createRootRoute, createRoute, createRouter, Router
 import { getDefaultStore } from 'jotai'
 import { createContext, type MutableRefObject, type ReactNode, useContext, useEffect, useRef } from 'react'
 import { currentSessionIdAtom, showThreadHistoryDrawerAtom } from '@/stores/atoms'
-import { QueryKeys } from '@/stores/chatStore'
+import { QueryKeys } from '@chatbox/react/query'
 import { rendererApplication } from '@/app/renderer-application'
 import { resetSessionActivityStore, sessionActivityStore } from '@/stores/sessionActivityStore'
 import SessionItem from '../session/SessionItem'

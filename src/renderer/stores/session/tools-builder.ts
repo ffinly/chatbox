@@ -734,8 +734,8 @@ function buildUserExecTool(options: BuildToolsOptions): ToolSet[string] {
   return {
     description:
       "Execute a command in the user's real environment (not sandbox). " +
-      'RESTRICTED: Only use when a loaded skill explicitly requires running a command in the user environment. ' +
-      'Do NOT use for general tasks — use code_execution (sandbox) instead. ' +
+      "Use when the task requires the user's host environment, including when a loaded skill instructs you to run a host command; it is not limited to skill-driven tasks. " +
+      'Prefer code_execution (sandbox) for work that does not need the host environment. ' +
       'Runs PowerShell on Windows and Bash on macOS/Linux with full system access. ' +
       (agentFullAccess
         ? 'Full Access is enabled, so commands run without per-command approval.'

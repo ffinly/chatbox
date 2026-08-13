@@ -173,13 +173,18 @@ vi.mock('@/stores/uiStore', () => ({
     }),
 }))
 
-vi.mock('@/stores/sessionActions', () => ({
+vi.mock('@/stores/session/forks', () => ({
   deleteFork: vi.fn(),
   expandFork: vi.fn(),
-  moveThreadToConversations: vi.fn(),
-  removeMessage: vi.fn(),
-  removeThread: vi.fn(),
   switchFork: vi.fn(),
+  switchForkTo: vi.fn(),
+}))
+vi.mock('@/stores/session/messages', () => ({
+  removeMessage: vi.fn(),
+}))
+vi.mock('@/stores/session/threads', () => ({
+  moveThreadToConversations: vi.fn(),
+  removeThread: vi.fn(),
   switchThread: vi.fn(),
 }))
 

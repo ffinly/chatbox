@@ -24,7 +24,7 @@ import platform from '@/platform'
 import storage from '@/storage'
 import { StorageKeyGenerator } from '@/storage/StoreStorage'
 import { authInfoStore } from '@/stores/authInfoStore'
-import { getMetaStorage } from '@/stores/chatStore'
+import { rendererApplication } from '@/app/renderer-application'
 import { reportError } from '@/utils/sentry'
 import { migrateSession } from '@/utils/session-utils'
 import * as defaults from '../../shared/defaults'
@@ -46,6 +46,12 @@ export {
   SESSION_ATTACHMENT_RAG_REQUIRES_KNOWLEDGE_BASE_ERROR,
   SESSION_ATTACHMENT_RAG_REQUIRES_TOOL_USE_MODEL_ERROR,
 } from './sessionAttachmentRagErrors'
+
+/** Session meta repository access for maintenance/setup flows (initializes the service first). */
+export async function getMetaStorage() {
+  await rendererApplication.sessions.initialize()
+  return rendererApplication.sessions.repository.meta
+}
 
 const log = getLogger('session-helpers')
 const FILE_STORAGE_QUOTA_EXCEEDED_ERROR = 'file_storage_quota_exceeded'

@@ -6,9 +6,15 @@ const { guardSessionActionMock, updateSessionWithMessagesMock } = vi.hoisted(() 
   updateSessionWithMessagesMock: vi.fn(),
 }))
 
-vi.mock('../chatStore', () => ({
-  updateSessionWithMessages: updateSessionWithMessagesMock,
-}))
+vi.mock('@/app/renderer-application', async () => {
+  const { GenerationRuntimeStore } = await import('@chatbox/core/generation')
+  return {
+    rendererApplication: {
+      generationRuntime: new GenerationRuntimeStore(),
+      sessions: { updateSessionWithMessages: updateSessionWithMessagesMock },
+    },
+  }
+})
 vi.mock('./action-guard', () => ({ guardSessionAction: guardSessionActionMock }))
 vi.mock('uuid', () => ({ v4: vi.fn(() => 'id') }))
 

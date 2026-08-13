@@ -11,7 +11,7 @@ import { useMemo, useRef } from 'react'
 import { rendererApplication } from '@/app/renderer-application'
 import { compactionUIStateMapAtom } from '@/stores/atoms/compactionAtoms'
 
-const useGenerationRuntimeVersion = rendererApplication.generationHooks.useVersion
+const useGenerationRuntimeVersion = () => rendererApplication.generationHooks.useVersion()
 
 /**
  * Renderer adapter for the shared session action gates: joins session data

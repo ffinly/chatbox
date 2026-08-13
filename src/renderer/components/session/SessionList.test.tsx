@@ -72,15 +72,19 @@ vi.mock('react-virtuoso', async () => {
 
 vi.mock('@/hooks/useScreenChange', () => ({ useIsSmallScreen: () => true }))
 vi.mock('@/platform', () => ({ default: { type: 'mobile' } }))
-vi.mock('@/stores/chatStore', () => ({
-  useSessionList: () => ({
-    sessionMetaList: sessionListState.sessions,
-    fetchNextPage: vi.fn(),
-    hasNextPage: false,
-    isFetchingNextPage: false,
-  }),
+vi.mock('@/app/renderer-application', () => ({
+  rendererApplication: {
+    sessionHooks: {
+      useSessionList: () => ({
+        sessionMetaList: sessionListState.sessions,
+        fetchNextPage: vi.fn(),
+        hasNextPage: false,
+        isFetchingNextPage: false,
+      }),
+    },
+  },
 }))
-vi.mock('@/stores/sessionActions', () => ({ reorderSessions: reorderSessionsMock }))
+vi.mock('@/stores/session/crud', () => ({ reorderSessions: reorderSessionsMock }))
 vi.mock('@tanstack/react-router', () => ({
   useRouterState: () => ({ location: { pathname: '/session/session-1' } }),
 }))

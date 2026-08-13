@@ -6,12 +6,16 @@ const { getSessionMock, toastMock } = vi.hoisted(() => ({
   toastMock: vi.fn(),
 }))
 
-vi.mock('../chatStore', () => ({ getSession: getSessionMock }))
 vi.mock('../toastActions', () => ({ add: toastMock }))
 vi.mock('i18next', () => ({ t: (key: string) => key }))
 vi.mock('@/app/renderer-application', async () => {
   const { GenerationRuntimeStore } = await import('@chatbox/core/generation')
-  return { rendererApplication: { generationRuntime: new GenerationRuntimeStore() } }
+  return {
+    rendererApplication: {
+      generationRuntime: new GenerationRuntimeStore(),
+      sessionQueryBridge: { getSession: getSessionMock },
+    },
+  }
 })
 
 import { rendererApplication } from '@/app/renderer-application'

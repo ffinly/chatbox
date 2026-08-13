@@ -2,10 +2,10 @@ import { buildSessionExportThreads } from '@chatbox/core/utils/chat-export'
 import type { ExportChatFormat, ExportChatScope } from '@shared/types'
 import { formatChatAsHtml, formatChatAsMarkdown, formatChatAsTxt } from '@/lib/format-chat'
 import platform from '@/platform'
-import * as chatStore from '../chatStore'
+import { rendererApplication } from '@/app/renderer-application'
 
 export async function exportSessionChat(sessionId: string, content: ExportChatScope, format: ExportChatFormat) {
-  const session = await chatStore.getSession(sessionId)
+  const session = await rendererApplication.sessionQueryBridge.getSession(sessionId)
   if (!session) {
     return
   }

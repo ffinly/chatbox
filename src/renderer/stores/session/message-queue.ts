@@ -7,7 +7,6 @@ import { createMessage, type Message, type Session } from '@shared/types'
 import { createStore } from 'zustand'
 import { rendererApplication } from '@/app/renderer-application'
 import { getLogger } from '@/lib/utils'
-import * as chatStore from '@/stores/chatStore'
 
 const log = getLogger('message-queue')
 
@@ -201,7 +200,7 @@ function deliverQueuedMessage(sessionId: string, item: QueuedUserMessage): Promi
     // Steering may have consumed this item while we waited for the lock.
     if (getQueue(sessionId)[0]?.id !== item.id) return 'stale'
 
-    const session = await chatStore.getSession(sessionId)
+    const session = await rendererApplication.sessionQueryBridge.getSession(sessionId)
     if (!session) return 'discard'
 
     const activePathHasItem = session.messages.some((message) => message.id === item.id)
@@ -382,7 +381,7 @@ export function enqueueUserMessage(sessionId: string, message: Message, conversa
 
 // Best-effort async stamp; an unstamped item simply skips the conversation-changed gate.
 function stampConversationAnchor(sessionId: string, itemId: string): void {
-  void chatStore
+  void rendererApplication.sessionQueryBridge
     .getSession(sessionId)
     .then((session) => {
       if (!session) return

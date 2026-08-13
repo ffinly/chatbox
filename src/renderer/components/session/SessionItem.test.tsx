@@ -21,12 +21,20 @@ vi.mock('@/components/ui/tooltip', () => ({ AppTooltip: ({ children }: { childre
 vi.mock('@/hooks/useScreenChange', () => ({ useIsSmallScreen: isSmallScreenMock }))
 vi.mock('@/platform', () => ({ default: platformMock }))
 vi.mock('@/router', () => ({ router: { navigate: vi.fn() } }))
-vi.mock('@/stores/chatStore', () => ({
-  archiveSession: vi.fn(),
-  countArchivedSessionsMeta: vi.fn(),
-  updateSession: updateSessionMock,
-}))
-vi.mock('@/stores/sessionActions', () => ({ switchCurrentSession: switchCurrentSessionMock }))
+vi.mock('@/app/renderer-application', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/app/renderer-application')>()
+  return {
+    rendererApplication: {
+      ...actual.rendererApplication,
+      sessions: {
+        archiveSession: vi.fn(),
+        countArchivedSessionsMeta: vi.fn(),
+        updateSession: updateSessionMock,
+      },
+    },
+  }
+})
+vi.mock('@/stores/session/crud', () => ({ switchCurrentSession: switchCurrentSessionMock }))
 vi.mock('@/stores/toastActions', () => ({ add: vi.fn() }))
 vi.mock('@/stores/uiStore', () => ({
   useUIStore: (selector: (state: { setShowSidebar: () => void }) => unknown) => selector({ setShowSidebar: vi.fn() }),

@@ -6,7 +6,7 @@ import type {
   SessionPromptContextSnapshot,
 } from '@shared/types'
 import { useMemo } from 'react'
-import * as chatStore from '../chatStore'
+import { rendererApplication } from '@/app/renderer-application'
 import { uiStore, useUIStore } from '../uiStore'
 
 export function createDefaultAgentModeEntry(smartSwitchingDefault = uiStore.getState().agentModeSmartSwitchingDefault) {
@@ -57,7 +57,7 @@ export function useSessionAgentMode(sessionId: string): AgentModeEntry {
   const legacyMap = useUIStore((state) => state.sessionAgentModeMap)
   const smartSwitchingDefault = useUIStore((state) => state.agentModeSmartSwitchingDefault)
   const lastSelected = useUIStore((state) => state.agentModeLastSelected)
-  const { session } = chatStore.useSession(sessionId === 'new' ? null : sessionId)
+  const { session } = rendererApplication.sessionHooks.useSession(sessionId === 'new' ? null : sessionId)
 
   return useMemo(() => {
     return (
@@ -149,8 +149,8 @@ export function persistSessionPromptContextSnapshotGuarded(
       settings: { ...(session.settings || {}), sessionPromptContextSnapshot: snapshot },
     } as T
   }
-  chatStore.updateSessionCacheSync(sessionId, (current) => applySnapshot(current))
-  void chatStore.updateSession(sessionId, (current) => applySnapshot(current))
+  rendererApplication.sessionQueryBridge.updateSessionCache(sessionId, (current) => applySnapshot(current))
+  void rendererApplication.sessions.updateSession(sessionId, (current) => applySnapshot(current))
 }
 
 export async function setSessionAgentMode(sessionId: string, value: AgentModeValue): Promise<AgentModeEntry> {
@@ -158,7 +158,7 @@ export async function setSessionAgentMode(sessionId: string, value: AgentModeVal
     return setNewSessionAgentMode(value)
   }
 
-  const session = await chatStore.getSession(sessionId)
+  const session = await rendererApplication.sessionQueryBridge.getSession(sessionId)
   if (!session) {
     return createDefaultAgentModeEntry()
   }
@@ -166,13 +166,13 @@ export async function setSessionAgentMode(sessionId: string, value: AgentModeVal
   let next = getSessionAgentModeEntry(sessionId, session)
   if (next.locked && value !== 'on') return next
 
-  chatStore.updateSessionCacheSync(sessionId, (currentSession) => {
+  rendererApplication.sessionQueryBridge.updateSessionCache(sessionId, (currentSession) => {
     const resolved = resolveSetAgentMode(sessionId, currentSession, value)
     next = resolved.entry
     return resolved.session
   })
 
-  await chatStore.updateSession(sessionId, (currentSession) => {
+  await rendererApplication.sessions.updateSession(sessionId, (currentSession) => {
     const resolved = resolveSetAgentMode(sessionId, currentSession, value)
     next = resolved.entry
     return resolved.session
@@ -189,14 +189,14 @@ export async function lockSessionAgentMode(
     return lockNewSessionAgentMode(reason)
   }
 
-  const session = await chatStore.getSession(sessionId)
+  const session = await rendererApplication.sessionQueryBridge.getSession(sessionId)
   if (!session) {
     return { value: 'on', locked: true, lockReason: reason }
   }
 
   const next: AgentModeEntry = { value: 'on', locked: true, lockReason: reason }
-  chatStore.updateSessionCacheSync(sessionId, (currentSession) => applyAgentMode(currentSession, next))
-  await chatStore.updateSession(sessionId, (currentSession) => applyAgentMode(currentSession, next))
+  rendererApplication.sessionQueryBridge.updateSessionCache(sessionId, (currentSession) => applyAgentMode(currentSession, next))
+  await rendererApplication.sessions.updateSession(sessionId, (currentSession) => applyAgentMode(currentSession, next))
   uiStore.getState().clearSessionAgentMode(sessionId)
   return next
 }

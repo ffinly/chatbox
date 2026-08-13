@@ -254,6 +254,7 @@ export const uiStore = createStore(
         agentModeSmartSwitchingDefault: state.agentModeSmartSwitchingDefault,
         agentModeLastSelected: state.agentModeLastSelected,
         sessionWebBrowsingMap: state.sessionWebBrowsingMap,
+        sessionKnowledgeBaseMap: state.sessionKnowledgeBaseMap,
       }),
       storage: safeStorage,
     }

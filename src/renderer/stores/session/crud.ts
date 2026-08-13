@@ -16,16 +16,38 @@ import platform from '@/platform'
 import { router } from '@/router'
 import { sortSessionRecords } from '@/storage/SessionMetaStorage'
 import * as atoms from '../atoms'
-import * as chatStore from '../chatStore'
 import * as scrollActions from '../scrollActions'
 import { clearSessionActivity } from '../sessionActivityStore'
-import { initEmptyChatSession } from '../sessionHelpers'
+import { getMetaStorage, initEmptyChatSession } from '../sessionHelpers'
+
+// Lazy import: message-queue.ts imports session modules that lead back here,
+// so a static import would be circular.
+async function clearMessageQueues(sessionIds: string[]): Promise<void> {
+  const { clearQueue } = await import('./message-queue')
+  for (const sessionId of sessionIds) clearQueue(sessionId)
+}
+
+export async function deleteSession(sessionId: string): Promise<void> {
+  // Clear only after the deletion succeeded: queued messages are the sole copy
+  // of the user's text, and a failed deletion leaves the session (and queue) alive.
+  await rendererApplication.sessions.deleteSession(sessionId)
+  await clearMessageQueues([sessionId])
+}
+
+export async function deleteSessions(sessionIds: string[]): Promise<void> {
+  await rendererApplication.sessions.deleteSessions(sessionIds)
+  await clearMessageQueues(sessionIds)
+}
+
+export async function refreshSessionListCache(): Promise<void> {
+  rendererApplication.sessionQueryBridge.resetSessionList(await rendererApplication.sessions.listSessionsMetaPage(0))
+}
 
 /**
  * Create a new session and switch to it
  */
 async function create(newSession: Omit<Session, 'id'>) {
-  const session = await chatStore.createSession(newSession)
+  const session = await rendererApplication.sessions.createSession(newSession)
   switchCurrentSession(session.id)
   return session
 }
@@ -57,7 +79,7 @@ async function copySession(
     appendForkMarker?: boolean
   }
 ) {
-  const source = await chatStore.getSession(sourceMeta.id)
+  const source = await rendererApplication.sessionQueryBridge.getSession(sourceMeta.id)
   if (!source) {
     throw new Error(`Session ${sourceMeta.id} not found`)
   }
@@ -116,7 +138,7 @@ async function copySession(
     // frozen persona snapshot); otherwise the source session's settings apply.
     ...('settings' in sourceMeta ? { settings: sourceMeta.settings } : {}),
   }
-  return await chatStore.createSession(newSession, source.id)
+  return await rendererApplication.sessions.createSession(newSession, source.id)
 }
 
 /**
@@ -145,7 +167,7 @@ export function switchCurrentSession(sessionId: string) {
  */
 export async function reorderSessions(oldIndex: number, newIndex: number) {
   console.debug('sessionActions', 'reorderSessions', oldIndex, newIndex)
-  const sessions = await chatStore.listSessionsMeta()
+  const sessions = await rendererApplication.sessionQueryBridge.listSessionsMeta()
   const movedSession = sessions[oldIndex]
   if (!movedSession || oldIndex === newIndex) return
   const reorderedSessions = [...sessions]
@@ -173,12 +195,12 @@ export async function reorderSessions(oldIndex: number, newIndex: number) {
   }
 
   if (nextStarred !== movedSession.starred) {
-    await chatStore.updateSession(movedSession.id, { starred: nextStarred })
+    await rendererApplication.sessions.updateSession(movedSession.id, { starred: nextStarred })
   }
 
-  const metaStorage = await chatStore.getMetaStorage()
+  const metaStorage = await getMetaStorage()
   await metaStorage.update(movedSession.id, { sortOrder: newSortOrder, starred: nextStarred })
-  chatStore.updateSessionListData((items) => {
+  rendererApplication.sessionQueryBridge.updateSessionListData((items) => {
     const updated = items.map((s) =>
       s.id === movedSession.id ? { ...s, sortOrder: newSortOrder, starred: nextStarred } : s
     )
@@ -190,7 +212,7 @@ export async function reorderSessions(oldIndex: number, newIndex: number) {
  * Switch to session by sorted index
  */
 export async function switchToIndex(index: number) {
-  const sessions = await chatStore.listSessionsMeta()
+  const sessions = await rendererApplication.sessionQueryBridge.listSessionsMeta()
   const target = sessions[index]
   if (!target) {
     return
@@ -202,7 +224,7 @@ export async function switchToIndex(index: number) {
  * Switch to next/previous session in sorted order
  */
 export async function switchToNext(reversed?: boolean) {
-  const sessions = await chatStore.listSessionsMeta()
+  const sessions = await rendererApplication.sessionQueryBridge.listSessionsMeta()
   if (!sessions) {
     return
   }
@@ -228,12 +250,12 @@ export async function switchToNext(reversed?: boolean) {
  * Archive session list entries, keeping only specified number of sessions
  */
 async function archiveSessionList(keepNum: number) {
-  const sessionMetaList = await chatStore.listAllSessionsMeta()
+  const sessionMetaList = await rendererApplication.sessions.listAllSessionsMeta()
   const archived = sessionMetaList?.slice(keepNum)
   if (!archived?.length) {
     return
   }
-  await chatStore.archiveSessions(archived.map((s) => s.id))
+  await rendererApplication.sessions.archiveSessions(archived.map((s) => s.id))
   // Navigate to home if the current session was archived
   const store = getDefaultStore()
   const currentSessionId = store.get(atoms.currentSessionIdAtom)
@@ -253,7 +275,7 @@ export async function clearConversationList(keepNum: number) {
  * Clear all messages in a session, keeping only system prompt
  */
 export async function clear(sessionId: string) {
-  const session = await chatStore.getSession(sessionId)
+  const session = await rendererApplication.sessionQueryBridge.getSession(sessionId)
   if (!session) {
     return
   }
@@ -273,7 +295,7 @@ export async function clear(sessionId: string) {
       console.warn('Failed to cleanup session attachment RAG entries while clearing session:', error)
     }
   }
-  const updated = await chatStore.updateSessionWithMessages(session.id, {
+  const updated = await rendererApplication.sessions.updateSessionWithMessages(session.id, {
     messages: session.messages.filter((m) => m.role === 'system').slice(0, 1),
     threads: undefined,
     messageForksHash: undefined,

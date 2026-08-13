@@ -33,11 +33,13 @@ import useVersion from '@/hooks/useVersion'
 import * as remote from '@/packages/remote'
 import { router } from '@/router'
 import { useAuthInfoStore } from '@/stores/authInfoStore'
-import { createSession as createSessionStore } from '@/stores/chatStore'
+import { rendererApplication } from '@/app/renderer-application'
 import { resolveChatboxLicenseDefaultModel } from '@/stores/defaultChatModel'
 import { getHasCompletedFirstSuccessfulChat } from '@/stores/firstSuccessfulChat'
 import { getSessionAgentModeEntry } from '@/stores/session/agent-mode'
-import { generate, submitNewUserMessage, switchCurrentSession } from '@/stores/sessionActions'
+import { switchCurrentSession } from '@/stores/session/crud'
+import { generate } from '@/stores/session/generation'
+import { submitNewUserMessage } from '@/stores/session/messages'
 import { initEmptyChatSession } from '@/stores/sessionHelpers'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
@@ -278,7 +280,7 @@ function Index() {
       settingsPatch?: Partial<SessionSettings>
       settingsOverride?: Partial<SessionSettings>
     }) => {
-      const newSession = await createSessionStore({
+      const newSession = await rendererApplication.sessions.createSession({
         name: options?.name ?? session.name,
         type: 'chat',
         assistantAvatarKey: session.assistantAvatarKey,

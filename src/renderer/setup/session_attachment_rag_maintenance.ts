@@ -1,8 +1,11 @@
 import type { Session, SessionAttachmentRagMaintenanceResult } from '@shared/types'
+import { rendererApplication } from '@/app/renderer-application'
 import { getLogger } from '@/lib/utils'
 import platform from '@/platform'
-import { getSession, listSessionsMetaPage } from '@/stores/chatStore'
 import { SESSION_ATTACHMENT_RAG_LOG_PREFIX } from '../../shared/session-attachment-rag/logging'
+
+const getSession = (sessionId: string) => rendererApplication.sessionQueryBridge.getSession(sessionId)
+const listSessionsMetaPage = (page: number) => rendererApplication.sessions.listSessionsMetaPage(page)
 
 const log = getLogger('session-attachment-rag-maintenance')
 const ORPHAN_CLEANUP_INTERVAL_MS = 30 * 60 * 1000

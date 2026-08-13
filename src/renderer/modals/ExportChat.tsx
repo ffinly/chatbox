@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { AdaptiveSelect } from '@/components/AdaptiveSelect'
 import { AdaptiveModal } from '@/components/common/AdaptiveModal'
 import { currentSessionIdAtom } from '@/stores/atoms'
-import { exportSessionChat } from '@/stores/sessionActions'
+import { exportSessionChat } from '@/stores/session/export'
 
 const ExportChat = NiceModal.create(() => {
   const modal = useModal()

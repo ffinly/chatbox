@@ -20,20 +20,19 @@ import useVersion from '@/hooks/useVersion'
 import { defaultSessionsForCN, defaultSessionsForEN } from '@/packages/initial_data'
 import * as remote from '@/packages/remote'
 import { useAuthInfoStore } from '@/stores/authInfoStore'
-import { updateSession as updateSessionStore, useSession } from '@/stores/chatStore'
+import { rendererApplication } from '@/app/renderer-application'
 import { applyChatboxLicenseDefaultModelToSession } from '@/stores/defaultChatModel'
 import { lastUsedModelStore } from '@/stores/lastUsedModelStore'
 import * as scrollActions from '@/stores/scrollActions'
-import {
-  removeCurrentThread,
-  startNewThread,
-  stopAllMessageGenerations,
-  submitNewUserMessage,
-} from '@/stores/sessionActions'
+import { stopAllMessageGenerations } from '@/stores/session/generation-cancellation'
+import { submitNewUserMessage } from '@/stores/session/messages'
+import { removeCurrentThread, startNewThread } from '@/stores/session/threads'
 import { clearSessionActivity } from '@/stores/sessionActivityStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
 import { getHomeWelcomeCardMode } from '@/utils/homeWelcomeCard'
+
+const useSession = (sessionId: string | null) => rendererApplication.sessionHooks.useSession(sessionId)
 
 export const Route = createFileRoute('/session/$sessionId')({
   component: RouteComponent,
@@ -120,7 +119,7 @@ function RouteComponent() {
     if (!currentSession || !currentSessionWithDefaultModel || currentSessionWithDefaultModel === currentSession) {
       return
     }
-    void updateSessionStore(currentSession.id, {
+    void rendererApplication.sessions.updateSession(currentSession.id, {
       settings: currentSessionWithDefaultModel.settings,
     })
   }, [currentSession, currentSessionWithDefaultModel])
@@ -130,7 +129,7 @@ function RouteComponent() {
       if (!currentSession) {
         return
       }
-      void updateSessionStore(currentSession.id, {
+      void rendererApplication.sessions.updateSession(currentSession.id, {
         settings: {
           ...(currentSession.settings || {}),
           provider,
@@ -170,7 +169,7 @@ function RouteComponent() {
         return
       }
       if (currentSessionWithDefaultModel && currentSessionWithDefaultModel !== currentSession) {
-        await updateSessionStore(currentSession.id, {
+        await rendererApplication.sessions.updateSession(currentSession.id, {
           settings: currentSessionWithDefaultModel.settings,
         })
       }

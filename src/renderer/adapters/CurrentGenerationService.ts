@@ -24,8 +24,8 @@ import platform from '@/platform'
 import { createSandboxProvider } from '@/sandbox'
 import { settingsService } from '@/settings-runtime'
 import { StorageKeyGenerator } from '@/storage/StoreStorage'
-import * as chatStore from '@/stores/chatStore'
 import { markFirstSuccessfulChatCompleted } from '@/stores/firstSuccessfulChat'
+import { getSessionSettings } from '@/stores/session/session-settings'
 import { prepareAgentGenerationHarness, refreshSessionAttachmentStatuses } from '@/stores/session/agent-harness'
 import {
   getSessionAgentModeEntry,
@@ -71,11 +71,11 @@ const logger: LoggerPort = {
 }
 
 const sessions: GenerationSessionPort = {
-  getSession: (sessionId) => chatStore.getSession(sessionId),
+  getSession: (sessionId) => rendererApplication.sessionQueryBridge.getSession(sessionId),
   isSessionMissingError: (error) => error instanceof SessionNotFoundError,
-  getSessionSettings: (sessionId) => chatStore.getSessionSettings(sessionId),
+  getSessionSettings: (sessionId) => getSessionSettings(sessionId),
   updateSessionSettings: async (sessionId, update) => {
-    await chatStore.updateSession(sessionId, (current) => {
+    await rendererApplication.sessions.updateSession(sessionId, (current) => {
       if (!current) {
         throw new Error(`Session ${sessionId} not found`)
       }

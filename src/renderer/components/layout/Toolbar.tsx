@@ -19,8 +19,9 @@ import { copyToClipboard } from '@/packages/navigator'
 import { confirmSessionDeletion } from '@/presentation/session/session-deletion-confirmation'
 import { router } from '@/router'
 import * as atoms from '@/stores/atoms'
-import { deleteSession, getSession } from '@/stores/chatStore'
-import { clear as clearSession, copyAndSwitchSession } from '@/stores/sessionActions'
+import { rendererApplication } from '@/app/renderer-application'
+import { deleteSession } from '@/stores/session/crud'
+import { clear as clearSession, copyAndSwitchSession } from '@/stores/session/crud'
 import * as toastActions from '@/stores/toastActions'
 import { useUIStore } from '@/stores/uiStore'
 import ActionMenu from '../ActionMenu'
@@ -62,14 +63,14 @@ export default function Toolbar({ sessionId }: { sessionId: string }) {
   }
 
   const handleViewSessionJson = useCallback(async () => {
-    const session = await getSession(sessionId)
+    const session = await rendererApplication.sessionQueryBridge.getSession(sessionId)
     if (session) {
       await NiceModal.show('json-viewer', { title: t('Session Raw JSON'), data: session })
     }
   }, [sessionId, t])
 
   const handleCopySession = useCallback(async () => {
-    const session = await getSession(sessionId)
+    const session = await rendererApplication.sessionQueryBridge.getSession(sessionId)
     if (session) {
       await copyAndSwitchSession(session)
     }
