@@ -14,9 +14,11 @@ vi.mock('@/app/renderer-application', async () => {
   return { rendererApplication: { generationRuntime: new GenerationRuntimeStore() } }
 })
 
+import { rendererApplication } from '@/app/renderer-application'
 import { setCompactionUIState } from '../atoms/compactionAtoms'
 import { guardSessionAction } from './action-guard'
-import { generationRuntimeStore } from './generation-runtime'
+
+const generationRuntimeStore = rendererApplication.generationRuntime
 
 function message(overrides: Partial<Message>): Message {
   return {

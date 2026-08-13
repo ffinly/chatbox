@@ -2,9 +2,11 @@ import type { Message } from '@shared/types'
 import { getDefaultStore } from 'jotai'
 import { useSyncExternalStore } from 'react'
 import { createStore, useStore } from 'zustand'
+import { rendererApplication } from '@/app/renderer-application'
 import { currentSessionIdAtom } from './atoms/sessionAtoms'
-import { generationRuntimeStore } from './session/generation-runtime'
 import { isSuccessfulAssistantReply } from './session/message-success'
+
+const generationRuntimeStore = rendererApplication.generationRuntime
 
 export type SessionActivity = 'idle' | 'generating' | 'completed'
 

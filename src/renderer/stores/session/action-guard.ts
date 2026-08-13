@@ -8,10 +8,10 @@ import {
 import { supportsSessionGeneration } from '@shared/session/capabilities'
 import type { Session } from '@shared/types'
 import { t } from 'i18next'
+import { rendererApplication } from '@/app/renderer-application'
 import { notifySessionLockBlocked } from '@/utils/session-lock-copy'
 import { getCompactionUIState } from '../atoms/compactionAtoms'
 import * as chatStore from '../chatStore'
-import { getActiveGenerationMessageIds } from './generation-runtime'
 
 /**
  * Derive the lock snapshot for a session from its current stored state plus
@@ -31,7 +31,7 @@ export async function getSessionLockStateNow(
   const compactionRunning = getCompactionUIState(sessionId).status === 'running'
   return deriveSessionLockState(session, {
     compactionRunning,
-    activeGenerationMessageIds: getActiveGenerationMessageIds(sessionId),
+    activeGenerationMessageIds: rendererApplication.generationRuntime.getActiveMessageIds(sessionId),
   })
 }
 

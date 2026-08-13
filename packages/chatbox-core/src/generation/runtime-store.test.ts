@@ -27,6 +27,17 @@ describe('GenerationRuntimeStore', () => {
     expect(store.get('session-1')).toBe(state)
   })
 
+  it('lists active message ids scoped to the session', () => {
+    const store = createStore()
+    store.start('session-1', 'message-1')
+    store.start('session-1', 'message-2')
+    store.start('session-2', 'message-3')
+
+    expect(store.getActiveMessageIds('session-1')).toEqual(new Set(['message-1', 'message-2']))
+    expect(store.getActiveMessageIds('session-2')).toEqual(new Set(['message-3']))
+    expect(store.getActiveMessageIds('session-3')).toEqual(new Set())
+  })
+
   it('transitions only the matching message runtime', () => {
     const store = createStore()
     store.start('session-1', 'message-1')

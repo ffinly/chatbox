@@ -25,6 +25,7 @@ export {
   getMessageThreadContext,
   getSessionWebBrowsing,
   regenerateInNewFork,
+  retryFromLastToolCallAfterApiError,
 } from './session/generation'
 export { stopAllMessageGenerations, stopMessageGeneration } from './session/generation-cancellation'
 // Re-export message operations from session/messages.ts
@@ -42,13 +43,6 @@ export {
   scheduleGenerateNameAndThreadName,
   scheduleGenerateThreadName,
 } from './session/naming'
-export {
-  continuePausedToolCall,
-  disableToolCallLimitPauseAndContinue,
-  isRetryableToolCallStep,
-  retryFromLastToolCallAfterApiError,
-  stopPausedToolCall,
-} from './session/orchestration'
 // Re-export thread operations from session/threads.ts
 export {
   compressAndCreateThread,

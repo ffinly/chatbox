@@ -9,9 +9,9 @@ import {
 } from '@shared/session/message-forks'
 import type { Message } from '@shared/types'
 import { v4 as uuidv4 } from 'uuid'
+import { rendererApplication } from '@/app/renderer-application'
 import * as chatStore from '../chatStore'
 import { guardSessionAction } from './action-guard'
-import { generationRuntimeStore } from './generation-runtime'
 
 const forkIdentity = {
   createId: uuidv4,
@@ -111,7 +111,7 @@ export async function deleteFork(sessionId: string, forkMessageId: string) {
   let removedMessageIds = new Set<string>()
   const discardRemovedRuntimes = () => {
     for (const messageId of removedMessageIds) {
-      generationRuntimeStore.discard(sessionId, messageId, 'fork-deleted')
+      rendererApplication.generationRuntime.discard(sessionId, messageId, 'fork-deleted')
     }
   }
   await chatStore.updateSessionWithMessages(
@@ -131,7 +131,7 @@ export async function deleteFork(sessionId: string, forkMessageId: string) {
             (message) =>
               !reachableAfter.has(message.id) &&
               message.role === 'assistant' &&
-              (message.generating || generationRuntimeStore.get(sessionId, message.id) !== undefined)
+              (message.generating || rendererApplication.generationRuntime.get(sessionId, message.id) !== undefined)
           )
           .map((message) => message.id)
       )

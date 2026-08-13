@@ -115,7 +115,7 @@ export function computeEffectiveAgentMode(agentModeValue, agentModeSupported) {
 
 ### Auto 建议机制（首轮分类器）
 
-文件触发已被移除，改为在会话首轮用一个独立的快速分类模型判断意图。逻辑位于 `orchestration.ts` 的 `shouldSuggestAgentMode()` 与 `agent-mode-suggestion.ts`。
+文件触发已被移除，改为在会话首轮用一个独立的快速分类模型判断意图。逻辑位于 `packages/chatbox-core/src/generation/` 的 `shouldSuggestAgentMode()`（GenerationService）与 `agent-mode-suggestion.ts`。
 
 触发条件（全部满足才运行分类器）：
 
@@ -182,7 +182,7 @@ Chat Agent 不再 fallback 注入底层 `sandbox_*` 工具。
 
 ## 多轮工具调用上限
 
-`orchestration.ts` 通过 `withToolCallLimitPause()` 在达到上限时暂停，而不是返回一个普通 tool result 让模型继续循环。暂停发生在即将执行下一次工具前；用户点击继续后会执行该工具调用，并在同一条消息内继续生成。
+GenerationService（`packages/chatbox-core/src/generation/`）通过 `withToolCallLimitPause()` 在达到上限时暂停，而不是返回一个普通 tool result 让模型继续循环。暂停发生在即将执行下一次工具前；用户点击继续后会执行该工具调用，并在同一条消息内继续生成。
 
 当前常量位于 `MAX_TOOL_CALLS_BEFORE_CONFIRMATION`（`src/shared/utils/tool-call-limit-pause.ts`）。发布前应确认它符合产品目标值，避免测试用小阈值影响真实用户。
 

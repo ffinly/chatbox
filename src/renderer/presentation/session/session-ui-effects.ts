@@ -2,7 +2,7 @@ import type { SessionApplicationEvent, SessionEventBus } from '@chatbox/core/app
 import { clearScrollPositionCache } from '@/components/chat/MessageList'
 import platform from '@/platform'
 import { cleanupSessionAtomCache } from '@/stores/atoms/throttleWriteSessionAtom'
-import { generationRuntimeStore } from '@/stores/session/generation-runtime'
+import { rendererApplication } from '@/app/renderer-application'
 import { clearSessionNameGenerationState } from '@/stores/session/naming'
 import { clearSessionActivity } from '@/stores/sessionActivityStore'
 import { uiStore } from '@/stores/uiStore'
@@ -44,7 +44,7 @@ export function registerSessionUiEffects(events: SessionEventBus): () => void {
   return events.subscribe(async (event) => {
     if (event.type === 'session-will-delete') {
       for (const sessionId of event.ids) {
-        generationRuntimeStore.abort(sessionId, undefined, 'session-deleted')
+        rendererApplication.generationRuntime.abort(sessionId, undefined, 'session-deleted')
       }
       await cleanupAttachmentRagEntries(event)
       return

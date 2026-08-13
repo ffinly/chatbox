@@ -1,10 +1,9 @@
+// @vitest-environment jsdom
 import type { Message } from '@shared/types'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const serviceMocks = vi.hoisted(() => {
   return {
-    stopPausedToolCall: vi.fn(() => Promise.resolve()),
-    continuePausedToolCall: vi.fn(() => Promise.resolve()),
     retryFromLastToolCallAfterApiError: vi.fn(() => Promise.resolve()),
   }
 })
@@ -17,15 +16,13 @@ vi.mock('@/adapters/CurrentGenerationService', () => ({
 // behavior under test is exercised.
 vi.mock('../chatStore', () => ({ getSession: vi.fn(() => Promise.resolve(null)) }))
 
-import { createInitialState } from '@chatbox/core/generation'
 import {
   applyPersistentToolCallPause,
-  continuePausedToolCall,
+  createInitialState,
   createPausedToolCallExecutionContext,
   finishPausedToolCallContinuation,
-  retryFromLastToolCallAfterApiError,
-  stopPausedToolCall,
-} from './orchestration'
+} from '@chatbox/core/generation'
+import { retryFromLastToolCallAfterApiError } from './generation'
 
 const approvalDetails = {
   type: 'image_generation' as const,
@@ -36,20 +33,16 @@ const approvalDetails = {
   billing: 'chatbox_quota' as const,
 }
 
-describe('paused tool-call compatibility facade', () => {
+describe('retryFromLastToolCallAfterApiError', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it.each([
-    ['approval denial', stopPausedToolCall, serviceMocks.stopPausedToolCall],
-    ['approval continuation', continuePausedToolCall, serviceMocks.continuePausedToolCall],
-    ['API retry', retryFromLastToolCallAfterApiError, serviceMocks.retryFromLastToolCallAfterApiError],
-  ])('delegates %s to the shared GenerationService composition', async (_name, run, serviceMethod) => {
-    await run('session-1', 'message-1', 'tool-1')
+  it('runs the session action gate before delegating to the shared GenerationService', async () => {
+    await retryFromLastToolCallAfterApiError('session-1', 'message-1', 'tool-1')
 
-    expect(serviceMethod).toHaveBeenCalledOnce()
-    expect(serviceMethod).toHaveBeenCalledWith('session-1', 'message-1', 'tool-1')
+    expect(serviceMocks.retryFromLastToolCallAfterApiError).toHaveBeenCalledOnce()
+    expect(serviceMocks.retryFromLastToolCallAfterApiError).toHaveBeenCalledWith('session-1', 'message-1', 'tool-1')
   })
 })
 

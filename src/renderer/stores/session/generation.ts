@@ -5,12 +5,12 @@ import { supportsSessionGeneration } from '@shared/session/capabilities'
 import { findMessageContext } from '@shared/session/message-forks'
 import { type CompactionPoint, createMessage, type Message, type Session, type SessionSettings } from '@shared/types'
 import type { AgentModeEntrySource } from '@/analytics/agent-mode'
+import { currentGenerationService } from '@/adapters/CurrentGenerationService'
 import * as chatStore from '../chatStore'
 import { guardSessionAction } from './action-guard'
 import { createAttachmentResolver } from './attachment-resolver'
 import { createInactiveFork, createNewFork, findMessageLocation } from './forks'
 import { insertMessageAfter } from './messages'
-import { orchestrateGeneration } from './orchestration'
 
 /** Internal generation entry point for callers that already hold the session generation lock. */
 export async function _generateWithoutSessionLock(
@@ -33,7 +33,16 @@ export async function _generateWithoutSessionLock(
     return
   }
 
-  await orchestrateGeneration(sessionId, targetMsg, options)
+  await currentGenerationService.orchestrate(sessionId, targetMsg, options)
+}
+
+export async function retryFromLastToolCallAfterApiError(sessionId: string, messageId: string, toolCallId: string) {
+  // Regenerate-class entry: enforce the session action gate before delegating
+  // to the shared service so a stale caller cannot race a streaming reply.
+  if (!(await guardSessionAction(sessionId, 'regenerate'))) {
+    return
+  }
+  return currentGenerationService.retryFromLastToolCallAfterApiError(sessionId, messageId, toolCallId)
 }
 
 export function generate(

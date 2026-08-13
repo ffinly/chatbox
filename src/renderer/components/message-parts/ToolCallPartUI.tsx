@@ -57,6 +57,7 @@ import {
 import clsx from 'clsx'
 import { type FC, type ReactNode, type Ref, useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { currentGenerationService } from '@/adapters/CurrentGenerationService'
 import { ImageGenerationResultGallery } from '@/components/chat/ImageGenerationResultGallery'
 import { ChatboxAIErrorMessage } from '@/components/common/ChatboxAIErrorMessage'
 import { ScalableIcon } from '@/components/common/ScalableIcon'
@@ -77,11 +78,6 @@ import {
   useApprovalCardHighlighted,
 } from '@/stores/approvalAttentionStore'
 import { useCurrentGeneratingId, useImageGenerationRecord } from '@/stores/imageGenerationStore'
-import {
-  continuePausedToolCall,
-  disableToolCallLimitPauseAndContinue,
-  stopPausedToolCall,
-} from '@/stores/sessionActions'
 import * as toastActions from '@/stores/toastActions'
 import { useUIStore } from '@/stores/uiStore'
 import { inlineSandboxHtmlAssets } from './html-artifact-assets'
@@ -1321,8 +1317,8 @@ const PausedToolCallDetails: FC<{ part: MessageToolCallPart } & ToolCallActionCo
         toolCallId={part.toolCallId}
         details={pauseReason.details}
         disabled={!sessionId || !messageId}
-        onApprove={() => sessionId && messageId && continuePausedToolCall(sessionId, messageId, part.toolCallId)}
-        onDeny={() => sessionId && messageId && stopPausedToolCall(sessionId, messageId, part.toolCallId)}
+        onApprove={() => sessionId && messageId && currentGenerationService.continuePausedToolCall(sessionId, messageId, part.toolCallId)}
+        onDeny={() => sessionId && messageId && currentGenerationService.stopPausedToolCall(sessionId, messageId, part.toolCallId)}
         actionsRef={approvalActionsRef}
       />
     )
@@ -1354,7 +1350,7 @@ const PausedToolCallDetails: FC<{ part: MessageToolCallPart } & ToolCallActionCo
   const handleDontAskAgain = (scope: 'session' | 'global') => {
     if (!sessionId || !messageId || pauseReason?.type !== 'tool_call_limit') return
     const count = pauseReason.maxToolCalls
-    disableToolCallLimitPauseAndContinue(sessionId, messageId, part.toolCallId, scope)
+    currentGenerationService.disableToolCallLimitPauseAndContinue(sessionId, messageId, part.toolCallId, scope)
       .then(() => {
         toastActions.add(
           scope === 'global'
@@ -1383,7 +1379,7 @@ const PausedToolCallDetails: FC<{ part: MessageToolCallPart } & ToolCallActionCo
               size="compact-xs"
               color="chatbox-brand"
               disabled={!sessionId || !messageId}
-              onClick={() => sessionId && messageId && continuePausedToolCall(sessionId, messageId, part.toolCallId)}
+              onClick={() => sessionId && messageId && currentGenerationService.continuePausedToolCall(sessionId, messageId, part.toolCallId)}
             >
               {t('Continue')}
             </Button>
@@ -1426,7 +1422,7 @@ const PausedToolCallDetails: FC<{ part: MessageToolCallPart } & ToolCallActionCo
             leftSection={isApproval ? <IconCheck size={14} stroke={2.5} /> : undefined}
             color="chatbox-brand"
             disabled={!sessionId || !messageId}
-            onClick={() => sessionId && messageId && continuePausedToolCall(sessionId, messageId, part.toolCallId)}
+            onClick={() => sessionId && messageId && currentGenerationService.continuePausedToolCall(sessionId, messageId, part.toolCallId)}
           >
             {isApproval ? t('Approve') : t('Continue')}
           </Button>
@@ -1437,7 +1433,7 @@ const PausedToolCallDetails: FC<{ part: MessageToolCallPart } & ToolCallActionCo
           variant="light"
           color="chatbox-error"
           disabled={!sessionId || !messageId}
-          onClick={() => sessionId && messageId && stopPausedToolCall(sessionId, messageId, part.toolCallId)}
+          onClick={() => sessionId && messageId && currentGenerationService.stopPausedToolCall(sessionId, messageId, part.toolCallId)}
         >
           {isApproval ? t('Deny') : t('Stop')}
         </Button>

@@ -5,6 +5,7 @@ import type { Session } from '@shared/types'
 import { IconArrowUp } from '@tabler/icons-react'
 import { type FC, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { currentGenerationService } from '@/adapters/CurrentGenerationService'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import {
   clearApprovalInputNudge,
@@ -12,7 +13,6 @@ import {
   useApprovalNudged,
   useIsApprovalCardVisible,
 } from '@/stores/approvalAttentionStore'
-import { continuePausedToolCall, stopPausedToolCall } from '@/stores/sessionActions'
 
 /**
  * Floating pill above the input box while a tool call waits for approval. The full
@@ -97,7 +97,7 @@ const PendingApprovalPill: FC<{ session: Session }> = ({ session }) => {
               radius="xl"
               color="chatbox-brand"
               className="shrink-0"
-              onClick={() => continuePausedToolCall(session.id, current.messageId, current.toolCallId)}
+              onClick={() => currentGenerationService.continuePausedToolCall(session.id, current.messageId, current.toolCallId)}
             >
               {t('Approve')}
             </Button>
@@ -108,7 +108,7 @@ const PendingApprovalPill: FC<{ session: Session }> = ({ session }) => {
               variant="light"
               color="chatbox-error"
               className="shrink-0"
-              onClick={() => stopPausedToolCall(session.id, current.messageId, current.toolCallId)}
+              onClick={() => currentGenerationService.stopPausedToolCall(session.id, current.messageId, current.toolCallId)}
             >
               {t('Deny')}
             </Button>

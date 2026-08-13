@@ -13,7 +13,9 @@ vi.mock('./action-guard', () => ({ guardSessionAction: guardSessionActionMock })
 vi.mock('uuid', () => ({ v4: vi.fn(() => 'id') }))
 
 import { deleteFork } from './forks'
-import { generationRuntimeStore } from './generation-runtime'
+import { rendererApplication } from '@/app/renderer-application'
+
+const generationRuntimeStore = rendererApplication.generationRuntime
 
 function message(id: string, role: Message['role'] = 'assistant'): Message {
   return { id, role, contentParts: [], generating: role === 'assistant' }

@@ -5,9 +5,9 @@ import {
 } from '@chatbox/core/session/generation-state'
 import { createMessage, type Message, type Session } from '@shared/types'
 import { createStore } from 'zustand'
+import { rendererApplication } from '@/app/renderer-application'
 import { getLogger } from '@/lib/utils'
 import * as chatStore from '@/stores/chatStore'
-import { getActiveGenerationMessageIds } from './generation-runtime'
 
 const log = getLogger('message-queue')
 
@@ -221,7 +221,7 @@ function deliverQueuedMessage(sessionId: string, item: QueuedUserMessage): Promi
 
     // Alternative replies generate concurrently without holding the session lock,
     // so an explicit check is required in addition to lock serialization.
-    const activeGenerationMessageIds = getActiveGenerationMessageIds(sessionId)
+    const activeGenerationMessageIds = rendererApplication.generationRuntime.getActiveMessageIds(sessionId)
     if (
       countCancellableGeneratingAssistantMessages(
         getGenerationControlMessages(session, activeGenerationMessageIds),

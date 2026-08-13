@@ -5,9 +5,11 @@ import type { Session } from '@shared/types'
 import { act, renderHook } from '@testing-library/react'
 import { getDefaultStore } from 'jotai'
 import { beforeEach, describe, expect, test } from 'vitest'
+import { rendererApplication } from '@/app/renderer-application'
 import { compactionUIStateMapAtom } from '@/stores/atoms/compactionAtoms'
-import { generationRuntimeStore } from '@/stores/session/generation-runtime'
 import { useSessionLockState } from './useSessionLockState'
+
+const generationRuntimeStore = rendererApplication.generationRuntime
 
 function session(overrides: Partial<Session> = {}): Session {
   return {

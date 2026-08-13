@@ -1,3 +1,4 @@
+import { isRetryableToolCallStep } from '@chatbox/core/generation'
 import {
   getSessionActionGate,
   IDLE_SESSION_LOCK_STATE,
@@ -39,6 +40,7 @@ import type React from 'react'
 import { type FC, forwardRef, type MouseEventHandler, memo, useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { trackAgentModeSuggestionAction } from '@/analytics/agent-mode'
+import { rendererApplication } from '@/app/renderer-application'
 import { trackJkClickEvent } from '@/analytics/jk'
 import { JK_EVENTS, JK_PAGE_NAMES } from '@/analytics/jk-events'
 import Markdown from '@/components/Markdown'
@@ -52,14 +54,12 @@ import { copyToClipboard } from '@/packages/navigator'
 import { countWord } from '@/packages/word-count'
 import { getSession } from '@/stores/chatStore'
 import { lockSessionAgentMode, setSessionAgentMode } from '@/stores/session/agent-mode'
-import { useIsGenerationRuntimeActive } from '@/stores/session/generation-runtime'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
 import '../../static/Block.css'
 import {
   generate,
   generateMore,
-  isRetryableToolCallStep,
   modifyMessage,
   regenerateInNewFork,
   removeMessage,
@@ -88,6 +88,8 @@ import { getMessageRoleClass } from './message-role-class'
 import { createMessageTimelineLayout } from './message-timeline'
 import { getMessageTokenDisplay } from './message-token-display'
 import { PictureGallery } from './PictureGallery'
+
+const useIsGenerationRuntimeActive = rendererApplication.generationHooks.useIsActive
 
 // Reset an assistant message back to a clean generating state, reusing the same
 // message slot (e.g. when acting on an agent-mode suggestion callout).

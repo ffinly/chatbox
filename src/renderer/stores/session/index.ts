@@ -50,6 +50,7 @@ export {
   getMessageThreadContext,
   getSessionWebBrowsing,
   regenerateInNewFork,
+  retryFromLastToolCallAfterApiError,
 } from './generation'
 export type { GenerationCancellationDependencies } from './generation-cancellation'
 export { stopAllMessageGenerations, stopMessageGeneration } from './generation-cancellation'
@@ -81,15 +82,6 @@ export {
   scheduleGenerateThreadName,
 } from './naming'
 export { getOCRModel, ocrImagesInMessages } from './ocr-helper'
-// Orchestration and AI helpers
-export {
-  continuePausedToolCall,
-  disableToolCallLimitPauseAndContinue,
-  isRetryableToolCallStep,
-  orchestrateGeneration,
-  retryFromLastToolCallAfterApiError,
-  stopPausedToolCall,
-} from './orchestration'
 // Thread operations (9 functions)
 export {
   compressAndCreateThread,

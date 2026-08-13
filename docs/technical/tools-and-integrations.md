@@ -171,7 +171,7 @@ ToolCallPartUI (ParseLinkUI / WebSearchGroupUI / GeneralToolCallUI)
 
 ## Tool 构建与注入
 
-工具在 AI 生成调用前由 `buildToolsForSession()`（`src/renderer/stores/session/tools-builder.ts`）动态组装，调用方在 `orchestration.ts` 中把结果传给模型：
+工具在 AI 生成调用前由 `buildToolsForSession()`（`src/renderer/stores/session/tools-builder.ts`）动态组装，调用方（`agent-harness.ts` 与 `adapters/CurrentGenerationService.ts`）把结果传给模型：
 
 1. **模型能力检查**：Agent 工具需要模型支持 `agent` scope；Web Search 使用独立的 `web-browsing` scope。
 2. **Web Search 工具**：当会话启用网页浏览且模型支持 `web-browsing` 时启用，独立于 Agent Mode。
@@ -190,7 +190,7 @@ Skills 集成沿用 `buildToolsForSession()` 返回的 `{ tools, instructions }`
 
 这样既保留了技能扩展能力，也避免在每次请求中注入所有技能正文带来的 token 膨胀。
 
-`buildToolsForSession()` 函数（`src/renderer/stores/session/tools-builder.ts`）已实现，统一封装上述逻辑，返回 `{ tools, instructions }` 结构。调用方通过 `orchestration.ts` 使用该函数完成工具组装。
+`buildToolsForSession()` 函数（`src/renderer/stores/session/tools-builder.ts`）已实现，统一封装上述逻辑，返回 `{ tools, instructions }` 结构。调用方（`agent-harness.ts` / `adapters/CurrentGenerationService.ts`）使用该函数完成工具组装。
 
 ### Skills 相关工具
 
@@ -226,7 +226,7 @@ Model Chat Refactor 中的核心部分已落地：
 
 - **chatStream()**：Model 接口已定义 `chatStream()` 方法（`src/shared/models/types.ts`），返回 `AsyncGenerator<ModelStreamPart>`，暴露流式事件（包括工具调用状态和自定义 `status` 事件）
 - **buildToolsForSession()**：统一工具构建函数（`src/renderer/stores/session/tools-builder.ts`），根据会话配置和模型能力组装工具集与系统提示词注入指令
-- **Orchestration 层**：`src/renderer/stores/session/orchestration.ts` 组合 ContextBuilder → buildToolsForSession → chatStream 完成完整的 AI 调用流程
+- **Orchestration 层**：GenerationService（`packages/chatbox-core/src/generation/GenerationService.ts`，renderer 经 `currentGenerationService` 调用）组合 ContextBuilder → buildToolsForSession → chatStream 完成完整的 AI 调用流程
 
 ## Code Execution 工具集（Chat 模式）
 

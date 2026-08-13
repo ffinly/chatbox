@@ -16,11 +16,16 @@ import {
 } from '@shared/types'
 import compact from 'lodash/compact'
 import { useMemo } from 'react'
-import { sessionHooks, sessionQueryBridge, sessionRepository, sessionService } from '@/session-runtime'
+import { rendererApplication } from '@/app/renderer-application'
 import * as defaults from '../../shared/defaults'
 import { settingsStore, useSettingsStore } from './settingsStore'
 
 export { QueryKeys }
+
+const sessionService = rendererApplication.sessions
+const sessionRepository = rendererApplication.sessions.repository
+const sessionQueryBridge = rendererApplication.sessionQueryBridge
+const sessionHooks = rendererApplication.sessionHooks
 
 // Compatibility facade: existing imports stay stable while implementation lives
 // in the application service and React Query binding.

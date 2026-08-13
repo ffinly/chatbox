@@ -65,6 +65,10 @@ export class GenerationRuntimeStore {
     return [...(this.states.get(sessionId)?.values() ?? [])]
   }
 
+  getActiveMessageIds(sessionId: string): ReadonlySet<string> {
+    return new Set(this.list(sessionId).map((runtime) => runtime.messageId))
+  }
+
   /**
    * Abort an active runtime or remember the request for the placeholder window
    * before GenerationService registers its controller.

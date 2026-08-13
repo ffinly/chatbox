@@ -32,7 +32,9 @@ vi.mock('./forks', () => ({
   findMessageLocation: findMessageLocationMock,
 }))
 vi.mock('./messages', () => ({ insertMessageAfter: insertMessageAfterMock }))
-vi.mock('./orchestration', () => ({ orchestrateGeneration: orchestrateGenerationMock }))
+vi.mock('@/adapters/CurrentGenerationService', () => ({
+  currentGenerationService: { orchestrate: orchestrateGenerationMock },
+}))
 vi.mock('./action-guard', () => ({ guardSessionAction: guardSessionActionMock }))
 vi.mock('./utils', () => ({ getSessionWebBrowsing: vi.fn() }))
 

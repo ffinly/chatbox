@@ -2,8 +2,8 @@ import { createMessage } from '@shared/types'
 import { getDefaultStore } from 'jotai'
 import { beforeEach, describe, expect, it } from 'vitest'
 
+import { rendererApplication } from '@/app/renderer-application'
 import { currentSessionIdAtom } from './atoms/sessionAtoms'
-import { generationRuntimeStore } from './session/generation-runtime'
 import {
   clearSessionActivity,
   getSessionActivity,
@@ -12,6 +12,8 @@ import {
   resetSessionActivityStore,
   sessionActivityStore,
 } from './sessionActivityStore'
+
+const generationRuntimeStore = rendererApplication.generationRuntime
 
 function completedReply(id: string) {
   return { ...createMessage('assistant', 'Finished answer'), id, generating: false, finishReason: 'stop' }

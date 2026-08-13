@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { Message, Session, SessionMetaRecord, SessionThread } from '../../shared/types'
-import { generationRuntimeStore } from './session/generation-runtime'
+import { rendererApplication } from '@/app/renderer-application'
 import * as sessionActions from './sessionActions'
 import { sessionActivityStore } from './sessionActivityStore'
+
+const generationRuntimeStore = rendererApplication.generationRuntime
 
 const { uuidQueue, uuidv4Mock } = vi.hoisted(() => {
   const queue: string[] = []

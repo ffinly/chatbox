@@ -10,5 +10,21 @@ export function createGenerationHooks(runtime: GenerationRuntimeStore) {
         () => undefined
       )
     },
+    /** Re-renders the caller whenever any generation runtime starts, transitions, or ends. */
+    useVersion(): number {
+      return useSyncExternalStore(
+        (listener) => runtime.subscribe(listener),
+        () => runtime.getVersion(),
+        () => 0
+      )
+    },
+    /** True while the given message has an active generation runtime. */
+    useIsActive(sessionId: string, messageId: string): boolean {
+      return useSyncExternalStore(
+        (listener) => runtime.subscribe(listener),
+        () => runtime.get(sessionId, messageId) !== undefined,
+        () => false
+      )
+    },
   }
 }

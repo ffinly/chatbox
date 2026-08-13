@@ -35,7 +35,7 @@ vi.mock('@/lib/utils', () => ({
 }))
 
 import { resetSessionGenerationLocksForTests } from '@chatbox/core/generation'
-import { generationRuntimeStore } from '@/stores/session/generation-runtime'
+import { rendererApplication } from '@/app/renderer-application'
 import {
   clearPendingQueuedMessages,
   clearQueue,
@@ -53,6 +53,8 @@ import {
   updateQueuedMessageText,
   wakeQueuedUserMessages,
 } from './message-queue'
+
+const generationRuntimeStore = rendererApplication.generationRuntime
 
 function userMessage(id: string, text = `text-${id}`): Message {
   return { id, role: 'user', contentParts: [{ type: 'text', text }] }

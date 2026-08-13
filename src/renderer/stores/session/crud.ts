@@ -11,6 +11,7 @@ import {
 } from '@shared/types'
 import { getDefaultStore } from 'jotai'
 import { omit } from 'lodash'
+import { rendererApplication } from '@/app/renderer-application'
 import platform from '@/platform'
 import { router } from '@/router'
 import { sortSessionRecords } from '@/storage/SessionMetaStorage'
@@ -19,7 +20,6 @@ import * as chatStore from '../chatStore'
 import * as scrollActions from '../scrollActions'
 import { clearSessionActivity } from '../sessionActivityStore'
 import { initEmptyChatSession } from '../sessionHelpers'
-import { generationRuntimeStore } from './generation-runtime'
 
 /**
  * Create a new session and switch to it
@@ -257,13 +257,13 @@ export async function clear(sessionId: string) {
   if (!session) {
     return
   }
-  const activeRuntimeIds = new Set(generationRuntimeStore.list(sessionId).map((runtime) => runtime.messageId))
+  const activeRuntimeIds = rendererApplication.generationRuntime.getActiveMessageIds(sessionId)
   for (const messageId of activeRuntimeIds) {
-    generationRuntimeStore.requestAbort(sessionId, messageId, 'session-cleared')
+    rendererApplication.generationRuntime.requestAbort(sessionId, messageId, 'session-cleared')
   }
   for (const message of getGenerationControlMessages(session, activeRuntimeIds)) {
     if (message.generating && !activeRuntimeIds.has(message.id)) {
-      generationRuntimeStore.requestAbort(sessionId, message.id, 'session-cleared')
+      rendererApplication.generationRuntime.requestAbort(sessionId, message.id, 'session-cleared')
     }
   }
   if (platform.isDesktopLike) {

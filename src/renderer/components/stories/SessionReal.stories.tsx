@@ -9,7 +9,7 @@ import { getDefaultStore } from 'jotai'
 import { createContext, type MutableRefObject, type ReactNode, useContext, useEffect, useRef } from 'react'
 import { currentSessionIdAtom, showThreadHistoryDrawerAtom } from '@/stores/atoms'
 import { QueryKeys } from '@/stores/chatStore'
-import { generationRuntimeStore } from '@/stores/session/generation-runtime'
+import { rendererApplication } from '@/app/renderer-application'
 import { resetSessionActivityStore, sessionActivityStore } from '@/stores/sessionActivityStore'
 import SessionItem from '../session/SessionItem'
 import SessionList from '../session/SessionList'
@@ -128,12 +128,12 @@ export const SessionItemStates: StoryObj = {
 
 function SessionItemStatesFixture() {
   useEffect(() => {
-    const runtime = generationRuntimeStore.start(sessionMetas[1].id, 'story-reply')
+    const runtime = rendererApplication.generationRuntime.start(sessionMetas[1].id, 'story-reply')
     sessionActivityStore.setState({
       unreadCompletedSessionIds: { [sessionMetas[2].id]: true },
     })
     return () => {
-      generationRuntimeStore.finishActive(sessionMetas[1].id, runtime.messageId, runtime)
+      rendererApplication.generationRuntime.finishActive(sessionMetas[1].id, runtime.messageId, runtime)
       resetSessionActivityStore()
     }
   }, [])

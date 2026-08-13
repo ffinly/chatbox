@@ -2,11 +2,11 @@ import { ThreadService } from '@chatbox/core/application/session'
 import * as defaults from '@shared/defaults'
 import type { SessionThread } from '@shared/types'
 import { v4 as uuidv4 } from 'uuid'
+import { rendererApplication } from '@/app/renderer-application'
 import * as dom from '@/hooks/dom'
 import * as chatStore from '../chatStore'
 import * as scrollActions from '../scrollActions'
 import { _copySession as copySession, switchCurrentSession } from './crud'
-import { generationRuntimeStore } from './generation-runtime'
 
 const threadService = new ThreadService({
   sessions: {
@@ -19,8 +19,8 @@ const threadService = new ThreadService({
   getDefaultSystemPrompt: defaults.getDefaultPrompt,
   cancelMessages: (sessionId, messages) => {
     for (const message of messages) {
-      if (message.generating || generationRuntimeStore.get(sessionId, message.id)) {
-        generationRuntimeStore.requestAbort(sessionId, message.id, 'thread-changed')
+      if (message.generating || rendererApplication.generationRuntime.get(sessionId, message.id)) {
+        rendererApplication.generationRuntime.requestAbort(sessionId, message.id, 'thread-changed')
       }
     }
   },

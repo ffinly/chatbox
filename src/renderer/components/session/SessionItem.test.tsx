@@ -32,9 +32,11 @@ vi.mock('@/stores/uiStore', () => ({
   useUIStore: (selector: (state: { setShowSidebar: () => void }) => unknown) => selector({ setShowSidebar: vi.fn() }),
 }))
 
-import { generationRuntimeStore } from '@/stores/session/generation-runtime'
+import { rendererApplication } from '@/app/renderer-application'
 import { resetSessionActivityStore, sessionActivityStore } from '@/stores/sessionActivityStore'
 import SessionItem from './SessionItem'
+
+const generationRuntimeStore = rendererApplication.generationRuntime
 
 const session: SessionMetaRecord = {
   id: 'session-1',

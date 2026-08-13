@@ -15,6 +15,7 @@ import {
   trackAgentModeSuggested,
   trackWorkModeSuggestionDecision,
 } from '@/analytics/agent-mode'
+import { rendererApplication } from '@/app/renderer-application'
 import { getLogger } from '@/lib/utils'
 import * as appleAppStore from '@/packages/apple_app_store'
 import { wakeBackgroundTaskFollowUps } from '@/packages/chatbox-cli/background-follow-up'
@@ -33,7 +34,6 @@ import {
   setSessionAgentMode,
 } from '@/stores/session/agent-mode'
 import { findMessageLocation } from '@/stores/session/forks'
-import { generationRuntimeStore } from '@/stores/session/generation-runtime'
 import { wakeQueuedUserMessages } from '@/stores/session/message-queue'
 import {
   insertMessageAfter,
@@ -256,7 +256,7 @@ const dependencies: GenerationServiceDependencies<ModelDependencies> = {
       ),
     wake: (sessionId) => wakeQueuedUserMessages(sessionId),
   },
-  runtime: generationRuntimeStore,
+  runtime: rendererApplication.generationRuntime,
   blobs: new CurrentBlobStorage(),
   attachments: attachmentAdapter,
   capabilities: new CurrentPlatformCapabilities(),

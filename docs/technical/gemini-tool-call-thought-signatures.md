@@ -60,7 +60,7 @@ tool/user:      FR2
   - 如果并行组第一个 call 已有真实 signature，后续并行 call 必须保持无 signature，不要给它们补 dummy signature。
 - `src/renderer/stores/session/agent-harness.ts`
   - 只在 resolved `model.apiStyle === 'google'` 时启用 Google signature 兜底（`getModel()` 会为内置/自定义 Gemini provider 及 ChatboxAI google 路由模型统一打上 apiStyle）。
-- `src/renderer/stores/session/orchestration.ts`
+- `packages/chatbox-core/src/generation/GenerationService.ts`
   - 25 次工具调用暂停属于一个批次；继续时恢复该批次并执行剩余 tool calls，然后 append 到原 assistant 消息继续生成。
 - `src/renderer/components/message-parts/ToolCallPartUI.tsx`
   - `tool_call_limit` 暂停批次只展示一个继续入口。

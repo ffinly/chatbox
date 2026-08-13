@@ -17,7 +17,9 @@ vi.mock('./crud', () => ({ _copySession: vi.fn(), switchCurrentSession: vi.fn() 
 vi.mock('uuid', () => ({ v4: () => 'new-thread-id' }))
 
 import { refreshContextAndCreateNewThread, removeCurrentThread, switchThread } from './threads'
-import { generationRuntimeStore } from './generation-runtime'
+import { rendererApplication } from '@/app/renderer-application'
+
+const generationRuntimeStore = rendererApplication.generationRuntime
 
 function message(id: string, overrides: Partial<Message> = {}): Message {
   return { id, role: 'assistant', contentParts: [], ...overrides }
