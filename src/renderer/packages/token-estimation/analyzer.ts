@@ -51,6 +51,16 @@ export interface AnalysisResult {
 }
 
 /**
+ * Result of analyzing one side (current input or context) independently
+ */
+export interface PartialAnalysisResult {
+  /** Known token counts for this side */
+  breakdown: TokenBreakdown
+  /** Tasks that need computation (without sessionId - caller must add it) */
+  pendingTasks: Omit<ComputationTask, 'id' | 'createdAt' | 'sessionId'>[]
+}
+
+/**
  * Result of analyzing a single message's text
  */
 interface MessageTextAnalysisResult {
@@ -96,16 +106,51 @@ export function analyzeTokenRequirements(options: AnalyzeTokenRequirementsOption
     sandboxMode = false,
   } = options
 
-  const pendingTasks: Omit<ComputationTask, 'id' | 'createdAt' | 'sessionId'>[] = []
-  let currentInputText = 0
-  let currentInputAttachments = 0
-  let contextText = 0
-  let contextAttachments = 0
+  const currentInput = analyzeCurrentInputTokens({
+    constructedMessage,
+    tokenizerType,
+    modelSupportToolUseForFile,
+    sandboxMode,
+  })
+  const context = analyzeContextTokens({
+    contextMessages,
+    tokenizerType,
+    modelSupportToolUseForFile,
+    sandboxMode,
+  })
 
-  // Analyze current input message
+  return {
+    currentInputTokens: currentInput.breakdown.text + currentInput.breakdown.attachments,
+    contextTokens: context.breakdown.text + context.breakdown.attachments,
+    pendingTasks: [...currentInput.pendingTasks, ...context.pendingTasks],
+    breakdown: {
+      currentInput: currentInput.breakdown,
+      context: context.breakdown,
+    },
+  }
+}
+
+/**
+ * Analyze only the current input message (draft). Kept separate from context
+ * analysis so callers can memoize the two independently: the draft is
+ * tokenized synchronously (tiktoken), and must not be re-encoded every time
+ * the context messages change.
+ */
+export function analyzeCurrentInputTokens(options: {
+  constructedMessage: Message | undefined
+  tokenizerType: TokenizerType
+  modelSupportToolUseForFile: boolean
+  sandboxMode?: boolean
+}): PartialAnalysisResult {
+  const { constructedMessage, tokenizerType, modelSupportToolUseForFile, sandboxMode = false } = options
+
+  const pendingTasks: Omit<ComputationTask, 'id' | 'createdAt' | 'sessionId'>[] = []
+  let text = 0
+  let attachments = 0
+
   if (constructedMessage) {
     const textResult = analyzeMessageText(constructedMessage, tokenizerType, true, 0)
-    currentInputText = textResult.tokens
+    text = textResult.tokens
     if (textResult.needsCalculation && textResult.task) {
       pendingTasks.push(textResult.task)
     }
@@ -118,9 +163,27 @@ export function analyzeTokenRequirements(options: AnalyzeTokenRequirementsOption
       0,
       sandboxMode
     )
-    currentInputAttachments = attachmentsResult.tokens
+    attachments = attachmentsResult.tokens
     pendingTasks.push(...attachmentsResult.tasks)
   }
+
+  return { breakdown: { text, attachments }, pendingTasks }
+}
+
+/**
+ * Analyze only the context messages (already in conversation).
+ */
+export function analyzeContextTokens(options: {
+  contextMessages: Message[]
+  tokenizerType: TokenizerType
+  modelSupportToolUseForFile: boolean
+  sandboxMode?: boolean
+}): PartialAnalysisResult {
+  const { contextMessages, tokenizerType, modelSupportToolUseForFile, sandboxMode = false } = options
+
+  const pendingTasks: Omit<ComputationTask, 'id' | 'createdAt' | 'sessionId'>[] = []
+  let text = 0
+  let attachments = 0
 
   // Analyze context messages (reverse order so newest messages have higher priority)
   // contextMessages is ordered oldest to newest, but we want newest first for calculation
@@ -131,7 +194,7 @@ export function analyzeTokenRequirements(options: AnalyzeTokenRequirementsOption
     const priorityIndex = contextLength - 1 - index
 
     const textResult = analyzeMessageText(msg, tokenizerType, false, priorityIndex)
-    contextText += textResult.tokens
+    text += textResult.tokens
     if (textResult.needsCalculation && textResult.task) {
       pendingTasks.push(textResult.task)
     }
@@ -144,19 +207,11 @@ export function analyzeTokenRequirements(options: AnalyzeTokenRequirementsOption
       priorityIndex,
       sandboxMode
     )
-    contextAttachments += attachmentsResult.tokens
+    attachments += attachmentsResult.tokens
     pendingTasks.push(...attachmentsResult.tasks)
   }
 
-  return {
-    currentInputTokens: currentInputText + currentInputAttachments,
-    contextTokens: contextText + contextAttachments,
-    pendingTasks,
-    breakdown: {
-      currentInput: { text: currentInputText, attachments: currentInputAttachments },
-      context: { text: contextText, attachments: contextAttachments },
-    },
-  }
+  return { breakdown: { text, attachments }, pendingTasks }
 }
 
 // ============================================================================

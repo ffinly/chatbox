@@ -66,6 +66,7 @@ import {
   isAutoCompactionEnabled,
   isCompactionInProgress,
   useContextTokens,
+  useStableEligibleMessages,
 } from '@/packages/context-management'
 import { trackingEvent } from '@/packages/event'
 import {
@@ -479,13 +480,23 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
     })
 
     // Get current messages for token counting - will only recalculate when stable messages actually change
-    // Uses getContextMessageIds to respect compaction points
+    // Uses getContextMessageIds to respect compaction points. Keyed off the
+    // eligible-message subset so per-chunk streaming updates don't re-run it.
+    const stableSessionMessages = useStableEligibleMessages(currentSession?.messages)
     const currentContextMessageIds = useMemo(() => {
       if (isNewSession) return null
-      if (!currentSession?.messages.length) return null
+      if (!currentSession || !stableSessionMessages.length) return null
 
-      return getContextMessageIds(currentSession, currentSessionMergedSettings?.maxContextMessageCount)
-    }, [isNewSession, currentSessionMergedSettings?.maxContextMessageCount, currentSession])
+      return getContextMessageIds(
+        { ...currentSession, messages: stableSessionMessages },
+        currentSessionMergedSettings?.maxContextMessageCount
+      )
+    }, [
+      isNewSession,
+      currentSessionMergedSettings?.maxContextMessageCount,
+      stableSessionMessages,
+      currentSession?.compactionPoints,
+    ])
 
     const { knowledgeBase, setKnowledgeBase } = useKnowledgeBase({ isNewSession })
 

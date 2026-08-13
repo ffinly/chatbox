@@ -1,5 +1,6 @@
+import { isContextEligibleMessage } from '@shared/context'
 import type { CompactionPoint, Message, Session, Settings } from '@shared/types'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { getTokenizerType } from '@/packages/token-estimation'
 import { useTokenEstimation } from '@/packages/token-estimation/hooks/useTokenEstimation'
 import queryClient from '@/stores/queryClient'
@@ -146,6 +147,33 @@ export function getLatestCompactionBoundaryId(compactionPoints?: CompactionPoint
   )
 }
 
+const EMPTY_MESSAGES: Message[] = []
+
+/**
+ * Return the context-eligible subset of `messages`, preserving array identity
+ * across renders when the eligible subset did not actually change.
+ *
+ * During streaming, every chunk replaces `session.messages` (and the
+ * generating message object) with new identities while all other message
+ * objects keep theirs. The generating message is context-ineligible anyway,
+ * so filtering first and reusing the previous array when the elements are
+ * reference-equal keeps the downstream O(n) work (context building + token
+ * analysis) from re-running on every chunk. Token cache writes DO replace the
+ * affected message objects, so those still invalidate as expected.
+ */
+export function useStableEligibleMessages(messages: Message[] | undefined): Message[] {
+  const prevRef = useRef<Message[]>(EMPTY_MESSAGES)
+  return useMemo(() => {
+    const next = messages ? messages.filter(isContextEligibleMessage) : EMPTY_MESSAGES
+    const prev = prevRef.current
+    if (next.length === prev.length && next.every((message, i) => message === prev[i])) {
+      return prev
+    }
+    prevRef.current = next
+    return next
+  }, [messages])
+}
+
 /**
  * React Query cache layer for context tokens
  *
@@ -162,11 +190,14 @@ export function getLatestCompactionBoundaryId(compactionPoints?: CompactionPoint
 export function useContextTokens(options: UseContextTokensOptions): UseContextTokensResult {
   const { sessionId, session, settings, model, modelSupportToolUseForFile, sandboxMode, constructedMessage } = options
 
-  // 1. contextMessages must be stable
+  // 1. contextMessages must be stable — keyed off the eligible subset so
+  // per-chunk streaming updates (which only touch the generating message)
+  // don't re-run context building and analysis.
+  const eligibleMessages = useStableEligibleMessages(session?.messages)
   const contextMessages = useMemo(() => {
     if (!session) return []
-    return getContextMessagesForTokenEstimation(session, { settings })
-  }, [session?.messages, session?.compactionPoints, settings.maxContextMessageCount])
+    return getContextMessagesForTokenEstimation({ ...session, messages: eligibleMessages }, { settings })
+  }, [eligibleMessages, session?.compactionPoints, settings.maxContextMessageCount])
 
   // 2. tokenizerType must be stable
   const tokenizerType = useMemo(() => getTokenizerType(model), [model?.provider, model?.modelId])

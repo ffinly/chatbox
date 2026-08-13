@@ -251,41 +251,102 @@ describe('useTokenEstimation', () => {
   })
 
   describe('queue status subscription', () => {
-    it('updates isCalculating when queue status changes', () => {
-      const message = createMessage({
-        tokenCountMap: { default: 100 },
-        tokenCalculatedAt: { default: 1000 },
-      })
-      const contextMsg = createMessage({
-        id: 'ctx-msg',
-        tokenCountMap: { default: 50 },
-        tokenCalculatedAt: { default: 1000 },
-      })
-
-      const { result } = renderHook(() =>
-        useTokenEstimation({
-          sessionId: 'session-1',
-          constructedMessage: message,
-          contextMessages: [contextMsg],
-          model: undefined,
-          modelSupportToolUseForFile: false,
+    it('updates isCalculating when queue status changes (after throttle window)', () => {
+      vi.useFakeTimers()
+      try {
+        const message = createMessage({
+          tokenCountMap: { default: 100 },
+          tokenCalculatedAt: { default: 1000 },
         })
-      )
-
-      expect(result.current.isCalculating).toBe(false)
-
-      act(() => {
-        computationQueue.enqueue({
-          type: 'message-text',
-          sessionId: 'session-1',
-          messageId: 'ctx-msg',
-          tokenizerType: 'default',
-          priority: 10,
+        const contextMsg = createMessage({
+          id: 'ctx-msg',
+          tokenCountMap: { default: 50 },
+          tokenCalculatedAt: { default: 1000 },
         })
-      })
 
-      expect(result.current.isCalculating).toBe(true)
-      expect(result.current.pendingTasks).toBe(1)
+        const { result } = renderHook(() =>
+          useTokenEstimation({
+            sessionId: 'session-1',
+            constructedMessage: message,
+            contextMessages: [contextMsg],
+            model: undefined,
+            modelSupportToolUseForFile: false,
+          })
+        )
+
+        expect(result.current.isCalculating).toBe(false)
+
+        act(() => {
+          computationQueue.enqueue({
+            type: 'message-text',
+            sessionId: 'session-1',
+            messageId: 'ctx-msg',
+            tokenizerType: 'default',
+            priority: 10,
+          })
+        })
+
+        // Queue notifications are throttled (trailing edge) so per-task
+        // completions during a backfill don't re-render the InputBox each time.
+        act(() => {
+          vi.advanceTimersByTime(150)
+        })
+
+        expect(result.current.isCalculating).toBe(true)
+        expect(result.current.pendingTasks).toBe(1)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('bounds re-renders during a notification storm (backfill)', () => {
+      vi.useFakeTimers()
+      try {
+        const contextMsg = createMessage({
+          id: 'ctx-msg',
+          tokenCountMap: { default: 50 },
+          tokenCalculatedAt: { default: 1000 },
+        })
+
+        let renderCount = 0
+        const { result } = renderHook(() => {
+          renderCount++
+          return useTokenEstimation({
+            sessionId: 'session-1',
+            constructedMessage: undefined,
+            contextMessages: [contextMsg],
+            model: undefined,
+            modelSupportToolUseForFile: false,
+          })
+        })
+
+        const rendersBeforeStorm = renderCount
+
+        // A backfill enqueues one task per message in rapid succession; each
+        // enqueue notifies subscribers. The status subscription must coalesce
+        // these into (at most) one state update per throttle window instead of
+        // re-rendering the consumer once per task.
+        act(() => {
+          for (let i = 0; i < 50; i++) {
+            computationQueue.enqueue({
+              type: 'message-text',
+              sessionId: 'session-1',
+              messageId: `backfill-${i}`,
+              tokenizerType: 'default',
+              priority: 10 + i,
+            })
+          }
+        })
+
+        act(() => {
+          vi.advanceTimersByTime(150)
+        })
+
+        expect(result.current.pendingTasks).toBe(50)
+        expect(renderCount - rendersBeforeStorm).toBeLessThanOrEqual(2)
+      } finally {
+        vi.useRealTimers()
+      }
     })
   })
 

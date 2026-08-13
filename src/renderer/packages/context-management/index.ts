@@ -33,6 +33,7 @@ export {
   getContextTokensCacheKey,
   getLatestCompactionBoundaryId,
   useContextTokens,
+  useStableEligibleMessages,
 } from './context-tokens'
 export type { SummaryGeneratorOptions, SummaryResult } from './summary-generator'
 export { generateSummary, generateSummaryWithStream, isSummaryGenerationAvailable } from './summary-generator'
