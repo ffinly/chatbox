@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { MantineProvider } from '@mantine/core'
-import type { ChatboxAILicenseDetail, Message } from '@shared/types'
+import type { ChatboxAILicenseDetail, ChatboxAIPlanType, Message } from '@shared/types'
 import { afterEach, expect, test, vi } from 'vitest'
 import { settingsStore } from '@/stores/settingsStore'
 import { fireEvent, render, screen } from '@/test-utils'
@@ -10,6 +10,10 @@ import MessageErrTips from './MessageErrTips'
 const platformMocks = vi.hoisted(() => ({
   openLink: vi.fn(),
 }))
+const trackingMocks = vi.hoisted(() => ({
+  trackTokenExhaustedCard: vi.fn(),
+  trackTokenExhaustedCardClick: vi.fn(),
+}))
 
 vi.mock('@/platform', () => ({
   default: {
@@ -17,6 +21,11 @@ vi.mock('@/platform', () => ({
     isDesktopLike: true,
     openLink: platformMocks.openLink,
   },
+}))
+
+vi.mock('@/analytics/token-exhausted-card', () => ({
+  trackTokenExhaustedCard: trackingMocks.trackTokenExhaustedCard,
+  trackTokenExhaustedCardClick: trackingMocks.trackTokenExhaustedCardClick,
 }))
 
 Object.defineProperty(window, 'matchMedia', {
@@ -62,33 +71,64 @@ const proPlusLicenseDetail: ChatboxAILicenseDetail = {
 
 afterEach(() => {
   platformMocks.openLink.mockReset()
+  trackingMocks.trackTokenExhaustedCard.mockReset()
+  trackingMocks.trackTokenExhaustedCardClick.mockReset()
   settingsStore.setState(initialSettings)
 })
 
-test('offers an expansion pack without changing the quota link for Pro+', () => {
+test.each([
+  { name: 'paid quota for Pro', errorCode: 10004, plan: 'pro', agentMode: false, action: 'upgrade' },
+  { name: 'paid quota for Pro+', errorCode: 10004, plan: 'pro_plus', agentMode: false, action: 'buy_token' },
+  { name: 'Free quota', errorCode: 20039, plan: 'free', agentMode: false, action: 'upgrade' },
+  { name: 'paid OCR quota for Pro', errorCode: 20041, plan: 'pro', agentMode: true, action: 'upgrade' },
+  { name: 'paid OCR quota for Pro+', errorCode: 20041, plan: 'pro_plus', agentMode: true, action: 'buy_token' },
+  { name: 'Free OCR quota', errorCode: 20042, plan: 'free', agentMode: true, action: 'upgrade' },
+] as const)('tracks exposure and click for $name', ({ errorCode, plan, agentMode, action }) => {
   settingsStore.setState((state) => ({
     ...state,
     language: 'en',
-    licenseKey: 'pro-plus-license',
-    licenseDetail: proPlusLicenseDetail,
+    licenseKey: `${plan}-license`,
+    licenseDetail:
+      plan === 'free'
+        ? undefined
+        : {
+            ...proPlusLicenseDetail,
+            name: `Chatbox AI ${plan}`,
+            plan: plan as ChatboxAIPlanType,
+          },
   }))
   const msg = {
     id: 'assistant-error',
     role: 'assistant',
     contentParts: [],
     error: 'Token Quota Exhausted',
-    errorCode: 10004,
+    errorCode,
+    aiProvider: 'chatbox-ai',
+    model: 'claude-opus-5',
+    generationRequests: [{ agentMode }] as Message['generationRequests'],
   } as Message
-
-  expect(settingsStore.getState().licenseDetail?.plan).toBe('pro_plus')
+  const expectedContext = {
+    sessionId: 'session-123',
+    mode: agentMode ? 'work_mode' : 'chat_mode',
+    action,
+    provider: 'chatbox-ai',
+    plan,
+    model: 'claude-opus-5',
+  }
 
   render(
     <MantineProvider>
-      <MessageErrTips msg={msg} />
+      <MessageErrTips msg={msg} sessionId="session-123" />
     </MantineProvider>
   )
 
-  fireEvent.click(screen.getByRole('button', { name: 'Buy expansion pack' }))
+  expect(trackingMocks.trackTokenExhaustedCard).toHaveBeenCalledOnce()
+  expect(trackingMocks.trackTokenExhaustedCard).toHaveBeenCalledWith(expectedContext)
+
+  fireEvent.click(screen.getByRole('button', { name: action === 'buy_token' ? 'Buy expansion pack' : 'Upgrade plan' }))
+
+  expect(trackingMocks.trackTokenExhaustedCardClick).toHaveBeenCalledOnce()
+  expect(trackingMocks.trackTokenExhaustedCardClick).toHaveBeenCalledWith(expectedContext)
   expect(platformMocks.openLink).toHaveBeenCalledWith(
     'https://chatboxai.app/redirect_app/view_more_plans/en?utm_source=app&utm_content=msg_quota_exhausted'
   )
