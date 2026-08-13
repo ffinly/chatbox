@@ -48,7 +48,7 @@ tool/user:      FR2
 
 相关文件：
 
-- `src/renderer/stores/session/stream-chunk-processor.ts`
+- `packages/chatbox-core/src/generation/stream-chunk-processor.ts`
   - 从 AI SDK stream chunk 生成 `Message.contentParts`。
   - 保留 `chunk.providerMetadata.google.thoughtSignature`。
   - 为每个 tool call 记录 `stepIndex`（generation step 边界，来自 `finish-step` chunk）；同一 `stepIndex` 的 tool calls 即同一并行批次。

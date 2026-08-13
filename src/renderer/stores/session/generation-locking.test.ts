@@ -36,8 +36,8 @@ vi.mock('./orchestration', () => ({ orchestrateGeneration: orchestrateGeneration
 vi.mock('./action-guard', () => ({ guardSessionAction: guardSessionActionMock }))
 vi.mock('./utils', () => ({ getSessionWebBrowsing: vi.fn() }))
 
+import { resetSessionGenerationLocksForTests } from '@chatbox/core/generation'
 import { generate, generateMore, generateMoreInNewFork, regenerateInNewFork } from './generation'
-import { resetSessionGenerationLocksForTests } from './generation-lock'
 
 function message(id: string): Message {
   return { id, role: 'assistant', contentParts: [], generating: true }

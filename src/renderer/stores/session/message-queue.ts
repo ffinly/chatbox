@@ -1,3 +1,4 @@
+import { withSessionGenerationLock } from '@chatbox/core/generation'
 import {
   countCancellableGeneratingAssistantMessages,
   getGenerationControlMessages,
@@ -6,7 +7,6 @@ import { createMessage, type Message, type Session } from '@shared/types'
 import { createStore } from 'zustand'
 import { getLogger } from '@/lib/utils'
 import * as chatStore from '@/stores/chatStore'
-import { withSessionGenerationLock } from './generation-lock'
 import { getActiveGenerationMessageIds } from './generation-runtime'
 
 const log = getLogger('message-queue')

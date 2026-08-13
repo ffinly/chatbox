@@ -1,3 +1,4 @@
+import { withSessionGenerationLock } from '@chatbox/core/generation'
 import { buildContext } from '@shared/context'
 import type { AttachmentResolver } from '@shared/context/types'
 import { supportsSessionGeneration } from '@shared/session/capabilities'
@@ -8,7 +9,6 @@ import * as chatStore from '../chatStore'
 import { guardSessionAction } from './action-guard'
 import { createAttachmentResolver } from './attachment-resolver'
 import { createInactiveFork, createNewFork, findMessageLocation } from './forks'
-import { withSessionGenerationLock } from './generation-lock'
 import { insertMessageAfter } from './messages'
 import { orchestrateGeneration } from './orchestration'
 

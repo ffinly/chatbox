@@ -1,9 +1,9 @@
+import { withSessionGenerationLock } from '@chatbox/core/generation'
 import { createMessage, type Message, type MessageBackgroundTask, type Session } from '@shared/types'
 import { countMessageWords } from '@shared/utils/message'
 import { getLogger } from '@/lib/utils'
 import { estimateTokensFromMessages } from '@/packages/token'
 import * as chatStore from '@/stores/chatStore'
-import { withSessionGenerationLock } from '@/stores/session/generation-lock'
 
 const log = getLogger('chatbox-cli-background-follow-up')
 const RETRY_DELAY_MS = 1_000

@@ -34,7 +34,7 @@ vi.mock('@/lib/utils', () => ({
   getLogger: () => ({ error: vi.fn() }),
 }))
 
-import { resetSessionGenerationLocksForTests } from '@/stores/session/generation-lock'
+import { resetSessionGenerationLocksForTests } from '@chatbox/core/generation'
 import { generationRuntimeStore } from '@/stores/session/generation-runtime'
 import {
   clearPendingQueuedMessages,

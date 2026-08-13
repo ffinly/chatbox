@@ -17,6 +17,7 @@ vi.mock('@/adapters/CurrentGenerationService', () => ({
 // behavior under test is exercised.
 vi.mock('../chatStore', () => ({ getSession: vi.fn(() => Promise.resolve(null)) }))
 
+import { createInitialState } from '@chatbox/core/generation'
 import {
   applyPersistentToolCallPause,
   continuePausedToolCall,
@@ -25,7 +26,6 @@ import {
   retryFromLastToolCallAfterApiError,
   stopPausedToolCall,
 } from './orchestration'
-import { createInitialState } from './stream-chunk-processor'
 
 const approvalDetails = {
   type: 'image_generation' as const,

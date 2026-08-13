@@ -1,4 +1,5 @@
 import { SessionNotFoundError } from '@chatbox/core'
+import { withSessionGenerationLock } from '@chatbox/core/generation'
 import { isExpectedGenerationError } from '@shared/models/error-classification'
 import { BaseError, ChatboxAIAPIError } from '@shared/models/errors'
 import { extractStreamErrorMessage } from '@shared/models/utils/stream-error-message'
@@ -20,7 +21,6 @@ import { ensureMessageFileSessionAttachment } from '../sessionAttachmentRagIndex
 import * as settingActions from '../settingActions'
 import { settingsStore } from '../settingsStore'
 import { guardSessionAction } from './action-guard'
-import { withSessionGenerationLock } from './generation-lock'
 import { getSessionWebBrowsing } from './utils'
 
 const log = getLogger('session-messages')

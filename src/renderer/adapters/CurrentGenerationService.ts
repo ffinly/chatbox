@@ -3,6 +3,7 @@ import {
   GenerationService,
   type GenerationServiceDependencies,
   type GenerationSessionPort,
+  withSessionGenerationLock,
 } from '@chatbox/core/generation'
 import type { LoggerPort } from '@chatbox/core/ports'
 import { buildContext } from '@shared/context'
@@ -32,7 +33,6 @@ import {
   setSessionAgentMode,
 } from '@/stores/session/agent-mode'
 import { findMessageLocation } from '@/stores/session/forks'
-import { withSessionGenerationLock } from '@/stores/session/generation-lock'
 import { generationRuntimeStore } from '@/stores/session/generation-runtime'
 import { wakeQueuedUserMessages } from '@/stores/session/message-queue'
 import {

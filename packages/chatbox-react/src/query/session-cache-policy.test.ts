@@ -1,6 +1,6 @@
-import type { Message, Session } from '@shared/types'
+import type { Message, Session } from '@chatbox/core'
 import { describe, expect, test } from 'vitest'
-import { assertNoMessageDataUpdate, getSessionMetadataSnapshot, mergeCachedGeneratingMessages } from './chatStore-cache'
+import { mergeCachedGeneratingMessages } from './session-cache-policy'
 
 function message(overrides: Partial<Message>): Message {
   return {
@@ -118,60 +118,5 @@ describe('mergeCachedGeneratingMessages', () => {
     const candidate = result.messageForksHash?.['user-1'].lists[1].messages[0]
 
     expect(candidate?.status).toEqual([{ type: 'preparing_tool_call', toolName: 'code_execution' }])
-  })
-})
-
-describe('session metadata update helpers', () => {
-  test('returns a snapshot without message-owned fields', () => {
-    const result = getSessionMetadataSnapshot(
-      session({
-        messages: [message({ id: 'message-1' })],
-        threads: [
-          {
-            id: 'thread-1',
-            name: 'Thread',
-            messages: [message({ id: 'thread-message-1' })],
-            createdAt: 1,
-          },
-        ],
-        messageForksHash: {
-          'message-1': {
-            position: 0,
-            lists: [{ id: 'fork-1', messages: [message({ id: 'fork-message-1' })] }],
-            createdAt: 1,
-          },
-        },
-        compactionPoints: [{ summaryMessageId: 'summary-1', boundaryMessageId: 'message-1', createdAt: 1 }],
-        settings: {
-          provider: 'openai',
-          modelId: 'gpt-4.1',
-        },
-      })
-    )
-
-    expect(result).toEqual({
-      id: 'session-id',
-      name: 'Session',
-      settings: {
-        provider: 'openai',
-        modelId: 'gpt-4.1',
-      },
-    })
-  })
-
-  test('rejects message-owned fields in metadata updates', () => {
-    expect(() => assertNoMessageDataUpdate({ settings: { modelId: 'gpt-4.1' } })).not.toThrow()
-    expect(() => assertNoMessageDataUpdate({ messages: [] })).toThrow(
-      'updateSession cannot update "messages". Use updateSessionWithMessages for message data.'
-    )
-    expect(() => assertNoMessageDataUpdate({ threads: [] })).toThrow(
-      'updateSession cannot update "threads". Use updateSessionWithMessages for message data.'
-    )
-    expect(() => assertNoMessageDataUpdate({ messageForksHash: {} })).toThrow(
-      'updateSession cannot update "messageForksHash". Use updateSessionWithMessages for message data.'
-    )
-    expect(() => assertNoMessageDataUpdate({ compactionPoints: [] })).toThrow(
-      'updateSession cannot update "compactionPoints". Use updateSessionWithMessages for message data.'
-    )
   })
 })
