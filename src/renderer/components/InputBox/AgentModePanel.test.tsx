@@ -402,11 +402,8 @@ describe('AgentModePanel memory', () => {
 
     fireEvent.mouseEnter(screen.getByRole('button', { name: /^Global Memory/ }))
 
-    expect(screen.getByText('On for all chats')).toBeTruthy()
     expect(
-      screen.getByText(
-        'Saves lasting facts from any chat and uses them in new ones. Turning this off stops memory everywhere.'
-      )
+      screen.getByText('Applies to every chat. This conversation can read and write new long-term memories.')
     ).toBeTruthy()
 
     await vi.waitFor(() => {
@@ -418,27 +415,16 @@ describe('AgentModePanel memory', () => {
     expect(navigateToSettings).toHaveBeenCalledWith('/agent')
   })
 
-  test('says Memory is off for all chats and that the current chat keeps its snapshot', () => {
+  test('says Memory is off for every chat without mentioning the current chat', () => {
     mocks.settingsState.memoryEnabled = false
     renderPanel({ sessionId: 's1' })
 
     fireEvent.mouseEnter(screen.getByRole('button', { name: /^Global Memory/ }))
 
-    expect(screen.getByText('Off for all chats')).toBeTruthy()
     expect(
-      screen.getByText('Memory is paused in every chat. Nothing new is saved, and existing memories stay unused.')
+      screen.getByText('Off for every chat. Nothing new is saved, and existing memories are not used.')
     ).toBeTruthy()
-    expect(screen.getByText('This chat keeps memories already loaded until you start a new chat.')).toBeTruthy()
     expect(screen.queryByText('All chats')).toBeNull()
-  })
-
-  test('does not mention a loaded snapshot on a brand-new chat', () => {
-    mocks.settingsState.memoryEnabled = false
-    renderPanel()
-
-    fireEvent.mouseEnter(screen.getByRole('button', { name: /^Global Memory/ }))
-
-    expect(screen.getByText('Off for all chats')).toBeTruthy()
     expect(screen.queryByText('This chat keeps memories already loaded until you start a new chat.')).toBeNull()
   })
 })

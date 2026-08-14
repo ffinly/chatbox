@@ -704,23 +704,11 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
         <>
           <SubPanelHeader title={t('Global Memory')} settingsPath="/agent" />
           <Divider my={4} />
-          <Stack gap={6} px="sm" py={6}>
-            <Text size="sm" fw={600} c={memoryEnabled ? 'chatbox-brand' : 'chatbox-secondary'}>
-              {memoryEnabled ? t('On for all chats') : t('Off for all chats')}
-            </Text>
-            <Text size="xs" c="chatbox-secondary" className="leading-snug">
-              {memoryEnabled
-                ? t(
-                    'Saves lasting facts from any chat and uses them in new ones. Turning this off stops memory everywhere.'
-                  )
-                : t('Memory is paused in every chat. Nothing new is saved, and existing memories stay unused.')}
-            </Text>
-            {!memoryEnabled && !isNewSession && (
-              <Text size="xs" c="dimmed" className="leading-snug">
-                {t('This chat keeps memories already loaded until you start a new chat.')}
-              </Text>
-            )}
-          </Stack>
+          <Text size="xs" c="chatbox-secondary" px="sm" py={6} className="leading-snug">
+            {memoryEnabled
+              ? t('Applies to every chat. This conversation can read and write new long-term memories.')
+              : t('Off for every chat. Nothing new is saved, and existing memories are not used.')}
+          </Text>
           <Divider my={4} />
           {memoryCount === null ? (
             <Flex justify="center" py="md">
@@ -1183,7 +1171,6 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
             icon={<IconNotes size={16} className="text-[var(--chatbox-tint-secondary)]" />}
             label={t('Global Memory')}
             badge={memoryCount && memoryCount > 0 ? memoryCount : undefined}
-            subtitle={memoryEnabled ? t('All chats') : undefined}
             active={page === 'memory'}
             page="memory"
             subPanelAlign="top"
