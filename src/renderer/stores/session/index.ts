@@ -37,7 +37,7 @@ export {
   switchToIndex,
   switchToNext,
 } from './crud'
-// Export operations (1 function)
+// Export operations
 export { exportSessionChat } from './export'
 // Fork operations (6 functions)
 export { createNewFork, deleteFork, expandFork, findMessageLocation, switchFork, switchForkTo } from './forks'

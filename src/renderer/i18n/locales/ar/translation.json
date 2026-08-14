@@ -408,6 +408,7 @@
   "Export": "تصدير",
   "Export application logs for troubleshooting. These logs may be requested by support to help diagnose issues.": "تصدير سجلات التطبيق لاستكشاف الأخطاء وإصلاحها. قد يطلب فريق الدعم هذه السجلات للمساعدة في تشخيص المشكلات.",
   "Export Chat": "تصدير المحادثة",
+  "Export all branches": "تصدير جميع الفروع",
   "Export failed": "فشل التصدير",
   "Export Logs": "تصدير السجلات",
   "Export Selected Data": "تصدير البيانات المحددة",

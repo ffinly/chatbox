@@ -408,6 +408,7 @@
   "Export": "Exporter",
   "Export application logs for troubleshooting. These logs may be requested by support to help diagnose issues.": "Exporter les journaux de l'application pour le dépannage. Ces journaux peuvent être demandés par le support pour aider à diagnostiquer les problèmes.",
   "Export Chat": "Exporter la discussion",
+  "Export all branches": "Exporter toutes les branches",
   "Export failed": "Échec de l'exportation",
   "Export Logs": "Exporter les journaux",
   "Export Selected Data": "Exporter les données sélectionnées",

@@ -44,16 +44,23 @@ function expandMessageBranches(
 }
 
 /**
- * Turn the active message path plus every saved fork into ordinary export
- * threads. The active fork slot is intentionally empty in persisted data, so
- * its tail must come from the containing message list rather than `lists`.
+ * Build ordinary export threads for Markdown/TXT and non-interactive HTML.
+ * Exporting all branches is opt-in because flattening duplicates shared
+ * prefixes and can produce a large document for deeply nested forks.
  */
-export function buildSessionExportThreads(session: Session, includeArchivedThreads: boolean): ExportableThread[] {
+export function buildSessionExportThreads(
+  session: Session,
+  includeArchivedThreads: boolean,
+  includeAllBranches = false
+): ExportableThread[] {
   const threads: ExportableThread[] = includeArchivedThreads ? [...(session.threads ?? [])] : []
   threads.push({
     name: session.threadName || session.name,
     messages: session.messages,
   })
+  if (!includeAllBranches) {
+    return threads
+  }
 
   return threads.flatMap((thread) => {
     const branches = expandMessageBranches(thread.messages, session.messageForksHash)

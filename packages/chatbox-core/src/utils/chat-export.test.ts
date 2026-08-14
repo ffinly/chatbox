@@ -33,7 +33,11 @@ describe('buildSessionExportThreads', () => {
       },
     }
 
-    const threads = buildSessionExportThreads(session, false)
+    expect(buildSessionExportThreads(session, false).map((thread) => messageTexts(thread))).toEqual([
+      ['question', 'active'],
+    ])
+
+    const threads = buildSessionExportThreads(session, false, true)
 
     expect(threads.map((thread) => thread.name)).toEqual([
       'Session (Branch 1/3)',
@@ -77,7 +81,7 @@ describe('buildSessionExportThreads', () => {
       },
     }
 
-    const threads = buildSessionExportThreads(session, false)
+    const threads = buildSessionExportThreads(session, false, true)
 
     expect(threads.map((thread) => messageTexts(thread))).toEqual([
       ['outer question', 'outer active'],
@@ -112,8 +116,8 @@ describe('buildSessionExportThreads', () => {
       },
     }
 
-    expect(buildSessionExportThreads(session, false).map((thread) => thread.name)).toEqual(['Session'])
-    expect(buildSessionExportThreads(session, true).map((thread) => thread.name)).toEqual([
+    expect(buildSessionExportThreads(session, false, true).map((thread) => thread.name)).toEqual(['Session'])
+    expect(buildSessionExportThreads(session, true, true).map((thread) => thread.name)).toEqual([
       'Archived (Branch 1/2)',
       'Archived (Branch 2/2)',
       'Session',

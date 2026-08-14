@@ -408,6 +408,7 @@
   "Export": "Экспорт",
   "Export application logs for troubleshooting. These logs may be requested by support to help diagnose issues.": "Экспорт журналов приложения для устранения неполадок. Эти журналы могут быть запрошены службой поддержки для диагностики проблем.",
   "Export Chat": "Экспорт чата",
+  "Export all branches": "Экспортировать все ветки",
   "Export failed": "Ошибка экспорта",
   "Export Logs": "Экспорт журналов",
   "Export Selected Data": "Экспорт выбранных данных",

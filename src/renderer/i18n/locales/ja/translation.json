@@ -408,6 +408,7 @@
   "Export": "エクスポート",
   "Export application logs for troubleshooting. These logs may be requested by support to help diagnose issues.": "トラブルシューティングのためにアプリケーションログをエクスポートします。これらのログは、問題の診断を支援するためにサポートから要求される場合があります。",
   "Export Chat": "チャットをエクスポート",
+  "Export all branches": "すべての分岐をエクスポート",
   "Export failed": "エクスポートに失敗しました",
   "Export Logs": "ログをエクスポート",
   "Export Selected Data": "選択したデータをエクスポート",

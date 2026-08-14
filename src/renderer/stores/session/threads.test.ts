@@ -1,3 +1,4 @@
+import { buildSessionExportThreads } from '@chatbox/core/utils/chat-export'
 import type { CompactionPoint, Message, Session } from '@shared/types'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -24,8 +25,8 @@ vi.mock('@/hooks/dom', () => ({ focusMessageInput: vi.fn() }))
 vi.mock('./crud', () => ({ _copySession: vi.fn(), switchCurrentSession: vi.fn() }))
 vi.mock('uuid', () => ({ v4: () => 'new-thread-id' }))
 
-import { refreshContextAndCreateNewThread, removeCurrentThread, switchThread } from './threads'
 import { rendererApplication } from '@/app/renderer-application'
+import { compressAndCreateThread, refreshContextAndCreateNewThread, removeCurrentThread, switchThread } from './threads'
 
 const generationRuntimeStore = rendererApplication.generationRuntime
 
@@ -138,5 +139,38 @@ describe('thread flows carry compaction points with their messages', () => {
     expect(archived?.messages.map((m) => m.id)).toEqual(['u1', 'a1', 'summary-active'])
     expect(archived?.compactionPoints).toEqual([activePoint])
     expect(updated.compactionPoints).toBeUndefined()
+  })
+
+  it('preserves archived fork branches when compressing the current thread', async () => {
+    const pivot = message('pivot', { role: 'user', contentParts: [{ type: 'text', text: 'user' }] })
+    const activeReply = message('active-reply', { contentParts: [{ type: 'text', text: 'active-reply' }] })
+    const savedReply = message('saved-reply', { contentParts: [{ type: 'text', text: 'saved-reply' }] })
+    const session: Session = {
+      id: 'session-1',
+      name: 'Test',
+      messages: [pivot, activeReply],
+      messageForksHash: {
+        [pivot.id]: {
+          position: 1,
+          lists: [
+            { id: 'saved', messages: [savedReply] },
+            { id: 'active', messages: [] },
+          ],
+          createdAt: 1,
+        },
+      },
+    }
+    getSessionMock.mockResolvedValue(session)
+
+    await compressAndCreateThread('session-1', 'Summary')
+
+    const updater = updateSessionWithMessagesMock.mock.calls[0][1] as (current: Session) => Session
+    const updated = updater(session)
+    expect(updated.messageForksHash?.[pivot.id]).toBeDefined()
+    expect(
+      buildSessionExportThreads(updated, true, true).map(
+        (thread) => thread.messages.at(-1)?.contentParts.find((part) => part.type === 'text')?.text
+      )
+    ).toEqual(['saved-reply', 'active-reply', 'Previous conversation summary:\n\nSummary'])
   })
 })

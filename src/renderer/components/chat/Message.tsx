@@ -81,7 +81,7 @@ import MessageErrTips from './MessageErrTips'
 import MessageStatuses, { PreparingToolCallStatus } from './MessageLoading'
 import { getMessageActionVisibilityClass, type MessageButtonGroup } from './message-action-state'
 import { isMessageReminderPresentation, resolveMessageErrorPresentation } from './message-error-presentation'
-import { shouldReserveClassicMessageTrailingSpace, shouldRightAlignMessage } from './message-layout'
+import { shouldRightAlignMessage } from './message-layout'
 import { getMessageRoleClass } from './message-role-class'
 import { createMessageTimelineLayout } from './message-timeline'
 import { getMessageTokenDisplay } from './message-token-display'
@@ -241,7 +241,8 @@ const _Message: FC<Props> = (props) => {
   // action, so this fetches the session on its own and swallows failures.
   const trackAgentModeSuggestionActionAsync = useCallback(
     (action: 'accept' | 'decline') => {
-      void rendererApplication.sessionQueryBridge.getSession(sessionId)
+      void rendererApplication.sessionQueryBridge
+        .getSession(sessionId)
         .then((session) => {
           let fileCount = 0
           const location = session ? findMessageLocation(session, msg.id) : null
@@ -699,12 +700,6 @@ const _Message: FC<Props> = (props) => {
   const isRightAlignedMessage = shouldRightAlignMessage(messageLayout, msg.role)
   const messageRoleClass = getMessageRoleClass(msg.role)
   const shouldShowAvatar = showAvatar ?? true
-  const reserveClassicMessageTrailingSpace = shouldReserveClassicMessageTrailingSpace(
-    messageLayout,
-    msg.role,
-    shouldShowAvatar,
-    isSmallScreen
-  )
   const statusElements = <MessageStatuses statuses={leadingStatuses} />
   const errorTipsElement = (
     <MessageErrTips
@@ -1205,7 +1200,12 @@ const _Message: FC<Props> = (props) => {
           },
         }}
       >
-        <Flex gap="xs" align="flex-start" className="w-full min-w-0">
+        <Flex
+          gap="xs"
+          align="flex-start"
+          className="w-full min-w-0"
+          style={isSmallScreen && !shouldShowAvatar ? { paddingInlineStart: 4 } : undefined}
+        >
           {shouldShowAvatar && (
             <Box className={cn('relative shrink-0', msg.role !== 'assistant' ? 'mt-1' : 'mt-2')}>
               {msg.role === 'assistant' ? (
@@ -1225,17 +1225,12 @@ const _Message: FC<Props> = (props) => {
               )}
             </Box>
           )}
-          <Flex
-            direction="column"
-            align="flex-start"
-            className={cn('min-w-0 flex-1 max-w-full', isSmallScreen && 'max-w-[95%]')}
-          >
+          <Flex direction="column" align="flex-start" className="min-w-0 flex-1 max-w-full">
             {messageContent}
             {(msg.files || msg.links) && <MessageAttachmentGrid files={msg.files} links={msg.links} align="start" />}
             {meta}
             {messageActions}
           </Flex>
-          {reserveClassicMessageTrailingSpace && <Box aria-hidden className="w-7 shrink-0" />}
         </Flex>
       </Box>
     )
