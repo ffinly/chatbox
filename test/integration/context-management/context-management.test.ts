@@ -6,11 +6,11 @@ import {
   buildContextForSession,
   buildContextForThread,
   checkOverflow,
-  cleanToolCalls,
   DEFAULT_COMPACTION_THRESHOLD,
   isAutoCompactionEnabled,
   OUTPUT_RESERVE_TOKENS,
 } from '../../../src/renderer/packages/context-management'
+import { buildContext } from '../../../src/shared/context'
 import type {
   CompactionPoint,
   Message,
@@ -238,8 +238,8 @@ describe('Context Management Integration Tests', () => {
     })
   })
 
-  describe('Tool Call Cleanup in Context Building', () => {
-    it('should clean tool calls from messages older than keepRounds', () => {
+  describe('Tool Calls in Estimation Context Building', () => {
+    it('keeps tool calls of every round at full fidelity', () => {
       const toolCallPart = createToolCallPart('read_file', { path: '/test.txt' })
 
       const msg1 = createTestMessage('user', 'Read file', {
@@ -253,68 +253,18 @@ describe('Context Management Integration Tests', () => {
 
       const messages = [msg1, msg2, msg3, msg4]
 
-      // With keepRounds=1, only the last round (msg3, msg4) should keep tool calls
-      // msg1, msg2 are in an older round and should have tool calls removed
-      const result = buildContextForAI({ messages, keepToolCallRounds: 1 })
+      const result = buildContextForAI({ messages })
 
       expect(result).toHaveLength(4)
 
-      // msg2 should have tool-call filtered out
+      // Older rounds keep their tool calls: pressure estimation and the
+      // compaction summarizer must both see the full history.
       const msg2Result = result[1]
-      const hasToolCall = msg2Result.contentParts.some((p) => p.type === 'tool-call')
-      expect(hasToolCall).toBe(false)
-
-      // Text content should remain
-      const hasText = msg2Result.contentParts.some((p) => p.type === 'text')
-      expect(hasText).toBe(true)
-    })
-
-    it('should keep tool calls in recent rounds', () => {
-      const toolCallPart = createToolCallPart('search', { query: 'test' })
-
-      const msg1 = createTestMessage('user', 'Search')
-      const msg2 = createTestMessage('assistant', 'Results', {
-        contentParts: [{ type: 'text', text: 'Results' }, toolCallPart],
+      expect(msg2Result.contentParts.some((p) => p.type === 'tool-call')).toBe(true)
+      expect(msg2Result.contentParts.find((p) => p.type === 'tool-call')).toMatchObject({
+        args: { path: '/test.txt' },
+        result: { success: true },
       })
-
-      const messages = [msg1, msg2]
-
-      // With keepRounds=2, all messages are in recent rounds
-      const result = buildContextForAI({ messages, keepToolCallRounds: 2 })
-
-      expect(result).toHaveLength(2)
-
-      // msg2 should still have tool-call
-      const msg2Result = result[1]
-      const hasToolCall = msg2Result.contentParts.some((p) => p.type === 'tool-call')
-      expect(hasToolCall).toBe(true)
-    })
-
-    it('should apply default keepRounds of 2', () => {
-      const toolCallPart = createToolCallPart('tool1')
-
-      // Create 4 rounds: round1, round2, round3, round4
-      const messages: Message[] = []
-      for (let i = 0; i < 4; i++) {
-        messages.push(createTestMessage('user', `User ${i}`))
-        if (i === 0) {
-          // Only first assistant message has tool call
-          messages.push(
-            createTestMessage('assistant', `Assistant ${i}`, {
-              contentParts: [{ type: 'text', text: `Assistant ${i}` }, toolCallPart],
-            })
-          )
-        } else {
-          messages.push(createTestMessage('assistant', `Assistant ${i}`))
-        }
-      }
-
-      const result = buildContextForAI({ messages })
-
-      // First round's tool calls should be removed (default keepRounds=2)
-      const firstAssistant = result[1]
-      const hasToolCall = firstAssistant.contentParts.some((p) => p.type === 'tool-call')
-      expect(hasToolCall).toBe(false)
     })
   })
 
@@ -449,11 +399,12 @@ describe('Context Management Integration Tests', () => {
       expect(result.isOverflow).toBe(false)
     })
 
-    it('should return no overflow for unknown models', () => {
+    it('should assume a fallback window for unknown models', () => {
+      // Fallback window 128k: threshold = (128k − 32k) × 0.6 = 57.6k
       const result = checkOverflow({ tokens: 100_000, modelId: 'unknown-model' })
 
-      expect(result.isOverflow).toBe(false)
-      expect(result.contextWindow).toBeNull()
+      expect(result.isOverflow).toBe(true)
+      expect(result.contextWindow).toBe(128_000)
     })
 
     it('should use custom compactionThreshold from settings', () => {
@@ -505,81 +456,52 @@ describe('Context Management Integration Tests', () => {
     })
   })
 
-  describe('Tool Cleanup Edge Cases', () => {
-    it('should not mutate original messages', () => {
-      const toolCallPart = createToolCallPart('tool1')
-      const originalMessage = createTestMessage('assistant', 'Text', {
-        contentParts: [{ type: 'text', text: 'Text' }, toolCallPart],
-      })
-      const originalContentPartsLength = originalMessage.contentParts.length
+  describe('Tool Cleanup Modes (shared buildContext)', () => {
+    const attachmentResolver = { read: async () => null }
 
-      const messages = [
+    function toolConversation(toolCallPart: MessageContentParts[number]) {
+      return [
         createTestMessage('user', 'Q1'),
-        originalMessage,
-        createTestMessage('user', 'Q2'),
-        createTestMessage('assistant', 'A2'),
-      ]
-
-      cleanToolCalls(messages, 1)
-
-      // Original message should not be mutated
-      expect(originalMessage.contentParts.length).toBe(originalContentPartsLength)
-    })
-
-    it('should handle empty messages array', () => {
-      const result = cleanToolCalls([], 2)
-      expect(result).toEqual([])
-    })
-
-    it('should preserve all content types except tool-call', () => {
-      const contentParts: MessageContentParts = [
-        { type: 'text', text: 'Hello' },
-        { type: 'image', storageKey: 'img1' },
-        { type: 'reasoning', text: 'Thinking...' },
-        { type: 'info', text: 'Info' },
-        createToolCallPart('tool1') as MessageContentParts[number],
-      ]
-
-      const messages = [
-        createTestMessage('user', 'Q', { contentParts }),
-        createTestMessage('assistant', 'A'),
-        createTestMessage('user', 'Q2'),
-        createTestMessage('assistant', 'A2'),
-      ]
-
-      const result = cleanToolCalls(messages, 1)
-
-      const firstMsgParts = result[0].contentParts
-      expect(firstMsgParts.some((p) => p.type === 'text')).toBe(true)
-      expect(firstMsgParts.some((p) => p.type === 'image')).toBe(true)
-      expect(firstMsgParts.some((p) => p.type === 'reasoning')).toBe(true)
-      expect(firstMsgParts.some((p) => p.type === 'info')).toBe(true)
-      expect(firstMsgParts.some((p) => p.type === 'tool-call')).toBe(false)
-    })
-
-    it('should handle keepRounds = 0 (clean all)', () => {
-      const toolCallPart = createToolCallPart('tool1')
-
-      const messages = [
-        createTestMessage('user', 'Q'),
-        createTestMessage('assistant', 'A', {
-          contentParts: [{ type: 'text', text: 'A' }, toolCallPart],
+        createTestMessage('assistant', 'Text', {
+          contentParts: [{ type: 'text', text: 'Text' }, toolCallPart],
         }),
+        createTestMessage('user', 'Q2'),
+        createTestMessage('assistant', 'A2'),
       ]
+    }
 
-      const result = cleanToolCalls(messages, 0)
+    it('keeps everything intact in mode none', async () => {
+      const messages = toolConversation(createToolCallPart('tool1'))
 
-      // All tool calls should be removed
-      const hasToolCall = result.some((m) => m.contentParts.some((p) => p.type === 'tool-call'))
-      expect(hasToolCall).toBe(false)
+      const result = await buildContext(messages, { attachmentResolver, toolCleanupMode: 'none' })
+
+      expect(result[1].contentParts.some((p) => p.type === 'tool-call')).toBe(true)
+      expect(result[1].contentParts.find((p) => p.type === 'tool-call')).toMatchObject({
+        result: { success: true },
+      })
     })
 
-    it('should handle negative keepRounds (treats as 0)', () => {
-      const messages = [createTestMessage('user', 'Q'), createTestMessage('assistant', 'A')]
+    it('stubs old results but keeps the call in stub mode', async () => {
+      const toolCallPart = createToolCallPart('tool1', { query: 'X' })
+      const messages = toolConversation(toolCallPart)
 
-      const result = cleanToolCalls(messages, -1)
+      const result = await buildContext(messages, {
+        attachmentResolver,
+        toolCleanupMode: 'stub-old-results',
+        keepToolCallRounds: 1,
+      })
 
-      expect(result).toHaveLength(2)
+      const stubbed = result[1].contentParts.find((p) => p.type === 'tool-call')
+      expect(stubbed).toMatchObject({
+        toolName: 'tool1',
+        args: { query: 'X' },
+        state: 'result',
+        result: { _cleared: true },
+      })
+      // Original message must not be mutated
+      expect(toolCallPart).toMatchObject({ result: { success: true } })
+      // Recent round keeps its parts untouched
+      expect(result[3].contentParts.some((p) => p.type === 'tool-call')).toBe(false)
     })
   })
 

@@ -1,5 +1,5 @@
 import { buildAgentPersonaPrompt, buildMemoriesSection } from '@shared/agent-persona/prompt'
-import { buildContext } from '@shared/context'
+import { buildContext, flattenToolCallPartsToText, selectContextMessages } from '@shared/context'
 import type { AttachmentResolver } from '@shared/context/types'
 import { ChatboxAIAPIError, OCRError } from '@shared/models/errors'
 import type { ChatStreamOptions, ModelInterface } from '@shared/models/types'
@@ -29,6 +29,7 @@ import {
   hasAcceptedCallbackBackgroundTask,
   hasAcceptedCallbackBackgroundTaskResult,
 } from '@/packages/chatbox-cli/background-task-result'
+import { assessContextPressure, getConfiguredContextWindow } from '@/packages/context-management/context-pressure'
 import {
   buildModelSystemPrompt,
   convertToModelMessages,
@@ -275,11 +276,27 @@ export async function prepareAgentGenerationHarness(
     targetMsgIx,
     preserveLastPromptMessageToolCalls
   )
+  // Pressure is measured on the un-relieved context selection: below the
+  // relief threshold history rides along untouched; above it, old tool
+  // results are stubbed (calls stay). Full compaction is handled separately
+  // at submit time.
+  const contextPressure = assessContextPressure({
+    contextMessages: selectContextMessages(messagesForPrompt, {
+      compactionPoints,
+      maxContextMessageCount: settings.maxContextMessageCount,
+    }),
+    providerId: settings.provider,
+    modelId: model.modelId,
+    contextWindow: getConfiguredContextWindow(globalSettings, settings.provider, model.modelId),
+    compactionThreshold: globalSettings.compactionThreshold,
+    sandboxMode: canExecuteCode,
+  })
   let promptMsgs = await buildContext(messagesForPrompt, {
     attachmentResolver,
     compactionPoints,
     modelSupportToolUseForFile: model.isSupportToolUse('read-file'),
     maxContextMessageCount: settings.maxContextMessageCount,
+    toolCleanupMode: contextPressure.toolCleanupMode,
     preserveToolCallMessageIds,
     sandboxMode: canExecuteCode,
   })
@@ -363,6 +380,13 @@ export async function prepareAgentGenerationHarness(
     globalSettings,
   })
   const hasTools = Object.keys(tools).length > 0
+  // A request that declares no tools must not carry tool wire blocks: providers
+  // such as Anthropic reject tool-call/tool-result content when the request has
+  // no `tools` definition. Fold the whole tool history (any cleanup mode, any
+  // round) into bounded plain text instead of dropping it.
+  if (!hasTools) {
+    promptMsgs = flattenToolCallPartsToText(promptMsgs)
+  }
   let instructions = hasTools ? `${GLOBAL_RESPONSE_LANGUAGE_INSTRUCTION}${toolInstructions}` : toolInstructions
 
   // Chat mode gets memories (no Soul/identity) from the same frozen snapshot,
@@ -448,6 +472,12 @@ export async function prepareAgentGenerationHarness(
 
   if (Object.keys(tools).length > 0) {
     chatOptions.tools = tools as ToolSet
+  }
+
+  // Long tool loops can outgrow the window mid-run where compaction cannot
+  // fire; the model layer stubs old in-run tool results near the threshold.
+  if (contextPressure.thresholdTokens !== null && Object.keys(tools).length > 0) {
+    chatOptions.contextPressure = { thresholdTokens: contextPressure.thresholdTokens }
   }
 
   const allToolNames = Object.keys(tools)

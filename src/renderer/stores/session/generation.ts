@@ -1,17 +1,19 @@
 import { withSessionGenerationLock } from '@chatbox/core/generation'
-import { buildContext } from '@shared/context'
+import { buildContext, selectContextMessages } from '@shared/context'
 import type { AttachmentResolver } from '@shared/context/types'
 import { supportsSessionGeneration } from '@shared/session/capabilities'
 import { findMessageContext } from '@shared/session/message-forks'
 import { type CompactionPoint, createMessage, type Message, type Session, type SessionSettings } from '@shared/types'
-import type { AgentModeEntrySource } from '@/analytics/agent-mode'
 import { currentGenerationService } from '@/adapters/CurrentGenerationService'
+import type { AgentModeEntrySource } from '@/analytics/agent-mode'
 import { rendererApplication } from '@/app/renderer-application'
-import { getSessionSettings } from './session-settings'
+import { assessContextPressure, getConfiguredContextWindow } from '@/packages/context-management/context-pressure'
+import { settingsStore } from '@/stores/settingsStore'
 import { guardSessionAction } from './action-guard'
 import { createAttachmentResolver } from './attachment-resolver'
 import { createInactiveFork, createNewFork, findMessageLocation } from './forks'
 import { insertMessageAfter } from './messages'
+import { getSessionSettings } from './session-settings'
 
 /** Internal generation entry point for callers that already hold the session generation lock. */
 export async function _generateWithoutSessionLock(
@@ -212,10 +214,25 @@ export async function genMessageContext(
     ? createAttachmentResolverFromAdapter(storageAdapter)
     : createAttachmentResolver()
 
+  // Same pressure gating as the agent harness: keep tool history intact until
+  // the context approaches the compaction threshold, then stub old results.
+  const globalSettings = settingsStore.getState().getSettings()
+  const contextPressure = assessContextPressure({
+    contextMessages: selectContextMessages(msgs, {
+      compactionPoints,
+      maxContextMessageCount: settings.maxContextMessageCount,
+    }),
+    providerId: settings.provider,
+    modelId: settings.modelId,
+    contextWindow: getConfiguredContextWindow(globalSettings, settings.provider, settings.modelId),
+    compactionThreshold: globalSettings.compactionThreshold,
+  })
+
   return buildContext(msgs, {
     attachmentResolver,
     compactionPoints,
     maxContextMessageCount: settings.maxContextMessageCount,
+    toolCleanupMode: contextPressure.toolCleanupMode,
     modelSupportToolUseForFile,
   })
 }

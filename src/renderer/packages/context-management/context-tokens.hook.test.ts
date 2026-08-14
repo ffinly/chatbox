@@ -129,7 +129,10 @@ describe('context-tokens hook tests', () => {
       totalTokens: 100,
       isCalculating: true,
       pendingTasks: 5,
-      breakdown: { currentInput: { text: 0, attachments: 0 }, context: { text: 100, attachments: 0 } },
+      breakdown: {
+        currentInput: { text: 0, attachments: 0, toolCalls: 0 },
+        context: { text: 100, attachments: 0, toolCalls: 0 },
+      },
     })
 
     const { result } = renderHook(

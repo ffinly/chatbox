@@ -5,6 +5,7 @@
  * Returns known token counts and a list of pending computation tasks.
  */
 
+import { estimateMessageToolCallTokens } from '@shared/context/tool-tokens'
 import type { Message, MessageFile, MessageLink } from '@shared/types/session'
 import { getMessageText } from '@shared/utils/message'
 import { MAX_INLINE_FILE_LINES } from '@/packages/context-management/attachment-payload'
@@ -120,8 +121,9 @@ export function analyzeTokenRequirements(options: AnalyzeTokenRequirementsOption
   })
 
   return {
-    currentInputTokens: currentInput.breakdown.text + currentInput.breakdown.attachments,
-    contextTokens: context.breakdown.text + context.breakdown.attachments,
+    currentInputTokens:
+      currentInput.breakdown.text + currentInput.breakdown.attachments + currentInput.breakdown.toolCalls,
+    contextTokens: context.breakdown.text + context.breakdown.attachments + context.breakdown.toolCalls,
     pendingTasks: [...currentInput.pendingTasks, ...context.pendingTasks],
     breakdown: {
       currentInput: currentInput.breakdown,
@@ -147,6 +149,7 @@ export function analyzeCurrentInputTokens(options: {
   const pendingTasks: Omit<ComputationTask, 'id' | 'createdAt' | 'sessionId'>[] = []
   let text = 0
   let attachments = 0
+  let toolCalls = 0
 
   if (constructedMessage) {
     const textResult = analyzeMessageText(constructedMessage, tokenizerType, true, 0)
@@ -165,9 +168,11 @@ export function analyzeCurrentInputTokens(options: {
     )
     attachments = attachmentsResult.tokens
     pendingTasks.push(...attachmentsResult.tasks)
+
+    toolCalls = estimateMessageToolCallTokens(constructedMessage)
   }
 
-  return { breakdown: { text, attachments }, pendingTasks }
+  return { breakdown: { text, attachments, toolCalls }, pendingTasks }
 }
 
 /**
@@ -184,6 +189,7 @@ export function analyzeContextTokens(options: {
   const pendingTasks: Omit<ComputationTask, 'id' | 'createdAt' | 'sessionId'>[] = []
   let text = 0
   let attachments = 0
+  let toolCalls = 0
 
   // Analyze context messages (reverse order so newest messages have higher priority)
   // contextMessages is ordered oldest to newest, but we want newest first for calculation
@@ -209,9 +215,13 @@ export function analyzeContextTokens(options: {
     )
     attachments += attachmentsResult.tokens
     pendingTasks.push(...attachmentsResult.tasks)
+
+    // Tool-call weight is computed synchronously (memoized chars/4): the async
+    // text-token cache never covers tool parts, which dominate agent sessions.
+    toolCalls += estimateMessageToolCallTokens(msg)
   }
 
-  return { breakdown: { text, attachments }, pendingTasks }
+  return { breakdown: { text, attachments, toolCalls }, pendingTasks }
 }
 
 // ============================================================================

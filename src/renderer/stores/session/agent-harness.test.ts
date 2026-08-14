@@ -368,6 +368,72 @@ describe('prepareAgentGenerationHarness', () => {
     expect(prepared.chatOptions.prepareStep).toBeUndefined()
   })
 
+  test('flattens historical tool calls to text when the request registers no tools', async () => {
+    const messages: Message[] = [
+      {
+        id: 'msg-1',
+        role: MessageRoleEnum.User,
+        timestamp: Date.now(),
+        contentParts: [{ type: 'text', text: 'Search for the latest release notes.' }],
+      },
+      {
+        id: 'msg-2',
+        role: MessageRoleEnum.Assistant,
+        timestamp: Date.now(),
+        contentParts: [
+          { type: 'text', text: 'Looking it up.' },
+          {
+            type: 'tool-call',
+            state: 'result',
+            toolCallId: 'tc-1',
+            toolName: 'web_search',
+            args: { query: 'release notes' },
+            result: { hits: ['v2 changelog'] },
+          },
+        ],
+      },
+      {
+        id: 'msg-3',
+        role: MessageRoleEnum.User,
+        timestamp: Date.now(),
+        contentParts: [{ type: 'text', text: 'Now answer without tools.' }],
+      },
+    ] as Message[]
+
+    const prepared = await prepareAgentGenerationHarness({
+      session: createSession(),
+      settings: {
+        provider: ModelProviderEnum.ChatboxAI,
+        modelId: 'test-model',
+      } as SessionSettings,
+      globalSettings: {} as Settings,
+      configs: { uuid: 'config-1' } as Config,
+      messages,
+      targetMsgIx: 3,
+      model: createMockModel({ isSupportToolUse: vi.fn().mockReturnValue(false) } as Partial<ModelInterface>),
+      dependencies: createModelDependencies(),
+      webBrowsing: false,
+      agentModeValue: 'off',
+      agentModeLocked: false,
+      agentModeSupported: false,
+      signal: new AbortController().signal,
+      sandboxProviderFactory: () => sandboxProviderMock as unknown as SandboxProvider,
+      isPro: () => true,
+    })
+
+    // No tools registered for this request: the wire must not carry tool blocks.
+    expect(prepared.chatOptions.tools).toBeUndefined()
+    const assistantMessage = prepared.promptMsgs.find((message) => message.id === 'msg-2')
+    expect(assistantMessage?.contentParts.some((part) => part.type === 'tool-call')).toBe(false)
+    const flattened = assistantMessage?.contentParts.find(
+      (part) => part.type === 'text' && part.text.includes('[tool web_search]')
+    )
+    expect(flattened).toBeDefined()
+    const serializedCoreMessages = JSON.stringify(prepared.coreMessages)
+    expect(serializedCoreMessages).not.toContain('"tool-call"')
+    expect(serializedCoreMessages).toContain('v2 changelog')
+  })
+
   test('keeps the toolset and context clean when agent mode is manually off', async () => {
     const userMessage: Message = {
       id: 'msg-1',

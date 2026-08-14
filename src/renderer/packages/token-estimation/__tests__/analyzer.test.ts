@@ -50,8 +50,8 @@ describe('analyzeTokenRequirements', () => {
       expect(result.contextTokens).toBe(0)
       expect(result.pendingTasks).toHaveLength(0)
       expect(result.breakdown).toEqual({
-        currentInput: { text: 0, attachments: 0 },
-        context: { text: 0, attachments: 0 },
+        currentInput: { text: 0, attachments: 0, toolCalls: 0 },
+        context: { text: 0, attachments: 0, toolCalls: 0 },
       })
     })
   })

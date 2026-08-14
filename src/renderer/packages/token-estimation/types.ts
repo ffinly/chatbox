@@ -142,6 +142,8 @@ export interface TokenBreakdown {
   text: number
   /** Tokens from attachments (files + links) */
   attachments: number
+  /** Tokens from tool-call parts (args + inline results), estimated synchronously */
+  toolCalls: number
 }
 
 /**

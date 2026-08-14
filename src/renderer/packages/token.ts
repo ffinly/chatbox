@@ -1,4 +1,5 @@
 import { reportError } from '@/utils/sentry'
+import { estimateMessageToolCallTokens } from '../../shared/context/tool-tokens'
 import type { Message, MessageFile, MessageLink } from '../../shared/types'
 import { TOKEN_CACHE_KEYS, type TokenCacheKey } from '../../shared/types/session'
 import { getMessageText, isEmptyMessage } from '../../shared/utils/message'
@@ -122,7 +123,13 @@ export function sumCachedTokensFromMessages(messages: Message[], model?: TokenMo
   let total = 0
 
   for (const msg of messages) {
-    if (isEmptyMessage(msg)) {
+    // Text token caches never cover tool-call parts, which dominate agent
+    // sessions; without this the pressure/compaction checks blindly undercount.
+    // Computed before the empty check: a tool-call-only assistant message has
+    // no text and would otherwise be skipped as "empty".
+    const toolCallTokens = estimateMessageToolCallTokens(msg)
+
+    if (isEmptyMessage(msg) && toolCallTokens === 0) {
       continue
     }
 
@@ -131,6 +138,8 @@ export function sumCachedTokensFromMessages(messages: Message[], model?: TokenMo
 
     // Read cached message text tokens (tokenCountMap preferred, tokenCount as fallback)
     total += msg.tokenCountMap?.[cacheKey] ?? msg.tokenCount ?? 0
+
+    total += toolCallTokens
 
     // Add role tokens
     total += estimateTokens(msg.role, model)

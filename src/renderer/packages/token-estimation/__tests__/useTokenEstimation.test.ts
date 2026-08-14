@@ -111,8 +111,8 @@ describe('useTokenEstimation', () => {
 
       // 'Hello world' = 2 tokens (calculated inline)
       expect(result.current.breakdown).toEqual({
-        currentInput: { text: 2, attachments: 0 },
-        context: { text: 0, attachments: 0 },
+        currentInput: { text: 2, attachments: 0, toolCalls: 0 },
+        context: { text: 0, attachments: 0, toolCalls: 0 },
       })
     })
   })

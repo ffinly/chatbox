@@ -69,10 +69,12 @@ const TokenCountMenu: FC<Props> = ({
             withArrow
             position="top"
           >
+            {/* Unknown-window models now compact against a fallback window, so the
+                toggle stays usable; the tooltip still surfaces that the window is unknown. */}
             <Switch
               size="xs"
               checked={autoCompactionEnabled}
-              disabled={!contextWindowKnown || isCompacting}
+              disabled={isCompacting}
               onChange={(e) => onAutoCompactionChange(e.currentTarget.checked)}
             />
           </Tooltip>

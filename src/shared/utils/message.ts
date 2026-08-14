@@ -291,11 +291,23 @@ export function orderSteeredMessagesForModel(messages: Message[]): Message[] {
     const message = ordered[index]
     if (message.role !== 'user' || !message.steered) continue
 
-    const previous = ordered[index - 1]
+    // A compaction summary may have been inserted between a legacy steered
+    // user and the assistant it interrupted (the summary is persisted right
+    // after its boundary message). Look through summaries so the causal
+    // restore still reaches the interrupted assistant; otherwise the steered
+    // user stays after the boundary and shows up in both the summary and the
+    // post-boundary context.
+    let targetIndex = index
+    while (targetIndex > 0 && ordered[targetIndex - 1].isSummary) {
+      targetIndex -= 1
+    }
+    if (targetIndex === 0) continue
+
+    const previous = ordered[targetIndex - 1]
     if (previous.role !== 'assistant' || previous.finishReason === 'steered') continue
 
     ordered.splice(index, 1)
-    ordered.splice(index - 1, 0, message)
+    ordered.splice(targetIndex - 1, 0, message)
   }
   return ordered
 }

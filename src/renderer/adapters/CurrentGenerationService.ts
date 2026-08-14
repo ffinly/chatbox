@@ -25,7 +25,6 @@ import { createSandboxProvider } from '@/sandbox'
 import { settingsService } from '@/settings-runtime'
 import { StorageKeyGenerator } from '@/storage/StoreStorage'
 import { markFirstSuccessfulChatCompleted } from '@/stores/firstSuccessfulChat'
-import { getSessionSettings } from '@/stores/session/session-settings'
 import { prepareAgentGenerationHarness, refreshSessionAttachmentStatuses } from '@/stores/session/agent-harness'
 import {
   getSessionAgentModeEntry,
@@ -41,6 +40,7 @@ import {
   persistStreamingMessage,
   updateStreamingCache,
 } from '@/stores/session/messages'
+import { getSessionSettings } from '@/stores/session/session-settings'
 import { registerSteeringConsumer } from '@/stores/session/steering'
 import { buildToolsForSession } from '@/stores/session/tools-builder'
 import {
@@ -131,6 +131,9 @@ async function buildToolsForPausedToolCall(session: Session, settings: SessionSe
   const promptMessages = await buildContext(messagesForPrompt, {
     attachmentResolver: attachmentAdapter,
     compactionPoints: getCompactionPointsForTarget(session, targetMessage.id),
+    // This context only feeds tool selection below and never reaches a model,
+    // so tool history is kept intact.
+    toolCleanupMode: 'none',
     modelSupportToolUseForFile: model.isSupportToolUse('read-file'),
     maxContextMessageCount: settings.maxContextMessageCount,
     sandboxMode: canExecuteCode,

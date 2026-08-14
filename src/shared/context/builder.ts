@@ -1,12 +1,17 @@
 import { isTextFilePath } from '../file-extensions'
-import type { CompactionPoint, Message, MessageContentParts } from '../types'
+import type { CompactionPoint, Message, MessageContentParts, MessageContentToolCallPart } from '../types'
 import { orderSteeredMessagesForModel } from '../utils/message'
 import { findLatestApplicableCompactionPoint } from './compaction-points'
 import { isContextEligibleMessage } from './message-eligibility'
-import type { AttachmentResolver, ContextBuilderOptions } from './types'
+import { findRecentRoundsStartIndex } from './rounds'
+import type { AttachmentResolver, ContextBuilderOptions, ContextSelectionOptions, ToolCleanupMode } from './types'
 
 const MAX_INLINE_FILE_LINES = 500
 const PREVIEW_LINES = 100
+
+/** Serialized args longer than this are downgraded to a preview when a part is stubbed. */
+const STUB_ARGS_MAX_CHARS = 2_000
+const STUB_ARGS_PREVIEW_CHARS = 500
 
 /**
  * Build context for AI from messages.
@@ -17,6 +22,7 @@ export async function buildContext(messages: Message[], options: ContextBuilderO
     attachmentResolver,
     maxContextMessageCount,
     compactionPoints,
+    toolCleanupMode,
     keepToolCallRounds = 2,
     preserveToolCallMessageIds,
     modelSupportToolUseForFile = false,
@@ -27,28 +33,13 @@ export async function buildContext(messages: Message[], options: ContextBuilderO
     return []
   }
 
-  // Legacy steering records stored the steered user after the assistant reply
-  // it interrupted; restore causal order before compaction and message limits
-  // so it is never replayed as an unanswered trailing turn. Current records are
-  // already persisted in true causal order and pass through unchanged.
-  const completedMessages = orderSteeredMessagesForModel(messages).filter(isContextEligibleMessage)
+  let contextMessages = selectContextMessages(messages, { compactionPoints, maxContextMessageCount })
 
-  if (completedMessages.length === 0) {
+  if (contextMessages.length === 0) {
     return []
   }
 
-  let contextMessages = applyCompaction(
-    completedMessages,
-    compactionPoints,
-    keepToolCallRounds,
-    preserveToolCallMessageIds
-  )
-
-  contextMessages = filterErrorMessages(contextMessages)
-
-  if (maxContextMessageCount !== undefined && maxContextMessageCount < Number.MAX_SAFE_INTEGER) {
-    contextMessages = applyMessageLimit(contextMessages, maxContextMessageCount)
-  }
+  contextMessages = applyToolCleanup(contextMessages, toolCleanupMode, keepToolCallRounds, preserveToolCallMessageIds)
 
   contextMessages = await injectAttachments(
     contextMessages,
@@ -60,12 +51,38 @@ export async function buildContext(messages: Message[], options: ContextBuilderO
   return contextMessages
 }
 
-function applyCompaction(
-  messages: Message[],
-  compactionPoints: CompactionPoint[] | undefined,
-  keepToolCallRounds: number,
-  preserveToolCallMessageIds: string[] | undefined
-): Message[] {
+/**
+ * The message-selection half of context building: causal ordering, eligibility,
+ * compaction-point slicing, error filtering, and the message-count limit —
+ * everything that decides WHICH messages are in context, with their content
+ * untouched. Exposed so pressure estimation can measure exactly the selection
+ * the send path will use. Returns the original message references.
+ */
+export function selectContextMessages(messages: Message[], options: ContextSelectionOptions = {}): Message[] {
+  const { compactionPoints, maxContextMessageCount } = options
+
+  // Legacy steering records stored the steered user after the assistant reply
+  // it interrupted; restore causal order before compaction and message limits
+  // so it is never replayed as an unanswered trailing turn. Current records are
+  // already persisted in true causal order and pass through unchanged.
+  const completedMessages = orderSteeredMessagesForModel(messages).filter(isContextEligibleMessage)
+
+  if (completedMessages.length === 0) {
+    return []
+  }
+
+  let contextMessages = applyCompaction(completedMessages, compactionPoints)
+
+  contextMessages = contextMessages.filter((m) => !m.error && !m.errorCode)
+
+  if (maxContextMessageCount !== undefined && maxContextMessageCount < Number.MAX_SAFE_INTEGER) {
+    contextMessages = applyMessageLimit(contextMessages, maxContextMessageCount)
+  }
+
+  return contextMessages
+}
+
+function applyCompaction(messages: Message[], compactionPoints: CompactionPoint[] | undefined): Message[] {
   const latestCompactionPoint = findLatestApplicableCompactionPoint(messages, compactionPoints)
 
   // A summary may only enter context as the stand-in of an applied compaction
@@ -73,11 +90,7 @@ function applyCompaction(
   // boundary lives on another branch or its point was lost) and would leak a
   // summary of other content alongside the full history.
   if (!latestCompactionPoint) {
-    return cleanToolCalls(
-      messages.filter((m) => !m.isSummary),
-      keepToolCallRounds,
-      preserveToolCallMessageIds
-    )
+    return messages.filter((m) => !m.isSummary)
   }
 
   const boundaryIndex = messages.findIndex((m) => m.id === latestCompactionPoint.boundaryMessageId)
@@ -85,11 +98,7 @@ function applyCompaction(
 
   // findLatestApplicableCompactionPoint guarantees both exist in `messages`.
   if (boundaryIndex === -1 || !summaryMessage) {
-    return cleanToolCalls(
-      messages.filter((m) => !m.isSummary),
-      keepToolCallRounds,
-      preserveToolCallMessageIds
-    )
+    return messages.filter((m) => !m.isSummary)
   }
 
   const messagesAfterBoundary = messages.slice(boundaryIndex + 1).filter((m) => !m.isSummary)
@@ -101,66 +110,97 @@ function applyCompaction(
     contextMessages = [systemMessage, ...contextMessages]
   }
 
-  return cleanToolCalls(contextMessages, keepToolCallRounds, preserveToolCallMessageIds)
+  return contextMessages
 }
 
-function cleanToolCalls(messages: Message[], keepRounds: number, preserveToolCallMessageIds?: string[]): Message[] {
-  if (messages.length === 0 || keepRounds < 0) {
+function applyToolCleanup(
+  messages: Message[],
+  mode: ToolCleanupMode,
+  keepRounds: number,
+  preserveToolCallMessageIds: string[] | undefined
+): Message[] {
+  if (mode === 'none' || messages.length === 0 || keepRounds < 0) {
     return messages.map((m) => ({ ...m }))
   }
 
-  const roundBoundaryIndex = findRoundBoundaryIndex(messages, keepRounds)
+  const roundBoundaryIndex = findRecentRoundsStartIndex(messages, keepRounds)
   const preserveToolCallMessageIdSet = new Set(preserveToolCallMessageIds ?? [])
 
   return messages.map((message, index) => {
     if (index >= roundBoundaryIndex || preserveToolCallMessageIdSet.has(message.id)) {
       return { ...message }
     }
-    return removeToolCallParts(message)
+    return stubToolResultParts(message)
   })
 }
 
-function findRoundBoundaryIndex(messages: Message[], keepRounds: number): number {
-  if (keepRounds === 0) {
-    return messages.length
-  }
-
-  let roundCount = 0
-  let inRound = false
-
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const role = messages[i].role
-
-    if (role === 'assistant') {
-      inRound = true
-    } else if (role === 'user' && inRound) {
-      roundCount++
-      inRound = false
-
-      if (roundCount >= keepRounds) {
-        return i
-      }
-    }
-  }
-
-  return 0
-}
-
-function removeToolCallParts(message: Message): Message {
+/**
+ * Pressure relief that keeps the action record: the call (name + args) stays so
+ * the model still knows what it did, while the bulky result payload is replaced
+ * with a stub the model can act on (re-run the tool, or read the offloaded blob
+ * back via read_file). Error results stay intact — they are small and their
+ * diagnostics matter. Oversized args (e.g. written file content) are cut to a
+ * preview while remaining a JSON object, which the wire format requires.
+ */
+function stubToolResultParts(message: Message): Message {
   if (!message.contentParts || message.contentParts.length === 0) {
     return { ...message }
   }
 
-  const filteredParts: MessageContentParts = message.contentParts.filter((part) => part.type !== 'tool-call')
+  let changed = false
+  const parts: MessageContentParts = message.contentParts.map((part) => {
+    if (part.type !== 'tool-call' || part.state !== 'result') {
+      return part
+    }
+    changed = true
+    return stubToolResultPart(part)
+  })
 
-  return {
-    ...message,
-    contentParts: filteredParts,
+  if (!changed) {
+    return { ...message }
   }
+
+  return { ...message, contentParts: parts }
 }
 
-function filterErrorMessages(messages: Message[]): Message[] {
-  return messages.filter((m) => !m.error && !m.errorCode)
+function stubToolResultPart(part: MessageContentToolCallPart): MessageContentToolCallPart {
+  const result: Record<string, unknown> = part.resultStorageKey
+    ? {
+        _cleared: true,
+        fullResultFileKey: part.resultStorageKey,
+        note: 'Old tool result cleared to save context space. Use the read_file tool with fullResultFileKey to re-read it if needed.',
+      }
+    : {
+        _cleared: true,
+        note: 'Old tool result cleared to save context space. Call the tool again if this result is needed.',
+      }
+
+  const stubbed: MessageContentToolCallPart = {
+    ...part,
+    result,
+    resultStorageKey: undefined,
+  }
+
+  const serializedArgs = serializeArgsLength(part.args)
+  if (serializedArgs !== null && serializedArgs.length > STUB_ARGS_MAX_CHARS) {
+    stubbed.args = {
+      _cleared: true,
+      preview: serializedArgs.slice(0, STUB_ARGS_PREVIEW_CHARS),
+      note: 'Args truncated together with the cleared result.',
+    }
+  }
+
+  return stubbed
+}
+
+function serializeArgsLength(args: unknown): string | null {
+  if (args == null) return null
+  if (typeof args === 'string') return args
+  try {
+    return JSON.stringify(args) ?? null
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -175,10 +215,10 @@ function applyMessageLimit(messages: Message[], maxCount: number): Message[] {
   // maxCount limits history, +1 for the current input (last message)
   const effectiveLimit = maxCount + 1
 
-  const result = workingMsgs.slice(-effectiveLimit).map((m) => ({ ...m }))
+  const result = workingMsgs.slice(-effectiveLimit)
 
   if (head) {
-    result.unshift({ ...head })
+    return [head, ...result]
   }
 
   return result

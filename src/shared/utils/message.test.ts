@@ -763,6 +763,38 @@ describe('sequenceMessages', () => {
     expect(orderSteeredMessagesForModel(result)).toEqual(result)
   })
 
+  it('restores legacy steering order through an inserted compaction summary', () => {
+    // A compaction summary is persisted right after its boundary message; when
+    // the boundary is the assistant a legacy steered user interrupted, the
+    // summary lands between them. The causal restore must look through it,
+    // otherwise the steered user stays after the boundary and shows up in both
+    // the summary and the post-boundary context.
+    const input = [
+      createMessage({ id: 'u1', role: 'user', contentParts: [textPart('question')] }),
+      createMessage({ id: 'a1', role: 'assistant', contentParts: [textPart('interrupted reply')] }),
+      createMessage({ id: 'summary', role: 'assistant', isSummary: true, contentParts: [textPart('summary')] }),
+      createMessage({ id: 'legacy-steer', role: 'user', steered: true, contentParts: [textPart('steer')] }),
+    ]
+
+    const result = orderSteeredMessagesForModel(input)
+
+    expect(result.map((message) => message.id)).toEqual(['u1', 'legacy-steer', 'a1', 'summary'])
+    expect(orderSteeredMessagesForModel(result)).toEqual(result)
+  })
+
+  it('leaves a steered user alone when only a summary precedes it', () => {
+    // Post-compaction context shape: [summary, steered, ...]. Nothing to
+    // restore — the interrupted assistant is already inside the summary.
+    const input = [
+      createMessage({ id: 'summary', role: 'assistant', isSummary: true, contentParts: [textPart('summary')] }),
+      createMessage({ id: 'steer', role: 'user', steered: true, contentParts: [textPart('steer')] }),
+    ]
+
+    const result = orderSteeredMessagesForModel(input)
+
+    expect(result.map((message) => message.id)).toEqual(['summary', 'steer'])
+  })
+
   it('quotes first assistant message into first user message', () => {
     const input = [
       createMessage({ id: 'a1', role: 'assistant', contentParts: [{ type: 'text', text: 'line1\nline2' }] }),

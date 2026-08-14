@@ -3,17 +3,17 @@ import {
   type CompactionServiceResult,
   isAutoCompactionEnabled,
 } from '@chatbox/core/application/context'
-import type { Settings } from '@shared/types'
 import { v4 as uuidv4 } from 'uuid'
+import { rendererApplication } from '@/app/renderer-application'
 import { getLogger } from '@/lib/utils'
 import { getTokenizerType } from '@/packages/token-estimation'
 import { settingsService } from '@/settings-runtime'
 import { setCompactionUIState } from '@/stores/atoms/compactionAtoms'
-import { rendererApplication } from '@/app/renderer-application'
-import { getSessionSettings } from '@/stores/session/session-settings'
 import queryClient from '@/stores/queryClient'
+import { getSessionSettings } from '@/stores/session/session-settings'
 import { sumCachedTokensFromMessages } from '../token'
-import { checkOverflow } from './compaction-detector'
+import { checkOverflow, getCompactionThresholdTokens } from './compaction-detector'
+import { getConfiguredContextWindow } from './context-pressure'
 import {
   type ContextTokensCacheValue,
   getContextMessagesForTokenEstimation,
@@ -24,20 +24,19 @@ import { generateSummaryWithStream } from './summary-generator'
 
 const log = getLogger('compaction')
 
-function getModelContextWindowFromSettings(
-  providerId: string | undefined,
-  modelId: string | undefined,
-  settings: Settings
-): number | undefined {
-  if (!providerId || !modelId) return undefined
-  return settings.providers?.[providerId]?.models?.find((model) => model.modelId === modelId)?.contextWindow
-}
+/**
+ * Fraction of the compaction threshold the raw tail may occupy after a
+ * compaction. Keeps "summary + tail" comfortably below the threshold so a
+ * single compaction per submit is always enough.
+ */
+const RAW_TAIL_BUDGET_RATIO = 0.5
 
 const compactionService = new CompactionService({
   sessions: {
     getSession: (sessionId) => rendererApplication.sessionQueryBridge.getSession(sessionId),
     getSessionSettings: (sessionId) => getSessionSettings(sessionId),
-    updateSessionWithMessages: (sessionId, updater) => rendererApplication.sessions.updateSessionWithMessages(sessionId, updater),
+    updateSessionWithMessages: (sessionId, updater) =>
+      rendererApplication.sessions.updateSessionWithMessages(sessionId, updater),
   },
   settings: settingsService,
   policy: {
@@ -72,11 +71,41 @@ const compactionService = new CompactionService({
         tokens: contextTokens,
         modelId,
         settings: { compactionThreshold: globalSettings.compactionThreshold },
-        contextWindow: getModelContextWindowFromSettings(providerId, modelId, globalSettings),
+        contextWindow: getConfiguredContextWindow(globalSettings, providerId, modelId),
       }).isOverflow
     },
-    getSummaryMessages: (session, sessionSettings) =>
-      getContextMessagesForTokenEstimation(session, { settings: sessionSettings }),
+    // Full-fidelity context: the service derives the boundary and the
+    // summarizer input from this list, so tool calls/results must be intact
+    // and the message-count limit must NOT apply — the compaction point cuts
+    // everything before the boundary in the persisted list, so the summary has
+    // to be able to cover messages outside the current send window (otherwise
+    // raising maxContextMessageCount later can never bring them back).
+    getCompactionContext: (session, sessionSettings) =>
+      getContextMessagesForTokenEstimation(session, {
+        settings: { ...sessionSettings, maxContextMessageCount: undefined },
+      }),
+    getBoundaryOptions(session, _sessionSettings, globalSettings) {
+      const providerId = session.settings?.provider ?? globalSettings.defaultChatModel?.provider
+      const modelId = session.settings?.modelId ?? globalSettings.defaultChatModel?.model
+      if (!modelId) return {}
+      const thresholdTokens = getCompactionThresholdTokens(
+        modelId,
+        { compactionThreshold: globalSettings.compactionThreshold },
+        getConfiguredContextWindow(globalSettings, providerId, modelId)
+      )
+      if (thresholdTokens === null) return {}
+      const tokenModel = providerId ? { provider: providerId, modelId } : undefined
+      return {
+        maxTailTokens: Math.floor(thresholdTokens * RAW_TAIL_BUDGET_RATIO),
+        // sandboxMode=false on purpose: whether attachments go out as sandbox
+        // metadata depends on code-execution availability, which this layer
+        // cannot know. Counting full inline weight is the conservative
+        // direction for a budget — sandbox sessions merely get a slightly
+        // shorter tail, while metadata-weight estimation would let a huge
+        // attachment ride in the tail and keep the request over the window.
+        estimateMessagesTokens: (messages) => sumCachedTokensFromMessages(messages, tokenModel, false),
+      }
+    },
   },
   summaries: {
     generate: ({ messages, sessionSettings, language, onStreamUpdate }) =>

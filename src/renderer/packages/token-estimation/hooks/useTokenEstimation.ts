@@ -135,8 +135,12 @@ export function useTokenEstimation(options: UseTokenEstimationOptions): TokenEst
     }
   }, [sessionId])
 
-  const currentInputTokens = currentInputAnalysis.breakdown.text + currentInputAnalysis.breakdown.attachments
-  const contextTokens = contextAnalysis.breakdown.text + contextAnalysis.breakdown.attachments
+  const currentInputTokens =
+    currentInputAnalysis.breakdown.text +
+    currentInputAnalysis.breakdown.attachments +
+    currentInputAnalysis.breakdown.toolCalls
+  const contextTokens =
+    contextAnalysis.breakdown.text + contextAnalysis.breakdown.attachments + contextAnalysis.breakdown.toolCalls
 
   const breakdown = useMemo(
     () => ({

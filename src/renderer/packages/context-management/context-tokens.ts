@@ -65,11 +65,15 @@ export interface ContextTokensCacheValue {
 export interface GetContextMessagesForTokenEstimationOptions {
   settings?: Partial<Settings>
   preserveLastUserMessage?: boolean
-  keepToolCallRounds?: number
 }
 
 /**
- * Get context messages for token estimation
+ * Get context messages for token estimation and compaction.
+ *
+ * Returns the context selection at full fidelity — tool calls and results are
+ * NOT cleaned up here. Pressure decisions (stub relief, compaction trigger)
+ * must be driven by the size of the un-relieved context, and the compaction
+ * summarizer must see everything it is about to replace.
  *
  * Algorithm:
  * 1. Call buildContextForSession to get base context messages
@@ -79,17 +83,17 @@ export interface GetContextMessagesForTokenEstimationOptions {
  *    - Apply maxContextMessageCount limit
  *
  * @param session - The session to extract context from
- * @param options - Options including settings, preserveLastUserMessage, keepToolCallRounds
+ * @param options - Options including settings, preserveLastUserMessage
  * @returns Filtered messages for token estimation
  */
 export function getContextMessagesForTokenEstimation(
   session: Session,
   options: GetContextMessagesForTokenEstimationOptions = {}
 ): Message[] {
-  const { settings = {}, keepToolCallRounds = 2, preserveLastUserMessage = false } = options
+  const { settings = {}, preserveLastUserMessage = false } = options
 
   // Step 1: Call buildContextForSession to get base context messages
-  const baseMessages = buildContextForSession(session, { keepToolCallRounds, settings })
+  const baseMessages = buildContextForSession(session, { settings })
 
   // Step 2: Apply selectMessagesForSendContext filtering
   // - Filter out error/errorCode messages
@@ -101,7 +105,6 @@ export function getContextMessagesForTokenEstimation(
     msgs: baseMessages,
     compactionPoints: session.compactionPoints,
     preserveLastUserMessage,
-    keepToolCallRounds,
   })
 
   return filteredMessages
@@ -119,6 +122,10 @@ export function getContextMessagesForTokenEstimation(
 export function getContextTokensCacheKey(params: ContextTokensCacheKeyParams): readonly [string, ...unknown[]] {
   return [
     'context-tokens',
+    // Estimation semantics version: v2 counts tool-call parts and stops
+    // pre-cleaning tool calls, so cached values from older semantics must not
+    // be read back.
+    'v2',
     params.sessionId,
     params.maxContextMessageCount,
     params.latestContextMessageId,
