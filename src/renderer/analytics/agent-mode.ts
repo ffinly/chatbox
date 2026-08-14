@@ -87,6 +87,10 @@ export function trackWebSearchClick(context: AgentModeTrackingContext, enabled: 
   )
 }
 
+export function trackMemoryClick(context: AgentModeTrackingContext, enabled: boolean) {
+  trackJkClickEvent(JK_EVENTS.MEMORY_CLICK, buildAgentModeTrackingOptions(context, enabled ? 'on' : 'off'))
+}
+
 export function trackAgentModeFreePointsCard(context: AgentModeTrackingContext) {
   const baseOptions = buildAgentModeBaseTrackingOptions(context)
   trackJkAutoEvent(JK_EVENTS.AGENT_MODE_FREE_POINTS_CARD, {

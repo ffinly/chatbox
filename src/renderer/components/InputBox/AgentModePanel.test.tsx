@@ -34,6 +34,7 @@ const mocks = vi.hoisted(() => {
       },
     },
     licenseKey: '',
+    memoryEnabled: true,
     skills: {
       enabledSkillNames: [],
     },
@@ -53,14 +54,18 @@ const mocks = vi.hoisted(() => {
   const knowledgeBases: Array<{ id: number; name: string }> = []
   const openDirectoryDialogMock = vi.fn()
   const trackWebSearchClickMock = vi.fn()
+  const trackMemoryClickMock = vi.fn()
   const setSessionAgentModeMock = vi.fn()
+  const listMemoriesMock = vi.fn(() => new Promise<Array<{ id: string; content: string; createdAt: number }>>(() => {}))
 
   return {
     agentModeEntry,
     knowledgeBases,
+    listMemoriesMock,
     openDirectoryDialogMock,
     setSessionAgentModeMock,
     settingsState,
+    trackMemoryClickMock,
     trackWebSearchClickMock,
     uiState,
   }
@@ -68,13 +73,17 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('react-i18next', () => ({
   initReactI18next: { type: '3rdParty', init: vi.fn() },
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({
+    t: (key: string, options?: { count?: number }) =>
+      typeof options?.count === 'number' ? key.replace('{{count}}', String(options.count)) : key,
+  }),
 }))
 
 vi.mock('@/analytics/agent-mode', () => ({
   trackAgentModeSelect: vi.fn(),
   trackCodeExecutionClick: vi.fn(),
   trackSmartSwitchingClick: vi.fn(),
+  trackMemoryClick: mocks.trackMemoryClickMock,
   trackWebSearchClick: mocks.trackWebSearchClickMock,
 }))
 
@@ -125,6 +134,10 @@ vi.mock('@/stores/session/agent-mode', () => ({
   useSessionAgentMode: () => mocks.agentModeEntry,
 }))
 
+vi.mock('@/stores/agentPersonaStore', () => ({
+  listMemories: mocks.listMemoriesMock,
+}))
+
 vi.mock('@/stores/settingsStore', () => ({
   useMcpSettings: () => ({ servers: [], enabledBuiltinServers: [] }),
   useSettingsStore: (selector: (state: typeof mocks.settingsState) => unknown) => selector(mocks.settingsState),
@@ -159,6 +172,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   mocks.agentModeEntry.value = 'on'
   mocks.knowledgeBases.splice(0)
+  mocks.settingsState.memoryEnabled = true
+  mocks.listMemoriesMock.mockImplementation(() => new Promise(() => {}))
   mocks.uiState.newSessionState = {}
   recentDirectoriesStore.setState({ directories: [] })
 })
@@ -307,6 +322,7 @@ describe('AgentModePanel capability availability', () => {
     renderPanel()
 
     expect(screen.getByRole('button', { name: 'Web Search' }).getAttribute('aria-disabled')).toBe('false')
+    expect(screen.getByRole('button', { name: /^Global Memory/ }).getAttribute('aria-disabled')).toBe('false')
     expect(screen.getByRole('button', { name: 'Knowledge Base' }).getAttribute('aria-disabled')).toBe('false')
     expect(screen.getByRole('button', { name: /^Code Execution/ }).getAttribute('aria-disabled')).toBe('true')
     expect(screen.getByRole('button', { name: 'Skills' }).getAttribute('aria-disabled')).toBe('true')
@@ -349,10 +365,81 @@ describe('AgentModePanel capability availability', () => {
   test('keeps all capability rows enabled in Work Mode', () => {
     renderPanel()
 
-    for (const name of ['Web Search', 'Skills', 'MCP', 'Knowledge Base', 'Working Directory']) {
+    for (const name of ['Web Search', /^Global Memory/, 'Skills', 'MCP', 'Knowledge Base', 'Working Directory']) {
       expect(screen.getByRole('button', { name }).getAttribute('aria-disabled')).toBe('false')
     }
     expect(screen.getByRole('button', { name: /^Code Execution/ }).getAttribute('aria-disabled')).toBe('false')
+  })
+})
+
+describe('AgentModePanel memory', () => {
+  test('keeps the Memory switch available in Chat Mode and writes the global setting', () => {
+    mocks.agentModeEntry.value = 'off'
+    renderPanel()
+
+    const memoryRow = screen.getByRole('button', { name: /^Global Memory/ })
+    const memorySwitch = memoryRow.querySelector('input[type="checkbox"]')
+    expect(memorySwitch).not.toBeNull()
+    expect((memorySwitch as HTMLInputElement).checked).toBe(true)
+
+    fireEvent.click(memorySwitch as HTMLInputElement)
+
+    expect(mocks.settingsState.setSettings).toHaveBeenCalledWith({ memoryEnabled: false })
+    expect(mocks.trackMemoryClickMock).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'chat_mode', sessionId: 'new' }),
+      false
+    )
+  })
+
+  test('explains that Memory applies to every chat and links to agent settings', async () => {
+    mocks.listMemoriesMock.mockResolvedValue([
+      { id: 'm1', content: 'Prefers concise answers', createdAt: 1 },
+      { id: 'm2', content: 'Works in Beijing', createdAt: 2 },
+    ])
+    const onClose = vi.fn()
+    const { navigateToSettings } = await import('@/modals/Settings')
+    renderPanel({ onClose })
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: /^Global Memory/ }))
+
+    expect(screen.getByText('On for all chats')).toBeTruthy()
+    expect(
+      screen.getByText(
+        'Saves lasting facts from any chat and uses them in new ones. Turning this off stops memory everywhere.'
+      )
+    ).toBeTruthy()
+
+    await vi.waitFor(() => {
+      expect(screen.getByText('2 saved')).toBeTruthy()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Manage memories' }))
+    expect(onClose).toHaveBeenCalled()
+    expect(navigateToSettings).toHaveBeenCalledWith('/agent')
+  })
+
+  test('says Memory is off for all chats and that the current chat keeps its snapshot', () => {
+    mocks.settingsState.memoryEnabled = false
+    renderPanel({ sessionId: 's1' })
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: /^Global Memory/ }))
+
+    expect(screen.getByText('Off for all chats')).toBeTruthy()
+    expect(
+      screen.getByText('Memory is paused in every chat. Nothing new is saved, and existing memories stay unused.')
+    ).toBeTruthy()
+    expect(screen.getByText('This chat keeps memories already loaded until you start a new chat.')).toBeTruthy()
+    expect(screen.queryByText('All chats')).toBeNull()
+  })
+
+  test('does not mention a loaded snapshot on a brand-new chat', () => {
+    mocks.settingsState.memoryEnabled = false
+    renderPanel()
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: /^Global Memory/ }))
+
+    expect(screen.getByText('Off for all chats')).toBeTruthy()
+    expect(screen.queryByText('This chat keeps memories already loaded until you start a new chat.')).toBeNull()
   })
 })
 

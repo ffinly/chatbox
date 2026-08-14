@@ -26,6 +26,7 @@ import {
   IconFolder,
   IconFolderCog,
   IconHammer,
+  IconNotes,
   IconSettings2,
   IconTrash,
   IconVocabulary,
@@ -39,9 +40,11 @@ import { useTranslation } from 'react-i18next'
 import {
   trackAgentModeSelect,
   trackCodeExecutionClick,
+  trackMemoryClick,
   trackSmartSwitchingClick,
   trackWebSearchClick,
 } from '@/analytics/agent-mode'
+import { rendererApplication } from '@/app/renderer-application'
 import { AppTooltip as Tooltip } from '@/components/ui/tooltip'
 import { useKnowledgeBases } from '@/hooks/knowledge-base'
 import { useMCPServerStatus, useToggleMCPServer } from '@/hooks/mcp'
@@ -50,11 +53,11 @@ import { BUILTIN_MCP_SERVERS } from '@/packages/mcp/builtin'
 import { skillsController, subscribeSkillsChanged } from '@/packages/skills/controller'
 import { WEB_SEARCH_PROVIDERS, type WebSearchProviderValue } from '@/packages/web-search/constants'
 import platform from '@/platform'
-import { rendererApplication } from '@/app/renderer-application'
-import { useSessionSettings } from '@/stores/session/session-settings'
+import { listMemories } from '@/stores/agentPersonaStore'
 import { useAutoValidate } from '@/stores/premiumActions'
 import { recentDirectoriesStore, useRecentDirectories } from '@/stores/recentDirectoriesStore'
 import { setSessionAgentMode, useSessionAgentMode } from '@/stores/session/agent-mode'
+import { useSessionSettings } from '@/stores/session/session-settings'
 import { useMcpSettings, useSettingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
 import { ScalableIcon } from '../common/ScalableIcon'
@@ -64,7 +67,15 @@ import { getAgentModeUIState } from './agentModeState'
 
 const useSession = (sessionId: string | null) => rendererApplication.sessionHooks.useSession(sessionId)
 
-type PanelPage = 'main' | 'web-search' | 'code-execution' | 'skills' | 'mcp' | 'knowledge-base' | 'working-directory'
+type PanelPage =
+  | 'main'
+  | 'web-search'
+  | 'memory'
+  | 'code-execution'
+  | 'skills'
+  | 'mcp'
+  | 'knowledge-base'
+  | 'working-directory'
 
 // The working-directory feature needs the desktop filesystem and directory picker. Windows
 // uses the native execution backend; bound directory writes are validated in the main process.
@@ -165,6 +176,24 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
   const queritApiKey = useSettingsStore((s) => s.extension.webSearch.queritApiKey)
   const webSearchProviderLabel =
     WEB_SEARCH_PROVIDERS.find((p) => p.value === webSearchProvider)?.label ?? webSearchProvider
+
+  // Memory is a global preference (all chats), not a per-session capability.
+  const memoryEnabled = useSettingsStore((s) => s.memoryEnabled !== false)
+  const [memoryCount, setMemoryCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void listMemories()
+      .then((entries) => {
+        if (!cancelled) setMemoryCount(entries.length)
+      })
+      .catch(() => {
+        if (!cancelled) setMemoryCount(0)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const isProviderAvailable = useCallback(
     (provider: WebSearchProviderValue) => {
@@ -605,6 +634,22 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
     [setSettings]
   )
 
+  const handleMemoryEnabledChange = useCallback(
+    (enabled: boolean) => {
+      trackMemoryClick(
+        {
+          sessionId,
+          mode: agentModeUIState.isActive ? 'work_mode' : 'chat_mode',
+          provider: providerId,
+          model: modelId,
+        },
+        enabled
+      )
+      setSettings({ memoryEnabled: enabled })
+    },
+    [agentModeUIState.isActive, modelId, providerId, sessionId, setSettings]
+  )
+
   // --- Sub-panel content ---
   const renderSubPanel = () => {
     if (page === 'web-search') {
@@ -650,6 +695,54 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
               </Tooltip>
             )
           })}
+        </>
+      )
+    }
+
+    if (page === 'memory') {
+      return (
+        <>
+          <SubPanelHeader title={t('Global Memory')} settingsPath="/agent" />
+          <Divider my={4} />
+          <Stack gap={6} px="sm" py={6}>
+            <Text size="sm" fw={600} c={memoryEnabled ? 'chatbox-brand' : 'chatbox-secondary'}>
+              {memoryEnabled ? t('On for all chats') : t('Off for all chats')}
+            </Text>
+            <Text size="xs" c="chatbox-secondary" className="leading-snug">
+              {memoryEnabled
+                ? t(
+                    'Saves lasting facts from any chat and uses them in new ones. Turning this off stops memory everywhere.'
+                  )
+                : t('Memory is paused in every chat. Nothing new is saved, and existing memories stay unused.')}
+            </Text>
+            {!memoryEnabled && !isNewSession && (
+              <Text size="xs" c="dimmed" className="leading-snug">
+                {t('This chat keeps memories already loaded until you start a new chat.')}
+              </Text>
+            )}
+          </Stack>
+          <Divider my={4} />
+          {memoryCount === null ? (
+            <Flex justify="center" py="md">
+              <Loader size="sm" />
+            </Flex>
+          ) : (
+            <Group justify="space-between" align="center" px="sm" py="xs">
+              <Text size="xs" c="dimmed">
+                {memoryCount === 0 ? t('No memories saved yet.') : t('{{count}} saved', { count: memoryCount })}
+              </Text>
+              <Button
+                size="xs"
+                variant="light"
+                onClick={() => {
+                  onClose()
+                  navigateToSettings('/agent')
+                }}
+              >
+                {t('Manage memories')}
+              </Button>
+            </Group>
+          )}
         </>
       )
     }
@@ -1079,6 +1172,29 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
                       webSearchProvider
                     )
                     onWebBrowsingChange(enabled)
+                  }}
+                />
+                <IconChevronRight size={14} className="text-[var(--chatbox-tint-tertiary)]" />
+              </Flex>
+            }
+          />
+
+          <ExtensionRow
+            icon={<IconNotes size={16} className="text-[var(--chatbox-tint-secondary)]" />}
+            label={t('Global Memory')}
+            badge={memoryCount && memoryCount > 0 ? memoryCount : undefined}
+            subtitle={memoryEnabled ? t('All chats') : undefined}
+            active={page === 'memory'}
+            page="memory"
+            subPanelAlign="top"
+            rightContent={
+              <Flex gap="xs" align="center" className="shrink-0">
+                <Switch
+                  checked={memoryEnabled}
+                  size="xs"
+                  onChange={(e) => {
+                    e.stopPropagation()
+                    handleMemoryEnabledChange(e.currentTarget.checked)
                   }}
                 />
                 <IconChevronRight size={14} className="text-[var(--chatbox-tint-tertiary)]" />
