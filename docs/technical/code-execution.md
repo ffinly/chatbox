@@ -1,6 +1,6 @@
 # Chat 模式代码执行技术设计
 
-> Last updated: 2026-07
+> Last updated: 2026-08
 
 本文档描述 Chat 模式下代码执行、Agent Mode、工具暂停审批和 HTML 产物预览的技术设计。产品说明见 [`docs/product/code-execution.md`](../product/code-execution.md)。
 
@@ -170,6 +170,7 @@ Chat Agent 不再 fallback 注入底层 `sandbox_*` 工具。
 |-------------|------|----------|
 | `tool_call_limit` | 多轮工具调用达到上限 | 用户确认后执行原本暂停的工具调用 |
 | `user_exec_approval` | `user_exec` 命令未命中白名单、未通过 AI 安全评估且未开启 Full Access | 批准后执行命令，拒绝后写入拒绝结果 |
+| `command_escalation_approval` | `run_command` 在沙箱真实失败后，携带该结果明确返回的一次性 `retry_of` 请求主机重试 | 校验命令、目录和 shell 完全一致，批准后消费 reference 并执行一次 |
 | `file_mutation_approval` | 写入或编辑绑定目录之外的用户真实文件系统，且未开启 Full Access | 批准后执行文件变更，拒绝后写入拒绝结果 |
 
 设计要点：
@@ -178,6 +179,7 @@ Chat Agent 不再 fallback 注入底层 `sandbox_*` 工具。
 - 重启后 UI 可从消息状态恢复“继续/停止”操作，不依赖内存 Promise。
 - 点击继续后走 `continuePausedToolCall()`，执行原工具并调用 `orchestrateGeneration(..., appendToMessage: true)`，结果追加到同一条 assistant 消息。
 - 暂停的 tool call 不会作为已完成工具结果注入模型上下文，避免模型误判工具已经执行。
+- `run_command` 的 `retry_of` 是 Main 进程为非零退出签发的 opaque reference，不是 tool call ID；它只在失败结果中明确返回，不能推断、跨命令复用或重复消费。Bash 执行启用 `pipefail`，避免 `git push | tail` 等管道把上游失败伪装成成功。
 - `user_exec` 先检查安全只读白名单，再对本地策略允许评估的命令执行 AI 结构化安全判断；未通过或评估失败时进入持久化暂停。Full Access 跳过逐次审批，但仍记录审批来源。
 
 ## 多轮工具调用上限

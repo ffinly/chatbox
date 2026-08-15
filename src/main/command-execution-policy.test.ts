@@ -22,10 +22,10 @@ beforeEach(() => clearFailedCommandRetries())
 
 describe('failed sandbox command retry policy', () => {
   test('accepts and consumes one exact same-session retry', () => {
-    recordFailedSandboxCommand(failedCommand)
+    const retryOf = recordFailedSandboxCommand(failedCommand)
     const retry = {
       sessionId: failedCommand.sessionId,
-      retryOf: failedCommand.toolCallId,
+      retryOf,
       command: failedCommand.command,
       cwd: path.join(failedCommand.cwd, '.'),
       shell: failedCommand.shell,
@@ -36,18 +36,29 @@ describe('failed sandbox command retry policy', () => {
     expect(checkFailedCommandRetry(retry)).toMatchObject({ valid: false })
   })
 
+  test('issues an opaque reference instead of accepting the sandbox tool call id', () => {
+    const retryOf = recordFailedSandboxCommand(failedCommand)
+
+    expect(retryOf).toMatch(/^sandbox-retry-/)
+    expect(retryOf).not.toBe(failedCommand.toolCallId)
+    expect(checkFailedCommandRetry({ ...failedCommand, retryOf: failedCommand.toolCallId })).toMatchObject({
+      valid: false,
+    })
+    expect(checkFailedCommandRetry({ ...failedCommand, retryOf })).toEqual({ valid: true })
+  })
+
   test.each([
     { sessionId: 'session-2' },
     { command: 'git diff' },
     { cwd: path.join(tmpdir(), 'another-project') },
     { shell: 'powershell' as const },
   ])('rejects a mismatched retry: %o', (override) => {
-    recordFailedSandboxCommand(failedCommand)
+    const retryOf = recordFailedSandboxCommand(failedCommand)
 
     expect(
       checkFailedCommandRetry({
         sessionId: failedCommand.sessionId,
-        retryOf: failedCommand.toolCallId,
+        retryOf,
         command: failedCommand.command,
         cwd: failedCommand.cwd,
         shell: failedCommand.shell,
@@ -63,7 +74,7 @@ describe('failed sandbox command retry policy', () => {
     const link = path.join(root, 'project')
     try {
       symlinkSync(original, link)
-      recordFailedSandboxCommand({
+      const retryOf = recordFailedSandboxCommand({
         ...failedCommand,
         cwd: link,
         canonicalCwd: realpathSync.native(original),
@@ -71,7 +82,7 @@ describe('failed sandbox command retry policy', () => {
       rmSync(link)
       symlinkSync(replacement, link)
 
-      expect(checkFailedCommandRetry({ ...failedCommand, retryOf: failedCommand.toolCallId, cwd: link })).toMatchObject(
+      expect(checkFailedCommandRetry({ ...failedCommand, retryOf, cwd: link })).toMatchObject(
         {
           valid: false,
         }
@@ -82,16 +93,16 @@ describe('failed sandbox command retry policy', () => {
   })
 
   test('clearing a session invalidates only that session retries', () => {
-    recordFailedSandboxCommand(failedCommand)
-    recordFailedSandboxCommand({ ...failedCommand, sessionId: 'session-2' })
+    const sessionOneRetry = recordFailedSandboxCommand(failedCommand)
+    const sessionTwoRetry = recordFailedSandboxCommand({ ...failedCommand, sessionId: 'session-2' })
 
     clearFailedCommandRetries('session-1')
 
-    expect(checkFailedCommandRetry({ ...failedCommand, retryOf: failedCommand.toolCallId })).toMatchObject({
+    expect(checkFailedCommandRetry({ ...failedCommand, retryOf: sessionOneRetry })).toMatchObject({
       valid: false,
     })
     expect(
-      checkFailedCommandRetry({ ...failedCommand, sessionId: 'session-2', retryOf: failedCommand.toolCallId })
+      checkFailedCommandRetry({ ...failedCommand, sessionId: 'session-2', retryOf: sessionTwoRetry })
     ).toEqual({ valid: true })
   })
 })

@@ -96,7 +96,8 @@ export function buildSandboxStdinScript(
   const windowsCdShim = injectWindowsCdShim ? WINDOWS_CD_SHIM : ''
   // The leading no-op keeps empty and comment-only programs valid without masking the exit status
   // of the user's final command.
+  // Pipefail keeps failures from commands such as `git push | tail` visible to the retry policy.
   // Keep a blank line before the closing brace so a trailing backslash retains its normal EOF
   // behavior instead of escaping the brace's newline and corrupting the wrapper syntax.
-  return `${nodeShim}${windowsCdShim}{\n:\n${code}\n\n} </dev/null`
+  return `${nodeShim}${windowsCdShim}set -o pipefail\n{\n:\n${code}\n\n} </dev/null`
 }

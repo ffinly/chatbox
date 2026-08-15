@@ -25,8 +25,8 @@ export interface SandboxExecResult {
 export interface SandboxRunCommandResult extends SandboxExecResult {
   /** Canonical working directory actually used by the sandbox process. */
   cwd?: string
-  /** True only when the command actually ran and its failure may be referenced by a host retry. */
-  retryable?: boolean
+  /** Opaque one-time reference returned only when this exact failure may be retried on the host. */
+  retryOf?: string
   sandbox?: {
     denied: boolean
     confidence?: 'high' | 'heuristic'

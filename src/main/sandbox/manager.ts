@@ -940,21 +940,22 @@ export async function runSandboxCommand(params: {
     toolCallId: params.toolCallId,
     outputFilePath: createCommandOutputCapturePath(params.toolCallId),
   })
-  if (result.exitCode !== 0) {
-    recordFailedSandboxCommand({
-      sessionId: params.sessionId,
-      toolCallId: params.toolCallId,
-      command: params.command,
-      cwd,
-      canonicalCwd: cwdValidation.canonicalTarget ?? cwd,
-      shell: params.shell,
-    })
-  }
+  const retryOf =
+    result.exitCode !== 0
+      ? recordFailedSandboxCommand({
+          sessionId: params.sessionId,
+          toolCallId: params.toolCallId,
+          command: params.command,
+          cwd,
+          canonicalCwd: cwdValidation.canonicalTarget ?? cwd,
+          shell: params.shell,
+        })
+      : undefined
   const denied = result.exitCode !== 0 && SANDBOX_DENIAL_PATTERNS.some((pattern) => pattern.test(result.stderr))
   return {
     ...result,
     cwd,
-    ...(result.exitCode !== 0 ? { retryable: true } : {}),
+    ...(retryOf ? { retryOf } : {}),
     sandbox: { denied, ...(denied ? { confidence: 'heuristic' as const } : {}) },
   }
 }

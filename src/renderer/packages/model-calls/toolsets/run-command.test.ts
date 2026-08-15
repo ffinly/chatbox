@@ -75,7 +75,7 @@ describe('run_command', () => {
         stdout: '',
         stderr: 'operation not permitted',
         cwd: '/workspace/project/packages/app',
-        retryable: true,
+        retryOf: 'sandbox-retry-failed',
         sandbox: { denied: true, confidence: 'heuristic' },
       })
     )
@@ -90,17 +90,27 @@ describe('run_command', () => {
     })
     if (!tool.execute) throw new Error('run_command execute missing')
 
-    await expect(
-      tool.execute({ command: 'git status', workdir: 'packages/app' }, {
+    const result = await tool.execute(
+      { command: 'git status', workdir: 'packages/app' },
+      {
         toolCallId: 'tool-failed',
         messages: [],
-      } as never)
-    ).resolves.toMatchObject({
+      } as never
+    )
+    expect(result).toMatchObject({
       success: false,
       sandboxed: true,
       sandboxDenied: true,
-      retryOf: 'tool-failed',
+      retryOf: 'sandbox-retry-failed',
       cwd: '/workspace/project/packages/app',
+    })
+    await expect(toModelOutput(tool, result)).resolves.toEqual({
+      type: 'text',
+      value: expect.stringContaining('retry_of="sandbox-retry-failed"'),
+    })
+    await expect(toModelOutput(tool, result)).resolves.toEqual({
+      type: 'text',
+      value: expect.not.stringContaining('retry_of="tool-failed"'),
     })
     expect(requestSmartApproval).not.toHaveBeenCalled()
     expect(userExecMock).not.toHaveBeenCalled()
@@ -239,7 +249,7 @@ describe('run_command', () => {
         stdout: '',
         stderr: 'operation not permitted',
         cwd: '/workspace/project/packages/app',
-        retryable: true,
+        retryOf: 'sandbox-retry-relative-failure',
         sandbox: { denied: true, confidence: 'heuristic' },
       })
     )
@@ -267,7 +277,7 @@ describe('run_command', () => {
         {
           command: 'git status',
           workdir: failed.cwd,
-          retry_of: 'tool-relative-failure',
+          retry_of: 'sandbox-retry-relative-failure',
           sandbox_permissions: 'danger-full-access',
           justification: 'The sandbox denied access to repository metadata.',
         },
@@ -276,7 +286,7 @@ describe('run_command', () => {
     ).rejects.toMatchObject({ name: 'CommandEscalationApprovalPausedError' })
     expect(checkCommandRetryMock).toHaveBeenCalledWith({
       sessionId: 'session-1',
-      retryOf: 'tool-relative-failure',
+      retryOf: 'sandbox-retry-relative-failure',
       command: 'git status',
       cwd: '/workspace/project/packages/app',
       shell: 'bash',

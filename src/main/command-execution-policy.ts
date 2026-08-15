@@ -1,9 +1,11 @@
+import { randomUUID } from 'node:crypto'
 import { realpathSync } from 'node:fs'
 import path from 'node:path'
 import type { RunCommandFailureReference, RunCommandShell } from '../shared/types/command-execution'
 
 interface FailedCommandEntry extends RunCommandFailureReference {
   sessionId: string
+  toolCallId: string
   canonicalCwd: string
   createdAt: number
 }
@@ -12,8 +14,8 @@ const FAILURE_TTL_MS = 30 * 60 * 1000
 const MAX_FAILURES_PER_SESSION = 64
 const failedCommands = new Map<string, FailedCommandEntry>()
 
-function failureKey(sessionId: string, toolCallId: string): string {
-  return JSON.stringify([sessionId, toolCallId])
+function failureKey(sessionId: string, retryOf: string): string {
+  return JSON.stringify([sessionId, retryOf])
 }
 
 function normalizeCwd(cwd: string): string {
@@ -41,18 +43,20 @@ export function recordFailedSandboxCommand(params: {
   cwd: string
   canonicalCwd: string
   shell: RunCommandShell
-}): void {
+}): string {
   prune()
+  const retryOf = `sandbox-retry-${randomUUID()}`
   const entry: FailedCommandEntry = {
-    retryOf: params.toolCallId,
+    retryOf,
     sessionId: params.sessionId,
+    toolCallId: params.toolCallId,
     command: params.command,
     cwd: normalizeCwd(params.cwd),
     canonicalCwd: params.canonicalCwd,
     shell: params.shell,
     createdAt: Date.now(),
   }
-  failedCommands.set(failureKey(params.sessionId, params.toolCallId), entry)
+  failedCommands.set(failureKey(params.sessionId, retryOf), entry)
 
   const sessionEntries = [...failedCommands.entries()]
     .filter(([, candidate]) => candidate.sessionId === params.sessionId)
@@ -60,6 +64,7 @@ export function recordFailedSandboxCommand(params: {
   for (const [key] of sessionEntries.slice(0, Math.max(0, sessionEntries.length - MAX_FAILURES_PER_SESSION))) {
     failedCommands.delete(key)
   }
+  return retryOf
 }
 
 export function checkFailedCommandRetry(params: {
@@ -74,7 +79,8 @@ export function checkFailedCommandRetry(params: {
   if (!entry) {
     return {
       valid: false,
-      error: 'The referenced sandbox failure is unavailable or expired. Run the command in the sandbox again.',
+      error:
+        'The referenced sandbox failure is unavailable, expired, or already consumed. Run the exact command in the sandbox again.',
     }
   }
   if (

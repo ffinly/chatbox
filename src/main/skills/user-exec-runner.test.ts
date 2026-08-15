@@ -144,6 +144,15 @@ describe.skipIf(process.platform === 'win32')('user_exec cancellation', () => {
     ).resolves.toMatchObject({ success: true, stdout: process.version, stderr: '', exitCode: 0 })
   })
 
+  it('preserves a failed pipeline status for host run_command execution', async () => {
+    await expect(
+      executeUserExecCommand({
+        command: 'bash -c "exit 7" | tail -1',
+        injectBundledNode: true,
+      })
+    ).resolves.toMatchObject({ success: false, exitCode: 7 })
+  })
+
   it('streams complete large output to a file and returns only an inline preview', async () => {
     const result = await executeUserExecCommand({
       command: `node -e 'process.stdout.write("x".repeat(20000))'`,

@@ -72,7 +72,7 @@ function formatRunCommandOutput(output: unknown): string {
   }
   if (retryOf) {
     sections.push(
-      `The command failed in the sandbox. If host access is genuinely required, retry this exact command, workdir, and shell once with retry_of="${retryOf}", sandbox_permissions="danger-full-access", and a one-sentence justification. Do not escalate ordinary command errors.`
+      `The command failed in the sandbox. If host access is genuinely required, retry this exact command, workdir, and shell once with retry_of="${retryOf}", sandbox_permissions="danger-full-access", and a one-sentence justification. Use only this explicitly returned retry reference; never infer retry_of from a tool call id or reuse it for another command. Do not escalate ordinary command errors.`
     )
   }
   return sections.join('\n\n')
@@ -131,6 +131,8 @@ Use \`run_command\` for project commands, shell commands, and Node.js scripts. T
 - Commands use the selected workdir as cwd. All user-granted workdirs remain writable in the sandbox.
 - On macOS/Linux, commands run in the file sandbox first. A failed call returns its retry id to the model without prompting the user.
 - Request full host access only after a real failed sandbox call, by retrying the exact command/workdir/shell with \`retry_of\`, \`sandbox_permissions\`, and \`justification\`.
+- Use only a \`retry_of\` value explicitly returned in the failed command result. Never infer it from a tool call id; the reference is one-time and command-specific.
+- Do not append \`| head\` or \`| tail\` merely to limit output. Output is already bounded; preserve the original command for exact retry matching.
 - A sandbox-denied marker is a diagnostic signal, not the only reason a host retry may be appropriate.
 - Prefer writing reusable Node.js code to a file, then run it with \`node path/to/script.mjs\`.
 `
@@ -164,7 +166,7 @@ Use \`run_command\` for project commands, shell commands, and Node.js scripts. T
         },
         retry_of: {
           type: 'string',
-          description: 'Tool call id of the exact failed sandboxed command being retried.',
+          description: 'Opaque one-time reference explicitly returned by the exact failed sandboxed command.',
         },
       },
       required: ['command'],
@@ -254,7 +256,7 @@ Use \`run_command\` for project commands, shell commands, and Node.js scripts. T
               sandboxed: true,
               ...(output.outputFile ? { outputFile: output.outputFile } : {}),
               ...(result.sandbox?.denied ? { sandboxDenied: true } : {}),
-              ...(result.retryable ? { retryOf: toolOptions.toolCallId } : {}),
+              ...(result.retryOf ? { retryOf: result.retryOf } : {}),
             }
           } finally {
             toolOptions.abortSignal?.removeEventListener('abort', cancel)

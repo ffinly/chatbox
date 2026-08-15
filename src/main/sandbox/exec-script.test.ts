@@ -37,7 +37,7 @@ describe('buildSandboxStdinScript', () => {
     const nodePath = '/Applications/My App/electron'
     const script = buildSandboxStdinScript('node -e "1"', 'bash', nodePath, true)
     expect(script).toBe(
-      `node() { ELECTRON_RUN_AS_NODE=1 ${shellQuote(nodePath)} "$@"; }\n{\n:\nnode -e "1"\n\n} </dev/null`
+      `node() { ELECTRON_RUN_AS_NODE=1 ${shellQuote(nodePath)} "$@"; }\nset -o pipefail\n{\n:\nnode -e "1"\n\n} </dev/null`
     )
     // The bundled path must be shell-quoted so paths with spaces still resolve.
     expect(script).toContain(shellQuote(nodePath))
@@ -49,7 +49,7 @@ describe('buildSandboxStdinScript', () => {
     const script = buildSandboxStdinScript('node -e "1"', 'bash', 'C:\\Program Files\\Chatbox.exe', false)
     expect(script).not.toContain('node()')
     expect(script).not.toContain('Chatbox.exe')
-    expect(script).toBe('{\n:\nnode -e "1"\n\n} </dev/null')
+    expect(script).toBe('set -o pipefail\n{\n:\nnode -e "1"\n\n} </dev/null')
   })
 
   test.skipIf(process.platform === 'win32')('converts native Windows paths passed to the Bash cd builtin', () => {
@@ -80,6 +80,12 @@ describe('buildSandboxStdinScript', () => {
 
   test.skipIf(process.platform === 'win32')('preserves the final bash command exit status', () => {
     const script = buildSandboxStdinScript('exit 7', 'bash', process.execPath, false)
+    const result = spawnSync('bash', [], { input: script, encoding: 'utf8' })
+    expect(result.status).toBe(7)
+  })
+
+  test.skipIf(process.platform === 'win32')('preserves a failed pipeline command exit status', () => {
+    const script = buildSandboxStdinScript('bash -c "exit 7" | tail -1', 'bash', process.execPath, false)
     const result = spawnSync('bash', [], { input: script, encoding: 'utf8' })
     expect(result.status).toBe(7)
   })
