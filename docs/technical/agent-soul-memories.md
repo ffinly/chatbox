@@ -39,7 +39,7 @@ Agent mode 的 system prompt 由 harness 自行组装(不再走 `injectModelSyst
 - Skills、Plugins、MCP 与其他工具能力不属于 `SessionPromptContextSnapshot`;它只冻结 Soul、Memories 与 workspace instructions。
 - 能力列表与对应工具指令在每次 generation 开始时重新解析。安装、删除或更新能力后应发送 change event 清除 discovery cache;启用/禁用状态直接从当前 settings 读取。
 - 因此当前会话无需重启或新建 thread:下一次用户消息使用新的能力集合。已经开始的 generation 保持其启动时的工具集合,避免中途改变一次 provider 调用的语义。
-- 能力变化会自然改变最终 system prompt/tools,并由 `GenerationRequestSnapshot` 记录;这是用户显式操作导致的可接受 prompt-cache break,不应顺带刷新 Soul、Memories 或 AGENTS.md 快照。
+- 能力变化会自然改变最终 system prompt/tools;这是用户显式操作导致的可接受 prompt-cache break,不应顺带刷新 Soul、Memories 或 AGENTS.md 快照。
 
 ### Soul 文档
 

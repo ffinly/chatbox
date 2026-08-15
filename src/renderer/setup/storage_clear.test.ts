@@ -143,39 +143,17 @@ describe('cleanupOrphanedBlobs', () => {
     expect(blobStore.has('tool-result:deleted-session:call-2')).toBe(false)
   })
 
-  it('keeps referenced generation definitions and reclaims orphaned definitions', async () => {
-    const keptKey = `generation-request:${'a'.repeat(64)}`
-    const orphanKey = `generation-request:${'b'.repeat(64)}`
-    blobStore.set(keptKey, '{}')
-    blobStore.set(orphanKey, '{}')
-    metaRecords.push({ id: 'kept-session' })
-    sessionStore.set('session:kept-session', {
-      id: 'kept-session',
-      messages: [
-        {
-          id: 'assistant-1',
-          role: 'assistant',
-          contentParts: [],
-          generationRequests: [
-            {
-              version: 1,
-              capturedAt: 1,
-              model: { id: 'test-model' },
-              agentMode: true,
-              callSettings: { stream: true },
-              context: { sessionBoundary: { messageCount: 0 }, modelMessageCount: 0, sha256: 'c'.repeat(64) },
-              definitions: { storageKey: keptKey, sha256: 'a'.repeat(64) },
-            },
-          ],
-        },
-      ],
-    })
+  it('reclaims legacy request-snapshot definition blobs (nothing references them anymore)', async () => {
+    const legacyKeyA = `generation-request:${'a'.repeat(64)}`
+    const legacyKeyB = `generation-request:${'b'.repeat(64)}`
+    blobStore.set(legacyKeyA, '{}')
+    blobStore.set(legacyKeyB, '{}')
 
     const deleted = await cleanupOrphanedBlobs()
 
-    expect(deleted).toBe(1)
-    expect(blobStore.has(keptKey)).toBe(true)
-    expect(blobStore.has(orphanKey)).toBe(false)
+    expect(deleted).toBe(2)
+    expect(blobStore.has(legacyKeyA)).toBe(false)
+    expect(blobStore.has(legacyKeyB)).toBe(false)
   })
 
   it('aborts without deleting when the reference scan exceeds its time budget', async () => {

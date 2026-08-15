@@ -34,11 +34,6 @@ async function* stream(chunks: ModelStreamPart<ToolSet>[], terminalError?: unkno
   if (terminalError) throw terminalError
 }
 
-async function sha256Messages(messages: ModelMessage[]): Promise<string> {
-  const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(messages)))
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
-}
-
 interface Harness {
   service: GenerationService<ModelContext>
   runtime: GenerationRuntimeStore
@@ -70,11 +65,8 @@ interface Harness {
   setTools(tools: ToolSet): void
   failSessionSettingsUpdate(error: Error): void
   failPersistenceFromCall(call: number, error: Error): void
-  failPersistenceOnCall(call: number, error: Error): void
   /** `commit: true` emulates a write that landed but still rejected (metadata failure). */
   failInsertion(error: Error, options?: { commit?: boolean }): void
-  runOnPersistenceCall(call: number, action: () => void): void
-  runBeforeProviderDispatch(action: () => void): void
   enableAgentModeSuggestion(result: Message['contentParts']): void
   setNow(value: number): void
 }
@@ -106,10 +98,8 @@ function createHarness(): Harness {
   let agentModeSuggestionEnabled = false
   let suggestionResult: Message['contentParts'] = []
   let sessionSettingsUpdateError: Error | undefined
-  let persistenceFailure: { call: number; error: Error; exact?: boolean; missing?: boolean } | undefined
+  let persistenceFailure: { call: number; error: Error; missing?: boolean } | undefined
   let insertionFailure: { error: Error; commit?: boolean } | undefined
-  let persistenceAction: { call: number; action: () => void } | undefined
-  let beforeProviderDispatch: (() => void) | undefined
   let persistenceCallCount = 0
   const preparedTargetMessageIndexes: number[] = []
   const inserted: Array<{ message: Message; afterMessageId: string }> = []
@@ -160,7 +150,6 @@ function createHarness(): Harness {
         tools: effectiveTools,
         stream: true,
       })
-      beforeProviderDispatch?.()
       if (options.signal?.aborted) return
       let firstPreparedStepPending = options.prepareStep !== undefined
       const streamOptions: ChatStreamOptions = firstPreparedStepPending
@@ -203,12 +192,7 @@ function createHarness(): Harness {
       }),
     persistStreamingMessage: (_sessionId, message, options) => {
       persistenceCallCount += 1
-      if (
-        persistenceFailure &&
-        (persistenceFailure.exact
-          ? persistenceCallCount === persistenceFailure.call
-          : persistenceCallCount >= persistenceFailure.call)
-      ) {
+      if (persistenceFailure && persistenceCallCount >= persistenceFailure.call) {
         return Promise.reject(persistenceFailure.error)
       }
       const index = session.messages.findIndex((candidate) => candidate.id === message.id)
@@ -219,7 +203,6 @@ function createHarness(): Harness {
         message: { ...message, contentParts: [...message.contentParts] },
         refreshCounting: options?.refreshCounting === true,
       })
-      if (persistenceAction?.call === persistenceCallCount) persistenceAction.action()
       return Promise.resolve()
     },
     updateStreamingCache: (_sessionId, message) => {
@@ -390,17 +373,8 @@ function createHarness(): Harness {
     failPersistenceFromCall(call, error) {
       persistenceFailure = { call, error, missing: true }
     },
-    failPersistenceOnCall(call, error) {
-      persistenceFailure = { call, error, exact: true }
-    },
     failInsertion(error, options) {
       insertionFailure = { error, commit: options?.commit === true }
-    },
-    runOnPersistenceCall(call, action) {
-      persistenceAction = { call, action }
-    },
-    runBeforeProviderDispatch(action) {
-      beforeProviderDispatch = action
     },
     enableAgentModeSuggestion(result) {
       agentModeSuggestionEnabled = true
@@ -447,90 +421,6 @@ describe('GenerationService', () => {
     expect(harness.persisted.filter(({ refreshCounting }) => refreshCounting)).toHaveLength(1)
     expect(harness.runtime.get('session-1')).toBeUndefined()
     expect(harness.afterMessageGenerated).toHaveBeenCalledWith('session-1', finalMessage)
-  })
-
-  it('persists the request snapshot before starting the provider stream', async () => {
-    harness.setChatStreamFactory(() => {
-      expect(harness.persisted.at(-1)?.message.generationRequests?.[0]).toMatchObject({
-        version: 1,
-        model: { provider: 'openai', id: 'test-model' },
-        providerOptions: { anthropic: { thinking: { type: 'enabled', budgetTokens: 1_024 } } },
-        callSettings: { temperature: 0.25, maxOutputTokens: 8_192, stream: true },
-        context: {
-          sessionBoundary: { messageCount: 1, firstMessageId: 'user-1', lastMessageId: 'user-1' },
-          modelMessageCount: 1,
-        },
-        definitions: {
-          storageKey: expect.stringMatching(/^generation-request:[a-f0-9]{64}$/),
-          sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
-        },
-      })
-      return stream([])
-    })
-
-    await harness.service.orchestrate('session-1', targetMessage())
-
-    const snapshot = harness.persisted[1].message.generationRequests?.[0]
-    expect(snapshot?.context.sha256).toMatch(/^[a-f0-9]{64}$/)
-    expect(JSON.parse(harness.storedBlobs.get(snapshot?.definitions.storageKey ?? '') ?? '')).toEqual({
-      version: 1,
-      tools: [],
-    })
-  })
-
-  it('snapshots first-step message and active-tool overrides', async () => {
-    harness.setPreparedTools({
-      tool_a: { inputSchema: jsonSchema({ type: 'object' }) },
-      tool_b: { inputSchema: jsonSchema({ type: 'object' }) },
-    })
-    const preparedMessages: ModelMessage[] = [{ role: 'user', content: 'original' }]
-    const effectiveMessages: ModelMessage[] = [...preparedMessages, { role: 'user', content: 'steered' }]
-    harness.setPrepareStep(() => ({ messages: preparedMessages, activeTools: ['tool_b'] }))
-    harness.steeringInject.mockResolvedValueOnce({ messages: effectiveMessages, consumed: [] })
-    harness.setSteeredMessageIds(['steered-1'])
-
-    await harness.service.orchestrate('session-1', targetMessage())
-
-    const snapshot = harness.persisted[1].message.generationRequests?.[0]
-    expect(snapshot?.context.sha256).toBe(await sha256Messages(effectiveMessages))
-    expect(snapshot?.context.appendedMessageIds).toEqual(['steered-1'])
-    const definitions = JSON.parse(harness.storedBlobs.get(snapshot?.definitions.storageKey ?? '') ?? '')
-    expect(definitions.tools).toEqual([expect.objectContaining({ name: 'tool_b' })])
-  })
-
-  it('reuses an existing content-addressed definition blob', async () => {
-    await harness.service.orchestrate('session-1', targetMessage())
-    await harness.service.orchestrate('session-1', targetMessage())
-
-    expect(harness.storeBlob).toHaveBeenCalledOnce()
-    expect(harness.touchBlob).toHaveBeenCalledOnce()
-    expect(harness.storedBlobs).toHaveLength(1)
-  })
-
-  it('overwrites a mismatched definition blob instead of failing the generation', async () => {
-    await harness.service.orchestrate('session-1', targetMessage())
-    const storageKey = [...harness.storedBlobs.keys()][0]
-    const original = harness.storedBlobs.get(storageKey)
-    harness.storedBlobs.set(storageKey, 'corrupted')
-
-    await harness.service.orchestrate('session-1', targetMessage())
-
-    expect(lastPersisted(harness).error).toBeUndefined()
-    expect(harness.storedBlobs.get(storageKey)).toBe(original)
-  })
-
-  it('appends a request snapshot when continuing an existing assistant message', async () => {
-    await harness.service.orchestrate('session-1', targetMessage())
-    const firstDispatch = lastPersisted(harness)
-    harness.setNow(2_000)
-
-    await harness.service.orchestrate(
-      'session-1',
-      { ...firstDispatch, generating: true },
-      { operationType: 'regenerate', appendToMessage: true }
-    )
-
-    expect(lastPersisted(harness).generationRequests?.map(({ capturedAt }) => capturedAt)).toEqual([1_000, 2_000])
   })
 
   it('anchors steering at the continued assistant message when it already has output', async () => {
@@ -908,95 +798,6 @@ describe('GenerationService', () => {
     expect(finalMessage.finishReason).not.toBe('steered')
   })
 
-  it('records a snapshot for every provider step before its dispatch', async () => {
-    const secondStepMessages: ModelMessage[] = [
-      { role: 'user', content: 'Hello' },
-      { role: 'assistant', content: 'Tool result is now available' },
-    ]
-    const snapshotsAtSecondDispatch = vi.fn()
-    harness.setChatStreamFactory((_messages, options) =>
-      (async function* twoStepStream() {
-        yield { type: 'text-delta', text: 'First step output' } as ModelStreamPart<ToolSet>
-        harness.setNow(4_000)
-        await options.onRequestResolved?.({
-          callSettings: { temperature: 0.25, maxOutputTokens: 8_192 },
-          modelMessages: secondStepMessages,
-          tools: {},
-          stream: true,
-        })
-        // The second step's envelope must be durable before the provider
-        // receives the follow-up request.
-        snapshotsAtSecondDispatch(
-          harness.persisted.at(-1)?.message.generationRequests?.map(({ capturedAt }) => capturedAt)
-        )
-        yield { type: 'finish', finishReason: 'stop' } as ModelStreamPart<ToolSet>
-      })()
-    )
-
-    await harness.service.orchestrate('session-1', targetMessage())
-
-    expect(snapshotsAtSecondDispatch).toHaveBeenCalledWith([1_000, 4_000])
-    expect(lastPersisted(harness).generationRequests?.map(({ capturedAt }) => capturedAt)).toEqual([1_000, 4_000])
-    expect(lastPersisted(harness).contentParts).toEqual([{ type: 'text', text: 'First step output' }])
-  })
-
-  it('does not start the provider when the request snapshot checkpoint fails', async () => {
-    const missingSession = new Error('Session session-1 not found')
-    harness.failPersistenceFromCall(2, missingSession)
-    const chatStream = vi.fn(() => stream([]))
-    harness.setChatStreamFactory(chatStream)
-
-    await harness.service.orchestrate('session-1', targetMessage())
-
-    expect(chatStream).not.toHaveBeenCalled()
-  })
-
-  it('does not retain a snapshot after a transient pre-dispatch checkpoint failure', async () => {
-    harness.failPersistenceOnCall(2, new Error('snapshot checkpoint failed'))
-    const chatStream = vi.fn(() => stream([]))
-    harness.setChatStreamFactory(chatStream)
-
-    await harness.service.orchestrate('session-1', targetMessage())
-
-    expect(chatStream).not.toHaveBeenCalled()
-    expect(lastPersisted(harness).generationRequests).toBeUndefined()
-    expect(lastPersisted(harness).error).toBe('snapshot checkpoint failed')
-  })
-
-  it('removes a checkpointed snapshot when cancellation wins during the checkpoint write', async () => {
-    const externalAbortController = new AbortController()
-    harness.runOnPersistenceCall(2, () => externalAbortController.abort())
-    const chatStream = vi.fn(() => stream([]))
-    harness.setChatStreamFactory(chatStream)
-
-    await harness.service.orchestrate('session-1', targetMessage(), {
-      externalAbortSignal: externalAbortController.signal,
-    })
-
-    expect(chatStream).not.toHaveBeenCalled()
-    expect(harness.persisted.some(({ message }) => message.generationRequests?.length === 1)).toBe(true)
-    expect(lastPersisted(harness).generationRequests).toBeUndefined()
-    expect(lastPersisted(harness)).toMatchObject({ generating: false, finishReason: 'canceled' })
-  })
-
-  it('keeps a committed snapshot when cancellation wins after the checkpoint resolves', async () => {
-    const externalAbortController = new AbortController()
-    harness.runBeforeProviderDispatch(() => externalAbortController.abort())
-    const chatStream = vi.fn(() => stream([]))
-    harness.setChatStreamFactory(chatStream)
-
-    await harness.service.orchestrate('session-1', targetMessage(), {
-      externalAbortSignal: externalAbortController.signal,
-    })
-
-    expect(chatStream).not.toHaveBeenCalled()
-    // The checkpoint is durable, so the recorded request survives the abort
-    // even though the provider never received it. Accepted trade-off: the
-    // window between checkpoint persistence and dispatch is not tracked.
-    expect(lastPersisted(harness).generationRequests?.map(({ capturedAt }) => capturedAt)).toEqual([1_000])
-    expect(lastPersisted(harness)).toMatchObject({ generating: false, finishReason: 'canceled' })
-  })
-
   it('consumes a stop requested before runtime registration without starting the provider stream', async () => {
     harness.runtime.requestAbort('session-1', 'assistant-1', 900)
     harness.setChatStreamFactory(() => {
@@ -1128,9 +929,9 @@ describe('GenerationService', () => {
 
     await harness.service.orchestrate('session-1', targetMessage())
 
-    expect(harness.persisted).toHaveLength(4)
-    expect(harness.persisted[2].refreshCounting).toBe(false)
-    expect(harness.persisted[2].message.contentParts).toEqual([
+    expect(harness.persisted).toHaveLength(3)
+    expect(harness.persisted[1].refreshCounting).toBe(false)
+    expect(harness.persisted[1].message.contentParts).toEqual([
       { type: 'text', text: 'before' },
       expect.objectContaining({ type: 'tool-call', toolCallId: 'tool-1' }),
     ])
@@ -1295,8 +1096,8 @@ describe('GenerationService', () => {
 
     await harness.service.orchestrate('session-1', targetMessage())
 
-    expect(harness.persisted).toHaveLength(4)
-    expect(harness.persisted[2].message.contentParts).toEqual([{ type: 'text', text: 'first second' }])
+    expect(harness.persisted).toHaveLength(3)
+    expect(harness.persisted[1].message.contentParts).toEqual([{ type: 'text', text: 'first second' }])
   })
 
   it('owns locking and background follow-up wake-up for paused-tool entry points', async () => {

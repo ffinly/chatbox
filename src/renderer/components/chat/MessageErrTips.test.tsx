@@ -3,6 +3,7 @@
 import { MantineProvider } from '@mantine/core'
 import type { ChatboxAILicenseDetail, ChatboxAIPlanType, Message } from '@shared/types'
 import { afterEach, expect, test, vi } from 'vitest'
+import { rendererApplication } from '@/app/renderer-application'
 import { settingsStore } from '@/stores/settingsStore'
 import { fireEvent, render, screen } from '@/test-utils'
 import MessageErrTips from './MessageErrTips'
@@ -83,7 +84,7 @@ test.each([
   { name: 'paid OCR quota for Pro', errorCode: 20041, plan: 'pro', agentMode: true, action: 'upgrade' },
   { name: 'paid OCR quota for Pro+', errorCode: 20041, plan: 'pro_plus', agentMode: true, action: 'buy_token' },
   { name: 'Free OCR quota', errorCode: 20042, plan: 'free', agentMode: true, action: 'upgrade' },
-] as const)('tracks exposure and click for $name', ({ errorCode, plan, agentMode, action }) => {
+] as const)('tracks exposure and click for $name', async ({ errorCode, plan, agentMode, action }) => {
   settingsStore.setState((state) => ({
     ...state,
     language: 'en',
@@ -105,8 +106,15 @@ test.each([
     errorCode,
     aiProvider: 'chatbox-ai',
     model: 'claude-opus-5',
-    generationRequests: [{ agentMode }] as Message['generationRequests'],
   } as Message
+  // The tracked mode resolves from the session's agent-mode entry via the
+  // session query bridge (the request-snapshot marker is gone).
+  vi.spyOn(rendererApplication.sessionQueryBridge, 'getSession').mockResolvedValue({
+    id: 'session-123',
+    name: 'Session',
+    messages: [],
+    settings: { agentMode: { value: agentMode ? 'on' : 'off', locked: false, lockReason: null } },
+  } as never)
   const expectedContext = {
     sessionId: 'session-123',
     mode: agentMode ? 'work_mode' : 'chat_mode',
@@ -122,12 +130,13 @@ test.each([
     </MantineProvider>
   )
 
-  expect(trackingMocks.trackTokenExhaustedCard).toHaveBeenCalledOnce()
+  // Mode resolution reads the session asynchronously before tracking fires.
+  await vi.waitFor(() => expect(trackingMocks.trackTokenExhaustedCard).toHaveBeenCalledOnce())
   expect(trackingMocks.trackTokenExhaustedCard).toHaveBeenCalledWith(expectedContext)
 
   fireEvent.click(screen.getByRole('button', { name: action === 'buy_token' ? 'Buy expansion pack' : 'Upgrade plan' }))
 
-  expect(trackingMocks.trackTokenExhaustedCardClick).toHaveBeenCalledOnce()
+  await vi.waitFor(() => expect(trackingMocks.trackTokenExhaustedCardClick).toHaveBeenCalledOnce())
   expect(trackingMocks.trackTokenExhaustedCardClick).toHaveBeenCalledWith(expectedContext)
   expect(platformMocks.openLink).toHaveBeenCalledWith(
     'https://chatboxai.app/redirect_app/view_more_plans/en?utm_source=app&utm_content=msg_quota_exhausted'

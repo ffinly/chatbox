@@ -52,32 +52,13 @@ describe('recoverSessionOnLoad', () => {
     })
   })
 
-  it('keeps a committed generation request snapshot even before the first content chunk', () => {
-    const snapshot = message('snapshot', {
-      generating: true,
-      timestamp: bootTime - 1,
-      generationRequests: [
-        {
-          version: 1,
-          capturedAt: bootTime - 2,
-          model: { id: 'model' },
-          agentMode: false,
-          callSettings: { stream: true },
-          context: {
-            sessionBoundary: { messageCount: 1, firstMessageId: 'user', lastMessageId: 'user' },
-            modelMessageCount: 1,
-            sha256: 'a'.repeat(64),
-          },
-          definitions: { storageKey: 'request-definitions', sha256: 'b'.repeat(64) },
-        },
-      ],
-    })
+  it('drops a stale blank placeholder uniformly now that the dispatch marker is gone', () => {
+    const blank = message('blank', { generating: true, timestamp: bootTime - 1 })
 
-    const result = recoverSessionOnLoad(session([snapshot]), bootTime)
+    const result = recoverSessionOnLoad(session([blank]), bootTime)
 
-    expect(result.session.messages).toHaveLength(1)
-    expect(result.session.messages[0]).toMatchObject({ id: 'snapshot', generating: false })
-    expect(result.session.messages[0].generationRequests).toEqual(snapshot.generationRequests)
+    expect(result.session.messages).toHaveLength(0)
+    expect(result.recoveredStaleGeneration).toBe(true)
   })
 
   it('recovers stale placeholders in threads and message forks', () => {

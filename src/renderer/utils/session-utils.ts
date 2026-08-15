@@ -8,14 +8,14 @@ interface MessageLoadResult {
   recoveredStaleGeneration: boolean
 }
 
+// A stale generating message with no content, files or errors carries nothing
+// worth keeping and is dropped on load. The request-snapshot mechanism (and its
+// per-message generationRequests dispatch marker) is removed, so recovery no
+// longer distinguishes whether a provider request went out before the crash —
+// a blank placeholder is dropped either way.
 function isBlankGenerationPlaceholder(message: ReturnType<typeof migrateMessage>): boolean {
   if (message.role !== 'assistant' || message.files?.length || message.links?.length) return false
-  if (
-    message.error !== undefined ||
-    message.errorCode !== undefined ||
-    message.backgroundTask !== undefined ||
-    message.generationRequests?.length
-  )
+  if (message.error !== undefined || message.errorCode !== undefined || message.backgroundTask !== undefined)
     return false
 
   return message.contentParts.every(

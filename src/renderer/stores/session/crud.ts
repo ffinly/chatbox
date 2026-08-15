@@ -27,7 +27,41 @@ async function clearMessageQueues(sessionIds: string[]): Promise<void> {
   for (const sessionId of sessionIds) clearQueue(sessionId)
 }
 
+/**
+ * Abort every in-flight generation of a session: registered runtimes first,
+ * then `generating` placeholders the runtime has not registered yet (their
+ * abort lands as a pendingAbort tombstone). Abort-only on purpose — callers
+ * that keep the session (clear) finalize through the runtime's own paths, and
+ * callers that delete it have nothing left to persist to.
+ */
+function abortSessionGenerations(sessionId: string, session: Session | null | undefined, reason: string): void {
+  const activeRuntimeIds = rendererApplication.generationRuntime.getActiveMessageIds(sessionId)
+  for (const messageId of activeRuntimeIds) {
+    rendererApplication.generationRuntime.requestAbort(sessionId, messageId, reason)
+  }
+  if (!session) return
+  for (const message of getGenerationControlMessages(session, activeRuntimeIds)) {
+    if (message.generating && !activeRuntimeIds.has(message.id)) {
+      rendererApplication.generationRuntime.requestAbort(sessionId, message.id, reason)
+    }
+  }
+}
+
+async function abortGenerationsBeforeDeletion(sessionId: string): Promise<void> {
+  // Deletion must stop in-flight work before the session disappears: a
+  // generation still preparing its request (attachments, OCR, tools) would
+  // otherwise dispatch a billable provider call for a deleted conversation.
+  // (The removed request-snapshot checkpoint used to fail that dispatch as a
+  // side effect of its pre-dispatch persist.)
+  abortSessionGenerations(
+    sessionId,
+    await rendererApplication.sessionQueryBridge.getSession(sessionId).catch(() => null),
+    'session-deleted'
+  )
+}
+
 export async function deleteSession(sessionId: string): Promise<void> {
+  await abortGenerationsBeforeDeletion(sessionId)
   // Clear only after the deletion succeeded: queued messages are the sole copy
   // of the user's text, and a failed deletion leaves the session (and queue) alive.
   await rendererApplication.sessions.deleteSession(sessionId)
@@ -35,6 +69,9 @@ export async function deleteSession(sessionId: string): Promise<void> {
 }
 
 export async function deleteSessions(sessionIds: string[]): Promise<void> {
+  for (const sessionId of sessionIds) {
+    await abortGenerationsBeforeDeletion(sessionId)
+  }
   await rendererApplication.sessions.deleteSessions(sessionIds)
   await clearMessageQueues(sessionIds)
 }
@@ -279,15 +316,7 @@ export async function clear(sessionId: string) {
   if (!session) {
     return
   }
-  const activeRuntimeIds = rendererApplication.generationRuntime.getActiveMessageIds(sessionId)
-  for (const messageId of activeRuntimeIds) {
-    rendererApplication.generationRuntime.requestAbort(sessionId, messageId, 'session-cleared')
-  }
-  for (const message of getGenerationControlMessages(session, activeRuntimeIds)) {
-    if (message.generating && !activeRuntimeIds.has(message.id)) {
-      rendererApplication.generationRuntime.requestAbort(sessionId, message.id, 'session-cleared')
-    }
-  }
+  abortSessionGenerations(sessionId, session, 'session-cleared')
   if (platform.isDesktopLike) {
     try {
       await platform.getSessionAttachmentRagController().deleteSessionAttachments(sessionId)

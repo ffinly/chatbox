@@ -5,7 +5,6 @@ import type {
   AppActionApprovalDetails,
   CompactionPoint,
   Config,
-  GenerationRequestSnapshot,
   KnowledgeBase,
   Message,
   MessageContentParts,
@@ -60,7 +59,6 @@ import {
   updateToolCallParts,
   withToolCallLimitPause,
 } from './generation-flow'
-import { createGenerationRequestSnapshot } from './request-snapshot'
 import type { GenerationRuntimeStore } from './runtime-store'
 import { createInitialState, processStreamChunk } from './stream-chunk-processor'
 
@@ -409,21 +407,8 @@ export class GenerationService<TContext> {
     let processorState = createInitialState()
     const infoParts: MessageContentParts = []
     let promptMessages: Message[] = []
-    let pendingGenerationRequestCheckpoint: GenerationRequestSnapshot | undefined
-    const discardPendingGenerationRequestCheckpoint = () => {
-      if (!pendingGenerationRequestCheckpoint) return
-      const retainedRequests = targetMessage.generationRequests?.filter(
-        (request) => request !== pendingGenerationRequestCheckpoint
-      )
-      targetMessage = {
-        ...targetMessage,
-        generationRequests: retainedRequests?.length ? retainedRequests : undefined,
-      }
-      pendingGenerationRequestCheckpoint = undefined
-    }
     const persistAbortedGenerationIfNeeded = async (): Promise<boolean> => {
       if (!controller.signal.aborted) return false
-      discardPendingGenerationRequestCheckpoint()
       targetMessage = finishAbortedGeneration(
         targetMessage,
         [...infoParts, ...processorState.contentParts],
@@ -659,73 +644,6 @@ export class GenerationService<TContext> {
           : prepared.tools
       }
 
-      chatOptions.onRequestResolved = async ({ callSettings, modelMessages, tools, stream }) => {
-        const generationRequest = await createGenerationRequestSnapshot({
-          capturedAt: host.now(),
-          provider: settings.provider,
-          modelId: model.modelId,
-          apiStyle: model.apiStyle,
-          agentMode: chatOptions.agentMode === true,
-          callSettings,
-          stream,
-          promptMessages: prepared.promptMessages,
-          appendedMessageIds: steering?.getInjectedMessageIds(),
-          modelMessages,
-          systemPrompt: prepared.systemPrompt,
-          tools,
-          storeDefinitions: async (storageKey, value) => {
-            const existing = await this.dependencies.blobs.get(storageKey)
-            if (existing === value) {
-              // Content-addressed reuse: refresh the in-flight window so orphan
-              // cleanup keeps the blob until the session reference persists.
-              this.dependencies.blobs.touch(storageKey)
-              return
-            }
-            if (existing !== null) {
-              // A same-key mismatch means the stored blob is corrupted (a real
-              // SHA-256 collision is not a practical concern): overwrite it.
-              void Promise.resolve(
-                this.dependencies.logger.log('warn', 'Generation request definition blob mismatch, overwriting', {
-                  storageKey,
-                })
-              ).catch(() => {})
-            }
-            await this.dependencies.blobs.set(storageKey, value)
-          },
-        })
-        pendingGenerationRequestCheckpoint = generationRequest
-        targetMessage = {
-          ...targetMessage,
-          generationRequests: [...(targetMessage.generationRequests ?? []), generationRequest],
-        }
-        if (controller.signal.aborted) {
-          throw controller.signal.reason instanceof Error
-            ? controller.signal.reason
-            : new Error('Generation aborted before provider dispatch')
-        }
-        // The resolved provider envelope is durable before streamText can
-        // dispatch. A failed checkpoint therefore fails closed.
-        await sessions.persistStreamingMessage(sessionId, targetMessage)
-        if (controller.signal.aborted) {
-          // Cancellation can win while the checkpoint write is in flight.
-          // Restore the pre-dispatch projection so the unsent request never
-          // survives the abort path's terminal persistence.
-          discardPendingGenerationRequestCheckpoint()
-          targetMessage = finishAbortedGeneration(
-            targetMessage,
-            [...infoParts, ...processorState.contentParts],
-            getAbortStoppedAt(controller.signal, host.now())
-          )
-          await sessions.persistStreamingMessage(sessionId, targetMessage, { refreshCounting: true })
-          throw controller.signal.reason instanceof Error
-            ? controller.signal.reason
-            : new Error('Generation aborted before provider dispatch')
-        }
-        // The checkpoint is durable; from here on the snapshot is committed
-        // and must survive the error/abort discard paths.
-        pendingGenerationRequestCheckpoint = undefined
-      }
-
       const stream = model.chatStream(prepared.coreMessages, chatOptions) as AsyncGenerator<ModelStreamPart<ToolSet>>
       this.dependencies.runtime.setPhase(sessionId, generationMessageId, 'streaming', runtimeState)
 
@@ -921,7 +839,6 @@ export class GenerationService<TContext> {
 
       if (await persistAbortedGenerationIfNeeded()) return
 
-      discardPendingGenerationRequestCheckpoint()
       targetMessage = sessions.handleGenerationError(error, targetMessage, settings, {
         agentMode: host.getAgentModeEntry(sessionId, session).value,
         operationType: options?.operationType,

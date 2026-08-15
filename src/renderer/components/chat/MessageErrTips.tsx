@@ -21,6 +21,7 @@ import {
   trackTokenExhaustedCard,
   trackTokenExhaustedCardClick,
 } from '@/analytics/token-exhausted-card'
+import { rendererApplication } from '@/app/renderer-application'
 import { ChatboxAIErrorMessage } from '@/components/common/ChatboxAIErrorMessage'
 import { AppTooltip as Tooltip } from '@/components/ui/tooltip'
 import { useCopied } from '@/hooks/useCopied'
@@ -29,7 +30,6 @@ import { AgentModeRewardResumeError, claimAgentModeRewardAndResume } from '@/pac
 import { buildChatboxUrl, claimFreeAgentModeReward } from '@/packages/remote'
 import { translateTexts } from '@/packages/translation'
 import platform from '@/platform'
-import { rendererApplication } from '@/app/renderer-application'
 import { getSessionAgentModeFromSession } from '@/stores/session/agent-mode'
 import * as settingActions from '@/stores/settingActions'
 import { useLanguage, useSettingsStore } from '@/stores/settingsStore'
@@ -51,9 +51,8 @@ function trackTokenExhaustedCardWithResolvedMode(options: {
   action: TokenExhaustedCardTrackingContext['action']
   provider?: string
   model?: string
-  generationAgentMode?: boolean
 }) {
-  const { tracker, sessionId, plan, action, provider, model, generationAgentMode } = options
+  const { tracker, sessionId, plan, action, provider, model } = options
   if (!sessionId) return
 
   const trackWithMode = (mode: TokenExhaustedCardTrackingContext['mode']) => {
@@ -67,12 +66,8 @@ function trackTokenExhaustedCardWithResolvedMode(options: {
     })
   }
 
-  if (generationAgentMode !== undefined) {
-    trackWithMode(generationAgentMode ? 'work_mode' : 'chat_mode')
-    return
-  }
-
-  void rendererApplication.sessionQueryBridge.getSession(sessionId)
+  void rendererApplication.sessionQueryBridge
+    .getSession(sessionId)
     .then((session) => {
       trackWithMode(getSessionAgentModeFromSession(session)?.value === 'on' ? 'work_mode' : 'chat_mode')
     })
@@ -255,7 +250,6 @@ export default function MessageErrTips(props: {
     errorPresentation === 'free-quota-exhausted' || errorPresentation === 'free-ocr-quota-exhausted'
       ? 'free'
       : licensePlan
-  const generationAgentMode = msg.generationRequests?.at(-1)?.agentMode
   const isTokenExhaustedCard =
     Boolean(msg.error) &&
     (errorPresentation === 'quota-exhausted' ||
@@ -290,17 +284,8 @@ export default function MessageErrTips(props: {
       action: quotaTrackingAction,
       provider: msg.aiProvider,
       model: msg.model,
-      generationAgentMode,
     })
-  }, [
-    generationAgentMode,
-    isTokenExhaustedCard,
-    msg.aiProvider,
-    msg.model,
-    quotaTrackingAction,
-    quotaTrackingPlan,
-    sessionId,
-  ])
+  }, [isTokenExhaustedCard, msg.aiProvider, msg.model, quotaTrackingAction, quotaTrackingPlan, sessionId])
 
   const handleTranslate = useCallback(async () => {
     if (translatedText) {
@@ -379,12 +364,11 @@ export default function MessageErrTips(props: {
       action: quotaTrackingAction,
       provider: msg.aiProvider,
       model: msg.model,
-      generationAgentMode,
     })
     platform.openLink(
       buildChatboxUrl(`/redirect_app/view_more_plans/${language}?utm_source=app&utm_content=msg_quota_exhausted`)
     )
-  }, [generationAgentMode, language, msg.aiProvider, msg.model, quotaTrackingAction, quotaTrackingPlan, sessionId])
+  }, [language, msg.aiProvider, msg.model, quotaTrackingAction, quotaTrackingPlan, sessionId])
 
   const handleConfigureOcr = useCallback(() => {
     navigateToSettings('/default-models')
