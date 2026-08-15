@@ -228,6 +228,44 @@ describe('buildContext', () => {
     })
   })
 
+  describe('sticky message-limit window (prompt-cache prefix)', () => {
+    // maxContextMessageCount=19 → effectiveLimit 20 → chunk = ceil(20/4) = 5
+    const limitOptions = {
+      attachmentResolver: createMockResolver(),
+      toolCleanupMode: 'none' as const,
+      maxContextMessageCount: 19,
+    }
+    const makeMessages = (count: number): Message[] =>
+      Array.from({ length: count }, (_, i) => createMessage({ id: `m${i}`, role: i % 2 === 0 ? 'user' : 'assistant' }))
+
+    it('keeps the window boundary fixed while the overflow stays within a chunk', async () => {
+      const base = await buildContext(makeMessages(21), limitOptions)
+      const grown = await buildContext(makeMessages(24), limitOptions)
+
+      // 21 messages: overflow 1 → drop one whole chunk (5). 24: overflow 4 →
+      // still one chunk. The boundary (and thus the request prefix) is stable
+      // across the intermediate turns instead of sliding every turn.
+      expect(base[0].id).toBe('m5')
+      expect(grown[0].id).toBe('m5')
+      expect(grown.slice(0, base.length).map((m) => m.id)).toEqual(base.map((m) => m.id))
+    })
+
+    it('advances the boundary by a whole chunk when the overflow crosses it', async () => {
+      const result = await buildContext(makeMessages(26), limitOptions)
+
+      // overflow 6 → drop ceil(6/5)*5 = 10
+      expect(result[0].id).toBe('m10')
+      expect(result).toHaveLength(16)
+    })
+
+    it('never serves more than the configured limit', async () => {
+      for (let count = 20; count <= 30; count += 1) {
+        const result = await buildContext(makeMessages(count), limitOptions)
+        expect(result.length).toBeLessThanOrEqual(20)
+      }
+    })
+  })
+
   describe('compaction', () => {
     it('should apply compaction point', async () => {
       const compactionPoints: CompactionPoint[] = [

@@ -215,13 +215,22 @@ function applyMessageLimit(messages: Message[], maxCount: number): Message[] {
   // maxCount limits history, +1 for the current input (last message)
   const effectiveLimit = maxCount + 1
 
-  const result = workingMsgs.slice(-effectiveLimit)
-
-  if (head) {
-    return [head, ...result]
+  const overflow = workingMsgs.length - effectiveLimit
+  if (overflow <= 0) {
+    return head ? [head, ...workingMsgs] : [...workingMsgs]
   }
 
-  return result
+  // Sticky window: advance the drop boundary in whole chunks instead of
+  // sliding one message per turn. A per-turn slide rewrites the start of the
+  // request every round, invalidating the provider prompt-cache prefix; a
+  // chunked boundary stays fixed (cache hit) until the overflow crosses the
+  // next chunk, at the cost of briefly serving up to chunk-1 messages fewer
+  // than the configured limit.
+  const chunk = Math.max(1, Math.ceil(effectiveLimit / 4))
+  const dropCount = Math.ceil(overflow / chunk) * chunk
+  const result = workingMsgs.slice(dropCount)
+
+  return head ? [head, ...result] : result
 }
 
 async function injectAttachments(

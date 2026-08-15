@@ -121,6 +121,7 @@ import {
 } from '@shared/types'
 import type { ModelDependencies } from '@shared/types/adapters'
 import { getMessageText } from '@shared/utils/message'
+import { formatTimestampWithZone, TIME_REMINDER_MIN_GAP_MS } from '@shared/utils/system-reminder'
 import { computeEffectiveAgentMode, prepareAgentGenerationHarness } from './agent-harness'
 
 function createMockModel(overrides?: Partial<ModelInterface>): ModelInterface {
@@ -434,6 +435,215 @@ describe('prepareAgentGenerationHarness', () => {
     expect(serializedCoreMessages).toContain('v2 changelog')
   })
 
+  test('keeps instructions ahead of the first user turn for models without system support', async () => {
+    const systemMessage: Message = {
+      id: 'msg-sys',
+      role: MessageRoleEnum.System,
+      timestamp: 1,
+      contentParts: [{ type: 'text', text: 'HOUSE_RULES_PROMPT' }],
+    }
+    const userMessage: Message = {
+      id: 'msg-1',
+      role: MessageRoleEnum.User,
+      timestamp: 2,
+      contentParts: [{ type: 'text', text: 'USER_QUESTION_TEXT' }],
+    }
+
+    const prepared = await prepareAgentGenerationHarness({
+      session: createSession(),
+      settings: {
+        provider: ModelProviderEnum.ChatboxAI,
+        modelId: 'test-model',
+      } as SessionSettings,
+      globalSettings: {} as Settings,
+      configs: { uuid: 'config-1' } as Config,
+      messages: [systemMessage, userMessage],
+      targetMsgIx: 2,
+      model: createMockModel({ isSupportSystemMessage: vi.fn().mockReturnValue(false) } as Partial<ModelInterface>),
+      dependencies: createModelDependencies(),
+      webBrowsing: false,
+      agentModeValue: 'off',
+      agentModeLocked: false,
+      agentModeSupported: true,
+      signal: new AbortController().signal,
+      sandboxProviderFactory: () => sandboxProviderMock as unknown as SandboxProvider,
+      isPro: () => true,
+    })
+
+    // The injected block rides the (coerced) system message, so after the
+    // user-role merge the order is: session prompt → instructions/runtime →
+    // user request. Injecting into the user message itself would flip the
+    // instructions behind the request.
+    expect(prepared.coreMessages.map((message) => message.role)).not.toContain('system')
+    const serialized = JSON.stringify(prepared.coreMessages)
+    expect(serialized.indexOf('HOUSE_RULES_PROMPT')).toBeGreaterThanOrEqual(0)
+    expect(serialized.indexOf('HOUSE_RULES_PROMPT')).toBeLessThan(serialized.indexOf('## Runtime'))
+    expect(serialized.indexOf('## Runtime')).toBeLessThan(serialized.indexOf('USER_QUESTION_TEXT'))
+  })
+
+  test('injects no time reminder during a rapid exchange', async () => {
+    const userMessage: Message = {
+      id: 'msg-1',
+      role: MessageRoleEnum.User,
+      timestamp: Date.now(),
+      contentParts: [{ type: 'text', text: 'USER_QUESTION_TEXT' }],
+    }
+
+    const prepared = await prepareAgentGenerationHarness({
+      session: createSession(),
+      settings: {
+        provider: ModelProviderEnum.ChatboxAI,
+        modelId: 'test-model',
+      } as SessionSettings,
+      globalSettings: {} as Settings,
+      configs: { uuid: 'config-1' } as Config,
+      messages: [userMessage],
+      targetMsgIx: 1,
+      model: createMockModel(),
+      dependencies: createModelDependencies(),
+      webBrowsing: false,
+      agentModeValue: 'off',
+      agentModeLocked: false,
+      agentModeSupported: true,
+      signal: new AbortController().signal,
+      sandboxProviderFactory: () => sandboxProviderMock as unknown as SandboxProvider,
+      isPro: () => true,
+    })
+
+    // No gap since the conversation start: reminding on every message would be
+    // noise, so the request carries none. The system prompt still documents the
+    // <system-reminder> contract for when one does appear.
+    expect(JSON.stringify(prepared.coreMessages)).not.toContain('Current date and time:')
+    expect(prepared.systemPrompt).toContain('<system-reminder>')
+  })
+
+  test('injects a deterministic time reminder after a conversation gap', async () => {
+    const now = Date.now()
+    const firstTs = now - 45 * 60 * 1000
+    const latestTs = now - 60 * 1000
+    const messages: Message[] = [
+      {
+        id: 'msg-1',
+        role: MessageRoleEnum.User,
+        timestamp: firstTs,
+        contentParts: [{ type: 'text', text: 'EARLIER_QUESTION' }],
+      },
+      {
+        id: 'msg-2',
+        role: MessageRoleEnum.Assistant,
+        timestamp: firstTs + 60 * 1000,
+        contentParts: [{ type: 'text', text: 'EARLIER_ANSWER' }],
+      },
+      {
+        id: 'msg-3',
+        role: MessageRoleEnum.User,
+        timestamp: latestTs,
+        contentParts: [{ type: 'text', text: 'USER_QUESTION_TEXT' }],
+      },
+    ]
+
+    const prepared = await prepareAgentGenerationHarness({
+      session: createSession(),
+      settings: {
+        provider: ModelProviderEnum.ChatboxAI,
+        modelId: 'test-model',
+      } as SessionSettings,
+      globalSettings: {} as Settings,
+      configs: { uuid: 'config-1' } as Config,
+      messages,
+      targetMsgIx: 3,
+      model: createMockModel(),
+      dependencies: createModelDependencies(),
+      webBrowsing: false,
+      agentModeValue: 'off',
+      agentModeLocked: false,
+      agentModeSupported: true,
+      signal: new AbortController().signal,
+      sandboxProviderFactory: () => sandboxProviderMock as unknown as SandboxProvider,
+      isPro: () => true,
+    })
+
+    // The reminder rides the gapped user turn's tail and freezes that message's
+    // own timestamp (not the build-time clock), so every rebuild reproduces the
+    // same bytes at the same position — it joins the stable cached prefix.
+    const lastMessage = prepared.coreMessages.at(-1)
+    expect(lastMessage?.role).toBe('user')
+    const serialized = JSON.stringify(prepared.coreMessages)
+    expect(serialized.indexOf('USER_QUESTION_TEXT')).toBeLessThan(serialized.indexOf('Current date and time:'))
+    expect(serialized).toContain(`Current date and time: ${formatTimestampWithZone(latestTs)}`)
+
+    // Never persisted: the reminder exists only in the converted request, not
+    // in the prompt messages that flow back to storage-facing paths.
+    expect(JSON.stringify(prepared.promptMsgs)).not.toContain('Current date and time:')
+  })
+
+  test('keeps a historical gap reminder in place once the conversation moves on', async () => {
+    const now = Date.now()
+    const gapTs = now - 3 * 60 * 1000
+    const messages: Message[] = [
+      {
+        id: 'msg-1',
+        role: MessageRoleEnum.User,
+        timestamp: now - 50 * 60 * 1000,
+        contentParts: [{ type: 'text', text: 'EARLIER_QUESTION' }],
+      },
+      {
+        id: 'msg-2',
+        role: MessageRoleEnum.Assistant,
+        timestamp: now - 49 * 60 * 1000,
+        contentParts: [{ type: 'text', text: 'EARLIER_ANSWER' }],
+      },
+      {
+        id: 'msg-3',
+        role: MessageRoleEnum.User,
+        timestamp: gapTs,
+        contentParts: [{ type: 'text', text: 'RETURNING_QUESTION' }],
+      },
+      {
+        id: 'msg-4',
+        role: MessageRoleEnum.Assistant,
+        timestamp: gapTs + 30 * 1000,
+        contentParts: [{ type: 'text', text: 'RETURNING_ANSWER' }],
+      },
+      {
+        id: 'msg-5',
+        role: MessageRoleEnum.User,
+        timestamp: now - 60 * 1000,
+        contentParts: [{ type: 'text', text: 'FOLLOW_UP_QUESTION' }],
+      },
+    ]
+
+    const prepared = await prepareAgentGenerationHarness({
+      session: createSession(),
+      settings: {
+        provider: ModelProviderEnum.ChatboxAI,
+        modelId: 'test-model',
+      } as SessionSettings,
+      globalSettings: {} as Settings,
+      configs: { uuid: 'config-1' } as Config,
+      messages,
+      targetMsgIx: 5,
+      model: createMockModel(),
+      dependencies: createModelDependencies(),
+      webBrowsing: false,
+      agentModeValue: 'off',
+      agentModeLocked: false,
+      agentModeSupported: true,
+      signal: new AbortController().signal,
+      sandboxProviderFactory: () => sandboxProviderMock as unknown as SandboxProvider,
+      isPro: () => true,
+    })
+
+    // The gap reminder re-materializes at the same historical position on every
+    // rebuild (msg-3's turn, before the assistant reply), so the bytes ahead of
+    // the newest turn stay prefix-cache stable; the rapid follow-up adds none.
+    const serialized = JSON.stringify(prepared.coreMessages)
+    expect(serialized.split('Current date and time:')).toHaveLength(2)
+    const reminderIndex = serialized.indexOf(`Current date and time: ${formatTimestampWithZone(gapTs)}`)
+    expect(reminderIndex).toBeGreaterThan(serialized.indexOf('RETURNING_QUESTION'))
+    expect(reminderIndex).toBeLessThan(serialized.indexOf('RETURNING_ANSWER'))
+  })
+
   test('keeps the toolset and context clean when agent mode is manually off', async () => {
     const userMessage: Message = {
       id: 'msg-1',
@@ -587,6 +797,78 @@ describe('prepareAgentGenerationHarness', () => {
     expect(serialized).toContain('console.log(26)')
     expect(prepared.tools.code_execution).toBeDefined()
     expect(prepared.tools.run_command).toBeUndefined()
+
+    // A fresh continuation (snapshot just captured, no conversation gap) does
+    // not need a time reminder.
+    expect(serialized).not.toContain('Current date and time:')
+  })
+
+  test('appends a live trailing reminder when resuming a stale tool run', async () => {
+    const capturedAt = Date.now() - 2 * TIME_REMINDER_MIN_GAP_MS
+    const messages: Message[] = [
+      {
+        id: 'user-1',
+        role: MessageRoleEnum.User,
+        timestamp: capturedAt + 60_000,
+        contentParts: [{ type: 'text', text: 'Count from 1 to 30 with one tool call each.' }],
+      },
+      {
+        id: 'assistant-1',
+        role: MessageRoleEnum.Assistant,
+        timestamp: capturedAt + 120_000,
+        generating: true,
+        contentParts: [
+          {
+            type: 'tool-call',
+            state: 'result',
+            toolCallId: 'tool-26',
+            toolName: 'code_execution',
+            args: { code: 'console.log(26)' },
+            result: { stdout: '26' },
+          },
+        ],
+      },
+    ]
+
+    const prepared = await prepareAgentGenerationHarness({
+      session: createSession(),
+      settings: {
+        provider: ModelProviderEnum.ChatboxAI,
+        modelId: 'test-model',
+        sessionPromptContextSnapshot: {
+          version: 1,
+          soul: '',
+          memories: [],
+          workspaceInstructions: '',
+          workspaceDirectories: [],
+          capturedAt,
+          scope: 'agent',
+        },
+      } as SessionSettings,
+      globalSettings: {} as Settings,
+      configs: { uuid: 'config-1' } as Config,
+      messages,
+      targetMsgIx: messages.length,
+      model: createMockModel(),
+      dependencies: {} as never,
+      webBrowsing: false,
+      agentModeValue: 'on',
+      agentModeLocked: true,
+      agentModeSupported: true,
+      signal: new AbortController().signal,
+      preserveLastPromptMessageToolCalls: true,
+      sandboxProviderFactory: () => sandboxProviderMock as unknown as SandboxProvider,
+      isPro: () => true,
+    })
+
+    // The wall clock outran everything in the context (e.g. a tool approval
+    // granted much later), and no new user message exists to carry the gap: the
+    // live reminder stays its own trailing user turn after the tool results
+    // (the PR-729-verified wire shape).
+    const lastMessage = prepared.coreMessages.at(-1)
+    expect(lastMessage?.role).toBe('user')
+    expect(JSON.stringify(lastMessage)).toContain('Current date and time:')
+    expect(JSON.stringify(prepared.promptMsgs)).not.toContain('Current date and time:')
   })
 
   test.each([

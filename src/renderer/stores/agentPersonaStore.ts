@@ -236,6 +236,7 @@ export async function captureSessionPromptContextSnapshot(
     workspaceInstructions,
     workspaceDirectories: directories,
     capturedAt: Date.now(),
+    capturedUtcOffsetMinutes: -new Date().getTimezoneOffset(),
     scope,
     ...(scope === 'agent' ? { agentToolContractVersion: desktopCommandContract ? (2 as const) : (1 as const) } : {}),
   }

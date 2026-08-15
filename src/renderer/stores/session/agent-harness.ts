@@ -21,8 +21,12 @@ import type {
 import type { ModelDependencies } from '@shared/types/adapters'
 import { sequenceMessages } from '@shared/utils/message'
 import { shouldPreserveDeepSeekReasoning } from '@shared/utils/reasoning-control'
+import {
+  formatTimestampWithZone,
+  insertTimeGapReminders,
+  SYSTEM_REMINDER_PROMPT_INSTRUCTION,
+} from '@shared/utils/system-reminder'
 import type { ToolSet } from 'ai'
-import dayjs from 'dayjs'
 import { t } from 'i18next'
 import { getLogger } from '@/lib/utils'
 import {
@@ -403,20 +407,25 @@ export async function prepareAgentGenerationHarness(
     instructions = `${buildMemoriesSection(promptContextSnapshot.memories, { includeToolGuidance: memoryToolsAvailable })}${instructions}`
   }
 
+  // Conversation-start anchor shared by the frozen system-prompt line and the
+  // time-gap reminder walk below: snapshot capture when one exists, otherwise
+  // the first surface message.
+  const conversationStartedAt = promptContextSnapshot?.capturedAt ?? messages[0]?.timestamp
+
   let injectedMessages: Message[]
   let systemPrompt: string
   if (effectiveAgentMode === 'on' && promptContextSnapshot) {
     // Agent mode assembles its own system prompt, ordered by stability for prefix
     // caching: fixed identity → frozen Soul/memories → tool instructions → runtime
-    // metadata. The date is the snapshot's capture date (not today) so the system
-    // prompt never drifts mid-session.
+    // metadata. The timestamp is the snapshot's capture time (not now) so the
+    // system prompt never drifts mid-session.
     const personaPrompt = buildAgentPersonaPrompt({
       soul: promptContextSnapshot.soul,
       memories: memoryEnabled ? promptContextSnapshot.memories : [],
       platformType: platform.type,
       os: getOS(),
     })
-    const runtimeMetadata = `\n## Runtime\nCurrent model: ${model.modelId}\nSession context captured: ${dayjs(promptContextSnapshot.capturedAt).format('YYYY-MM-DD')}`
+    const runtimeMetadata = `\n## Runtime\nCurrent model: ${model.modelId}\nSession context captured: ${formatTimestampWithZone(promptContextSnapshot.capturedAt, promptContextSnapshot.capturedUtcOffsetMinutes)}\n${SYSTEM_REMINDER_PROMPT_INSTRUCTION}`
     const systemText = `${personaPrompt}\n${instructions}${runtimeMetadata}`
     systemPrompt = systemText
     injectedMessages = [
@@ -429,15 +438,35 @@ export async function prepareAgentGenerationHarness(
       ...promptMsgs,
     ]
   } else {
-    systemPrompt = buildModelSystemPrompt(model.modelId, instructions)
-    injectedMessages = injectModelSystemPrompt(
-      model.modelId,
-      promptMsgs,
-      instructions,
-      model.isSupportSystemMessage() ? 'system' : 'user',
-      systemPrompt
-    )
+    // Chat mode mirrors the agent-mode ordering above: the session's own
+    // system prompt keeps the byte-0 position, instructions follow, and the
+    // volatile model/date metadata sits last with a date frozen at the
+    // conversation start (snapshot capture when one exists, otherwise the
+    // first surface message) — a day rollover must not rewrite the prefix.
+    systemPrompt = buildModelSystemPrompt(model.modelId, instructions, {
+      conversationStartedAt,
+      // Frozen with the snapshot so a device timezone change never rewrites the
+      // prefix; snapshot-less sessions derive it from the anchor instant.
+      conversationStartUtcOffsetMinutes: promptContextSnapshot?.capturedUtcOffsetMinutes,
+    })
+    // Always target the system slot: models without system-message support get
+    // the whole message coerced to `user` below, and `sequenceMessages` merges
+    // it with the first user turn — instructions still precede the request.
+    // Injecting into the first user message directly would append them AFTER
+    // the user's own text (appended-metadata ordering) and flip precedence.
+    injectedMessages = injectModelSystemPrompt(model.modelId, promptMsgs, instructions, 'system', systemPrompt)
   }
+
+  // Time reminders ride ephemeral `<system-reminder>`s injected at conversation
+  // gaps (≥30 min of silence before a user message) instead of on every request.
+  // Each is derived from persisted message timestamps, so rebuilds reproduce the
+  // same bytes at the same position — cache-stable — while never being persisted
+  // themselves. A live trailing reminder covers regenerate/stale-resume, where
+  // the wall clock moved past everything in context without a new user message.
+  // `sequenceMessages` merges each into its user turn's tail, or leaves the
+  // trailing one as its own user turn after a resumed tool history (both
+  // provider-safe shapes).
+  injectedMessages = insertTimeGapReminders(injectedMessages, { anchorTimestamp: conversationStartedAt })
 
   if (!model.isSupportSystemMessage()) {
     injectedMessages = injectedMessages.map((message) => ({

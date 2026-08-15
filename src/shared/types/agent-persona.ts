@@ -34,6 +34,12 @@ export const SessionPromptContextSnapshotSchema = z.object({
   // change, an acceptable cache break).
   workspaceDirectories: z.array(z.string()),
   capturedAt: z.number(),
+  // Device UTC offset (minutes east of UTC) at capture time. Freezing it keeps
+  // the system prompt's "started/captured" line byte-stable for provider caches
+  // even after the device moves to another timezone; the live timezone reaches
+  // the model through time `<system-reminder>`s instead. Missing on snapshots
+  // captured before this field existed — those derive the offset at render time.
+  capturedUtcOffsetMinutes: z.number().optional().catch(undefined),
   // Which mode captured the snapshot. Agent mode only trusts 'agent'-scoped
   // snapshots (a chat-scoped one predates "first agent generation", so Soul
   // edits made before enabling Work Mode must still apply); chat mode accepts
