@@ -3,9 +3,6 @@ import { reportDbOpenSucceeded, toDbOpenError, watchDbOpenBlocked, watchDbVersio
 
 const PAGE_SIZE = 20
 const DB_NAME = 'chatbox-image-generation'
-// 数据契约版本，一律 pin（见 docs/technical/storage.md「IndexedDB 版本策略」）。
-// 本库历史上只有 v1 磁盘；下一次 schema 变更 pin 2。
-const DB_VERSION = 1
 const STORE_NAME = 'records'
 
 export interface ImageGenerationStorage {
@@ -25,7 +22,6 @@ export class IndexedDBImageGenerationStorage implements ImageGenerationStorage {
   initialize(): Promise<void> {
     if (!this.initPromise) {
       this.initPromise = this.openDatabase().catch((error) => {
-        // Do not cache the failure: allow retry after the user updates/reloads.
         this.initPromise = null
         throw error
       })
@@ -35,17 +31,20 @@ export class IndexedDBImageGenerationStorage implements ImageGenerationStorage {
 
   private openDatabase(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION)
+      const request = indexedDB.open(DB_NAME, 1)
       watchDbOpenBlocked(DB_NAME, request)
 
       request.onerror = () => reject(toDbOpenError(DB_NAME, request.error))
 
       request.onsuccess = () => {
-        this.db = request.result
+        const db = request.result
+        this.db = db
         reportDbOpenSucceeded(DB_NAME)
-        watchDbVersionChange(DB_NAME, this.db, () => {
-          this.db = null
-          this.initPromise = null
+        watchDbVersionChange(DB_NAME, db, () => {
+          if (this.db === db) {
+            this.db = null
+            this.initPromise = null
+          }
         })
         resolve()
       }
