@@ -25,6 +25,7 @@ import {
   TASK_SANDBOX_DENY_READ_PATHS,
   TASK_SANDBOX_DENY_WRITE_PATHS,
   TASK_SANDBOX_EXTRA_WRITE_PATHS,
+  TASK_SANDBOX_PROTECTED_GIT_METADATA_PATHS,
 } from '../../shared/task-sandbox'
 import { shellQuote } from '../../shared/utils/shell'
 import { normalizeWindowsAbsolutePath } from '../../shared/utils/windows-path'
@@ -365,7 +366,11 @@ function buildConfig(
   const userDenyWrite = userWriteVariants.flatMap((base) =>
     TASK_SANDBOX_DENY_WRITE_PATHS.flatMap((name) => [`${base}/${name}`, `${base}/**/${name}`])
   )
-  const denyWrite = [...new Set([...TASK_SANDBOX_DENY_WRITE_PATHS, ...userDenyWrite])]
+  // Protect top-level Git metadata in each granted root while still allowing nested repositories.
+  const userGitMetadataDenyWrite = userWriteVariants.flatMap((base) =>
+    TASK_SANDBOX_PROTECTED_GIT_METADATA_PATHS.flatMap((name) => [`${base}/${name}`, `${base}/${name}/**`])
+  )
+  const denyWrite = [...new Set([...TASK_SANDBOX_DENY_WRITE_PATHS, ...userDenyWrite, ...userGitMetadataDenyWrite])]
   const captureRoot = getCommandOutputCaptureRoot()
 
   // WARN: `allowedDomains: ['*']` is NOT a wildcard — it's a literal match.
@@ -500,6 +505,31 @@ function isProtectedUserWritePath(
   )
 }
 
+// Main-process file tools bypass the OS sandbox, so mirror the top-level Git
+// metadata protection for user-granted roots here.
+function isProtectedGitMetadataPath(
+  resolved: string,
+  canonicalTarget: string | undefined,
+  grants: WritePathGrant[]
+): boolean {
+  const normalizeRel = (rel: string) => {
+    const posix = rel.split(path.sep).join('/')
+    return process.platform === 'win32' ? posix.toLowerCase() : posix
+  }
+  const matchesProtectedMetadata = (root: string, target: string) => {
+    if (!pathContains(root, target)) return false
+    const rel = normalizeRel(path.relative(root, target))
+    return TASK_SANDBOX_PROTECTED_GIT_METADATA_PATHS.some((name) => rel === name || rel.startsWith(`${name}/`))
+  }
+
+  const targetPath = path.resolve(resolved)
+  return grants.some(
+    (grant) =>
+      matchesProtectedMetadata(grant.root, targetPath) ||
+      (canonicalTarget !== undefined && matchesProtectedMetadata(grant.canonicalRoot, canonicalTarget))
+  )
+}
+
 async function validateSessionWritePath(session: SandboxSession, resolved: string): Promise<WritePathValidationResult> {
   const allowedRoots = [session.workingDirectoryGrant, ...session.userWriteGrants].filter(
     (grant): grant is WritePathGrant => grant !== null
@@ -508,7 +538,10 @@ async function validateSessionWritePath(session: SandboxSession, resolved: strin
   if (!validation.valid) {
     return session.userWriteGrants.length > 0 ? validation : { valid: false, error: 'Invalid path: outside sandbox' }
   }
-  if (isProtectedUserWritePath(resolved, validation.canonicalTarget, session.userWriteGrants)) {
+  if (
+    isProtectedUserWritePath(resolved, validation.canonicalTarget, session.userWriteGrants) ||
+    isProtectedGitMetadataPath(resolved, validation.canonicalTarget, session.userWriteGrants)
+  ) {
     return { valid: false, error: 'Write access denied for protected file' }
   }
   return validation
@@ -665,18 +698,25 @@ export async function execCode(params: {
     return { stdout: '', stderr, exitCode: 127, errorCode }
   }
 
-  // Session env overrides: point HOME/TMPDIR/cache at the working directory.
+  // On sandboxed macOS/Linux runs, preserve the user's real HOME so tools can
+  // read their normal configuration. Cache writes remain inside the session.
   const envOverrides: NodeJS.ProcessEnv = {}
   if (session.workingDirectory) {
     const cacheDir = path.join(session.workingDirectory, '.cache')
     mkdirSync(cacheDir, { recursive: true })
     envOverrides.XDG_CACHE_HOME = cacheDir
-    envOverrides.TMPDIR = envOverrides.TMP = envOverrides.TEMP = session.workingDirectory
-    // Point HOME at the working directory so `~`, `$HOME`, and os.homedir() resolve there.
-    // Confinement is unaffected: SRT expands `~` in deny rules via the main process's
-    // os.homedir() when it bakes the seatbelt policy, so the child's overridden HOME only
-    // affects that child's own `~` expansion, never the deny rules (e.g. ~/.ssh stays denied).
-    envOverrides.HOME = session.workingDirectory
+    envOverrides.npm_config_cache = path.join(cacheDir, 'npm')
+    if (isWindows) {
+      // Native Windows execution has no OS sandbox, so keep HOME and temporary
+      // files redirected into the session directory.
+      envOverrides.HOME = session.workingDirectory
+      envOverrides.TMPDIR = envOverrides.TMP = envOverrides.TEMP = session.workingDirectory
+      const realHome = process.env.USERPROFILE || homedir()
+      const globalGitConfig = [path.join(realHome, '.gitconfig'), path.join(realHome, '.config', 'git', 'config')].find(
+        existsSync
+      )
+      if (globalGitConfig) envOverrides.GIT_CONFIG_GLOBAL = globalGitConfig
+    }
   }
 
   // Resolve the program that reads the code from stdin.

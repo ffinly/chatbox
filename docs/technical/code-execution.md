@@ -63,6 +63,8 @@ Chat 模式不再向模型注入底层 `sandbox_*` 工具，旧的 `toolsets/san
 
 这个选择降低了安装包体积和签名风险，也让 Chat 代码执行聚焦于简单文件处理。
 
+在 SRT 平台（macOS/Linux）上，沙箱子进程保留用户真实的 `HOME`（对齐 Codex / Claude Code 的做法）：隔离从不依赖 HOME 改写——SRT 的 deny 规则用主进程的 `os.homedir()` 展开，读默认放行（减去 `TASK_SANDBOX_DENY_READ_PATHS` 凭据路径），写在 allowWrite 之外一律拒绝。没有 OS 沙箱的平台（原生 Windows、HarmonyOS）则继续把 `HOME`/temp 改写到会话目录：那里没有任何机制拒绝对真实用户目录的写入，改写是唯一把 `~`、`os.homedir()`、临时文件引导进会话目录的手段。Windows 上额外注入 `GIT_CONFIG_GLOBAL` 指回真实全局 git 配置（`%USERPROFILE%\.gitconfig`，缺失时回退 XDG 路径，均不存在则不注入）——Git for Windows 从 `HOME` 解析全局配置，改写会让它丢失用户身份，这个定向注入只修 git、不影响其余工具链的 HOME 引导；`git config --global` 的写目标随之变为真实文件，无沙箱的原生执行本就能做到，不新增暴露面。真实 HOME 让 git 身份、行尾、镜像等所有 `$HOME` 配置自然生效，也消除了「仓库根部 `.gitconfig` / `.ssh/config` 被当作全局配置加载」的投毒面。npm 缓存通过 `npm_config_cache` 重定向到会话 `.cache/npm`（`~/.npm` 不可写）。用户授权目录顶层的 `.git/config` 与 `.git/hooks` 为只读（参照 Codex 的受保护 workspace 元数据，但仅限宿主逃逸向量）：它们会被用户下一次沙箱外的 git 调用执行，而 objects/refs/index 保持可写，commit / branch / rebase / 嵌套 clone 不受影响。
+
 ### 懒初始化和文件注入
 
 沙箱在第一次工具调用时创建。初始化过程会把对话中的上传文件复制到会话沙箱：
