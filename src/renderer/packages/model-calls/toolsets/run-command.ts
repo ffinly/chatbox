@@ -36,7 +36,6 @@ interface RunCommandInput {
   timeout?: number
   sandbox_permissions?: 'danger-full-access'
   justification?: string
-  retry_of?: string
 }
 
 interface RunCommandResult {
@@ -47,9 +46,10 @@ interface RunCommandResult {
   cwd: string
   sandboxed: boolean
   sandboxDenied?: boolean
-  retryOf?: string
+  retryAvailable?: boolean
   cancelled?: boolean
   outputFile?: string
+  ignoredHostRetryFields?: boolean
 }
 
 function formatRunCommandOutput(output: unknown): string {
@@ -57,10 +57,11 @@ function formatRunCommandOutput(output: unknown): string {
   const stdout = stringField(record, 'stdout') ?? ''
   const stderr = stringField(record, 'stderr') ?? ''
   const cwd = stringField(record, 'cwd')
-  const retryOf = stringField(record, 'retryOf')
+  const retryAvailable = record?.retryAvailable === true
   const outputFile = stringField(record, 'outputFile')
   const exitCode = numberField(record, 'exitCode')
   const sandboxDenied = record?.sandboxDenied === true
+  const ignoredHostRetryFields = record?.ignoredHostRetryFields === true
   const sections = [`Exit code: ${exitCode ?? 'unknown'}`]
   if (cwd) sections.push(`Working directory: ${cwd}`)
   if (stdout) sections.push(`Stdout:\n${stdout}`)
@@ -70,9 +71,14 @@ function formatRunCommandOutput(output: unknown): string {
   if (sandboxDenied) {
     sections.push('Sandbox signal: the command may have been blocked by the file sandbox.')
   }
-  if (retryOf) {
+  if (ignoredHostRetryFields) {
     sections.push(
-      `The command failed in the sandbox. If host access is genuinely required, retry this exact command, workdir, and shell once with retry_of="${retryOf}", sandbox_permissions="danger-full-access", and a one-sentence justification. Use only this explicitly returned retry reference; never infer retry_of from a tool call id or reuse it for another command. Do not escalate ordinary command errors.`
+      'Host retry fields were ignored because no matching sandbox failure was available. This call followed the normal sandbox-first or approval path.'
+    )
+  }
+  if (retryAvailable) {
+    sections.push(
+      'The command failed in the sandbox. If host access is genuinely required, retry this exact command, workdir, and shell once with sandbox_permissions="danger-full-access" and a one-sentence justification. The harness binds the matching one-time failure internally; do not invent or pass a retry reference. Do not escalate ordinary command errors.'
     )
   }
   return sections.join('\n\n')
@@ -129,9 +135,9 @@ export function buildRunCommandTool(context: RunCommandContext): { tool: ToolSet
 ## Command Execution
 Use \`run_command\` for project commands, shell commands, and Node.js scripts. The current platform shell is ${shell}.
 - Commands use the selected workdir as cwd. All user-granted workdirs remain writable in the sandbox.
-- On macOS/Linux, commands run in the file sandbox first. A failed call returns its retry id to the model without prompting the user.
-- Request full host access only after a real failed sandbox call, by retrying the exact command/workdir/shell with \`retry_of\`, \`sandbox_permissions\`, and \`justification\`.
-- Use only a \`retry_of\` value explicitly returned in the failed command result. Never infer it from a tool call id; the reference is one-time and command-specific.
+- On macOS/Linux, commands run in the file sandbox first. A failed call records a one-time retry reference inside the harness without exposing it to the model.
+- Request full host access only after a real failed sandbox call, by retrying the exact command/workdir/shell with \`sandbox_permissions\` and \`justification\`.
+- The harness finds and consumes the matching retry reference internally. Never add or infer a retry id.
 - Do not append \`| head\` or \`| tail\` merely to limit output. Output is already bounded; preserve the original command for exact retry matching.
 - A sandbox-denied marker is a diagnostic signal, not the only reason a host retry may be appropriate.
 - Prefer writing reusable Node.js code to a file, then run it with \`node path/to/script.mjs\`.
@@ -157,16 +163,12 @@ Use \`run_command\` for project commands, shell commands, and Node.js scripts. T
         sandbox_permissions: {
           type: 'string',
           enum: ['danger-full-access'],
-          description: 'Request a one-time host retry. Valid only with retry_of and justification.',
+          description: 'Request a one-time host retry of an exact failed sandbox command. Valid only with justification.',
         },
         justification: {
           type: 'string',
           maxLength: MAX_JUSTIFICATION_LENGTH,
           description: 'One sentence explaining why this exact failed command needs host access.',
-        },
-        retry_of: {
-          type: 'string',
-          description: 'Opaque one-time reference explicitly returned by the exact failed sandboxed command.',
         },
       },
       required: ['command'],
@@ -181,21 +183,20 @@ Use \`run_command\` for project commands, shell commands, and Node.js scripts. T
       if (input.shell !== undefined && input.shell !== shell) {
         return Promise.reject(new Error(`run_command uses ${shell} on this platform`))
       }
-      const escalationFields = [input.sandbox_permissions, input.justification, input.retry_of]
+      const escalationFields = [input.sandbox_permissions, input.justification]
       const escalationRequested = escalationFields.some((value) => value !== undefined)
-      if (escalationRequested && escalationFields.some((value) => value === undefined)) {
-        return Promise.reject(
-          new Error('sandbox_permissions, justification, and retry_of must be provided together for a host retry')
-        )
-      }
-      if (input.justification !== undefined && !input.justification.trim()) {
-        return Promise.reject(new Error('justification must be a non-empty sentence'))
-      }
-      if (input.justification !== undefined && input.justification.length > MAX_JUSTIFICATION_LENGTH) {
-        return Promise.reject(new Error(`justification must not exceed ${MAX_JUSTIFICATION_LENGTH} characters`))
-      }
-      if (input.retry_of !== undefined && !input.retry_of.trim()) {
-        return Promise.reject(new Error('retry_of must not be empty'))
+      if (escalationRequested) {
+        if (escalationFields.some((value) => value === undefined)) {
+          return Promise.reject(
+            new Error('sandbox_permissions and justification must be provided together for a host retry')
+          )
+        }
+        if (!input.justification.trim()) {
+          return Promise.reject(new Error('justification must be a non-empty sentence'))
+        }
+        if (input.justification.length > MAX_JUSTIFICATION_LENGTH) {
+          return Promise.reject(new Error(`justification must not exceed ${MAX_JUSTIFICATION_LENGTH} characters`))
+        }
       }
 
       const signature = JSON.stringify(input)
@@ -210,7 +211,11 @@ Use \`run_command\` for project commands, shell commands, and Node.js scripts. T
       let hostExecutionStarted = false
       const execution = Promise.resolve().then(async (): Promise<RunCommandResult> => {
         const timeout = normalizedTimeout(input.timeout)
-        const approvalContext = toolOptions as typeof toolOptions & { approved?: boolean; approvalWorkdir?: string }
+        const approvalContext = toolOptions as typeof toolOptions & {
+          approved?: boolean
+          approvalWorkdir?: string
+          approvalRetryOf?: string
+        }
         const alreadyApproved = approvalContext.approved === true
         const fullAccess = context.approvalMode === 'full_access'
 
@@ -229,7 +234,27 @@ Use \`run_command\` for project commands, shell commands, and Node.js scripts. T
           }
         }
 
-        if (!isWindows && sandboxRunCommand && sandboxReady && !fullAccess && !escalationRequested) {
+        const baseCwd = context.workingDirectories[0] ?? sandboxWorkingDirectory
+        const cwd = await skillsController.resolveUserExecCwd({ cwd: input.workdir, baseCwd })
+        let retryOf: string | undefined
+        let retryResolutionError: string | undefined
+        if (escalationRequested && !fullAccess) {
+          const retry = await skillsController.resolveCommandRetry({
+            sessionId: context.sessionId,
+            ...(alreadyApproved && approvalContext.approvalRetryOf
+              ? { retryOf: approvalContext.approvalRetryOf }
+              : {}),
+            command: input.command,
+            cwd,
+            shell,
+          })
+          if (retry.valid) retryOf = retry.retryOf
+          else retryResolutionError = retry.error
+        }
+        const groundedEscalation = retryOf !== undefined
+        const ignoredHostRetryFields = escalationRequested && !groundedEscalation && !fullAccess
+
+        if (!isWindows && sandboxRunCommand && sandboxReady && !fullAccess && !groundedEscalation) {
           const cwd = input.workdir ?? sandboxProvider?.getAcceptedExtraWritableDirs?.()[0] ?? sandboxWorkingDirectory
           if (!cwd) throw new Error('No sandbox working directory is available')
           const cancel = () => {
@@ -256,31 +281,24 @@ Use \`run_command\` for project commands, shell commands, and Node.js scripts. T
               sandboxed: true,
               ...(output.outputFile ? { outputFile: output.outputFile } : {}),
               ...(result.sandbox?.denied ? { sandboxDenied: true } : {}),
-              ...(result.retryOf ? { retryOf: result.retryOf } : {}),
+              ...(result.retryOf ? { retryAvailable: true } : {}),
+              ...(ignoredHostRetryFields ? { ignoredHostRetryFields: true } : {}),
             }
           } finally {
             toolOptions.abortSignal?.removeEventListener('abort', cancel)
           }
         }
 
-        const baseCwd = context.workingDirectories[0] ?? sandboxWorkingDirectory
-        const cwd = await skillsController.resolveUserExecCwd({ cwd: input.workdir, baseCwd })
         const approvalMatchesCwd = alreadyApproved && approvalContext.approvalWorkdir === cwd
-        if (escalationRequested) {
-          const retryOf = input.retry_of
+        if (alreadyApproved && approvalContext.approvalRetryOf && !groundedEscalation) {
+          throw new Error(retryResolutionError ?? 'The approved sandbox failure is no longer available.')
+        }
+        if (groundedEscalation) {
           const justification = input.justification
-          if (!retryOf || !justification || input.sandbox_permissions !== 'danger-full-access') {
+          if (!justification || input.sandbox_permissions !== 'danger-full-access') {
             throw new Error('Invalid host retry request')
           }
           if (!cwd) throw new Error('A workdir is required to retry a sandboxed command with host access')
-          const retry = await skillsController.checkCommandRetry({
-            sessionId: context.sessionId,
-            retryOf,
-            command: input.command,
-            cwd,
-            shell,
-          })
-          if (!retry.valid) throw new Error(retry.error)
           if (!approvalMatchesCwd && !fullAccess) {
             throw new CommandEscalationApprovalPausedError(
               toolOptions.toolCallId,
@@ -322,7 +340,7 @@ Use \`run_command\` for project commands, shell commands, and Node.js scripts. T
             sessionId: context.sessionId,
             toolCallId: toolOptions.toolCallId,
             approvalSource,
-            ...(input.retry_of ? { retryOf: input.retry_of, shell } : {}),
+            ...(retryOf ? { retryOf, shell } : {}),
             ...(baseCwd ? { baseCwd } : {}),
             injectBundledNode: true,
           })
@@ -337,6 +355,7 @@ Use \`run_command\` for project commands, shell commands, and Node.js scripts. T
             sandboxed: false,
             ...(output.outputFile ? { outputFile: output.outputFile } : {}),
             ...(result.cancelled ? { cancelled: true } : {}),
+            ...(ignoredHostRetryFields ? { ignoredHostRetryFields: true } : {}),
           }
         } finally {
           toolOptions.abortSignal?.removeEventListener('abort', cancel)

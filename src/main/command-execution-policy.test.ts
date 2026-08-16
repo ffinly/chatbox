@@ -7,6 +7,7 @@ import {
   clearFailedCommandRetries,
   consumeFailedCommandRetry,
   recordFailedSandboxCommand,
+  resolveFailedCommandRetry,
 } from './command-execution-policy'
 
 const failedCommand = {
@@ -45,6 +46,15 @@ describe('failed sandbox command retry policy', () => {
       valid: false,
     })
     expect(checkFailedCommandRetry({ ...failedCommand, retryOf })).toEqual({ valid: true })
+  })
+
+  test('resolves the latest exact failure without exposing its reference to the model', () => {
+    const first = recordFailedSandboxCommand(failedCommand)
+    const second = recordFailedSandboxCommand({ ...failedCommand, toolCallId: 'tool-failed-again' })
+
+    expect(resolveFailedCommandRetry(failedCommand)).toEqual({ valid: true, retryOf: second })
+    expect(resolveFailedCommandRetry({ ...failedCommand, retryOf: first })).toEqual({ valid: true, retryOf: first })
+    expect(resolveFailedCommandRetry({ ...failedCommand, command: 'git diff' })).toMatchObject({ valid: false })
   })
 
   test.each([

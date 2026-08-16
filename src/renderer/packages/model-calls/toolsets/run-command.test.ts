@@ -3,14 +3,14 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 const {
   cancelUserExecMock,
-  checkCommandRetryMock,
+  resolveCommandRetryMock,
   resolveUserExecCwdMock,
   sandboxKillMock,
   trackFullAccessBypassMock,
   userExecMock,
 } = vi.hoisted(() => ({
   cancelUserExecMock: vi.fn(),
-  checkCommandRetryMock: vi.fn(),
+  resolveCommandRetryMock: vi.fn(),
   resolveUserExecCwdMock: vi.fn(),
   sandboxKillMock: vi.fn(),
   trackFullAccessBypassMock: vi.fn(),
@@ -28,7 +28,7 @@ vi.mock('@/platform', () => ({
 vi.mock('@/packages/skills/controller', () => ({
   skillsController: {
     cancelUserExec: cancelUserExecMock,
-    checkCommandRetry: checkCommandRetryMock,
+    resolveCommandRetry: resolveCommandRetryMock,
     resolveUserExecCwd: resolveUserExecCwdMock,
     userExec: userExecMock,
   },
@@ -57,7 +57,7 @@ function createProvider(runCommand: SandboxProvider['runCommand']): SandboxProvi
 
 beforeEach(() => {
   vi.clearAllMocks()
-  checkCommandRetryMock.mockResolvedValue({ valid: true })
+  resolveCommandRetryMock.mockResolvedValue({ valid: true, retryOf: 'tool-failed' })
   resolveUserExecCwdMock.mockImplementation(({ cwd, baseCwd }: { cwd?: string; baseCwd?: string }) => {
     if (!cwd) return baseCwd ?? '/home/user'
     if (cwd.startsWith('/') || /^[A-Za-z]:[\\/]/.test(cwd)) return cwd
@@ -67,7 +67,7 @@ beforeEach(() => {
 })
 
 describe('run_command', () => {
-  test('runs sandbox-first without asking and returns a retry id only for a recorded failure', async () => {
+  test('runs sandbox-first without asking and advertises only a recorded failure', async () => {
     const requestSmartApproval = vi.fn()
     const provider = createProvider(
       vi.fn().mockResolvedValue({
@@ -101,16 +101,17 @@ describe('run_command', () => {
       success: false,
       sandboxed: true,
       sandboxDenied: true,
-      retryOf: 'sandbox-retry-failed',
+      retryAvailable: true,
       cwd: '/workspace/project/packages/app',
     })
+    expect(result).not.toHaveProperty('retryOf')
     await expect(toModelOutput(tool, result)).resolves.toEqual({
       type: 'text',
-      value: expect.stringContaining('retry_of="sandbox-retry-failed"'),
+      value: expect.stringContaining('sandbox_permissions="danger-full-access"'),
     })
     await expect(toModelOutput(tool, result)).resolves.toEqual({
       type: 'text',
-      value: expect.not.stringContaining('retry_of="tool-failed"'),
+      value: expect.not.stringContaining('retry_of'),
     })
     expect(requestSmartApproval).not.toHaveBeenCalled()
     expect(userExecMock).not.toHaveBeenCalled()
@@ -136,6 +137,85 @@ describe('run_command', () => {
       messages: [],
     } as never)
     expect(result).not.toHaveProperty('retryOf')
+  })
+
+  test('ignores host retry fields without a matching failure and runs the command in the sandbox first', async () => {
+    resolveCommandRetryMock.mockResolvedValueOnce({
+      valid: false,
+      error: 'No matching sandbox failure is available.',
+    })
+    const runCommand = vi.fn().mockResolvedValue({
+      exitCode: 1,
+      stdout: '',
+      stderr: 'operation not permitted',
+      cwd: '/workspace/project',
+      retryOf: 'sandbox-retry-after-premature-escalation',
+      sandbox: { denied: true, confidence: 'heuristic' },
+    })
+    const { tool } = buildRunCommandTool({
+      sessionId: 'session-1',
+      platform: 'darwin',
+      provider: createProvider(runCommand),
+      ensureSandbox: vi.fn().mockResolvedValue({ success: true }),
+      workingDirectories: ['/workspace/project'],
+      approvalMode: 'smart',
+      requestSmartApproval: vi.fn(),
+    })
+    if (!tool.execute) throw new Error('run_command execute missing')
+
+    const result = await tool.execute(
+      {
+        command: 'gh pr view 1077',
+        sandbox_permissions: 'danger-full-access',
+        justification: 'GitHub authentication is only available on the host.',
+      },
+      { toolCallId: 'tool-premature-escalation', messages: [] } as never
+    )
+
+    expect(runCommand).toHaveBeenCalledWith(
+      expect.objectContaining({ command: 'gh pr view 1077', toolCallId: 'tool-premature-escalation' })
+    )
+    expect(result).toMatchObject({
+      success: false,
+      sandboxed: true,
+      retryAvailable: true,
+      ignoredHostRetryFields: true,
+    })
+    await expect(toModelOutput(tool, result)).resolves.toEqual({
+      type: 'text',
+      value: expect.stringContaining('Host retry fields were ignored because no matching sandbox failure was available.'),
+    })
+    expect(resolveCommandRetryMock).toHaveBeenCalledWith({
+      sessionId: 'session-1',
+      command: 'gh pr view 1077',
+      cwd: '/workspace/project',
+      shell: 'bash',
+    })
+    expect(userExecMock).not.toHaveBeenCalled()
+  })
+
+  test('rejects incomplete model-facing host retry fields', async () => {
+    const runCommand = vi.fn()
+    const { tool } = buildRunCommandTool({
+      sessionId: 'session-1',
+      platform: 'darwin',
+      provider: createProvider(runCommand),
+      ensureSandbox: vi.fn().mockResolvedValue({ success: true }),
+      workingDirectories: ['/workspace/project'],
+      approvalMode: 'smart',
+      requestSmartApproval: vi.fn(),
+    })
+    if (!tool.execute) throw new Error('run_command execute missing')
+
+    await expect(
+      tool.execute(
+        { command: 'gh pr view 1077', sandbox_permissions: 'danger-full-access' },
+        { toolCallId: 'tool-incomplete-retry', messages: [] } as never
+      )
+    ).rejects.toThrow('sandbox_permissions and justification must be provided together for a host retry')
+    expect(runCommand).not.toHaveBeenCalled()
+    expect(resolveCommandRetryMock).not.toHaveBeenCalled()
+    expect(userExecMock).not.toHaveBeenCalled()
   })
 
   test('uses the normal host approval path when lazy sandbox setup fails', async () => {
@@ -272,21 +352,20 @@ describe('run_command', () => {
       throw new Error('run_command did not return a canonical cwd')
     }
 
+    resolveCommandRetryMock.mockResolvedValueOnce({ valid: true, retryOf: 'sandbox-retry-relative-failure' })
     await expect(
       tool.execute(
         {
           command: 'git status',
           workdir: failed.cwd,
-          retry_of: 'sandbox-retry-relative-failure',
           sandbox_permissions: 'danger-full-access',
           justification: 'The sandbox denied access to repository metadata.',
         },
         { toolCallId: 'tool-relative-retry', messages: [] } as never
       )
     ).rejects.toMatchObject({ name: 'CommandEscalationApprovalPausedError' })
-    expect(checkCommandRetryMock).toHaveBeenCalledWith({
+    expect(resolveCommandRetryMock).toHaveBeenCalledWith({
       sessionId: 'session-1',
-      retryOf: 'sandbox-retry-relative-failure',
       command: 'git status',
       cwd: '/workspace/project/packages/app',
       shell: 'bash',
@@ -307,7 +386,6 @@ describe('run_command', () => {
     const input = {
       command: 'git status',
       workdir: '/workspace/project',
-      retry_of: 'tool-failed',
       sandbox_permissions: 'danger-full-access' as const,
       justification: 'The sandbox denied access to repository metadata.',
     }
@@ -317,9 +395,8 @@ describe('run_command', () => {
       toolCallId: 'tool-retry',
       retryOf: 'tool-failed',
     })
-    expect(checkCommandRetryMock).toHaveBeenCalledWith({
+    expect(resolveCommandRetryMock).toHaveBeenCalledWith({
       sessionId: 'session-1',
-      retryOf: 'tool-failed',
       command: 'git status',
       cwd: '/workspace/project',
       shell: 'bash',
@@ -344,7 +421,6 @@ describe('run_command', () => {
         {
           command: 'git status',
           workdir: '/workspace/project',
-          retry_of: 'tool-failed',
           sandbox_permissions: 'danger-full-access',
           justification: 'The sandbox denied access to repository metadata.',
         },
@@ -353,9 +429,17 @@ describe('run_command', () => {
           messages: [],
           approved: true,
           approvalWorkdir: '/workspace/project',
+          approvalRetryOf: 'tool-failed',
         } as never
       )
     ).resolves.toMatchObject({ success: true, sandboxed: false, stdout: 'host ok' })
+    expect(resolveCommandRetryMock).toHaveBeenCalledWith({
+      sessionId: 'session-1',
+      retryOf: 'tool-failed',
+      command: 'git status',
+      cwd: '/workspace/project',
+      shell: 'bash',
+    })
     expect(userExecMock).toHaveBeenCalledWith('git status', {
       cwd: '/workspace/project',
       timeout: 120_000,

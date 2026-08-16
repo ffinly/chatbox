@@ -75,6 +75,7 @@ type ExecutableTool = {
       toolCallId?: string
       approved?: boolean
       approvalWorkdir?: string
+      approvalRetryOf?: string
       approvalDetails?: AppActionApprovalDetails
       abortSignal?: AbortSignal
     }
@@ -1248,6 +1249,9 @@ export class GenerationService<TContext> {
           ...(part.pauseReason?.type === 'user_exec_approval' ||
           part.pauseReason?.type === 'command_escalation_approval'
             ? { approvalWorkdir: part.pauseReason.workdir }
+            : {}),
+          ...(part.pauseReason?.type === 'command_escalation_approval'
+            ? { approvalRetryOf: part.pauseReason.retryOf }
             : {}),
           approvalDetails: part.pauseReason?.type === 'app_action_approval' ? part.pauseReason.details : undefined,
         })

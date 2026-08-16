@@ -5,7 +5,7 @@ export type CommandApprovalMode = (typeof COMMAND_APPROVAL_MODES)[number]
 export type RunCommandShell = 'bash' | 'powershell'
 
 export interface RunCommandFailureReference {
-  /** Opaque one-time capability returned only for a recorded sandbox failure. */
+  /** Opaque one-time capability kept inside the harness for a recorded sandbox failure. */
   retryOf: string
   command: string
   cwd: string

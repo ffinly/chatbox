@@ -94,6 +94,42 @@ export function checkFailedCommandRetry(params: {
   return { valid: true }
 }
 
+export function resolveFailedCommandRetry(params: {
+  sessionId: string
+  retryOf?: string
+  command: string
+  cwd: string
+  shell: RunCommandShell
+}): { valid: true; retryOf: string } | { valid: false; error: string } {
+  prune()
+  if (params.retryOf) {
+    const validation = checkFailedCommandRetry({ ...params, retryOf: params.retryOf })
+    return validation.valid ? { valid: true, retryOf: params.retryOf } : validation
+  }
+
+  const normalizedCwd = normalizeCwd(params.cwd)
+  const resolvedCwd = canonicalCwd(params.cwd)
+  let match: FailedCommandEntry | undefined
+  for (const entry of failedCommands.values()) {
+    if (
+      entry.sessionId === params.sessionId &&
+      entry.command === params.command &&
+      entry.cwd === normalizedCwd &&
+      entry.canonicalCwd === resolvedCwd &&
+      entry.shell === params.shell &&
+      (!match || entry.createdAt >= match.createdAt)
+    ) {
+      match = entry
+    }
+  }
+  return match
+    ? { valid: true, retryOf: match.retryOf }
+    : {
+        valid: false,
+        error: 'No matching sandbox failure is available. Run the exact command in the sandbox first.',
+      }
+}
+
 export function consumeFailedCommandRetry(params: {
   sessionId: string
   retryOf: string

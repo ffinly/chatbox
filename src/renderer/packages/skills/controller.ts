@@ -99,14 +99,14 @@ export const skillsController = {
     return window.electronAPI.invoke('skills:resolve-user-exec-cwd', options)
   },
 
-  checkCommandRetry(options: {
+  resolveCommandRetry(options: {
     sessionId: string
-    retryOf: string
+    retryOf?: string
     command: string
     cwd: string
     shell: 'bash' | 'powershell'
-  }): Promise<{ valid: true } | { valid: false; error: string }> {
-    return window.electronAPI.invoke('skills:check-command-retry', options)
+  }): Promise<{ valid: true; retryOf: string } | { valid: false; error: string }> {
+    return window.electronAPI.invoke('skills:resolve-command-retry', options)
   },
 
   cancelUserExec(options: { sessionId?: string; toolCallId: string }): Promise<{ killed: boolean }> {

@@ -198,6 +198,27 @@ describe('generation flow', () => {
     })
   })
 
+  it('binds the internal command retry reference only to the approved escalation call', () => {
+    const part: MessageToolCallPart = {
+      ...toolPart('command-1', 'paused'),
+      pauseReason: {
+        type: 'command_escalation_approval',
+        command: 'git status',
+        retryOf: 'sandbox-retry-1',
+        justification: 'Repository metadata is outside the sandbox.',
+        workdir: '/workspace/project',
+      },
+    }
+
+    expect(createPausedToolCallExecutionContext(part, 'command-1')).toMatchObject({
+      toolCallId: 'command-1',
+      approved: true,
+      approvalWorkdir: '/workspace/project',
+      approvalRetryOf: 'sandbox-retry-1',
+    })
+    expect(createPausedToolCallExecutionContext(part, 'other')).not.toHaveProperty('approvalRetryOf')
+  })
+
   it('finds limit and parallel approval batches without crossing step boundaries', () => {
     const limitReason = { type: 'tool_call_limit' as const, maxToolCalls: 25 }
     const approvalReason = { type: 'user_exec_approval' as const, command: 'pwd', workdir: '/workspace/project' }

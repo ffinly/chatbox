@@ -19,6 +19,7 @@ type ExecutableTool = {
       toolCallId?: string
       approved?: boolean
       approvalWorkdir?: string
+      approvalRetryOf?: string
       approvalDetails?: AppActionApprovalDetails
       abortSignal?: AbortSignal
     }
@@ -33,6 +34,7 @@ export function createPausedToolCallExecutionContext(
   toolCallId: string
   approved: boolean
   approvalWorkdir?: string
+  approvalRetryOf?: string
   approvalDetails?: AppActionApprovalDetails
   abortSignal?: AbortSignal
 } {
@@ -47,6 +49,9 @@ export function createPausedToolCallExecutionContext(
     (part.pauseReason?.type === 'user_exec_approval' || part.pauseReason?.type === 'command_escalation_approval') &&
     part.pauseReason.workdir
       ? { approvalWorkdir: part.pauseReason.workdir }
+      : {}),
+    ...(approved && part.pauseReason?.type === 'command_escalation_approval'
+      ? { approvalRetryOf: part.pauseReason.retryOf }
       : {}),
     approvalDetails:
       approved && part.pauseReason?.type === 'app_action_approval' ? part.pauseReason.details : undefined,
