@@ -497,18 +497,15 @@ async function createWindow() {
     })
   }
 
-  // Load the local URL for development or the local
-  // html file for production
-  if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
-  } else {
-    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
-  }
-
-  mainWindow.on('ready-to-show', () => {
+  let hasShownMainWindow = false
+  const showMainWindow = () => {
+    if (hasShownMainWindow) {
+      return
+    }
     if (!mainWindow) {
       throw new Error('"mainWindow" is not defined')
     }
+    hasShownMainWindow = true
     if (process.env.START_MINIMIZED) {
       mainWindow.minimize()
     } else {
@@ -520,7 +517,22 @@ async function createWindow() {
       }
       mainWindow.show()
     }
-  })
+  }
+
+  mainWindow.once('ready-to-show', showMainWindow)
+
+  // Load the local URL for development or the local
+  // html file for production
+  if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
+    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    // Vite can spend a while re-optimizing dependencies during development,
+    // especially under x64 emulation on Windows ARM64. Show the window while
+    // navigation is in progress instead of leaving it accessible only through
+    // the tray until the renderer has finished its first paint.
+    showMainWindow()
+  } else {
+    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
+  }
 
   // 窗口关闭时保存窗口大小与位置
   mainWindow.on('close', () => {
