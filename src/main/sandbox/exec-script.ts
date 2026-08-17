@@ -61,10 +61,16 @@ export function buildPowerShellStdinScript(code: string, nodeExecPath?: string):
     }
   }
   $global:LASTEXITCODE = $chatboxNodeExitCode
+  if ($chatboxNodeExitCode -ne 0) {
+    $chatboxNodeException = [Exception]::new('Bundled node process failed')
+    $chatboxNodeException.Data['ChatboxNodeExitCode'] = $chatboxNodeExitCode
+    throw $chatboxNodeException
+  }
 }
+
 `
     : ''
-  return `${POWERSHELL_UTF8_PREAMBLE}\n${nodeShim}${code}`
+  return `${POWERSHELL_UTF8_PREAMBLE}\n${nodeShim}${code}\n`
 }
 
 /**

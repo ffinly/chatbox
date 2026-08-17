@@ -30,7 +30,7 @@ describe('buildSandboxStdinScript', () => {
     const script = buildSandboxStdinScript(code, 'powershell', 'unused', false, true)
     expect(script).toContain('[Console]::InputEncoding = [Text.UTF8Encoding]::new($false)')
     expect(script).toContain('[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)')
-    expect(script.endsWith(code)).toBe(true)
+    expect(script.endsWith(`${code}\n`)).toBe(true)
   })
 
   test('bash language prepends a node() shim and executes the parsed program with stdin closed', () => {
@@ -109,6 +109,22 @@ describe('buildSandboxStdinScript', () => {
 })
 
 describe('buildPowerShellStdinScript', () => {
+  test('uses real newline separators and terminates the complete stdin payload', () => {
+    const code = "Write-Output 'PS_STDOUT_PROBE'"
+    const script = buildPowerShellStdinScript(code)
+
+    expect(script).toBe(
+      [
+        '[Console]::InputEncoding = [Text.UTF8Encoding]::new($false)',
+        '[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)',
+        '$OutputEncoding = [Console]::OutputEncoding',
+        code,
+        '',
+      ].join('\n')
+    )
+    expect(script.charCodeAt(script.length - 1)).toBe(10)
+  })
+
   test('can expose the bundled Electron runtime as node', () => {
     const script = buildPowerShellStdinScript('node script.mjs', "C:\\Program Files\\Chatbox's\\Chatbox.exe")
 
@@ -117,6 +133,7 @@ describe('buildPowerShellStdinScript', () => {
     expect(script).toContain("& 'C:\\Program Files\\Chatbox''s\\Chatbox.exe' @args")
     expect(script).toContain('$chatboxNodeExitCode = $LASTEXITCODE')
     expect(script).toContain('$global:LASTEXITCODE = $chatboxNodeExitCode')
-    expect(script.endsWith('node script.mjs')).toBe(true)
+    expect(script).toContain('}\n\nnode script.mjs\n')
+    expect(script.endsWith('node script.mjs\n')).toBe(true)
   })
 })

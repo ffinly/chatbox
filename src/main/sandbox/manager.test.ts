@@ -190,7 +190,15 @@ describe('resolveWindowsBash', () => {
 })
 
 describe('resolveWindowsPowerShell', () => {
-  const stdinArgs = ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', '-']
+  const stdinArgs = [
+    '-NoLogo',
+    '-NoProfile',
+    '-NonInteractive',
+    '-Command',
+    expect.stringMatching(
+      /\[Console\]::InputEncoding.+\[Console\]::In\.ReadToEnd\(\).+\[ScriptBlock\]::Create.+exit \$chatboxExitCode/s
+    ),
+  ]
 
   afterEach(() => {
     resetWindowsPowerShellResolutionCache()
