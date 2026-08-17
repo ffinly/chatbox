@@ -23,13 +23,13 @@ function isStandardAzureOpenAIEndpoint(endpoint: string) {
 }
 
 function createAzureV1Fetch(apiVersion: string): typeof globalThis.fetch {
-  return async (input, init) => {
+  return (input, init) => {
     const url = new URL(typeof Request !== 'undefined' && input instanceof Request ? input.url : String(input))
     url.searchParams.set('api-version', apiVersion)
 
     // AI SDK provider fetches pass request metadata through init. Only the URL
     // is rewritten here so method, headers, body, and cancellation stay intact.
-    return globalThis.fetch(url, init)
+    return globalThis.fetch(url.toString(), init)
   }
 }
 

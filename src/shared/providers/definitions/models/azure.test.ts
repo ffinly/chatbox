@@ -101,6 +101,9 @@ describe('Azure OpenAI endpoint routing', () => {
 
     await createModel('https://azure-gateway.example.com', 'v1').exposeChatModel().doGenerate(request)
 
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      'https://azure-gateway.example.com/openai/v1/chat/completions?api-version=v1'
+    )
     expect(requestedUrl(fetchMock)).toBe('https://azure-gateway.example.com/openai/v1/chat/completions?api-version=v1')
   })
 
