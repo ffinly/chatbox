@@ -846,7 +846,7 @@ function ProviderSettings({ providerId }: { providerId: string }) {
                 <TextInput
                   flex={1}
                   value={providerSettings?.apiVersion}
-                  placeholder="2024-05-01-preview"
+                  placeholder="v1"
                   onChange={(e) =>
                     setProviderSettings({
                       apiVersion: e.currentTarget.value,
