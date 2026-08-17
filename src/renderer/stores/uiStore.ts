@@ -41,6 +41,9 @@ export const uiStore = createStore(
         openAboutDialog: false, // 是否展示相关信息的窗口
         inputBoxWebBrowsingMode: false,
         sessionWebBrowsingMap: {} as Record<string, boolean | undefined>,
+        // Explicit Web Search preference for future new chats. Undefined keeps
+        // the provider-specific default for users who have never changed it.
+        newSessionWebBrowsingDefault: undefined as boolean | undefined,
         // Cache for current session's computed web browsing state (for keyboard shortcut)
         currentWebBrowsingDisplay: { sessionId: '', value: false } as { sessionId: string; value: boolean },
         sessionKnowledgeBaseMap: {} as Record<string, Pick<KnowledgeBase, 'id' | 'name'> | undefined>,
@@ -156,6 +159,7 @@ export const uiStore = createStore(
               ...state.sessionWebBrowsingMap,
               [sessionId]: enabled,
             },
+            ...(sessionId === 'new' ? { newSessionWebBrowsingDefault: enabled } : {}),
             // Update cache if it's for the current session (avoid race condition with kbd shortcut)
             currentWebBrowsingDisplay:
               state.currentWebBrowsingDisplay.sessionId === sessionId
@@ -199,6 +203,7 @@ export const uiStore = createStore(
               ...state.sessionWebBrowsingMap,
               [sessionId]: newValue,
             },
+            ...(sessionId === 'new' ? { newSessionWebBrowsingDefault: newValue } : {}),
             // Update cache to keep it in sync
             currentWebBrowsingDisplay: { sessionId, value: newValue },
           }))
@@ -253,6 +258,7 @@ export const uiStore = createStore(
         sidebarWidth: state.sidebarWidth,
         agentModeSmartSwitchingDefault: state.agentModeSmartSwitchingDefault,
         agentModeLastSelected: state.agentModeLastSelected,
+        newSessionWebBrowsingDefault: state.newSessionWebBrowsingDefault,
         sessionWebBrowsingMap: state.sessionWebBrowsingMap,
         sessionKnowledgeBaseMap: state.sessionKnowledgeBaseMap,
       }),

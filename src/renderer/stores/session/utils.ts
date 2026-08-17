@@ -12,7 +12,6 @@ import type {
   SessionType,
   Settings,
 } from '@shared/types'
-import { ModelProviderEnum } from '@shared/types'
 import { resolveCommandApprovalMode } from '@shared/types/command-execution'
 import { normalizeErrorForSentry } from '@shared/utils/sentry_policy'
 import { identity, pickBy } from 'lodash'
@@ -28,18 +27,15 @@ import { reportError } from '@/utils/sentry'
 import { trackEvent } from '@/utils/track'
 import { uiStore } from '../uiStore'
 import { getSessionAgentModeEntry } from './agent-mode'
+import { resolveWebBrowsingMode } from './web-browsing'
 
 /**
  * Get session-level web browsing setting
  * Returns user's explicit setting if set, otherwise returns default based on provider
  */
 export function getSessionWebBrowsing(sessionId: string, provider: string | undefined): boolean {
-  const sessionValue = uiStore.getState().sessionWebBrowsingMap[sessionId]
-  if (sessionValue !== undefined) {
-    return sessionValue
-  }
-  // Default: true for ChatboxAI, false for others
-  return provider === ModelProviderEnum.ChatboxAI
+  const { sessionWebBrowsingMap, newSessionWebBrowsingDefault } = uiStore.getState()
+  return resolveWebBrowsingMode(sessionId, provider, sessionWebBrowsingMap, newSessionWebBrowsingDefault)
 }
 
 /**

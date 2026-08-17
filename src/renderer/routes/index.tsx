@@ -79,6 +79,7 @@ function Index() {
   const showCopilotsInNewSession = useUIStore((s) => s.showCopilotsInNewSession)
   const widthFull = useUIStore((s) => s.widthFull)
   const sessionWebBrowsingMap = useUIStore((s) => s.sessionWebBrowsingMap)
+  const newSessionWebBrowsingDefault = useUIStore((s) => s.newSessionWebBrowsingDefault)
   const setSessionWebBrowsing = useUIStore((s) => s.setSessionWebBrowsing)
   const clearSessionWebBrowsing = useUIStore((s) => s.clearSessionWebBrowsing)
   const sessionAgentModeMap = useUIStore((s) => s.sessionAgentModeMap)
@@ -327,8 +328,9 @@ function Index() {
         setNewSessionState({})
       }
 
-      // Transfer web browsing setting from "new" session to the actual session
-      const newSessionWebBrowsing = sessionWebBrowsingMap.new
+      // Transfer either the transient choice or the remembered new-chat default.
+      // Clearing only removes the transient "new" slot; the remembered default remains.
+      const newSessionWebBrowsing = sessionWebBrowsingMap.new ?? newSessionWebBrowsingDefault
       if (newSessionWebBrowsing !== undefined) {
         setSessionWebBrowsing(newSession.id, newSessionWebBrowsing)
         clearSessionWebBrowsing('new')
@@ -353,6 +355,7 @@ function Index() {
       newSessionState.commandApprovalMode,
       setNewSessionState,
       sessionWebBrowsingMap,
+      newSessionWebBrowsingDefault,
       setSessionWebBrowsing,
       clearSessionWebBrowsing,
       sessionAgentModeMap,

@@ -81,22 +81,22 @@ import { StorageKeyGenerator } from '@/storage/StoreStorage'
 import { rendererApplication } from '@/app/renderer-application'
 import { notifyApprovalInputNudge } from '@/stores/approvalAttentionStore'
 import * as atoms from '@/stores/atoms'
+import { resolveWebBrowsingMode } from '@/stores/session'
 import { useSessionAgentMode } from '@/stores/session/agent-mode'
 import { useSessionSettings } from '@/stores/session/session-settings'
 import { settingsStore, useSettingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
 import { getSessionLockNotice, notifySessionLockBlocked } from '@/utils/session-lock-copy'
 import { trackEvent } from '@/utils/track'
-import {
-  type KnowledgeBase,
-  type Message,
-  ModelProviderEnum,
-  type ProviderModelInfo,
-  type SessionAttachment,
-  type SessionAttachmentIndexingStage,
-  type SessionSettings,
-  type SessionType,
-  type ShortcutSendValue,
+import type {
+  KnowledgeBase,
+  Message,
+  ProviderModelInfo,
+  SessionAttachment,
+  SessionAttachmentIndexingStage,
+  SessionSettings,
+  SessionType,
+  ShortcutSendValue,
 } from '../../../shared/types'
 import * as dom from '../../hooks/dom'
 import {
@@ -262,17 +262,19 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
 
     // Session-level web browsing mode
     const sessionWebBrowsingMap = useUIStore((s) => s.sessionWebBrowsingMap)
+    const newSessionWebBrowsingDefault = useUIStore((s) => s.newSessionWebBrowsingDefault)
     const setSessionWebBrowsing = useUIStore((s) => s.setSessionWebBrowsing)
     const updateCurrentWebBrowsingDisplay = useUIStore((s) => s.updateCurrentWebBrowsingDisplay)
-    // Get session-specific value, or use default based on provider (ChatboxAI defaults to true)
+    // Existing sessions keep their own value. New chats additionally inherit
+    // the user's last explicit new-chat choice before falling back to provider defaults.
     const webBrowsingMode = useMemo(() => {
-      const sessionValue = sessionWebBrowsingMap[currentSessionId || 'new']
-      if (sessionValue !== undefined) {
-        return sessionValue
-      }
-      // Default: true for ChatboxAI, false for others
-      return model?.provider === ModelProviderEnum.ChatboxAI
-    }, [sessionWebBrowsingMap, currentSessionId, model?.provider])
+      return resolveWebBrowsingMode(
+        currentSessionId || 'new',
+        model?.provider,
+        sessionWebBrowsingMap,
+        newSessionWebBrowsingDefault
+      )
+    }, [currentSessionId, model?.provider, newSessionWebBrowsingDefault, sessionWebBrowsingMap])
 
     // this is used for keyboard shortcut. if we don't provide this, kbd wont know what to set when it's a new session(it doesnt have provider info)
     useEffect(() => {

@@ -103,3 +103,4 @@ export {
   initializeTargetMessage,
   trackGenerateEvent,
 } from './utils'
+export { resolveWebBrowsingMode } from './web-browsing'
