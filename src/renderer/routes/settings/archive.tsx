@@ -1,3 +1,4 @@
+import NiceModal from '@ebay/nice-modal-react'
 import { ActionIcon, Button, Flex, Group, Loader, Stack, Text, Title } from '@mantine/core'
 import type { SessionMetaRecord } from '@shared/types'
 import { IconArchiveOff, IconTrash } from '@tabler/icons-react'
@@ -9,7 +10,7 @@ import { ScalableIcon } from '@/components/common/ScalableIcon'
 import { AppTooltip as Tooltip } from '@/components/ui/tooltip'
 import { confirmSessionDeletion } from '@/presentation/session/session-deletion-confirmation'
 import { rendererApplication } from '@/app/renderer-application'
-import { deleteSession } from '@/stores/session/crud'
+import { deleteAllArchivedSessions, deleteSession } from '@/stores/session/crud'
 
 const useArchivedSessionList = () => rendererApplication.sessionHooks.useArchivedSessionList()
 
@@ -22,6 +23,8 @@ export function RouteComponent() {
   const { archivedSessionMetaList, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
     useArchivedSessionList()
   const [busySessionIds, setBusySessionIds] = useState<Set<string>>(() => new Set())
+  const [deletingAll, setDeletingAll] = useState(false)
+  const hasArchivedSessions = Boolean(archivedSessionMetaList?.length)
 
   const setSessionBusy = (sessionId: string, busy: boolean) => {
     setBusySessionIds((current) => {
@@ -38,7 +41,37 @@ export function RouteComponent() {
   return (
     <Stack p="md" gap="xl">
       <Stack gap="xxs">
-        <Title order={5}>{t('Archived Chats')}</Title>
+        <Group justify="space-between" align="center" gap="sm" wrap="nowrap">
+          <Title order={5}>{t('Archived Chats')}</Title>
+          {hasArchivedSessions && (
+            <Button
+              variant="subtle"
+              color="red"
+              size="xs"
+              loading={deletingAll}
+              onClick={async () => {
+                const confirmed = await NiceModal.show('confirm', {
+                  title: t('Delete all archived chats?'),
+                  message: t('This will permanently delete every archived chat. This cannot be undone.'),
+                  confirmText: t('Delete All'),
+                  danger: true,
+                })
+                if (confirmed !== true) {
+                  return
+                }
+                setDeletingAll(true)
+                try {
+                  await deleteAllArchivedSessions()
+                } catch (error) {
+                  console.error('Failed to delete all archived sessions:', error)
+                  setDeletingAll(false)
+                }
+              }}
+            >
+              {t('Delete All')}
+            </Button>
+          )}
+        </Group>
         <Text size="sm" c="chatbox-tertiary">
           {t('Archived chats are hidden from the chat list. You can restore or permanently delete them here.')}
         </Text>
@@ -54,7 +87,7 @@ export function RouteComponent() {
             <ArchivedSessionRow
               key={session.id}
               session={session}
-              busy={busySessionIds.has(session.id)}
+              busy={deletingAll || busySessionIds.has(session.id)}
               setSessionBusy={setSessionBusy}
             />
           ))}

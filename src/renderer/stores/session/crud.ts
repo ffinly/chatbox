@@ -76,6 +76,15 @@ export async function deleteSessions(sessionIds: string[]): Promise<void> {
   await clearMessageQueues(sessionIds)
 }
 
+export async function deleteAllArchivedSessions(): Promise<void> {
+  const archived = await rendererApplication.sessions.listArchivedSessionsMeta()
+  const sessionIds = archived.map((session) => session.id)
+  if (sessionIds.length === 0) {
+    return
+  }
+  await deleteSessions(sessionIds)
+}
+
 export async function refreshSessionListCache(): Promise<void> {
   rendererApplication.sessionQueryBridge.resetSessionList(await rendererApplication.sessions.listSessionsMetaPage(0))
 }

@@ -9,6 +9,7 @@ const { generationRuntimeMock, sessionsMock, sessionQueryBridgeMock, clearQueueM
   sessionsMock: {
     deleteSession: vi.fn().mockResolvedValue(undefined),
     deleteSessions: vi.fn().mockResolvedValue(undefined),
+    listArchivedSessionsMeta: vi.fn().mockResolvedValue([]),
   },
   sessionQueryBridgeMock: {
     getSession: vi.fn().mockResolvedValue(null),
@@ -32,7 +33,7 @@ vi.mock('../sessionActivityStore', () => ({ clearSessionActivity: vi.fn() }))
 vi.mock('../sessionHelpers', () => ({ getMetaStorage: vi.fn(), initEmptyChatSession: vi.fn() }))
 vi.mock('./message-queue', () => ({ clearQueue: clearQueueMock }))
 
-import { deleteSession, deleteSessions } from './crud'
+import { deleteAllArchivedSessions, deleteSession, deleteSessions } from './crud'
 
 function sessionFixture(id: string): Session {
   return {
@@ -93,5 +94,25 @@ describe('deleteSessions', () => {
     expect(sessionsMock.deleteSessions).toHaveBeenCalledWith(['session-1', 'session-2'])
     expect(clearQueueMock).toHaveBeenCalledWith('session-1')
     expect(clearQueueMock).toHaveBeenCalledWith('session-2')
+  })
+})
+
+describe('deleteAllArchivedSessions', () => {
+  it('deletes every archived session through the bulk delete path', async () => {
+    sessionsMock.listArchivedSessionsMeta.mockResolvedValue([{ id: 'archived-1' }, { id: 'archived-2' }])
+
+    await deleteAllArchivedSessions()
+
+    expect(sessionsMock.deleteSessions).toHaveBeenCalledWith(['archived-1', 'archived-2'])
+    expect(clearQueueMock).toHaveBeenCalledWith('archived-1')
+    expect(clearQueueMock).toHaveBeenCalledWith('archived-2')
+  })
+
+  it('does nothing when there are no archived sessions', async () => {
+    sessionsMock.listArchivedSessionsMeta.mockResolvedValue([])
+
+    await deleteAllArchivedSessions()
+
+    expect(sessionsMock.deleteSessions).not.toHaveBeenCalled()
   })
 })
