@@ -1,6 +1,7 @@
 import type { ModelStreamPart } from '@shared/models/types'
 import type {
   AppActionApprovalDetails,
+  FileMutationApprovalStats,
   Message,
   MessageContentParts,
   MessageContentToolCallPart,
@@ -89,6 +90,21 @@ interface FileMutationPauseError {
   toolCallId: string
   title: string
   preview: string
+  stats?: unknown
+}
+
+/** Narrow the optional stats an older or third-party tool may omit or malform. */
+function toFileMutationStats(value: unknown): FileMutationApprovalStats | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined
+  const { mode, edits, addedLines, removedLines } = value as Record<string, unknown>
+  if (mode !== 'write' && mode !== 'edit') return undefined
+  if (typeof addedLines !== 'number' || typeof removedLines !== 'number') return undefined
+  return {
+    mode,
+    edits: typeof edits === 'number' ? edits : undefined,
+    addedLines,
+    removedLines,
+  }
 }
 
 interface CommandEscalationPauseError {
@@ -196,7 +212,12 @@ export function getToolCallPause(error: unknown): {
   if (isFileMutationApprovalPausedError(error)) {
     return {
       toolCallId: error.toolCallId,
-      pauseReason: { type: 'file_mutation_approval', title: error.title, preview: error.preview },
+      pauseReason: {
+        type: 'file_mutation_approval',
+        title: error.title,
+        preview: error.preview,
+        stats: toFileMutationStats(error.stats),
+      },
     }
   }
   if (isAppActionApprovalPausedError(error)) {

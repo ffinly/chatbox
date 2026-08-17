@@ -296,9 +296,9 @@ export const StepTimelinePausedAtStepLimit: StoryObj = {
     docs: {
       description: {
         story:
-          'After a run of consecutive tool calls the generation pauses for confirmation. Continue is a split ' +
-          'button: the main segment continues once, while the chevron menu offers "Continue, and don\'t pause ' +
-          'this chat / any chat again" (both can be re-enabled in the corresponding settings).',
+          'After a run of consecutive tool calls the generation pauses for confirmation. The paused step stays ' +
+          'collapsed and read-only here; Continue/Stop and the "don\'t pause again" options render in the ' +
+          'pending-action bar above the input box (see the PendingActionBar stories).',
       },
     },
   },

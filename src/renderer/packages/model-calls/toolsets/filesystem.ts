@@ -10,6 +10,7 @@ import { jsonSchema, type ToolSet } from 'ai'
 import { trackAgentModeFullAccessBypass } from '@/analytics/agent-mode'
 import { requestFileMutationApproval } from '@/packages/user-exec-approval'
 import platform from '@/platform'
+import { buildEditStats, buildWriteStats } from './file-mutation-stats'
 import { asRecord, contentOrErrorText, numberField, stringField, toTextModelOutput } from './model-output'
 import { remapPhantomHomePathForProvider } from './sandbox-paths'
 import { editSoulVirtualFile, isSoulVirtualPath, writeSoulVirtualFile } from './soul-file'
@@ -101,10 +102,6 @@ export function isAbsolutePath(filePath: string): boolean {
   return filePath.startsWith('/') || isWindowsAbsolutePath(filePath)
 }
 
-function previewContent(content: string, maxLength = 2000): string {
-  return content.length > maxLength ? `${content.slice(0, maxLength)}\n... [truncated]` : content
-}
-
 function normalizeEdits(input: EditFileInput): EditOperation[] {
   if (input.edits?.length) return input.edits
   return [{ old_text: input.old_text ?? '', new_text: input.new_text ?? '' }]
@@ -114,15 +111,6 @@ function validateEditInput(input: EditFileInput): { edits: EditOperation[] } | {
   if (input.edits?.length) return { edits: input.edits }
   if (input.old_text !== undefined && input.new_text !== undefined) return { edits: normalizeEdits(input) }
   return { error: 'Provide edits[] or both old_text and new_text.' }
-}
-
-function previewEdits(edits: EditOperation[]): string {
-  return edits
-    .map(
-      (edit, index) =>
-        `# Edit ${index + 1}\n--- old\n${previewContent(edit.old_text)}\n+++ new\n${previewContent(edit.new_text)}`
-    )
-    .join('\n\n')
 }
 
 function ensureSandbox(context: FilesystemContext): Promise<{ success: boolean; error?: string }> {
@@ -458,14 +446,16 @@ export function buildFilesystemTools(context: FilesystemContext): { tools: ToolS
       if (pathError) return pathError
       if (!platform.fsWrite) return { error: 'Filesystem access is not available on this platform' }
       const fullAccessBypassedApproval = !alreadyApproved && context.fullAccess === true
-      const approved =
-        alreadyApproved ||
-        context.fullAccess ||
-        (await requestFileMutationApproval(
+      let approved = Boolean(alreadyApproved || context.fullAccess)
+      if (!approved) {
+        const writeStats = buildWriteStats(writeInput.content)
+        approved = await requestFileMutationApproval(
           toolOptions.toolCallId,
           `Write file: ${writeInput.file_path}`,
-          previewContent(writeInput.content)
-        ))
+          '',
+          writeStats
+        )
+      }
       if (!approved) return { success: false, error: 'File write denied by user.' }
       // Track when Full Access skipped an approval, regardless of whether the
       // write later succeeds — failed bypassed attempts are the audit signal.
@@ -524,16 +514,16 @@ export function buildFilesystemTools(context: FilesystemContext): { tools: ToolS
       if (pathError) return pathError
       if (!platform.fsEdit) return { error: 'Filesystem access is not available on this platform' }
       const fullAccessBypassedApproval = !alreadyApproved && context.fullAccess === true
-      const approved =
-        alreadyApproved ||
-        context.fullAccess ||
-        (await requestFileMutationApproval(
+      let approved = Boolean(alreadyApproved || context.fullAccess)
+      if (!approved) {
+        const editStats = buildEditStats(edits)
+        approved = await requestFileMutationApproval(
           toolOptions.toolCallId,
-          edits.length === 1
-            ? `Edit file: ${editInput.file_path}`
-            : `Edit file: ${editInput.file_path} (${edits.length} edits)`,
-          previewEdits(edits)
-        ))
+          `Edit file: ${editInput.file_path}`,
+          '',
+          editStats
+        )
+      }
       if (!approved) return { success: false, error: 'File edit denied by user.' }
       if (fullAccessBypassedApproval) {
         trackAgentModeFullAccessBypass({ tool: 'edit_file' })

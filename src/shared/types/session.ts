@@ -157,6 +157,18 @@ export const ImageGenerationApprovalDetailsSchema = z.object({
 
 export const AppActionApprovalDetailsSchema = z.discriminatedUnion('type', [ImageGenerationApprovalDetailsSchema])
 
+/**
+ * Line counts for a pending file mutation. `mode` tells the UI whether to show
+ * an edit delta (`+N -M`) or the number of lines in a whole-file write.
+ */
+export const FileMutationApprovalStatsSchema = z.object({
+  mode: z.enum(['write', 'edit']).catch('edit'),
+  /** Number of search-and-replace edits in the call; absent for a whole-file write. */
+  edits: z.number().optional(),
+  addedLines: z.number(),
+  removedLines: z.number(),
+})
+
 export const MessageToolCallPartSchema = z.object({
   type: z.literal('tool-call'),
   state: z.enum(['call', 'result', 'error', 'paused']),
@@ -200,6 +212,12 @@ export const MessageToolCallPartSchema = z.object({
         type: z.literal('file_mutation_approval'),
         title: z.string(),
         preview: z.string(),
+        /**
+         * Change magnitude, computed from the untruncated tool arguments so the
+         * approval bar can summarize instead of rendering the whole preview.
+         * Absent on approvals paused by builds before this existed.
+         */
+        stats: FileMutationApprovalStatsSchema.optional().catch(undefined),
       }),
       z.object({
         type: z.literal('app_action_approval'),
@@ -442,6 +460,7 @@ export type MessageAgentModeSuggestionPart = z.infer<typeof MessageAgentModeSugg
 export type MessageReasoningPart = z.infer<typeof MessageReasoningPartSchema>
 export type ImageGenerationApprovalDetails = z.infer<typeof ImageGenerationApprovalDetailsSchema>
 export type AppActionApprovalDetails = z.infer<typeof AppActionApprovalDetailsSchema>
+export type FileMutationApprovalStats = z.infer<typeof FileMutationApprovalStatsSchema>
 export type MessageToolCallPart<Args = unknown, Result = unknown> = Omit<
   z.infer<typeof MessageToolCallPartSchema>,
   'args' | 'result'

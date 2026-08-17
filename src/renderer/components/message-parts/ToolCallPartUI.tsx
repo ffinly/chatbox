@@ -8,24 +8,16 @@ import {
   Code,
   Collapse,
   Group,
-  Menu,
   Paper,
   Stack,
   Text,
   Tooltip,
   UnstyledButton,
 } from '@mantine/core'
-import { TestId } from '@shared/automation/testids'
 import { ChatboxAIAPIError } from '@shared/models/errors'
 import { SANDBOX_EXEC_ERROR_CODES } from '@shared/sandbox-provider'
 import { getToolResultImageReference } from '@shared/tool-result-image'
-import type {
-  ImageGenerationApprovalDetails,
-  Message,
-  MessageReasoningPart,
-  MessageTextPart,
-  MessageToolCallPart,
-} from '@shared/types'
+import type { Message, MessageReasoningPart, MessageTextPart, MessageToolCallPart } from '@shared/types'
 import {
   IconBulb,
   IconCheck,
@@ -55,9 +47,8 @@ import {
   IconX,
 } from '@tabler/icons-react'
 import clsx from 'clsx'
-import { type FC, type ReactNode, type Ref, useCallback, useEffect, useId, useRef, useState } from 'react'
+import { type FC, type ReactNode, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { currentGenerationService } from '@/adapters/CurrentGenerationService'
 import { ImageGenerationResultGallery } from '@/components/chat/ImageGenerationResultGallery'
 import { ChatboxAIErrorMessage } from '@/components/common/ChatboxAIErrorMessage'
 import { ScalableIcon } from '@/components/common/ScalableIcon'
@@ -66,15 +57,14 @@ import { useBlob } from '@/hooks/useBlob'
 import { formatElapsedTime, MIN_STEP_DURATION_MS, useThinkingTimer } from '@/hooks/useThinkingTimer'
 import { getLogger } from '@/lib/utils'
 import { getAcceptedImageBackgroundTaskResult } from '@/packages/chatbox-cli/background-task-result'
-import { formatComputePointsRemainingRatio } from '@/packages/chatbox-cli/compute-points'
 import { resumeImageGenerationWithFollowUp } from '@/packages/chatbox-cli/image-task-follow-up'
+import { getFileMutationDisplayStats } from '@/packages/model-calls/toolsets/file-mutation-stats'
 import { getToolName } from '@/packages/tools'
 import type { SearchResultItem } from '@/packages/web-search'
 import platform from '@/platform'
 import {
-  registerApprovalActionsElement,
-  setApprovalActionsVisible,
-  unregisterApprovalActionsElement,
+  registerPausedStepElement,
+  unregisterPausedStepElement,
   useApprovalCardHighlighted,
 } from '@/stores/approvalAttentionStore'
 import { useCurrentGeneratingId, useImageGenerationRecord } from '@/stores/imageGenerationStore'
@@ -182,10 +172,9 @@ const ToolCallErrorDetails: FC<{ part: MessageToolCallPart }> = ({ part }) => {
   )
 }
 
-// Auto-expand a step when it needs attention (paused / waiting for approval) and
-// auto-collapse once that resolves — e.g. after the user clicks Continue/Approve/Stop/Deny.
-// Only the transition edges drive expansion; a stable signal leaves the user's manual
-// toggle untouched.
+// Auto-expand a step when it needs attention (e.g. Bash unavailable) and
+// auto-collapse once that resolves. Only the transition edges drive expansion;
+// a stable signal leaves the user's manual toggle untouched.
 function useAutoExpandOnSignal(signal: boolean): [boolean, (next: boolean | ((prev: boolean) => boolean)) => void] {
   const [expanded, setExpanded] = useState(signal)
   const prevSignal = useRef(signal)
@@ -200,32 +189,26 @@ function useAutoExpandOnSignal(signal: boolean): [boolean, (next: boolean | ((pr
   return [expanded, setExpanded]
 }
 
-// Report whether a pending approval's Approve/Deny actions are visible in the viewport,
-// so the floating approval pill above the input box appears whenever they are not.
-// Observed on the actions row (not the whole card): a tall card whose buttons are
-// scrolled off-screen still needs the pill. Unmounting (virtualized list) and a
-// collapsed step (zero height) both count as not visible. Also registers the element
-// so the pill's "View" action can scroll to it. Keyed per component instance because
-// the same card can be mounted twice (message list + search dialog).
-function useApprovalCardVisibilityReport(toolCallId: string, enabled: boolean) {
+// Register the paused step's element so the pending-action bar's "View" action can
+// scroll back to it. Unmounted steps (virtualized list) simply aren't registered.
+// Keyed per component instance because the same step can be mounted twice
+// (message list + search dialog). The message identity prevents a reused tool
+// call id in an older thread from becoming the current bar's reveal target.
+function usePausedStepElementRegistration(
+  sessionId: string | undefined,
+  messageId: string | undefined,
+  toolCallId: string,
+  enabled: boolean
+) {
   const instanceId = useId()
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (!enabled) return
+    if (!enabled || !sessionId || !messageId) return
     const element = ref.current
     if (!element) return
-    registerApprovalActionsElement(toolCallId, instanceId, element)
-    const observer = new IntersectionObserver((entries) => {
-      const entry = entries[entries.length - 1]
-      setApprovalActionsVisible(toolCallId, instanceId, entry?.isIntersecting ?? false)
-    })
-    observer.observe(element)
-    return () => {
-      observer.disconnect()
-      unregisterApprovalActionsElement(toolCallId, instanceId)
-      setApprovalActionsVisible(toolCallId, instanceId, false)
-    }
-  }, [toolCallId, instanceId, enabled])
+    registerPausedStepElement(sessionId, messageId, toolCallId, instanceId, element)
+    return () => unregisterPausedStepElement(sessionId, messageId, toolCallId, instanceId)
+  }, [sessionId, messageId, toolCallId, instanceId, enabled])
   return ref
 }
 
@@ -1242,161 +1225,12 @@ const ToolCallRunningDots: FC = () => (
   </Group>
 )
 
-// Full-size, high-salience decision buttons shared by all approval cards: the
-// Approve/Deny pair is what users miss, so it carries the card's visual weight.
-const APPROVAL_ACTION_BUTTON_PROPS = { size: 'sm', h: 32, px: 'lg', radius: 'xl' } as const
-
-const ImageGenerationApprovalCard: FC<{
-  toolCallId: string
-  details: ImageGenerationApprovalDetails
-  disabled: boolean
-  onApprove: () => void
-  onDeny: () => void
-  actionsRef?: Ref<HTMLDivElement>
-}> = ({ toolCallId, details, disabled, onApprove, onDeny, actionsRef }) => {
-  const { t, i18n } = useTranslation()
-  const usesChatboxQuota = details.billing === 'chatbox_quota'
-  const computePointsRemainingRatio = details.computePointsRemainingRatio ?? details.computePointsRemaining
-
-  return (
-    <Stack data-testid={TestId.toolCall.approvalCard} data-tool-call-id={toolCallId} gap="sm">
-      <Group gap="xs" wrap="nowrap">
-        <Box className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-chatbox-background-brand-secondary">
-          <IconPhoto size={18} color="var(--chatbox-tint-brand)" />
-        </Box>
-        <Box className="min-w-0">
-          <Text size="sm" fw={600} c="chatbox-primary">
-            {t('Generate images')}
-          </Text>
-          <Text size="xs" c="chatbox-tertiary" truncate="end">
-            {details.provider} · {details.modelId}
-          </Text>
-        </Box>
-      </Group>
-
-      <Paper p="xs" radius="md" bg="var(--chatbox-background-primary)" withBorder>
-        <Text size="xs" c="chatbox-tertiary" mb={3}>
-          {t('Prompt')}
-        </Text>
-        <Box style={{ maxHeight: APPROVAL_PAYLOAD_MAX_HEIGHT, overflow: 'auto' }}>
-          <Text size="sm" c="chatbox-primary" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-            {details.prompt}
-          </Text>
-        </Box>
-      </Paper>
-
-      <Group gap="lg">
-        <Box>
-          <Text size="xs" c="chatbox-tertiary">
-            {t('Number of images')}
-          </Text>
-          <Text size="sm" fw={500}>
-            {details.count}
-          </Text>
-        </Box>
-        {details.aspectRatio && (
-          <Box>
-            <Text size="xs" c="chatbox-tertiary">
-              {t('Aspect ratio')}
-            </Text>
-            <Text size="sm" fw={500}>
-              {details.aspectRatio}
-            </Text>
-          </Box>
-        )}
-        {details.style && (
-          <Box>
-            <Text size="xs" c="chatbox-tertiary">
-              {t('Image style')}
-            </Text>
-            <Text size="sm" fw={500}>
-              {details.style}
-            </Text>
-          </Box>
-        )}
-      </Group>
-
-      <Alert color="yellow" variant="light" icon={<IconInfoCircle size={16} />} p="xs">
-        <Stack gap={3}>
-          <Text size="xs" fw={500}>
-            {usesChatboxQuota
-              ? t('This request will consume {{count}} image quota and compute points.', { count: details.count })
-              : t('This request may incur charges from {{provider}}.', { provider: details.provider })}
-          </Text>
-          {usesChatboxQuota && details.imageQuota && (
-            <Text size="xs" c="chatbox-secondary">
-              {t('Image quota remaining: {{remaining}} / {{total}}', {
-                remaining: details.imageQuota.remaining.toLocaleString(),
-                total: details.imageQuota.total.toLocaleString(),
-              })}
-            </Text>
-          )}
-          {usesChatboxQuota && computePointsRemainingRatio !== undefined && (
-            <Text size="xs" c="chatbox-secondary">
-              {t('Compute points remaining: {{points}}', {
-                points: formatComputePointsRemainingRatio(computePointsRemainingRatio, i18n.language),
-              })}
-            </Text>
-          )}
-          <Text size="xs" c="chatbox-tertiary">
-            {usesChatboxQuota
-              ? t('Exact compute point usage is calculated after generation.')
-              : t('Chatbox AI image quota will not be used.')}
-          </Text>
-        </Stack>
-      </Alert>
-
-      <Group gap="xs" ref={actionsRef}>
-        <Button
-          data-testid={TestId.toolCall.approve}
-          {...APPROVAL_ACTION_BUTTON_PROPS}
-          leftSection={<IconCheck size={14} stroke={2.5} />}
-          color="chatbox-brand"
-          disabled={disabled}
-          onClick={onApprove}
-        >
-          {t('Approve and generate')}
-        </Button>
-        <Button
-          data-testid={TestId.toolCall.deny}
-          {...APPROVAL_ACTION_BUTTON_PROPS}
-          variant="light"
-          color="gray"
-          disabled={disabled}
-          onClick={onDeny}
-        >
-          {t('Cancel')}
-        </Button>
-      </Group>
-    </Stack>
-  )
-}
-
-const PausedToolCallDetails: FC<{ part: MessageToolCallPart } & ToolCallActionContext> = ({
-  part,
-  sessionId,
-  messageId,
-}) => {
+// Read-only pause details: what the agent is waiting on. All decision actions
+// (Approve/Deny/Continue/Stop) live in the pending-action bar at the bottom of
+// the conversation, which takes over the input box slot while input is locked.
+const PausedToolCallDetails: FC<{ part: MessageToolCallPart }> = ({ part }) => {
   const { t } = useTranslation()
   const pauseReason = part.pauseReason
-  const isApproval = isApprovalPauseReason(pauseReason)
-  const approvalActionsRef = useApprovalCardVisibilityReport(part.toolCallId, isApproval)
-  if (
-    pauseReason?.type === 'app_action_approval' &&
-    pauseReason.action === 'image.generate' &&
-    pauseReason.details?.type === 'image_generation'
-  ) {
-    return (
-      <ImageGenerationApprovalCard
-        toolCallId={part.toolCallId}
-        details={pauseReason.details}
-        disabled={!sessionId || !messageId}
-        onApprove={() => sessionId && messageId && currentGenerationService.continuePausedToolCall(sessionId, messageId, part.toolCallId)}
-        onDeny={() => sessionId && messageId && currentGenerationService.stopPausedToolCall(sessionId, messageId, part.toolCallId)}
-        actionsRef={approvalActionsRef}
-      />
-    )
-  }
   const title =
     pauseReason?.type === 'tool_call_limit'
       ? t('Paused after {{count}} steps. Check whether the task is on track, then continue or stop to adjust.', {
@@ -1405,116 +1239,49 @@ const PausedToolCallDetails: FC<{ part: MessageToolCallPart } & ToolCallActionCo
       : pauseReason?.type === 'user_exec_approval'
         ? t('Approval required before executing this command.')
         : pauseReason?.type === 'command_escalation_approval'
-          ? t('Approval required before executing this command.')
+          ? t('Approval required before retrying this command with full access.')
           : pauseReason?.type === 'file_mutation_approval'
             ? t('Approval required before modifying files.')
             : pauseReason?.type === 'app_action_approval'
               ? pauseReason.title
               : t('Tool execution is paused.')
+  // Legacy pauses recover the counts by diffing the persisted preview — memoized
+  // so highlight/expand re-renders don't redo that work.
+  const fileMutationSummary = useMemo(() => {
+    if (pauseReason?.type !== 'file_mutation_approval') return undefined
+    const stats = getFileMutationDisplayStats(pauseReason)
+    const approximation = stats?.approximate ? '~' : ''
+    const magnitude =
+      stats?.mode === 'write'
+        ? `${stats.approximate ? '~ ' : ''}${t('Writing {{count}} lines', { count: stats.addedLines })}`
+        : stats?.mode === 'edit'
+          ? `${approximation}+${stats.addedLines} ${approximation}-${stats.removedLines}`
+          : undefined
+    return magnitude ? `${pauseReason.title}\n\n${magnitude}` : pauseReason.title
+  }, [pauseReason, t])
   const payload =
     pauseReason?.type === 'user_exec_approval'
       ? `${pauseReason.command}${pauseReason.workdir ? `\n\nWorking directory: ${pauseReason.workdir}` : ''}`
       : pauseReason?.type === 'command_escalation_approval'
         ? `${pauseReason.command}\n\n${pauseReason.justification}\n\nWorking directory: ${pauseReason.workdir}`
         : pauseReason?.type === 'file_mutation_approval'
-          ? `${pauseReason.title}\n\n${pauseReason.preview}`
+          ? fileMutationSummary
           : pauseReason?.type === 'app_action_approval'
             ? pauseReason.preview
             : stringifyToolPayload(part.args)
-  const handleDontAskAgain = (scope: 'session' | 'global') => {
-    if (!sessionId || !messageId || pauseReason?.type !== 'tool_call_limit') return
-    const count = pauseReason.maxToolCalls
-    currentGenerationService.disableToolCallLimitPauseAndContinue(sessionId, messageId, part.toolCallId, scope)
-      .then(() => {
-        toastActions.add(
-          scope === 'global'
-            ? t("Chats won't pause every {{count}} steps anymore. You can turn it back on in Settings.", { count })
-            : t(
-                "This chat won't pause every {{count}} steps anymore. You can turn it back on in Conversation Settings.",
-                { count }
-              )
-        )
-      })
-      .catch((error) => {
-        log.error('Failed to turn off the step pause:', error)
-        toastActions.add(t('Failed to update the setting. Please try again.'))
-      })
-  }
   return (
-    <Stack data-testid={TestId.toolCall.approvalCard} data-tool-call-id={part.toolCallId} gap="xs">
+    <Stack data-tool-call-id={part.toolCallId} gap="xs">
       <Text size="xs" c="chatbox-secondary">
         {title}
       </Text>
-      <Group gap="xs" ref={approvalActionsRef}>
-        {pauseReason?.type === 'tool_call_limit' ? (
-          <Button.Group>
-            <Button
-              data-testid={TestId.toolCall.continue}
-              size="compact-xs"
-              color="chatbox-brand"
-              disabled={!sessionId || !messageId}
-              onClick={() => sessionId && messageId && currentGenerationService.continuePausedToolCall(sessionId, messageId, part.toolCallId)}
-            >
-              {t('Continue')}
-            </Button>
-            <Menu position="bottom-start" shadow="md">
-              <Menu.Target>
-                <Button
-                  data-testid={TestId.toolCall.dontAskAgain}
-                  size="compact-xs"
-                  color="chatbox-brand"
-                  px={6}
-                  disabled={!sessionId || !messageId}
-                  aria-label={t('More continue options')}
-                  style={{ borderInlineStart: '1px solid rgba(255, 255, 255, 0.4)' }}
-                >
-                  <IconChevronDown size={12} />
-                </Button>
-              </Menu.Target>
-              <Menu.Dropdown maw="min(20rem, calc(100vw - 1.5rem))">
-                <Menu.Item
-                  data-testid={TestId.toolCall.dontAskAgainSession}
-                  style={{ whiteSpace: 'normal' }}
-                  onClick={() => handleDontAskAgain('session')}
-                >
-                  {t("Continue, and don't pause this chat again")}
-                </Menu.Item>
-                <Menu.Item
-                  data-testid={TestId.toolCall.dontAskAgainGlobal}
-                  style={{ whiteSpace: 'normal' }}
-                  onClick={() => handleDontAskAgain('global')}
-                >
-                  {t("Continue, and don't pause any chat again")}
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
-          </Button.Group>
-        ) : (
-          <Button
-            data-testid={isApproval ? TestId.toolCall.approve : TestId.toolCall.continue}
-            {...(isApproval ? APPROVAL_ACTION_BUTTON_PROPS : { size: 'compact-xs' as const })}
-            leftSection={isApproval ? <IconCheck size={14} stroke={2.5} /> : undefined}
-            color="chatbox-brand"
-            disabled={!sessionId || !messageId}
-            onClick={() => sessionId && messageId && currentGenerationService.continuePausedToolCall(sessionId, messageId, part.toolCallId)}
-          >
-            {isApproval ? t('Approve') : t('Continue')}
-          </Button>
-        )}
-        <Button
-          data-testid={TestId.toolCall.deny}
-          {...(isApproval ? APPROVAL_ACTION_BUTTON_PROPS : { size: 'compact-xs' as const })}
-          variant="light"
-          color="chatbox-error"
-          disabled={!sessionId || !messageId}
-          onClick={() => sessionId && messageId && currentGenerationService.stopPausedToolCall(sessionId, messageId, part.toolCallId)}
-        >
-          {isApproval ? t('Deny') : t('Stop')}
-        </Button>
-      </Group>
-      <Box style={{ maxHeight: APPROVAL_PAYLOAD_MAX_HEIGHT, overflow: 'auto' }}>
-        <Code block>{payload}</Code>
-      </Box>
+      <Text size="xs" c="chatbox-tertiary">
+        {t('Respond in the action bar at the bottom.')}
+      </Text>
+      {payload && (
+        <Box style={{ maxHeight: APPROVAL_PAYLOAD_MAX_HEIGHT, overflow: 'auto' }}>
+          <Code block>{payload}</Code>
+        </Box>
+      )}
       {pauseReason?.type === 'user_exec_approval' && pauseReason.explanation && (
         <Text size="xs" c="chatbox-secondary" style={{ whiteSpace: 'pre-wrap' }}>
           {pauseReason.explanation}
@@ -1564,13 +1331,9 @@ const WebSearchDetails: FC<{ part: MessageToolCallPart }> = ({ part }) => {
   )
 }
 
-const TimelineToolCallDetail: FC<{ part: MessageToolCallPart } & ToolCallActionContext> = ({
-  part,
-  sessionId,
-  messageId,
-}) => {
+const TimelineToolCallDetail: FC<{ part: MessageToolCallPart }> = ({ part }) => {
   if (part.state === 'paused') {
-    return <PausedToolCallDetails part={part} sessionId={sessionId} messageId={messageId} />
+    return <PausedToolCallDetails part={part} />
   }
   if (part.toolName === 'web_search') {
     return <WebSearchDetails part={part} />
@@ -1682,7 +1445,6 @@ type TimelineToolCallStepProps = {
   part: MessageToolCallPart
   isFirst: boolean
   isLast: boolean
-  showPausedActionDetails?: boolean
 } & ToolCallActionContext
 
 const TimelineToolCallStepContent: FC<TimelineToolCallStepProps & { commandResult?: Record<string, unknown> }> = ({
@@ -1691,7 +1453,6 @@ const TimelineToolCallStepContent: FC<TimelineToolCallStepProps & { commandResul
   isLast,
   sessionId,
   messageId,
-  showPausedActionDetails = true,
   commandResult,
 }) => {
   const { t } = useTranslation()
@@ -1736,10 +1497,13 @@ const TimelineToolCallStepContent: FC<TimelineToolCallStepProps & { commandResul
     !isBackgroundWaiting &&
     imageStatus !== 'error' &&
     !isCommandFailure
-  const [expanded, setExpanded] = useAutoExpandOnSignal(isPaused || isBashNotAvailable)
+  // Paused steps stay collapsed — the decision lives in the pending-action bar
+  // above the input box, so several pending steps don't unfold at once.
+  const [expanded, setExpanded] = useAutoExpandOnSignal(isBashNotAvailable)
   const isApprovalPaused = isPaused && isApprovalPauseReason(part.pauseReason)
-  const approvalHighlighted = useApprovalCardHighlighted(part.toolCallId) && isApprovalPaused
-  // The pill's "View" action must reveal the card even if the user collapsed the step.
+  const stepRef = usePausedStepElementRegistration(sessionId, messageId, part.toolCallId, isPaused)
+  const approvalHighlighted = useApprovalCardHighlighted(sessionId, messageId, part.toolCallId) && isPaused
+  // The bar's "View" action reveals the details even if the user collapsed the step.
   useEffect(() => {
     if (approvalHighlighted) setExpanded(true)
   }, [approvalHighlighted, setExpanded])
@@ -1847,10 +1611,10 @@ const TimelineToolCallStepContent: FC<TimelineToolCallStepProps & { commandResul
                 ? `${truncateSummary(argSummary || t('Completed'))} · exit ${commandExitCode}`
                 : truncateSummary(argSummary || resultSummary || t('Completed'))
 
-  const hasDetail = isPaused ? showPausedActionDetails : part.state !== 'call' || isCommandExecutionPart(part)
+  const hasDetail = isPaused || part.state !== 'call' || isCommandExecutionPart(part)
 
   return (
-    <Box pos="relative" pl={32} style={{ minHeight: 28, overflow: 'visible' }}>
+    <Box ref={stepRef} pos="relative" pl={32} style={{ minHeight: 28, overflow: 'visible' }}>
       <TimelineRail isFirst={isFirst} isLast={isLast} icon={Icon} dotBg={dotBg} stateColor={stateColor} />
       <UnstyledButton
         onClick={hasDetail ? () => setExpanded((prev) => !prev) : undefined}
@@ -1935,7 +1699,7 @@ const TimelineToolCallStepContent: FC<TimelineToolCallStepProps & { commandResul
             borderLeft: isApprovalPaused ? '3px solid var(--chatbox-tint-warning)' : undefined,
           }}
         >
-          <TimelineToolCallDetail part={part} sessionId={sessionId} messageId={messageId} />
+          <TimelineToolCallDetail part={part} />
         </Box>
       </Collapse>
     </Box>
@@ -1963,27 +1727,6 @@ type CopyReasoningHandler = (content: string) => (e: React.MouseEvent<HTMLButton
 // Renders an intermediate assistant text block as a timeline node. Markdown
 // rendering is delegated to the caller (Message owns the settings/uniqueId).
 type RenderStepText = (part: MessageTextPart, index: number) => ReactNode
-
-// tool_call_limit pauses freeze a whole parallel batch, but the Continue/Stop affordance
-// should render once per batch — on the batch's first paused part (parts without a
-// stepIndex each count as their own batch).
-function makeShouldShowPausedActions(parts: StepTimelinePart[]): (part: MessageToolCallPart) => boolean {
-  const actionIds = new Set<string>()
-  const seenStepIndexes = new Set<number>()
-
-  for (const part of parts) {
-    if (part.type !== 'tool-call') continue
-    if (part.state !== 'paused' || part.pauseReason?.type !== 'tool_call_limit') continue
-    if (part.stepIndex !== undefined) {
-      if (seenStepIndexes.has(part.stepIndex)) continue
-      seenStepIndexes.add(part.stepIndex)
-    }
-    actionIds.add(part.toolCallId)
-  }
-
-  return (part) =>
-    part.state !== 'paused' || part.pauseReason?.type !== 'tool_call_limit' || actionIds.has(part.toolCallId)
-}
 
 const TimelineTextStep: FC<{ children: ReactNode; isFirst: boolean; isLast: boolean }> = ({
   children,
@@ -2140,8 +1883,6 @@ export const StepTimelineUI: FC<
     renderText?: RenderStepText
   } & ToolCallActionContext
 > = ({ parts, message, sessionId, messageId, onCopyReasoningContent, renderText }) => {
-  const shouldShowPausedActions = makeShouldShowPausedActions(parts)
-
   return (
     <Box pos="relative" my={8} mb={12}>
       <Stack gap={TIMELINE_STACK_GAP}>
@@ -2181,7 +1922,6 @@ export const StepTimelineUI: FC<
               isLast={isLast}
               sessionId={sessionId}
               messageId={messageId}
-              showPausedActionDetails={shouldShowPausedActions(part)}
             />
           )
         })}

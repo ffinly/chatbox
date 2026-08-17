@@ -1,4 +1,4 @@
-import { listPendingApprovalToolCalls } from '@chatbox/core/message-approval'
+import { listPendingPauseInteractions } from '@chatbox/core/message-approval'
 import { getSubmitAvailability } from '@chatbox/core/session/action-gates'
 import NiceModal from '@ebay/nice-modal-react'
 import { autoUpdate, computePosition, flip, offset, shift, size } from '@floating-ui/dom'
@@ -53,6 +53,8 @@ import { useTranslation } from 'react-i18next'
 import { v4 as uuidv4 } from 'uuid'
 import { useStore } from 'zustand'
 import { JK_PAGE_NAMES } from '@/analytics/jk-events'
+import { rendererApplication } from '@/app/renderer-application'
+import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import { AppTooltip as Tooltip } from '@/components/ui/tooltip'
 import useInputBoxHistory from '@/hooks/useInputBoxHistory'
 import { useKnowledgeBase } from '@/hooks/useKnowledgeBase'
@@ -78,8 +80,6 @@ import * as picUtils from '@/packages/pic_utils'
 import { skillsController, subscribeSkillsChanged } from '@/packages/skills/controller'
 import platform from '@/platform'
 import { StorageKeyGenerator } from '@/storage/StoreStorage'
-import { rendererApplication } from '@/app/renderer-application'
-import { notifyApprovalInputNudge } from '@/stores/approvalAttentionStore'
 import * as atoms from '@/stores/atoms'
 import { resolveWebBrowsingMode } from '@/stores/session'
 import { useSessionAgentMode } from '@/stores/session/agent-mode'
@@ -120,7 +120,9 @@ import AgentModeButton from './AgentModeButton'
 import { FileMiniCard, getParserTypeLabel, ImageMiniCard } from './Attachments'
 import { getAgentModeUIState } from './agentModeState'
 import { ImageUploadInput } from './ImageUploadInput'
+import { INPUT_SURFACE_CLASS_NAME, INPUT_SURFACE_MIN_HEIGHT_CLASS_NAME, INPUT_SURFACE_STYLE } from './inputSurface'
 import { MessageInputField, type MessageInputFieldRef } from './MessageInputField'
+import PendingActionBar from './PendingActionBar'
 import { cleanupFile, markFileProcessing, onFileProcessed, storeFilePromise } from './preprocessState'
 import { QueuedMessagesBar } from './QueuedMessagesBar'
 import ReasoningControlButton from './ReasoningControlButton'
@@ -416,11 +418,13 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
     const generating = submitAvailability.control === 'stop'
     const generatingCount = sessionLocks.generatingReplyCount
     const isAwaitingToolApproval = sessionLocks.awaitingToolApproval
-    // The approval nudge needs the concrete tool call id, not just the lock bit.
-    const pendingApprovalToolCallId = useMemo(
-      () => listPendingApprovalToolCalls(currentSession?.messages ?? [])[0]?.toolCallId,
-      [currentSession?.messages]
-    )
+    // An approval holds the input read-only, so the pending-action bar takes over
+    // its slot instead of stacking above a dead text field. The step-limit pause
+    // leaves the input usable (messages can still be queued), so it stays stacked.
+    const approvalTakeover = useMemo(() => {
+      if (isNewSession || !currentSession || !isAwaitingToolApproval) return false
+      return listPendingPauseInteractions(currentSession.messages).length > 0
+    }, [isNewSession, currentSession, isAwaitingToolApproval])
 
     const skillMenuOpen = skillCommandQuery !== null && matchingInputSkills.length > 0 && !isAwaitingToolApproval
 
@@ -1448,14 +1452,22 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
         <Stack className={cn('overflow-visible', widthFull ? 'w-full' : 'max-w-4xl mx-auto')} gap="xs">
           {currentSessionId && <CompactionStatus sessionId={currentSessionId} />}
           {currentSessionId && !isNewSession && <QueuedMessagesBar sessionId={currentSessionId} />}
+          {currentSession && !isNewSession && (
+            <ErrorBoundary name="pending-action-bar">
+              <PendingActionBar session={currentSession} takeover={approvalTakeover} />
+            </ErrorBoundary>
+          )}
           <Box
             ref={skillMenuAnchorRef}
             className={cn(
               // min-h + justify-between 必须同层，桌面空输入时工具栏贴底
-              'relative flex flex-col justify-between gap-xs rounded-lg bg-chatbox-background-secondary px-3 py-2 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_20px_-2px_rgba(0,0,0,0.3)]',
-              !isSmallScreen && 'min-h-[92px]'
+              INPUT_SURFACE_CLASS_NAME,
+              !isSmallScreen && INPUT_SURFACE_MIN_HEIGHT_CLASS_NAME,
+              // Kept mounted while an approval takes over the slot so the draft,
+              // attachments and autosized height survive the swap.
+              approvalTakeover && 'hidden'
             )}
-            style={{ border: '0.5px solid var(--chatbox-border-primary)' }}
+            style={INPUT_SURFACE_STYLE}
           >
             {/*
               skill 列表：Portal + Floating UI autoUpdate
@@ -1504,15 +1516,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
               )}
 
             {/* Input Row */}
-            <Flex
-              align="flex-end"
-              gap={4}
-              // Clicking the locked input while approval is pending surfaces the
-              // floating approval pill even when the card is visible in the list.
-              onClickCapture={
-                pendingApprovalToolCallId ? () => notifyApprovalInputNudge(pendingApprovalToolCallId) : undefined
-              }
-            >
+            <Flex align="flex-end" gap={4}>
               <MessageInputField
                 ref={messageInputFieldRef}
                 isNewSession={isNewSession}

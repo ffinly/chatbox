@@ -510,6 +510,9 @@ importers:
       detect-port:
         specifier: ^1.5.1
         version: 1.6.1
+      diff:
+        specifier: 8.0.3
+        version: 8.0.3
       dotenv:
         specifier: ^16.3.1
         version: 16.6.1

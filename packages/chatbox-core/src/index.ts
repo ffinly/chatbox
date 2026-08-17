@@ -189,10 +189,11 @@ export {
 } from './generation'
 export {
   type ApprovalPauseReason,
-  getApprovalPreview,
   isApprovalPauseReason,
   listPendingApprovalToolCalls,
+  listPendingPauseInteractions,
   type PendingApprovalToolCall,
+  type PendingPauseInteraction,
 } from './message-approval'
 export {
   type AnalyticsEventValue,

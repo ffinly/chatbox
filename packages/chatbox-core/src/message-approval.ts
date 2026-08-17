@@ -55,14 +55,53 @@ export function listPendingApprovalToolCalls(messages: ApprovalScanMessage[]): P
   return pending
 }
 
-/** One-line preview of what the approval is about (command / file / action title). */
-export function getApprovalPreview(pauseReason: ApprovalPauseReason): string {
-  switch (pauseReason.type) {
-    case 'user_exec_approval':
-    case 'command_escalation_approval':
-      return pauseReason.command
-    case 'file_mutation_approval':
-    case 'app_action_approval':
-      return pauseReason.title
+/**
+ * A paused tool call surfaced as one user decision: either an approval request
+ * (per-call) or a tool-call-limit pause (per frozen batch). This is what the
+ * unified action bar above the input box renders, in message order.
+ */
+export type PendingPauseInteraction =
+  | ({ kind: 'approval' } & PendingApprovalToolCall)
+  | { kind: 'tool_call_limit'; messageId: string; toolCallId: string; maxToolCalls: number }
+
+const pendingInteractionsCache = new WeakMap<object, PendingPauseInteraction[]>()
+
+/**
+ * All paused tool calls that wait on a user decision. Approval pauses map 1:1 to
+ * interactions. A tool-call-limit pause freezes the message's whole in-flight
+ * batch and the service resumes or stops every limit-paused part together
+ * (`findPausedToolCallLimitBatch` ignores stepIndex), so per message only the
+ * first limit-paused part becomes an interaction — mirroring what acting on it
+ * actually resolves.
+ */
+export function listPendingPauseInteractions(messages: ApprovalScanMessage[]): PendingPauseInteraction[] {
+  const cached = pendingInteractionsCache.get(messages)
+  if (cached) return cached
+
+  const pending: PendingPauseInteraction[] = []
+  for (const message of messages) {
+    let seenLimitPause = false
+    for (const part of message.contentParts) {
+      if (part.type !== 'tool-call' || part.state !== 'paused') continue
+      if (isApprovalPauseReason(part.pauseReason)) {
+        pending.push({
+          kind: 'approval',
+          messageId: message.id,
+          toolCallId: part.toolCallId,
+          pauseReason: part.pauseReason,
+        })
+      } else if (part.pauseReason?.type === 'tool_call_limit') {
+        if (seenLimitPause) continue
+        seenLimitPause = true
+        pending.push({
+          kind: 'tool_call_limit',
+          messageId: message.id,
+          toolCallId: part.toolCallId,
+          maxToolCalls: part.pauseReason.maxToolCalls,
+        })
+      }
+    }
   }
+  pendingInteractionsCache.set(messages, pending)
+  return pending
 }

@@ -1,5 +1,6 @@
 /** User exec approval assessment and persistent-pause errors. */
 
+import type { FileMutationApprovalStats } from '@shared/types'
 import type { UserExecApprovalSource } from '@shared/types/user-exec'
 import type { CommandExplanationResult } from '@/packages/model-calls/command-explanation'
 import { getAiAutoApprovalEligibility } from './user-exec-ai-policy'
@@ -51,7 +52,8 @@ export class FileMutationApprovalPausedError extends Error {
   constructor(
     readonly toolCallId: string,
     readonly title: string,
-    readonly preview: string
+    readonly preview: string,
+    readonly stats?: FileMutationApprovalStats
   ) {
     super(`User approval required before mutating file: ${title}`)
     this.name = 'FileMutationApprovalPausedError'
@@ -109,6 +111,11 @@ function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError'
 }
 
-export function requestFileMutationApproval(toolCallId: string, title: string, preview: string): Promise<boolean> {
-  throw new FileMutationApprovalPausedError(toolCallId, title, preview)
+export function requestFileMutationApproval(
+  toolCallId: string,
+  title: string,
+  preview: string,
+  stats?: FileMutationApprovalStats
+): Promise<boolean> {
+  throw new FileMutationApprovalPausedError(toolCallId, title, preview, stats)
 }
