@@ -718,6 +718,48 @@ const GeneralToolCallDetails: FC<{ part: MessageToolCallPart }> = ({ part }) => 
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'])
 const HTML_EXTENSIONS = new Set(['.html', '.htm'])
+const TEXT_EXTENSIONS = new Set([
+  '.txt',
+  '.md',
+  '.markdown',
+  '.json',
+  '.csv',
+  '.tsv',
+  '.log',
+  '.yaml',
+  '.yml',
+  '.toml',
+  '.ini',
+  '.cfg',
+  '.conf',
+  '.xml',
+  '.sql',
+  '.sh',
+  '.bash',
+  '.zsh',
+  '.ts',
+  '.tsx',
+  '.js',
+  '.jsx',
+  '.css',
+  '.scss',
+  '.less',
+  '.vue',
+  '.svelte',
+  '.py',
+  '.java',
+  '.go',
+  '.rs',
+  '.c',
+  '.cpp',
+  '.h',
+  '.hpp',
+  '.rb',
+  '.php',
+])
+
+// Cap text preview reads so a large generated artifact cannot exhaust the renderer.
+const TEXT_PREVIEW_MAX_BYTES = 2 * 1024 * 1024
 
 function getFileExtension(filePath: string): string {
   const name = getLocalFileName(filePath)
@@ -731,6 +773,10 @@ function isImageFile(filePath: string): boolean {
 
 function isHtmlFile(filePath: string): boolean {
   return HTML_EXTENSIONS.has(getFileExtension(filePath))
+}
+
+function isTextFile(filePath: string): boolean {
+  return TEXT_EXTENSIONS.has(getFileExtension(filePath))
 }
 
 function decodeBase64Utf8(base64: string): string {
@@ -760,6 +806,7 @@ const CreateDownloadUI: FC<{ part: MessageToolCallPart } & ToolCallActionContext
   const isSandboxPath = filePath.includes('/chatbox-sandbox/') || filePath.includes('\\chatbox-sandbox\\')
   const canPreview = isDownloadable && !!filePath && isImageFile(filePath) && isSandboxPath
   const canPreviewHtml = isDownloadable && !!filePath && isHtmlFile(filePath) && isSandboxPath
+  const canPreviewText = isDownloadable && !!filePath && isTextFile(filePath) && isSandboxPath
   const imageUrl = canPreview ? localFilePathToUrl(filePath) : null
 
   const handleSave = useCallback(async () => {
@@ -806,7 +853,7 @@ const CreateDownloadUI: FC<{ part: MessageToolCallPart } & ToolCallActionContext
         }
       }
       const res = await platform.sandboxReadFileBase64({ filePath })
-      if (!res.success || !res.base64) {
+      if (!res.success || res.base64 === undefined) {
         setPreviewError(res.error || t('Preview not available'))
         return
       }
@@ -828,6 +875,33 @@ const CreateDownloadUI: FC<{ part: MessageToolCallPart } & ToolCallActionContext
       setPreviewing(false)
     }
   }, [filePath, messageId, part.toolCallId, sessionId, t])
+
+  const handlePreviewText = useCallback(async () => {
+    if (!filePath) return
+    setPreviewing(true)
+    setPreviewError(null)
+    try {
+      const platform = (await import('@/platform')).default
+      if (!platform.sandboxReadFileBase64) {
+        setPreviewError(t('Preview not available'))
+        return
+      }
+      const res = await platform.sandboxReadFileBase64({ filePath, maxBytes: TEXT_PREVIEW_MAX_BYTES })
+      if (!res.success || res.base64 === undefined) {
+        setPreviewError(res.error || t('Preview not available'))
+        return
+      }
+      await NiceModal.show('content-viewer', {
+        title: fileName,
+        content: decodeBase64Utf8(res.base64),
+      })
+    } catch (err) {
+      console.error('Failed to preview text file:', err)
+      setPreviewError(t('Preview not available'))
+    } finally {
+      setPreviewing(false)
+    }
+  }, [filePath, fileName, t])
 
   if (isLoading) {
     return (
@@ -880,13 +954,13 @@ const CreateDownloadUI: FC<{ part: MessageToolCallPart } & ToolCallActionContext
           {fileName}
         </Text>
         <Group gap={8} wrap="nowrap" style={{ flexShrink: 0 }}>
-          {canPreviewHtml && (
+          {(canPreviewHtml || canPreviewText) && (
             <Button
               variant="light"
               size="compact-xs"
               leftSection={<IconEye size={14} />}
               loading={previewing}
-              onClick={handlePreviewHtml}
+              onClick={canPreviewText ? handlePreviewText : handlePreviewHtml}
             >
               {t('Preview')}
             </Button>
@@ -2005,13 +2079,13 @@ const TimelineReasoningStep: FC<{
           <Text size="sm" fw={500} c="chatbox-primary" lh="20px" className="shrink-0">
             {label}
           </Text>
-          {!expanded && <ReasoningInlineSummary content={reasoningContent} isThinking={isThinking} />}
           {isThinking && <ToolCallRunningDots />}
           {showTime && (
             <Text size="xs" c="chatbox-tertiary" lh="20px" className="shrink-0 tabular-nums">
               {formatElapsedTime(displayTime)}
             </Text>
           )}
+          {!expanded && <ReasoningInlineSummary content={reasoningContent} isThinking={isThinking} />}
           {expanded && hasDetail && onCopyReasoningContent && (
             <ActionIcon
               variant="subtle"
