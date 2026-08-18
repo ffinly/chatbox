@@ -96,7 +96,7 @@ vi.mock('@/hooks/mcp', () => ({
   useToggleMCPServer: () => vi.fn(),
 }))
 
-vi.mock('@/modals/Settings', () => ({
+vi.mock('@/modals/settings-navigation', () => ({
   navigateToSettings: vi.fn(),
 }))
 
@@ -397,7 +397,7 @@ describe('AgentModePanel memory', () => {
       { id: 'm2', content: 'Works in Beijing', createdAt: 2 },
     ])
     const onClose = vi.fn()
-    const { navigateToSettings } = await import('@/modals/Settings')
+    const { navigateToSettings } = await import('@/modals/settings-navigation')
     renderPanel({ onClose })
 
     fireEvent.mouseEnter(screen.getByRole('button', { name: /^Global Memory/ }))

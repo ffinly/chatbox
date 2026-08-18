@@ -10,7 +10,7 @@ import { type MouseEvent, memo, type PointerEvent, useRef, useState } from 'reac
 import { useTranslation } from 'react-i18next'
 import { AppTooltip as Tooltip } from '@/components/ui/tooltip'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
-import { navigateToSettings } from '@/modals/Settings'
+import { navigateToSettings } from '@/modals/settings-navigation'
 import platform from '@/platform'
 import { router } from '@/router'
 import { rendererApplication } from '@/app/renderer-application'

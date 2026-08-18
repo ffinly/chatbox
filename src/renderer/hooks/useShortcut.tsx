@@ -1,6 +1,6 @@
 import { getDefaultStore } from 'jotai'
 import { useEffect } from 'react'
-import { navigateToSettings } from '@/modals/Settings'
+import { navigateToSettings } from '@/modals/settings-navigation'
 import { router } from '@/router'
 import { uiStore } from '@/stores/uiStore'
 import { getOS } from '../packages/navigator'

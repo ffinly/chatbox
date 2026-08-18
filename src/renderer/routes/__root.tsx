@@ -32,6 +32,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createRootRoute, Outlet, useLocation } from '@tanstack/react-router'
 import { useSetAtom } from 'jotai'
 import { useEffect, useMemo, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { trackJkViewEvent } from '@/analytics/jk'
 import { JK_EVENTS, JK_PAGE_NAMES } from '@/analytics/jk-events'
 import { AppProviders } from '@/components/AppProviders'
@@ -48,7 +49,8 @@ import useShortcut from '@/hooks/useShortcut'
 import useVersion from '@/hooks/useVersion'
 import '@/modals'
 import DbSchemaGuardDialog from '@/components/DbSchemaGuardDialog'
-import SettingsModal, { navigateToSettings } from '@/modals/Settings'
+import SettingsModal from '@/modals/Settings'
+import { navigateToSettings } from '@/modals/settings-navigation'
 import { prefetchModelRegistry } from '@/packages/model-registry'
 import { getOS } from '@/packages/navigator'
 import * as remote from '@/packages/remote'
@@ -147,6 +149,20 @@ function useHasBackgroundImage() {
   const { session } = useSession(sessionId)
 
   return (isRootPage || isSessionPage) && Boolean(session?.backgroundImage ?? globalBackgroundImageKey)
+}
+
+function SettingsModalErrorFallback({ retry }: { error: Error; retry: () => void }) {
+  const { t } = useTranslation()
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[400] flex justify-center px-4">
+      <div className="pointer-events-auto flex items-center gap-3 rounded-lg border border-solid border-chatbox-border-primary bg-chatbox-background-primary px-4 py-3 shadow-lg">
+        <Text size="sm">{t('Settings failed to load')}</Text>
+        <Button size="xs" variant="light" onClick={retry}>
+          {t('Try Again')}
+        </Button>
+      </div>
+    </div>
+  )
 }
 
 function Root() {
@@ -418,7 +434,9 @@ function Root() {
       {/* 没有配置模型时的欢迎弹窗 */}
       {/* <WelcomeDialog /> */}
       <Toasts /> {/* mui */}
-      <SettingsModal />
+      <ErrorBoundary name="settings-modal" fallback={SettingsModalErrorFallback}>
+        <SettingsModal />
+      </ErrorBoundary>
     </Box>
   )
 }

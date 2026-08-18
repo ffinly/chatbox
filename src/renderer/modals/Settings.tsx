@@ -15,7 +15,6 @@ import { Toaster } from 'sonner'
 import { ScalableIcon } from '@/components/common/ScalableIcon'
 import SettingsKnowledgeBaseRouteComponent from '@/components/knowledge-base/KnowledgeBase'
 import { Modal } from '@/components/layout/Overlay'
-import { getThemeDesign } from '@/hooks/useAppTheme'
 import useNeedRoomForWinControls from '@/hooks/useNeedRoomForWinControls'
 import { router } from '@/router'
 import { RouteComponent as SettingsArchiveRouteComponent } from '@/routes/settings/archive'
@@ -170,10 +169,9 @@ const routeTree = RootRoute.addChildren([
 const settingsModalHistory = createMemoryHistory()
 
 // The modal router and its route tree must be initialized before SettingsModal
-// is defined. SettingsModal renders <RouterProvider router={modalRouter} />, and
-// the Settings <-> KnowledgeBase <-> Settings circular import means this module
-// can be partially evaluated (e.g. on HMR). Declaring modalRouter first keeps
-// the component from reading a binding that is still in its temporal dead zone.
+// is defined. SettingsModal renders <RouterProvider router={modalRouter} />, so
+// declaring modalRouter first keeps the component from reading a binding that
+// is still in its temporal dead zone (e.g. on HMR).
 const modalRouter = createRouter({
   routeTree,
   history: settingsModalHistory,
@@ -252,21 +250,3 @@ export const SettingsModal: FC<SettingsModalProps> = (props) => {
 }
 
 export default SettingsModal
-
-export function navigateToSettings(path?: string) {
-  if (window.matchMedia(`(max-width:${getThemeDesign('light', 'en').breakpoints?.values?.sm || 640}px)`).matches) {
-    router.navigate({
-      to: `/settings${path ? (path.startsWith('/') ? path : `/${path}`) : ''}`,
-    })
-  } else {
-    router.navigate({
-      to: router.state.location.pathname,
-      search: {
-        settings: `/settings${path ? (path.startsWith('/') ? path : `/${path}`) : ''}`,
-      },
-      mask: {
-        to: '/settings',
-      },
-    })
-  }
-}
