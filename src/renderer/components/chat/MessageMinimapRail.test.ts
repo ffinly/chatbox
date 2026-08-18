@@ -27,6 +27,19 @@ function createAnchors(count: number): MessageMinimapAnchor[] {
 }
 
 describe('getMinimapRenderRange', () => {
+  test('keeps an 8px outer margin while staying inside the reserved 28px message gutter', () => {
+    render(createElement(MessageMinimapRail, { anchors: createAnchors(1) }))
+
+    const rail = screen.getByTestId('message-minimap-rail')
+    const scrollArea = rail.firstElementChild
+    const anchorButton = screen.getByRole('button', { name: 'Jump to message 1' })
+
+    expect(rail.classList.contains('left-2')).toBe(true)
+    expect(rail.classList.contains('w-5')).toBe(true)
+    expect(scrollArea?.classList.contains('w-5')).toBe(true)
+    expect(anchorButton.classList.contains('w-5')).toBe(true)
+  })
+
   test('renders only the visible start of a large minimap plus overscan', () => {
     const range = getMinimapRenderRange(1000, 0, 360)
 
