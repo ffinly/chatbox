@@ -19,7 +19,6 @@ import { rendererApplication } from '@/app/renderer-application'
 import { getLogger } from '@/lib/utils'
 import * as appleAppStore from '@/packages/apple_app_store'
 import { wakeBackgroundTaskFollowUps } from '@/packages/chatbox-cli/background-follow-up'
-import { estimateTokensFromMessages } from '@/packages/token'
 import platform from '@/platform'
 import { createSandboxProvider } from '@/sandbox'
 import { settingsService } from '@/settings-runtime'
@@ -275,7 +274,6 @@ const dependencies: GenerationServiceDependencies<ModelDependencies> = {
       await lockSessionAgentMode(sessionId, reason)
     },
     createPictureStorageKey: (sessionId, messageId) => StorageKeyGenerator.picture(`${sessionId}:${messageId}`),
-    estimateTokens: (messages) => estimateTokensFromMessages(messages),
     markFirstSuccessfulChatCompleted: () => markFirstSuccessfulChatCompleted(),
     afterMessageGenerated: (sessionId, message) => {
       appleAppStore.tickAfterMessageGenerated()

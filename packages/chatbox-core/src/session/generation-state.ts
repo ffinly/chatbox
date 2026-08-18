@@ -21,36 +21,49 @@ export function countCancellableGeneratingAssistantMessages(
   )
 }
 
-function collectReachableMessages(session: Session, initialLists: Message[][]): Message[] {
-  const messages: Message[] = []
-  const seenMessageIds = new Set<string>()
-  const visitedForkIds = new Set<string>()
+interface ReachableMessageTraversal {
+  messages: Message[]
+  seenMessageIds: Set<string>
+  visitedForkIds: Set<string>
+}
+
+function createReachableMessageTraversal(): ReachableMessageTraversal {
+  return {
+    messages: [],
+    seenMessageIds: new Set(),
+    visitedForkIds: new Set(),
+  }
+}
+
+function collectReachableMessages(
+  session: Session,
+  initialLists: Message[][],
+  traversal: ReachableMessageTraversal = createReachableMessageTraversal()
+): ReachableMessageTraversal {
   const pendingLists = [...initialLists]
 
-  while (pendingLists.length > 0) {
-    const list = pendingLists.shift()
-    if (!list) {
-      continue
-    }
+  for (let listIndex = 0; listIndex < pendingLists.length; listIndex += 1) {
+    const list = pendingLists[listIndex]
+    if (!list) continue
 
     for (const message of list) {
-      if (!seenMessageIds.has(message.id)) {
-        seenMessageIds.add(message.id)
-        messages.push(message)
+      if (!traversal.seenMessageIds.has(message.id)) {
+        traversal.seenMessageIds.add(message.id)
+        traversal.messages.push(message)
       }
 
       const fork = session.messageForksHash?.[message.id]
-      if (!fork || visitedForkIds.has(message.id)) {
+      if (!fork || traversal.visitedForkIds.has(message.id)) {
         continue
       }
-      visitedForkIds.add(message.id)
+      traversal.visitedForkIds.add(message.id)
       for (const branch of fork.lists) {
         pendingLists.push(branch.messages)
       }
     }
   }
 
-  return messages
+  return traversal
 }
 
 /** Return every message reachable from the active conversation or a historical thread. */
@@ -58,7 +71,7 @@ export function getReachableSessionMessages(session: Session): Message[] {
   return collectReachableMessages(session, [
     session.messages,
     ...(session.threads ?? []).map((thread) => thread.messages),
-  ])
+  ]).messages
 }
 
 /**
@@ -66,7 +79,7 @@ export function getReachableSessionMessages(session: Session): Message[] {
  * fork branches but excluding historical threads.
  */
 export function getConversationMessages(session: Session, messages: Message[]): Message[] {
-  return collectReachableMessages(session, [messages])
+  return collectReachableMessages(session, [messages]).messages
 }
 
 export function getCurrentConversationMessages(session: Session): Message[] {
@@ -87,10 +100,16 @@ function getGenerationControlBase(session: Session): GenerationControlBase {
   const cached = generationControlBaseCache.get(session)
   if (cached) return cached
 
-  const currentMessages = getCurrentConversationMessages(session)
+  const traversal = collectReachableMessages(session, [session.messages])
+  const currentMessageIds = new Set(traversal.messages.map((message) => message.id))
+  collectReachableMessages(
+    session,
+    (session.threads ?? []).map((thread) => thread.messages),
+    traversal
+  )
   const result = {
-    currentMessageIds: new Set(currentMessages.map((message) => message.id)),
-    visibleMessages: getReachableSessionMessages(session),
+    currentMessageIds,
+    visibleMessages: traversal.messages,
   }
   generationControlBaseCache.set(session, result)
   return result

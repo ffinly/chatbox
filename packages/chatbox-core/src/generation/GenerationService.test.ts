@@ -309,7 +309,6 @@ function createHarness(): Harness {
       setAgentMode: () => undefined,
       lockAgentMode: () => undefined,
       createPictureStorageKey: (sessionId, messageId) => `picture:${sessionId}:${messageId}`,
-      estimateTokens: () => 42,
       markFirstSuccessfulChatCompleted: vi.fn(),
       afterMessageGenerated,
       now: () => now,
@@ -416,8 +415,8 @@ describe('GenerationService', () => {
       status: [],
       finishReason: generationStreamFixture.expectedFinishReason,
       usage: generationStreamFixture.expectedUsage,
-      tokensUsed: 42,
     })
+    expect(finalMessage.tokensUsed).toBeUndefined()
     expect(harness.persisted.filter(({ refreshCounting }) => refreshCounting)).toHaveLength(1)
     expect(harness.runtime.get('session-1')).toBeUndefined()
     expect(harness.afterMessageGenerated).toHaveBeenCalledWith('session-1', finalMessage)

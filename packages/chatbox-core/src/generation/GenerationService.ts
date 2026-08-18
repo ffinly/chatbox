@@ -216,7 +216,6 @@ export interface GenerationHostPort {
   setAgentMode(sessionId: string, value: AgentModeValue): Promise<void> | void
   lockAgentMode(sessionId: string, reason: Exclude<AgentModeLockReason, null>): Promise<void> | void
   createPictureStorageKey(sessionId: string, messageId: string): string
-  estimateTokens(messages: Message[]): number
   markFirstSuccessfulChatCompleted(): void
   afterMessageGenerated(sessionId: string, message: Message): void
   now(): number
@@ -407,7 +406,6 @@ export class GenerationService<TContext> {
 
     let processorState = createInitialState()
     const infoParts: MessageContentParts = []
-    let promptMessages: Message[] = []
     const persistAbortedGenerationIfNeeded = async (): Promise<boolean> => {
       if (!controller.signal.aborted) return false
       targetMessage = finishAbortedGeneration(
@@ -517,7 +515,6 @@ export class GenerationService<TContext> {
           void host.lockAgentMode(sessionId, reason)
         },
       })
-      promptMessages = prepared.promptMessages
       if (!options?.appendToMessage) {
         infoParts.push(...prepared.infoParts)
       }
@@ -595,7 +592,6 @@ export class GenerationService<TContext> {
             ...targetMessage,
             generating: false,
             contentParts: [...infoParts, ...processorState.contentParts],
-            tokensUsed: targetMessage.tokensUsed ?? host.estimateTokens([...promptMessages, targetMessage]),
             status: [],
             finishReason: 'steered',
             // Provider usage arrives only with the final finish chunk; a resumed
@@ -787,7 +783,6 @@ export class GenerationService<TContext> {
           ...targetMessage,
           generating: false,
           contentParts: [...infoParts, ...processorState.contentParts],
-          tokensUsed: targetMessage.tokensUsed ?? host.estimateTokens([...promptMessages, targetMessage]),
           status: [],
           finishReason: 'tool-call-paused',
           usage: processorState.usage,
@@ -806,7 +801,6 @@ export class GenerationService<TContext> {
         ...targetMessage,
         generating: false,
         contentParts: [...infoParts, ...processorState.contentParts],
-        tokensUsed: targetMessage.tokensUsed ?? host.estimateTokens([...promptMessages, targetMessage]),
         status: [],
         finishReason: processorState.finishReason,
         usage: processorState.usage,
@@ -828,7 +822,6 @@ export class GenerationService<TContext> {
             ...infoParts,
             ...markToolCallPaused(processorState.contentParts, pause.toolCallId, pause.pauseReason),
           ],
-          tokensUsed: targetMessage.tokensUsed ?? host.estimateTokens([...promptMessages, targetMessage]),
           status: [],
           finishReason: 'tool-call-paused',
           usage: processorState.usage,
