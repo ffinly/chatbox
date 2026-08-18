@@ -141,28 +141,30 @@ export function createOpenAIOAuthFetch(
     const isCodexRewrite = shouldRewriteUrl(input)
     // React Native's Request type omits several standard passthrough fields.
     // Read them structurally so browser hosts retain the original request data.
-    const extendedRequest = originalRequest as unknown as {
-      cache?: unknown
-      credentials?: unknown
-      integrity?: unknown
-      keepalive?: unknown
-      mode?: unknown
-      redirect?: unknown
-      referrer?: unknown
-      referrerPolicy?: unknown
-    }
+    const extendedRequest = originalRequest as unknown as
+      | {
+          cache?: unknown
+          credentials?: unknown
+          integrity?: unknown
+          keepalive?: unknown
+          mode?: unknown
+          redirect?: unknown
+          referrer?: unknown
+          referrerPolicy?: unknown
+        }
+      | undefined
     let requestInput = input
     let patchedInit: RequestInit = {
       method: originalRequest?.method,
       signal: originalRequest?.signal,
-      cache: extendedRequest.cache,
-      credentials: extendedRequest.credentials,
-      integrity: extendedRequest.integrity,
-      keepalive: extendedRequest.keepalive,
-      mode: extendedRequest.mode,
-      redirect: extendedRequest.redirect,
-      referrer: extendedRequest.referrer,
-      referrerPolicy: extendedRequest.referrerPolicy,
+      cache: extendedRequest?.cache,
+      credentials: extendedRequest?.credentials,
+      integrity: extendedRequest?.integrity,
+      keepalive: extendedRequest?.keepalive,
+      mode: extendedRequest?.mode,
+      redirect: extendedRequest?.redirect,
+      referrer: extendedRequest?.referrer,
+      referrerPolicy: extendedRequest?.referrerPolicy,
       ...init,
       body: requestBody,
       headers: headersToRecord(headers),
