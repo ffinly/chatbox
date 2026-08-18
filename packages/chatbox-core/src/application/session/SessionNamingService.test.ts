@@ -1,9 +1,11 @@
 import type { ModelMessage } from 'ai'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import type { ModelInterface } from '../../models/types'
+import { buildNameGenerationAttemptKey, getCurrentThreadNamingIdentity } from '../../session/auto-title'
 import type { Message, Session, Settings, Updater } from '../../types'
 import { type ScheduledNameGeneration, SessionNamingService } from './SessionNamingService'
 import type { SessionMetadataUpdate } from './session-metadata'
+import { SessionNotFoundError } from './SessionWriteCoordinator'
 
 function createSession(overrides: Partial<Session> = {}): Session {
   return {
@@ -44,10 +46,16 @@ function createHarness() {
   const scheduled: Array<{ callback: () => void; cancelled: boolean }> = []
   const getSession = vi.fn(() => Promise.resolve(session))
   const updateSession = vi.fn((_sessionId: string, updater: Updater<SessionMetadataUpdate>) => {
-    if (!session) return Promise.reject(new Error('Session not found'))
+    if (!session) return Promise.reject(new SessionNotFoundError('session-1'))
     const update = typeof updater === 'function' ? updater(session) : updater
     session = { ...session, ...update }
     return Promise.resolve(session)
+  })
+  const updateSessionWithMessages = vi.fn((_sessionId: string, updater: Updater<Session>) => {
+    if (!session) return Promise.reject(new SessionNotFoundError('session-1'))
+    const next = typeof updater === 'function' ? updater(session) : { ...session, ...updater }
+    session = next
+    return Promise.resolve(next)
   })
   const toModelMessages = vi.fn((messages: Message[]) => {
     const textPart = messages[0]?.contentParts[0]
@@ -56,7 +64,7 @@ function createHarness() {
     ] as ModelMessage[])
   })
   const service = new SessionNamingService({
-    sessions: { getSession, updateSession },
+    sessions: { getSession, updateSession, updateSessionWithMessages },
     settings: { getSettings: () => settings },
     models: { createModel: vi.fn(() => Promise.resolve(model)) },
     scheduler: {
@@ -80,6 +88,7 @@ function createHarness() {
     chat,
     getSession,
     updateSession,
+    updateSessionWithMessages,
     toModelMessages,
     settings,
     get session() {
@@ -139,7 +148,9 @@ describe('SessionNamingService', () => {
     )
 
     harness.scheduled[0].callback()
-    await vi.waitFor(() => expect(harness.service.isPending('name-session-1')).toBe(false))
+    await vi.waitFor(() =>
+      expect(harness.service.isPending(buildNameGenerationAttemptKey('name', 'session-1'))).toBe(false)
+    )
     expect(harness.chat).not.toHaveBeenCalled()
   })
 
@@ -178,7 +189,9 @@ describe('SessionNamingService', () => {
     harness.service.scheduleNameAndThreadName('session-1', { messages: streaming.messages })
     harness.scheduled[0].callback()
     await vi.waitFor(() => expect(harness.chat).toHaveBeenCalledOnce())
-    await vi.waitFor(() => expect(harness.service.isActive('name-session-1')).toBe(false))
+    await vi.waitFor(() =>
+      expect(harness.service.isActive(buildNameGenerationAttemptKey('name', 'session-1'))).toBe(false)
+    )
 
     harness.service.scheduleNameAndThreadName('session-1', { messages: streaming.messages })
     expect(harness.scheduled).toHaveLength(1)
@@ -202,9 +215,13 @@ describe('SessionNamingService', () => {
     harness.service.scheduleNameAndThreadName('session-1')
     harness.scheduled[0].callback()
     await vi.waitFor(() => expect(harness.chat).toHaveBeenCalledOnce())
-    await vi.waitFor(() => expect(harness.service.isActive('name-session-1')).toBe(false))
+    await vi.waitFor(() =>
+      expect(harness.service.isActive(buildNameGenerationAttemptKey('name', 'session-1'))).toBe(false)
+    )
 
+    expect(harness.session).toBeNull()
     expect(harness.updateSession).not.toHaveBeenCalled()
+    expect(harness.updateSessionWithMessages).toHaveBeenCalledOnce()
     harness.service.scheduleNameAndThreadName('session-1')
     expect(harness.scheduled).toHaveLength(2)
   })
@@ -286,6 +303,220 @@ describe('SessionNamingService', () => {
     harness.service.clearSessionState('session-1')
 
     expect(harness.scheduled[0].cancelled).toBe(true)
-    expect(harness.service.isPending('name-session-1')).toBe(false)
+    expect(harness.service.isPending(buildNameGenerationAttemptKey('name', 'session-1'))).toBe(false)
+  })
+
+  test('does not write a stale thread title after the current thread is replaced', async () => {
+    const harness = createHarness()
+    const original = createSession({ name: 'Travel planner', threadName: '' })
+    harness.setSession(original)
+
+    harness.chat.mockImplementation(() => {
+      harness.setSession(
+        createSession({
+          name: 'Travel planner',
+          threadName: '',
+          messages: [{ id: 'system-new', role: 'system', contentParts: [{ type: 'text', text: 'System' }] }],
+          threads: [
+            {
+              id: 'archived-1',
+              name: 'Old pending',
+              messages: original.messages,
+              createdAt: 1,
+            },
+          ],
+        })
+      )
+      return Promise.resolve({ contentParts: [{ type: 'text' as const, text: 'Old trip title' }] })
+    })
+
+    harness.service.scheduleThreadName('session-1')
+    harness.scheduled[0].callback()
+    await vi.waitFor(() => expect(harness.chat).toHaveBeenCalledOnce())
+    await vi.waitFor(() =>
+      expect(harness.service.isActive(buildNameGenerationAttemptKey('thread', 'session-1'))).toBe(false)
+    )
+
+    expect(harness.session?.threadName).toBe('')
+    expect(harness.session?.threads?.[0]?.messages).toEqual(original.messages)
+  })
+
+  test('does not overwrite a restored thread name after the current thread is removed', async () => {
+    const harness = createHarness()
+    const original = createSession({ name: 'Travel planner', threadName: '' })
+    harness.setSession(original)
+
+    harness.chat.mockImplementation(() => {
+      harness.setSession(
+        createSession({
+          name: 'Travel planner',
+          threadName: 'History',
+          messages: [
+            { id: 'history-user', role: 'user', contentParts: [{ type: 'text', text: 'earlier' }] },
+            { id: 'history-assistant', role: 'assistant', contentParts: [{ type: 'text', text: 'ok' }] },
+          ],
+          threads: [],
+        })
+      )
+      return Promise.resolve({ contentParts: [{ type: 'text' as const, text: 'Stale title' }] })
+    })
+
+    harness.service.scheduleThreadName('session-1')
+    harness.scheduled[0].callback()
+    await vi.waitFor(() => expect(harness.chat).toHaveBeenCalledOnce())
+    await vi.waitFor(() =>
+      expect(harness.service.isActive(buildNameGenerationAttemptKey('thread', 'session-1'))).toBe(false)
+    )
+
+    expect(harness.session?.threadName).toBe('History')
+  })
+
+  test('does not overwrite a thread name the user set during the model call', async () => {
+    const harness = createHarness()
+    const original = createSession({ name: 'Travel planner', threadName: '' })
+    harness.setSession(original)
+
+    harness.chat.mockImplementation(() => {
+      harness.setSession({ ...original, threadName: 'Manual title' })
+      return Promise.resolve({ contentParts: [{ type: 'text' as const, text: 'Generated title' }] })
+    })
+
+    harness.service.scheduleThreadName('session-1')
+    harness.scheduled[0].callback()
+    await vi.waitFor(() => expect(harness.chat).toHaveBeenCalledOnce())
+    await vi.waitFor(() =>
+      expect(harness.service.isActive(buildNameGenerationAttemptKey('thread', 'session-1'))).toBe(false)
+    )
+    expect(harness.session?.threadName).toBe('Manual title')
+  })
+
+  test('lets a replacement thread schedule while an older naming request is in flight', async () => {
+    const harness = createHarness()
+    const original = createSession({ name: 'Travel planner', threadName: '' })
+    harness.setSession(original)
+
+    let releaseChat: ((value: { contentParts: Array<{ type: 'text'; text: string }> }) => void) | undefined
+    harness.chat.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releaseChat = resolve
+        })
+    )
+
+    harness.service.syncAutoTitle(original)
+    expect(harness.scheduled).toHaveLength(1)
+    harness.scheduled[0].callback()
+    await vi.waitFor(() => expect(harness.chat).toHaveBeenCalledOnce())
+
+    const next = createSession({
+      name: 'Travel planner',
+      threadName: '',
+      messages: [
+        { id: 'system-2', role: 'system', contentParts: [{ type: 'text', text: 'System' }] },
+        { id: 'user-2', role: 'user', contentParts: [{ type: 'text', text: 'new trip' }] },
+        { id: 'assistant-2', role: 'assistant', contentParts: [{ type: 'text', text: 'sure' }] },
+      ],
+      threads: [
+        {
+          id: 'archived-1',
+          name: 'Old pending',
+          messages: original.messages,
+          createdAt: 1,
+        },
+      ],
+    })
+    harness.setSession(next)
+    harness.service.syncAutoTitle(next)
+
+    expect(harness.scheduled).toHaveLength(2)
+    expect(
+      harness.service.isActive(
+        buildNameGenerationAttemptKey('thread', 'session-1', getCurrentThreadNamingIdentity(original))
+      )
+    ).toBe(true)
+
+    releaseChat?.({ contentParts: [{ type: 'text', text: 'Old trip title' }] })
+    await vi.waitFor(() =>
+      expect(
+        harness.service.isActive(
+          buildNameGenerationAttemptKey('thread', 'session-1', getCurrentThreadNamingIdentity(original))
+        )
+      ).toBe(false)
+    )
+    expect(harness.session?.threadName).toBe('')
+
+    harness.scheduled[1].callback()
+    await vi.waitFor(() => expect(harness.session?.threadName).toBe('北京旅行计划'))
+  })
+
+  test('clears identity-scoped pending keys when a Session is deleted', () => {
+    const harness = createHarness()
+    const original = createSession({ name: 'Travel planner', threadName: '' })
+    harness.setSession(original)
+    harness.service.syncAutoTitle(original)
+
+    harness.service.clearSessionState('session-1')
+
+    expect(harness.scheduled[0].cancelled).toBe(true)
+    expect(
+      harness.service.isPending(
+        buildNameGenerationAttemptKey('thread', 'session-1', getCurrentThreadNamingIdentity(original))
+      )
+    ).toBe(false)
+  })
+
+  test('evaluates thread identity inside the queued title write', async () => {
+    const harness = createHarness()
+    const original = createSession({ name: 'Travel planner', threadName: '' })
+    harness.setSession(original)
+
+    harness.updateSessionWithMessages.mockImplementation((_sessionId, updater) => {
+      const switched = createSession({
+        name: 'Travel planner',
+        threadName: '',
+        messages: [{ id: 'system-new', role: 'system', contentParts: [{ type: 'text', text: 'System' }] }],
+        threads: [
+          {
+            id: 'archived-1',
+            name: 'Old pending',
+            messages: original.messages,
+            createdAt: 1,
+          },
+        ],
+      })
+      const next = typeof updater === 'function' ? updater(switched) : { ...switched, ...updater }
+      harness.setSession(next)
+      return Promise.resolve(next)
+    })
+
+    await expect(harness.service.generateThreadName('session-1')).resolves.toBe(false)
+    expect(harness.session?.threadName).toBe('')
+    expect(harness.session?.messages[0]?.id).toBe('system-new')
+  })
+
+  test('still writes when an unrelated archived thread is removed during the model call', async () => {
+    const harness = createHarness()
+    const original = createSession({
+      name: 'Travel planner',
+      threadName: '',
+      threads: [
+        {
+          id: 'archived-1',
+          name: 'Old',
+          messages: [{ id: 'old-user', role: 'user', contentParts: [{ type: 'text', text: 'earlier' }] }],
+          createdAt: 1,
+        },
+      ],
+    })
+    harness.setSession(original)
+
+    harness.chat.mockImplementation(() => {
+      harness.setSession({ ...original, threads: [] })
+      return Promise.resolve({ contentParts: [{ type: 'text' as const, text: '北京旅行计划' }] })
+    })
+
+    harness.service.scheduleThreadName('session-1')
+    harness.scheduled[0].callback()
+    await vi.waitFor(() => expect(harness.session?.threadName).toBe('北京旅行计划'))
   })
 })

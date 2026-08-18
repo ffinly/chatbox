@@ -5,6 +5,9 @@ import type { ModelFactoryPort, SettingsRepositoryPort } from '../../ports'
 import { nameConversation } from '../../prompts'
 import {
   backfillMissingThreadName,
+  buildNameGenerationAttemptKey,
+  getCurrentThreadNamingIdentity,
+  isNameGenerationAttemptKeyForSession,
   resolveAutoTitleAction,
   sanitizeGeneratedSessionName,
   shouldBackfillThreadName,
@@ -13,6 +16,7 @@ import {
 import { hasContentForAutoTitle } from '../../session/message-success'
 import type { Language, Message, ModelProvider, Session, SessionSettings, Settings } from '../../types'
 import type { SessionUseCasePort } from './session-use-case-port'
+import { SessionNotFoundError } from './SessionWriteCoordinator'
 
 export interface ScheduledNameGeneration {
   cancel(): void
@@ -23,7 +27,7 @@ export interface NameGenerationSchedulerPort {
 }
 
 export interface SessionNamingServiceDependencies {
-  sessions: Pick<SessionUseCasePort, 'getSession' | 'updateSession'>
+  sessions: Pick<SessionUseCasePort, 'getSession' | 'updateSession' | 'updateSessionWithMessages'>
   settings: Pick<SettingsRepositoryPort, 'getSettings'>
   models: ModelFactoryPort
   scheduler: NameGenerationSchedulerPort
@@ -36,9 +40,13 @@ export interface SessionNameGenerationOptions {
   locale?: Language
   /** Current messages let failed streaming attempts stay deferred until the reply settles. */
   messages?: Message[]
+  /** Live-conversation identity so a later thread can schedule while an older request is in flight. */
+  threadIdentity?: string
 }
 
 const NAME_GENERATION_IDLE_COOLDOWN_MS = 60_000
+
+type GeneratedNameWriteMode = 'name-and-thread' | 'thread'
 
 export class SessionNamingService {
   private readonly pending = new Map<string, ScheduledNameGeneration>()
@@ -58,30 +66,44 @@ export class SessionNamingService {
   }
 
   generateNameAndThreadName(sessionId: string, locale?: Language): Promise<boolean> {
-    return this.generate(sessionId, (id, name) => this.modifyNameAndThreadName(id, name), locale)
+    return this.generate(sessionId, 'name-and-thread', locale)
   }
 
   generateThreadName(sessionId: string, locale?: Language): Promise<boolean> {
-    return this.generate(sessionId, (id, name) => this.modifyThreadName(id, name), locale)
+    return this.generate(sessionId, 'thread', locale)
   }
 
   scheduleNameAndThreadName(sessionId: string, options: SessionNameGenerationOptions = {}): void {
     this.schedule(
-      `name-${sessionId}`,
+      buildNameGenerationAttemptKey('name', sessionId, options.threadIdentity),
       sessionId,
       (session) => session.name === UNTITLED_SESSION_NAME && hasContentForAutoTitle(session.messages),
-      () => this.generateNameAndThreadName(sessionId, options.locale),
-      options.messages
+      () =>
+        this.generate(
+          sessionId,
+          'name-and-thread',
+          options.locale,
+          (session) => session.name === UNTITLED_SESSION_NAME && hasContentForAutoTitle(session.messages)
+        ),
+      options.messages,
+      options.threadIdentity
     )
   }
 
   scheduleThreadName(sessionId: string, options: SessionNameGenerationOptions = {}): void {
     this.schedule(
-      `thread-${sessionId}`,
+      buildNameGenerationAttemptKey('thread', sessionId, options.threadIdentity),
       sessionId,
       (session) => !session.threadName && hasContentForAutoTitle(session.messages),
-      () => this.generateThreadName(sessionId, options.locale),
-      options.messages
+      () =>
+        this.generate(
+          sessionId,
+          'thread',
+          options.locale,
+          (session) => !session.threadName && hasContentForAutoTitle(session.messages)
+        ),
+      options.messages,
+      options.threadIdentity
     )
   }
 
@@ -107,17 +129,19 @@ export class SessionNamingService {
     }
     if (this.dependencies.settings.getSettings().autoGenerateTitle === false) return
     const action = resolveAutoTitleAction(session)
+    const nextOptions = { ...options, threadIdentity: getCurrentThreadNamingIdentity(session) }
     if (action === 'session-and-thread') {
-      this.scheduleNameAndThreadName(session.id, options)
+      this.scheduleNameAndThreadName(session.id, nextOptions)
     } else if (action === 'thread') {
-      this.scheduleThreadName(session.id, options)
+      this.scheduleThreadName(session.id, nextOptions)
     }
   }
 
   clearSessionState(sessionId: string): void {
-    for (const key of [`name-${sessionId}`, `thread-${sessionId}`]) {
+    for (const key of this.keysForSession(sessionId)) {
       this.pending.get(key)?.cancel()
       this.pending.delete(key)
+      this.active.delete(key)
       this.deferredUntilIdle.delete(key)
       this.cooldownUntil.delete(key)
     }
@@ -131,17 +155,28 @@ export class SessionNamingService {
     return this.active.has(key)
   }
 
+  private keysForSession(sessionId: string): string[] {
+    const keys = new Set<string>([
+      ...this.pending.keys(),
+      ...this.active,
+      ...this.deferredUntilIdle,
+      ...this.cooldownUntil.keys(),
+    ])
+    return [...keys].filter((key) => isNameGenerationAttemptKeyForSession(key, sessionId))
+  }
+
   private schedule(
     key: string,
     sessionId: string,
     isEligible: (session: Session) => boolean,
     generate: () => Promise<boolean>,
-    messages?: Message[]
+    messages?: Message[],
+    expectedIdentity?: string
   ): void {
     if (!this.canSchedule(key, messages)) return
 
     const task = this.dependencies.scheduler.schedule(() => {
-      void this.runScheduled(key, sessionId, isEligible, generate)
+      void this.runScheduled(key, sessionId, isEligible, generate, expectedIdentity)
     }, 1_000)
     this.pending.set(key, task)
   }
@@ -169,13 +204,16 @@ export class SessionNamingService {
     key: string,
     sessionId: string,
     isEligible: (session: Session) => boolean,
-    generate: () => Promise<boolean>
+    generate: () => Promise<boolean>,
+    expectedIdentity?: string
   ): Promise<void> {
     // Release pending before the async eligibility read so a later, eligible
     // renderer update can schedule a replacement attempt.
     this.pending.delete(key)
     const session = await this.dependencies.sessions.getSession(sessionId)
     if (!session || !isEligible(session) || this.active.has(key)) return
+    const identity = getCurrentThreadNamingIdentity(session)
+    if (expectedIdentity !== undefined && expectedIdentity !== identity) return
 
     this.active.add(key)
     try {
@@ -183,6 +221,9 @@ export class SessionNamingService {
 
       const current = await this.dependencies.sessions.getSession(sessionId)
       if (!current) return
+      // A superseded conversation is not a retryable failure. Cooling it down
+      // would block the replacement thread from using the session-scoped key.
+      if (getCurrentThreadNamingIdentity(current) !== identity) return
       if (current.messages.some((message) => message.generating)) {
         this.deferredUntilIdle.add(key)
       } else {
@@ -195,13 +236,15 @@ export class SessionNamingService {
 
   private async generate(
     sessionId: string,
-    modifyName: (sessionId: string, name: string) => Promise<void>,
-    locale?: Language
+    mode: GeneratedNameWriteMode,
+    locale?: Language,
+    canWrite: (session: Session) => boolean = () => true
   ): Promise<boolean> {
     const session = await this.dependencies.sessions.getSession(sessionId)
     const globalSettings = this.dependencies.settings.getSettings()
     if (!session) return false
 
+    const expectedIdentity = getCurrentThreadNamingIdentity(session)
     const settings = this.buildSettings(session, globalSettings)
     try {
       const model = await this.dependencies.models.createModel(settings)
@@ -218,17 +261,40 @@ export class SessionNamingService {
           .join('')
       )
       if (!name) return false
-      // The model call can outlive a deletion. Re-check before write-back so a
-      // naming response cannot recreate a deleted Session.
-      if (!(await this.dependencies.sessions.getSession(sessionId))) return false
-      await modifyName(sessionId, name)
-      return true
+      return await this.writeGeneratedName(sessionId, expectedIdentity, name, mode, canWrite)
     } catch (error: unknown) {
+      if (error instanceof SessionNotFoundError) return false
       if (!isExpectedGenerationError(error)) {
         this.dependencies.reportUnexpectedError(error)
       }
       return false
     }
+  }
+
+  /**
+   * Apply the generated title inside the same per-session write queue as thread
+   * switches. A pre-write getSession() can still observe the old conversation
+   * while a switch is already queued; only a queued updater sees the committed state.
+   */
+  private async writeGeneratedName(
+    sessionId: string,
+    expectedIdentity: string,
+    name: string,
+    mode: GeneratedNameWriteMode,
+    canWrite: (session: Session) => boolean
+  ): Promise<boolean> {
+    let wrote = false
+    await this.dependencies.sessions.updateSessionWithMessages(sessionId, (current) => {
+      if (!current) {
+        throw new SessionNotFoundError(sessionId)
+      }
+      if (getCurrentThreadNamingIdentity(current) !== expectedIdentity || !canWrite(current)) {
+        return current
+      }
+      wrote = true
+      return mode === 'name-and-thread' ? { ...current, name, threadName: name } : { ...current, threadName: name }
+    })
+    return wrote
   }
 
   private buildSettings(session: Session, globalSettings: Settings): SessionSettings {

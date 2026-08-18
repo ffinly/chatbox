@@ -8,9 +8,38 @@ export const DEFAULT_INBOX_SESSION_ID = 'justchat-b612-406a-985b-3ab4d2c482ff'
 export const DEFAULT_INBOX_SESSION_NAME = 'Just chat'
 
 export type AutoTitleSession = Pick<Session, 'id' | 'messages' | 'name' | 'threadName'>
+export type ThreadNamingIdentitySession = Pick<Session, 'messages'>
+export type NameGenerationKind = 'name' | 'thread'
 
 export function isDefaultInboxSession(session: Pick<Session, 'id' | 'name'>): boolean {
   return session.id === DEFAULT_INBOX_SESSION_ID || session.name === DEFAULT_INBOX_SESSION_NAME
+}
+
+/**
+ * Identifies the live conversation for auto-title write-back. The first user
+ * message id stays stable while the current turn streams, and changes when
+ * the current thread is created, switched, or cleared. Archived-thread
+ * mutations are ignored so deleting history cannot invalidate an in-flight title.
+ */
+export function getCurrentThreadNamingIdentity(session: ThreadNamingIdentitySession): string {
+  return session.messages.find((message) => message.role === 'user')?.id ?? ''
+}
+
+export function buildNameGenerationAttemptKey(
+  kind: NameGenerationKind,
+  sessionId: string,
+  threadIdentity?: string
+): string {
+  return threadIdentity ? `${kind}:${sessionId}:${threadIdentity}` : `${kind}:${sessionId}`
+}
+
+export function isNameGenerationAttemptKeyForSession(key: string, sessionId: string): boolean {
+  return (
+    key === `name:${sessionId}` ||
+    key.startsWith(`name:${sessionId}:`) ||
+    key === `thread:${sessionId}` ||
+    key.startsWith(`thread:${sessionId}:`)
+  )
 }
 
 export function sanitizeGeneratedSessionName(raw: string): string {

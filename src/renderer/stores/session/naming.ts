@@ -11,6 +11,8 @@ const namingService = new SessionNamingService({
   sessions: {
     getSession: (sessionId) => rendererApplication.sessionQueryBridge.getSession(sessionId),
     updateSession: (sessionId, updater) => rendererApplication.sessions.updateSession(sessionId, updater),
+    updateSessionWithMessages: (sessionId, updater) =>
+      rendererApplication.sessions.updateSessionWithMessages(sessionId, updater),
   },
   settings: settingsService,
   models: currentModelFactory,

@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 import type { Message, Session } from '../types'
 import {
   backfillMissingThreadName,
+  buildNameGenerationAttemptKey,
   DEFAULT_INBOX_SESSION_ID,
+  getCurrentThreadNamingIdentity,
+  isNameGenerationAttemptKeyForSession,
   resolveAutoTitleAction,
   sanitizeGeneratedSessionName,
   shouldBackfillThreadName,
@@ -149,5 +152,64 @@ describe('resolveAutoTitleAction', () => {
         })
       )
     ).toBeNull()
+  })
+})
+
+describe('thread naming identity', () => {
+  it('stays stable while the current turn streams more assistant parts', () => {
+    const live = session({
+      messages: [message('user', 'hello'), message('assistant', 'hi', { generating: true })],
+    })
+    const streamed = session({
+      messages: [message('user', 'hello'), message('assistant', 'hi there', { generating: true })],
+    })
+
+    expect(getCurrentThreadNamingIdentity(live)).toBe(getCurrentThreadNamingIdentity(streamed))
+    expect(getCurrentThreadNamingIdentity(live)).toBe('user-hello')
+  })
+
+  it('changes when the current thread is archived or cleared', () => {
+    const original = session({ messages: firstTurn })
+    const created = session({
+      messages: [message('system', 'You are helpful')],
+      threads: [{ id: 'archived-1', name: 'Old', messages: firstTurn, createdAt: 1 }],
+    })
+    const switched = session({
+      messages: [message('user', 'later'), message('assistant', 'ok', { finishReason: 'stop' })],
+      threads: [{ id: 'archived-current', name: 'Old', messages: firstTurn, createdAt: 1 }],
+    })
+    const cleared = session({ messages: [message('system', 'You are helpful')] })
+
+    expect(getCurrentThreadNamingIdentity(created)).not.toBe(getCurrentThreadNamingIdentity(original))
+    expect(getCurrentThreadNamingIdentity(switched)).not.toBe(getCurrentThreadNamingIdentity(original))
+    expect(getCurrentThreadNamingIdentity(cleared)).not.toBe(getCurrentThreadNamingIdentity(original))
+    expect(getCurrentThreadNamingIdentity(created)).toBe('')
+    expect(getCurrentThreadNamingIdentity(switched)).toBe('user-later')
+    expect(getCurrentThreadNamingIdentity(cleared)).toBe('')
+  })
+
+  it('ignores unrelated archived-thread mutations', () => {
+    const live = session({
+      messages: firstTurn,
+      threads: [
+        { id: 'archived-1', name: 'Old', messages: [message('user', 'earlier')], createdAt: 1 },
+        { id: 'archived-2', name: 'Older', messages: [message('user', 'oldest')], createdAt: 2 },
+      ],
+    })
+    const afterDelete = session({
+      messages: firstTurn,
+      threads: [{ id: 'archived-2', name: 'Older', messages: [message('user', 'oldest')], createdAt: 2 }],
+    })
+
+    expect(getCurrentThreadNamingIdentity(live)).toBe(getCurrentThreadNamingIdentity(afterDelete))
+    expect(getCurrentThreadNamingIdentity(live)).toBe('user-hello')
+  })
+
+  it('scopes attempt keys to a session and optional thread identity', () => {
+    expect(buildNameGenerationAttemptKey('thread', 'session-1')).toBe('thread:session-1')
+    expect(buildNameGenerationAttemptKey('thread', 'session-1', 'user-1')).toBe('thread:session-1:user-1')
+    expect(isNameGenerationAttemptKeyForSession('thread:session-1:user-1', 'session-1')).toBe(true)
+    expect(isNameGenerationAttemptKeyForSession('thread:session-10', 'session-1')).toBe(false)
+    expect(isNameGenerationAttemptKeyForSession('name:session-1', 'session-1')).toBe(true)
   })
 })

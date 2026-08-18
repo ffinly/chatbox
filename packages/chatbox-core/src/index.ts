@@ -237,12 +237,17 @@ export {
   type AutoTitleAction,
   type AutoTitleSession,
   backfillMissingThreadName,
+  buildNameGenerationAttemptKey,
   DEFAULT_INBOX_SESSION_ID,
   DEFAULT_INBOX_SESSION_NAME,
+  getCurrentThreadNamingIdentity,
   isDefaultInboxSession,
+  isNameGenerationAttemptKeyForSession,
+  type NameGenerationKind,
   resolveAutoTitleAction,
   sanitizeGeneratedSessionName,
   shouldBackfillThreadName,
+  type ThreadNamingIdentitySession,
   UNTITLED_SESSION_NAME,
 } from './session/auto-title'
 export {

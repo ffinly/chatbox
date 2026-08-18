@@ -20,7 +20,7 @@ vi.mock('@/settings-runtime', () => ({ settingsService: {} }))
 vi.mock('@/utils/sentry', () => ({ reportError: vi.fn() }))
 vi.mock('@/app/renderer-application', () => ({
   rendererApplication: {
-    sessions: { updateSession: vi.fn() },
+    sessions: { updateSession: vi.fn(), updateSessionWithMessages: vi.fn() },
     sessionQueryBridge: { getSession: vi.fn() },
   },
 }))
