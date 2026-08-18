@@ -220,6 +220,7 @@ function Index() {
       picUrl: selectedCopilot?.avatar?.type === 'url' ? selectedCopilot.avatar.url : selectedCopilot?.picUrl,
       backgroundImage: selectedCopilot?.backgroundImage,
       name: selectedCopilot?.name || 'Untitled',
+      threadName: '',
       messages: selectedCopilot
         ? [
             {
@@ -255,6 +256,7 @@ function Index() {
         picUrl: c.avatar?.type === 'url' ? c.avatar.url : c.picUrl,
         backgroundImage: c.backgroundImage,
         name: c.name || 'Untitled',
+        threadName: '',
         messages: [
           {
             id: uuidv4(),
@@ -289,7 +291,7 @@ function Index() {
         backgroundImage: session.backgroundImage,
         messages: options?.messages ?? session.messages,
         copilotId: session.copilotId,
-        threadName: options?.threadName,
+        threadName: options?.threadName ?? session.threadName ?? '',
         settings: {
           ...session.settings,
           ...options?.settingsPatch,

@@ -77,6 +77,7 @@ describe('SessionService', () => {
       type: 'session-updated',
       session: { id: persisted.id, name: 'Recovered' },
       meta: null,
+      preserveCachedGeneratingMessages: true,
     })
 
     await harness.service.getSession(persisted.id)
@@ -114,6 +115,7 @@ describe('SessionService', () => {
       settings: { temperature: 0.3 },
     })
 
+    expect(created.threadName).toBe('')
     expect(created.settings).toEqual({
       provider: 'openai',
       modelId: 'last-used-model',
@@ -126,6 +128,19 @@ describe('SessionService', () => {
       createdAt: 100,
     })
     expect(harness.published.at(-1)).toMatchObject({ type: 'session-created', session: created })
+  })
+
+  test('keeps an explicit thread title on create instead of marking the session pending', async () => {
+    const harness = createHarness()
+
+    const created = await harness.service.createSession({
+      name: 'Weekend trip',
+      type: 'chat',
+      threadName: 'Weekend trip',
+      messages: [],
+    })
+
+    expect(created.threadName).toBe('Weekend trip')
   })
 
   test('does not report a committed create as failed when a post-event listener rejects', async () => {

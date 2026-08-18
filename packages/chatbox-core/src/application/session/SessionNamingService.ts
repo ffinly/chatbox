@@ -3,6 +3,13 @@ import { isExpectedGenerationError } from '../../models/error-classification'
 import type { ModelInterface } from '../../models/types'
 import type { ModelFactoryPort, SettingsRepositoryPort } from '../../ports'
 import { nameConversation } from '../../prompts'
+import {
+  backfillMissingThreadName,
+  resolveAutoTitleAction,
+  sanitizeGeneratedSessionName,
+  shouldBackfillThreadName,
+  UNTITLED_SESSION_NAME,
+} from '../../session/auto-title'
 import { hasContentForAutoTitle } from '../../session/message-success'
 import type { Language, Message, ModelProvider, Session, SessionSettings, Settings } from '../../types'
 import type { SessionUseCasePort } from './session-use-case-port'
@@ -38,6 +45,7 @@ export class SessionNamingService {
   private readonly active = new Set<string>()
   private readonly deferredUntilIdle = new Set<string>()
   private readonly cooldownUntil = new Map<string, number>()
+  private readonly backfillInFlight = new Set<string>()
 
   constructor(private readonly dependencies: SessionNamingServiceDependencies) {}
 
@@ -61,7 +69,7 @@ export class SessionNamingService {
     this.schedule(
       `name-${sessionId}`,
       sessionId,
-      (session) => session.name === 'Untitled' && hasContentForAutoTitle(session.messages),
+      (session) => session.name === UNTITLED_SESSION_NAME && hasContentForAutoTitle(session.messages),
       () => this.generateNameAndThreadName(sessionId, options.locale),
       options.messages
     )
@@ -75,6 +83,35 @@ export class SessionNamingService {
       () => this.generateThreadName(sessionId, options.locale),
       options.messages
     )
+  }
+
+  /**
+   * Domain-event entry: backfill a missing historical threadName, otherwise
+   * schedule AI naming when the conversation is eligible.
+   */
+  syncAutoTitle(session: Session, options: SessionNameGenerationOptions = {}): void {
+    // Backfill is a data migration, not naming — run it even when the
+    // auto-title setting is off, mirroring repairSessionOnRead.
+    if (shouldBackfillThreadName(session)) {
+      if (this.backfillInFlight.has(session.id)) return
+      this.backfillInFlight.add(session.id)
+      const backfilled = backfillMissingThreadName(session).session.threadName ?? ''
+      void this.modifyThreadName(session.id, backfilled)
+        .catch((error) => {
+          this.dependencies.reportUnexpectedError(error)
+        })
+        .finally(() => {
+          this.backfillInFlight.delete(session.id)
+        })
+      return
+    }
+    if (this.dependencies.settings.getSettings().autoGenerateTitle === false) return
+    const action = resolveAutoTitleAction(session)
+    if (action === 'session-and-thread') {
+      this.scheduleNameAndThreadName(session.id, options)
+    } else if (action === 'thread') {
+      this.scheduleThreadName(session.id, options)
+    }
   }
 
   clearSessionState(sessionId: string): void {
@@ -174,13 +211,13 @@ export class SessionNamingService {
         this.dependencies.getLanguageName(language)
       )
       const result = await model.chat(await this.dependencies.toModelMessages(prompt, model), {})
-      const name = (result.contentParts ?? [])
-        .filter((part) => part.type === 'text')
-        .map((part) => part.text)
-        .join('')
-        .replace(/['"\u201C\u201D]/g, '')
-        .replace(/<think>.*?<\/think>/g, '')
-      if (!name.trim()) return false
+      const name = sanitizeGeneratedSessionName(
+        (result.contentParts ?? [])
+          .filter((part) => part.type === 'text')
+          .map((part) => part.text)
+          .join('')
+      )
+      if (!name) return false
       // The model call can outlive a deletion. Re-check before write-back so a
       // naming response cannot recreate a deleted Session.
       if (!(await this.dependencies.sessions.getSession(sessionId))) return false

@@ -34,9 +34,10 @@ const ThreadNameEdit = NiceModal.create((props: { sessionId: string; threadId: s
 
   const onSave = useCallback(async () => {
     if (!currentSession) return
-    await editThread(currentSession.id, threadId, { name: threadName })
+    const trimmed = threadName.trim()
+    await editThread(currentSession.id, threadId, { name: trimmed || currentThreadName })
     onClose()
-  }, [onClose, threadId, threadName, currentSession?.id, currentSession])
+  }, [onClose, threadId, threadName, currentThreadName, currentSession?.id, currentSession])
 
   const onContentInput = useCallback((e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
     setThreadName(e.target.value)

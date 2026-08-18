@@ -234,6 +234,18 @@ export {
   shouldShowConcurrentReplyStop,
 } from './session/action-gates'
 export {
+  type AutoTitleAction,
+  type AutoTitleSession,
+  backfillMissingThreadName,
+  DEFAULT_INBOX_SESSION_ID,
+  DEFAULT_INBOX_SESSION_NAME,
+  isDefaultInboxSession,
+  resolveAutoTitleAction,
+  sanitizeGeneratedSessionName,
+  shouldBackfillThreadName,
+  UNTITLED_SESSION_NAME,
+} from './session/auto-title'
+export {
   countCancellableGeneratingAssistantMessages,
   getConversationMessages,
   getCurrentConversationMessages,

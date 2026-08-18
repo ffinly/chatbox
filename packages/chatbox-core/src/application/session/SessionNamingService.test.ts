@@ -81,6 +81,7 @@ function createHarness() {
     getSession,
     updateSession,
     toModelMessages,
+    settings,
     get session() {
       return session
     },
@@ -206,6 +207,76 @@ describe('SessionNamingService', () => {
     expect(harness.updateSession).not.toHaveBeenCalled()
     harness.service.scheduleNameAndThreadName('session-1')
     expect(harness.scheduled).toHaveLength(2)
+  })
+
+  test('strips multiline think blocks before persisting a generated name', async () => {
+    const harness = createHarness()
+    harness.chat.mockResolvedValueOnce({
+      contentParts: [{ type: 'text' as const, text: '<think>\nreason\nmore\n</think>\n周末计划' }],
+    })
+
+    await expect(harness.service.generateNameAndThreadName('session-1')).resolves.toBe(true)
+    expect(harness.session?.name).toBe('周末计划')
+  })
+
+  test('syncAutoTitle backfills a historical threadName without calling the model', async () => {
+    const harness = createHarness()
+    harness.setSession(createSession({ name: '北京旅行计划', threadName: undefined }))
+
+    harness.service.syncAutoTitle(harness.session!)
+    harness.service.syncAutoTitle(harness.session!)
+    await vi.waitFor(() => expect(harness.session?.threadName).toBe('北京旅行计划'))
+    expect(harness.updateSession).toHaveBeenCalledOnce()
+    expect(harness.chat).not.toHaveBeenCalled()
+    expect(harness.scheduled).toHaveLength(0)
+  })
+
+  test('syncAutoTitle backfills a cleared historical session to pending instead of the old name', async () => {
+    const harness = createHarness()
+    harness.setSession(
+      createSession({
+        name: '北京旅行计划',
+        threadName: undefined,
+        messages: [{ id: 'system', role: 'system', contentParts: [{ type: 'text', text: 'System' }] }],
+      })
+    )
+
+    harness.service.syncAutoTitle(harness.session!)
+    await vi.waitFor(() => expect(harness.session?.threadName).toBe(''))
+    expect(harness.chat).not.toHaveBeenCalled()
+  })
+
+  test('syncAutoTitle still migrates threadName when auto titles are disabled', async () => {
+    const harness = createHarness()
+    harness.settings.autoGenerateTitle = false
+    harness.setSession(createSession({ name: '北京旅行计划', threadName: undefined }))
+
+    harness.service.syncAutoTitle(harness.session!)
+    await vi.waitFor(() => expect(harness.session?.threadName).toBe('北京旅行计划'))
+    expect(harness.scheduled).toHaveLength(0)
+    expect(harness.chat).not.toHaveBeenCalled()
+  })
+
+  test('syncAutoTitle schedules thread naming for a newly named pending session', () => {
+    const harness = createHarness()
+    harness.setSession(createSession({ name: 'Travel planner', threadName: '' }))
+
+    harness.service.syncAutoTitle(harness.session!)
+
+    expect(harness.scheduled).toHaveLength(1)
+    expect(harness.session?.threadName).toBe('')
+    expect(harness.chat).not.toHaveBeenCalled()
+  })
+
+  test('syncAutoTitle schedules Untitled naming and skips when the setting is off', () => {
+    const harness = createHarness()
+    harness.service.syncAutoTitle(harness.session!)
+    expect(harness.scheduled).toHaveLength(1)
+
+    const disabled = createHarness()
+    disabled.settings.autoGenerateTitle = false
+    disabled.service.syncAutoTitle(disabled.session!)
+    expect(disabled.scheduled).toHaveLength(0)
   })
 
   test('cancels pending work and clears retry state when a Session is deleted', () => {

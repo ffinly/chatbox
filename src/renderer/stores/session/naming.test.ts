@@ -1,16 +1,13 @@
-import type { Message } from '@shared/types'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-  scheduleNameAndThreadName: vi.fn(),
-  scheduleThreadName: vi.fn(),
+  syncAutoTitle: vi.fn(),
   clearSessionState: vi.fn(),
 }))
 
 vi.mock('@chatbox/core/application/session', () => ({
   SessionNamingService: class {
-    scheduleNameAndThreadName = mocks.scheduleNameAndThreadName
-    scheduleThreadName = mocks.scheduleThreadName
+    syncAutoTitle = mocks.syncAutoTitle
     clearSessionState = mocks.clearSessionState
     modifyNameAndThreadName = vi.fn()
     modifyThreadName = vi.fn()
@@ -28,25 +25,24 @@ vi.mock('@/app/renderer-application', () => ({
   },
 }))
 
-import {
-  clearSessionNameGenerationState,
-  scheduleGenerateNameAndThreadName,
-  scheduleGenerateThreadName,
-} from './naming'
+import { clearSessionNameGenerationState, syncSessionAutoTitle } from './naming'
 
 describe('Session naming Renderer adapter', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('forwards current messages to the shared naming scheduler', () => {
-    const messages: Message[] = [{ id: 'user', role: 'user', contentParts: [{ type: 'text', text: 'hello' }] }]
+  it('forwards the current session to syncAutoTitle', () => {
+    const session = {
+      id: 'session-1',
+      name: 'Untitled',
+      type: 'chat' as const,
+      messages: [{ id: 'user', role: 'user' as const, contentParts: [{ type: 'text' as const, text: 'hello' }] }],
+    }
 
-    scheduleGenerateNameAndThreadName('session-1', { messages })
-    scheduleGenerateThreadName('session-1', { messages })
+    syncSessionAutoTitle(session)
 
-    expect(mocks.scheduleNameAndThreadName).toHaveBeenCalledWith('session-1', { messages })
-    expect(mocks.scheduleThreadName).toHaveBeenCalledWith('session-1', { messages })
+    expect(mocks.syncAutoTitle).toHaveBeenCalledWith(session, { messages: session.messages })
   })
 
   it('delegates deletion cleanup to the shared naming service', () => {

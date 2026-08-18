@@ -104,7 +104,9 @@ export class SessionService {
         type: 'session-updated',
         session: result.session,
         meta: null,
-        preserveCachedGeneratingMessages: false,
+        // A first read can overlap a streaming cache update. Keep in-flight
+        // chunks; the merge only maps over messages that still exist.
+        preserveCachedGeneratingMessages: true,
       })
       return result.session
     } catch (error) {
@@ -173,6 +175,9 @@ export class SessionService {
     const session: Session = {
       ...newSession,
       id: this.options.createId(),
+      // Pending auto-title — not `undefined`, which means a historical field
+      // is missing and would be backfilled from `name` (including a copilot name).
+      threadName: newSession.threadName ?? '',
       settings: {
         ...(newSession.type === 'picture' ? lastUsedModels.picture : lastUsedModels.chat),
         ...newSession.settings,

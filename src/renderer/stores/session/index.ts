@@ -78,8 +78,7 @@ export {
 export {
   modifyNameAndThreadName,
   modifyThreadName,
-  scheduleGenerateNameAndThreadName,
-  scheduleGenerateThreadName,
+  syncSessionAutoTitle,
 } from './naming'
 export { getOCRModel, ocrImagesInMessages } from './ocr-helper'
 // Thread operations (9 functions)

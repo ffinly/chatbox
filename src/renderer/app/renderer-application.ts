@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 
+import { backfillMissingThreadName } from '@chatbox/core'
 import { createChatQueryClient } from '@chatbox/react'
 import { v4 as uuidv4 } from 'uuid'
 import { CurrentSessionRepository } from '@/adapters/CurrentSessionRepository'
@@ -45,7 +46,11 @@ const common: Omit<CreateRendererApplicationOptions, 'host'> = {
     logger: getLogger('session-service'),
     repairSessionOnRead: (session) => {
       const recovery = recoverSessionOnLoad(session)
-      return { session: recovery.session, changed: recovery.recoveredStaleGeneration }
+      const backfill = backfillMissingThreadName(recovery.session)
+      return {
+        session: backfill.session,
+        changed: recovery.recoveredStaleGeneration || backfill.changed,
+      }
     },
   },
   settingsLogger: getLogger('settings-service'),

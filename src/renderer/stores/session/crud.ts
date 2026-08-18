@@ -179,7 +179,7 @@ async function copySession(
     threads: newThreads,
     messageForksHash: newMessageForksHash,
     compactionPoints: newCompactionPoints?.length ? newCompactionPoints : undefined,
-    ...(sourceMeta.threadName ? { threadName: sourceMeta.threadName } : {}),
+    ...('threadName' in sourceMeta ? { threadName: sourceMeta.threadName ?? '' } : {}),
     // Explicit settings override (e.g. a promoted thread carrying its own
     // frozen persona snapshot); otherwise the source session's settings apply.
     ...('settings' in sourceMeta ? { settings: sourceMeta.settings } : {}),
@@ -337,6 +337,9 @@ export async function clear(sessionId: string) {
     messages: session.messages.filter((m) => m.role === 'system').slice(0, 1),
     threads: undefined,
     messageForksHash: undefined,
+    // Pending title for the next conversation — not `undefined`, which
+    // means "historical field missing" and would be backfilled to `name`.
+    threadName: '',
   })
   clearSessionActivity(session.id)
   return updated

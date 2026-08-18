@@ -1,9 +1,9 @@
 import type { SessionApplicationEvent, SessionEventBus } from '@chatbox/core/application/session'
+import { rendererApplication } from '@/app/renderer-application'
 import { clearScrollPositionCache } from '@/components/chat/MessageList'
 import platform from '@/platform'
 import { cleanupSessionAtomCache } from '@/stores/atoms/throttleWriteSessionAtom'
-import { rendererApplication } from '@/app/renderer-application'
-import { clearSessionNameGenerationState } from '@/stores/session/naming'
+import { clearSessionNameGenerationState, syncSessionAutoTitle } from '@/stores/session/naming'
 import { clearSessionActivity } from '@/stores/sessionActivityStore'
 import { uiStore } from '@/stores/uiStore'
 
@@ -47,6 +47,17 @@ export function registerSessionUiEffects(events: SessionEventBus): () => void {
         rendererApplication.generationRuntime.abort(sessionId, undefined, 'session-deleted')
       }
       await cleanupAttachmentRagEntries(event)
+      return
+    }
+    if (event.type === 'session-updated' && event.session) {
+      // Naming reacts to persisted user/message writes only. Read-repair
+      // publishes (meta: null) must not re-enter naming — bulk readers like
+      // the startup RAG maintenance sweep and recoverSessionList touch every
+      // session — and hidden/archived sessions (bulk archive fan-out) must
+      // not trigger backfill writes or naming model calls either.
+      if (event.meta && !event.session.hidden) {
+        syncSessionAutoTitle(event.session)
+      }
       return
     }
     if (event.type === 'session-deleted') {

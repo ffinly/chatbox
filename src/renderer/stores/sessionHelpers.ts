@@ -939,6 +939,7 @@ export function initEmptyChatSession(): Omit<Session, 'id'> {
   const newSession: Omit<Session, 'id'> = {
     name: 'Untitled',
     type: 'chat',
+    threadName: '',
     messages: [],
     settings: {
       maxContextMessageCount: settings.maxContextMessageCount ?? Number.MAX_SAFE_INTEGER,

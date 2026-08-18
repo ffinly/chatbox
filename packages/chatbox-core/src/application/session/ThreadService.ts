@@ -157,7 +157,7 @@ export class ThreadService {
       name: target.name,
       messages: target.messages,
       threads: [],
-      threadName: undefined,
+      threadName: target.name,
       messageForksHash: session.messageForksHash,
       compactionPoints: target.compactionPoints,
       settings: session.settings
@@ -204,7 +204,9 @@ export class ThreadService {
       const update: Session = {
         ...current,
         messages: current.messages.filter((message) => message.role === 'system').slice(0, 1),
-        threadName: undefined,
+        // Pending title for the next conversation — not `undefined`, which
+        // means "historical field missing" and would be backfilled to `name`.
+        threadName: '',
         compactionPoints: undefined,
         settings: current.settings
           ? { ...current.settings, sessionPromptContextSnapshot: undefined }
@@ -231,7 +233,9 @@ export class ThreadService {
       name: session.threadName || session.name,
       messages: session.messages,
       threads: [],
-      threadName: undefined,
+      // A still-pending thread ('') stays pending in the promoted copy so it
+      // keeps its first-reply AI naming instead of freezing the session name.
+      threadName: session.threadName ?? '',
       messageForksHash: session.messageForksHash,
     })
     await this.removeCurrentFromSession(session.id)

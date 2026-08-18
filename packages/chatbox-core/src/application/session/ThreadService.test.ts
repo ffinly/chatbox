@@ -188,7 +188,7 @@ describe('ThreadService', () => {
       name: 'History',
       messages: historyMessages,
       threads: [],
-      threadName: undefined,
+      threadName: 'History',
       settings: { sessionPromptContextSnapshot: historySnapshot },
     })
     expect(harness.session.threads).toEqual([])
@@ -207,6 +207,7 @@ describe('ThreadService', () => {
     await expect(harness.service.removeCurrent('session-1')).resolves.toBe(true)
 
     expect(harness.cancelMessages).toHaveBeenCalledWith('session-1', currentMessages)
+    expect(harness.session.threadName).toBe('')
   })
 
   test('cancels inactive fork replies when replacing the current conversation', async () => {

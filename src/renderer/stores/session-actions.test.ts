@@ -281,6 +281,7 @@ describe('session message cleanup', () => {
       messages: [],
       threads: undefined,
       messageForksHash: undefined,
+      threadName: '',
     })
     expect(sessionActivityStore.getState().unreadCompletedSessionIds[session.id]).toBeUndefined()
   })

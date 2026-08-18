@@ -1,11 +1,11 @@
-import type { Message } from '@chatbox/core'
+import type { Session } from '@chatbox/core'
 import { SessionNamingService } from '@chatbox/core/application/session'
 import { currentModelFactory } from '@/adapters/CurrentModelFactory'
+import { rendererApplication } from '@/app/renderer-application'
 import { languageNameMap } from '@/i18n/locales'
 import { convertToModelMessages } from '@/packages/model-calls/message-utils'
 import { settingsService } from '@/settings-runtime'
 import { reportError } from '@/utils/sentry'
-import { rendererApplication } from '@/app/renderer-application'
 
 const namingService = new SessionNamingService({
   sessions: {
@@ -39,16 +39,8 @@ export function modifyThreadName(sessionId: string, threadName: string) {
   return namingService.modifyThreadName(sessionId, threadName)
 }
 
-export type ScheduleNameGenerationOptions = {
-  messages?: Message[]
-}
-
-export function scheduleGenerateNameAndThreadName(sessionId: string, options?: ScheduleNameGenerationOptions) {
-  namingService.scheduleNameAndThreadName(sessionId, { messages: options?.messages })
-}
-
-export function scheduleGenerateThreadName(sessionId: string, options?: ScheduleNameGenerationOptions) {
-  namingService.scheduleThreadName(sessionId, { messages: options?.messages })
+export function syncSessionAutoTitle(session: Session) {
+  namingService.syncAutoTitle(session, { messages: session.messages })
 }
 
 export function clearSessionNameGenerationState(sessionId: string): void {
