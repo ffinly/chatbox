@@ -1,3 +1,4 @@
+import { uniqueSessionRecords } from '@chatbox/core/utils/session-sort'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import type { SessionQueryDefinitions } from './session-query-options'
@@ -13,7 +14,10 @@ export function createSessionHooks(definitions: SessionQueryDefinitions) {
 
   function useSessionList() {
     const result = useInfiniteQuery(definitions.sessions)
-    const sessionMetaList = useMemo(() => result.data?.pages.flatMap((page) => page.items), [result.data])
+    const sessionMetaList = useMemo(
+      () => (result.data ? uniqueSessionRecords(result.data.pages.flatMap((page) => page.items)) : undefined),
+      [result.data]
+    )
     return {
       sessionMetaList,
       refetch: result.refetch,
@@ -25,7 +29,10 @@ export function createSessionHooks(definitions: SessionQueryDefinitions) {
 
   function useArchivedSessionList() {
     const result = useInfiniteQuery(definitions.archivedSessions)
-    const archivedSessionMetaList = useMemo(() => result.data?.pages.flatMap((page) => page.items), [result.data])
+    const archivedSessionMetaList = useMemo(
+      () => (result.data ? uniqueSessionRecords(result.data.pages.flatMap((page) => page.items)) : undefined),
+      [result.data]
+    )
     return {
       archivedSessionMetaList,
       refetch: result.refetch,

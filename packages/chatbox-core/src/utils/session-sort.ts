@@ -7,6 +7,19 @@ export function areSessionsInSamePinGroup(
   return first !== undefined && second !== undefined && (first.starred === true) === (second.starred === true)
 }
 
+export function uniqueSessionRecords<T extends { id: string }>(records: T[]): T[] {
+  const seen = new Set<string>()
+  const unique: T[] = []
+  for (const record of records) {
+    if (seen.has(record.id)) {
+      continue
+    }
+    seen.add(record.id)
+    unique.push(record)
+  }
+  return unique
+}
+
 /**
  * Session list ordering shared by the renderer sidebar and the native mobile
  * drawer: hidden sessions are dropped, starred sessions pin to the top, the

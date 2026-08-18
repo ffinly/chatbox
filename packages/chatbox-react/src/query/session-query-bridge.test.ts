@@ -12,7 +12,7 @@ import { InMemorySessionRepository } from '@chatbox/core/testing'
 import { QueryClient } from '@tanstack/react-query'
 import { describe, expect, test, vi } from 'vitest'
 import { QueryKeys } from './query-keys'
-import { type InfiniteSessionData, SessionQueryBridge } from './session-query-bridge'
+import { applySessionListUpdate, type InfiniteSessionData, SessionQueryBridge } from './session-query-bridge'
 import { createSessionQueryDefinitions } from './session-query-options'
 
 function createTestSession(id: string): Session {
@@ -234,6 +234,296 @@ describe('SessionQueryBridge', () => {
           contentParts: [{ type: 'text', text: 'new streaming content' }],
         },
       ],
+    })
+  })
+
+  test('unpinning a session reloads the first page so later pages do not duplicate it', async () => {
+    const repository = new InMemorySessionRepository()
+    const pinned = createTestSession('pinned-old')
+    pinned.starred = true
+    repository.sessions.set(pinned.id, pinned)
+    repository.records.set(pinned.id, { ...createTestRecord(pinned, 35), starred: true })
+    for (const sortOrder of [60, 50, 40, 30, 20]) {
+      const session = createTestSession(`session-${sortOrder}`)
+      repository.sessions.set(session.id, session)
+      repository.records.set(session.id, createTestRecord(session, sortOrder))
+    }
+    const events = new SessionEventBus()
+    const service = createService(repository, events)
+    const queryClient = new QueryClient()
+    const bridge = new SessionQueryBridge(queryClient, service, events)
+
+    await queryClient.fetchInfiniteQuery(bridge.definitions.sessions)
+    expect(
+      queryClient.getQueryData<InfiniteSessionData>(QueryKeys.ChatSessionsList)?.pages[0].items.map(({ id }) => id)
+    ).toEqual(['pinned-old', 'session-60'])
+
+    await service.updateSession(pinned.id, { starred: false })
+
+    const cached = queryClient.getQueryData<InfiniteSessionData>(QueryKeys.ChatSessionsList)
+    expect(cached?.pages).toHaveLength(1)
+    expect(cached?.pages[0].items.map(({ id }) => id)).toEqual(['session-60', 'session-50'])
+    expect(cached?.pages[0].nextCursor).toBe(2)
+
+    const nextPage = await service.listSessionsMetaPage(cached?.pages[0].nextCursor ?? 0)
+    const mergedIds = [...(cached?.pages[0].items ?? []), ...nextPage.items].map(({ id }) => id)
+    expect(mergedIds).toEqual(['session-60', 'session-50', 'session-40', 'pinned-old'])
+    expect(new Set(mergedIds).size).toBe(mergedIds.length)
+  })
+
+  test('name-only updates keep already loaded sessions instead of resetting to the first page', async () => {
+    const repository = new InMemorySessionRepository()
+    for (const sortOrder of [4, 3, 2, 1]) {
+      const session = createTestSession(`session-${sortOrder}`)
+      repository.sessions.set(session.id, session)
+      repository.records.set(session.id, createTestRecord(session, sortOrder))
+    }
+    const events = new SessionEventBus()
+    const service = createService(repository, events)
+    const queryClient = new QueryClient()
+    const bridge = new SessionQueryBridge(queryClient, service, events)
+
+    await queryClient.fetchInfiniteQuery(bridge.definitions.sessions)
+    const record = (id: string) => {
+      const value = repository.records.get(id)
+      if (!value) {
+        throw new Error(`Missing session record ${id}`)
+      }
+      return value
+    }
+    queryClient.setQueryData<InfiniteSessionData>(QueryKeys.ChatSessionsList, {
+      pages: [
+        {
+          items: [record('session-4'), record('session-3')],
+          nextCursor: 2,
+          total: 4,
+        },
+        {
+          items: [record('session-2'), record('session-1')],
+          nextCursor: null,
+          total: 4,
+        },
+      ],
+      pageParams: [0, 2],
+    })
+
+    await service.updateSession('session-4', { name: 'Renamed top session' })
+
+    const cached = queryClient.getQueryData<InfiniteSessionData>(QueryKeys.ChatSessionsList)
+    expect(cached?.pages[0].items.map(({ id }) => id)).toEqual(['session-4', 'session-3', 'session-2', 'session-1'])
+    expect(cached?.pages[0].items[0].name).toBe('Renamed top session')
+    expect(cached?.pages[0].nextCursor).toBeNull()
+  })
+
+  test('a stale pin-state refresh does not overwrite a newer list page', async () => {
+    const repository = new InMemorySessionRepository()
+    for (const [id, sortOrder] of [
+      ['pinned-a', 20],
+      ['pinned-b', 10],
+    ] as const) {
+      const session = createTestSession(id)
+      session.starred = true
+      repository.sessions.set(session.id, session)
+      repository.records.set(session.id, { ...createTestRecord(session, sortOrder), starred: true })
+    }
+    const events = new SessionEventBus()
+    const service = createService(repository, events)
+    const queryClient = new QueryClient()
+    const bridge = new SessionQueryBridge(queryClient, service, events)
+
+    await queryClient.fetchInfiniteQuery(bridge.definitions.sessions)
+
+    let releaseFirstRead = () => {}
+    const firstReadHeld = new Promise<void>((resolve) => {
+      releaseFirstRead = resolve
+    })
+    let firstReadStarted = () => {}
+    const firstReadHasStarted = new Promise<void>((resolve) => {
+      firstReadStarted = resolve
+    })
+    const originalListSessionsMetaPage = service.listSessionsMetaPage.bind(service)
+    let refreshReads = 0
+    vi.spyOn(service, 'listSessionsMetaPage').mockImplementation(async (cursor, limit) => {
+      refreshReads += 1
+      if (refreshReads === 1) {
+        firstReadStarted()
+        await firstReadHeld
+        return {
+          items: [
+            { ...createTestRecord(createTestSession('pinned-a'), 20) },
+            { ...createTestRecord(createTestSession('pinned-b'), 10), starred: true },
+          ],
+          nextCursor: null,
+          total: 2,
+        }
+      }
+      return originalListSessionsMetaPage(cursor, limit)
+    })
+
+    const firstUnpin = service.updateSession('pinned-a', { starred: false })
+    await firstReadHasStarted
+    const secondUnpin = service.updateSession('pinned-b', { starred: false })
+    await vi.waitFor(() => expect(repository.records.get('pinned-b')?.starred).toBe(false))
+    releaseFirstRead()
+    await Promise.all([firstUnpin, secondUnpin])
+
+    const cached = queryClient.getQueryData<InfiniteSessionData>(QueryKeys.ChatSessionsList)
+    expect(cached?.pages[0].items.map(({ id, starred }) => ({ id, starred: Boolean(starred) }))).toEqual([
+      { id: 'pinned-a', starred: false },
+      { id: 'pinned-b', starred: false },
+    ])
+  })
+
+  test('a pending pin-state refresh does not overwrite a later deletion', async () => {
+    const repository = new InMemorySessionRepository()
+    const pinned = createTestSession('pinned-old')
+    pinned.starred = true
+    repository.sessions.set(pinned.id, pinned)
+    repository.records.set(pinned.id, { ...createTestRecord(pinned, 35), starred: true })
+    for (const sortOrder of [60, 50]) {
+      const session = createTestSession(`session-${sortOrder}`)
+      repository.sessions.set(session.id, session)
+      repository.records.set(session.id, createTestRecord(session, sortOrder))
+    }
+    const events = new SessionEventBus()
+    const service = createService(repository, events)
+    const queryClient = new QueryClient()
+    const bridge = new SessionQueryBridge(queryClient, service, events)
+
+    await queryClient.fetchInfiniteQuery(bridge.definitions.sessions)
+
+    let releaseFirstRead = () => {}
+    const firstReadHeld = new Promise<void>((resolve) => {
+      releaseFirstRead = resolve
+    })
+    let firstReadStarted = () => {}
+    const firstReadHasStarted = new Promise<void>((resolve) => {
+      firstReadStarted = resolve
+    })
+    const originalListSessionsMetaPage = service.listSessionsMetaPage.bind(service)
+    let refreshReads = 0
+    vi.spyOn(service, 'listSessionsMetaPage').mockImplementation(async (cursor, limit) => {
+      refreshReads += 1
+      if (refreshReads === 1) {
+        firstReadStarted()
+        await firstReadHeld
+        return {
+          items: [
+            createTestRecord(createTestSession('session-60'), 60),
+            createTestRecord(createTestSession('session-50'), 50),
+          ],
+          nextCursor: 2,
+          total: 3,
+        }
+      }
+      return originalListSessionsMetaPage(cursor, limit)
+    })
+
+    const unpin = service.updateSession(pinned.id, { starred: false })
+    await firstReadHasStarted
+    await service.deleteSession('session-60')
+    releaseFirstRead()
+    await unpin
+
+    const cached = queryClient.getQueryData<InfiniteSessionData>(QueryKeys.ChatSessionsList)
+    expect(cached?.pages[0].items.map(({ id }) => id)).toEqual(['pinned-old'])
+    expect(cached?.pages[0].items.some((item) => item.id === 'session-60')).toBe(false)
+  })
+
+  test('retries a failed pin-state list refresh before giving up', async () => {
+    const repository = new InMemorySessionRepository()
+    const pinned = createTestSession('pinned-old')
+    pinned.starred = true
+    repository.sessions.set(pinned.id, pinned)
+    repository.records.set(pinned.id, { ...createTestRecord(pinned, 35), starred: true })
+    for (const sortOrder of [60, 50, 40]) {
+      const session = createTestSession(`session-${sortOrder}`)
+      repository.sessions.set(session.id, session)
+      repository.records.set(session.id, createTestRecord(session, sortOrder))
+    }
+    const events = new SessionEventBus()
+    const service = createService(repository, events)
+    const queryClient = new QueryClient()
+    const bridge = new SessionQueryBridge(queryClient, service, events)
+
+    await queryClient.fetchInfiniteQuery(bridge.definitions.sessions)
+    const originalListSessionsMetaPage = service.listSessionsMetaPage.bind(service)
+    let refreshReads = 0
+    vi.spyOn(service, 'listSessionsMetaPage').mockImplementation(async (cursor, limit) => {
+      refreshReads += 1
+      if (refreshReads === 1) {
+        throw new Error('transient list read failed')
+      }
+      return await originalListSessionsMetaPage(cursor, limit)
+    })
+
+    await service.updateSession(pinned.id, { starred: false })
+
+    const cached = queryClient.getQueryData<InfiniteSessionData>(QueryKeys.ChatSessionsList)
+    expect(cached?.pages[0].items.map(({ id }) => id)).toEqual(['session-60', 'session-50'])
+    expect(cached?.pages[0].nextCursor).toBe(2)
+    expect(queryClient.getQueryState(QueryKeys.ChatSessionsList)?.isInvalidated).toBe(false)
+  })
+
+  test('invalidates the list when pin-state refresh reads keep failing', async () => {
+    const repository = new InMemorySessionRepository()
+    const pinned = createTestSession('pinned-old')
+    pinned.starred = true
+    repository.sessions.set(pinned.id, pinned)
+    repository.records.set(pinned.id, { ...createTestRecord(pinned, 35), starred: true })
+    const regular = createTestSession('session-60')
+    repository.sessions.set(regular.id, regular)
+    repository.records.set(regular.id, createTestRecord(regular, 60))
+    const events = new SessionEventBus()
+    const service = createService(repository, events)
+    const queryClient = new QueryClient()
+    const bridge = new SessionQueryBridge(queryClient, service, events)
+
+    await queryClient.fetchInfiniteQuery(bridge.definitions.sessions)
+    const originalListSessionsMetaPage = service.listSessionsMetaPage.bind(service)
+    let failReads = true
+    vi.spyOn(service, 'listSessionsMetaPage').mockImplementation(async (cursor, limit) => {
+      if (failReads) {
+        throw new Error('persistent list read failed')
+      }
+      return await originalListSessionsMetaPage(cursor, limit)
+    })
+
+    await service.updateSession(pinned.id, { starred: false })
+
+    expect(queryClient.getQueryState(QueryKeys.ChatSessionsList)?.isInvalidated).toBe(true)
+
+    failReads = false
+    const refetched = await queryClient.fetchInfiniteQuery(bridge.definitions.sessions)
+    expect(refetched.pages[0].items.map(({ id }) => id)).toEqual(['session-60', 'pinned-old'])
+    expect(new Set(refetched.pages[0].items.map(({ id }) => id)).size).toBe(refetched.pages[0].items.length)
+  })
+})
+
+describe('applySessionListUpdate', () => {
+  test('dedupes overlapping pages and advances the cursor from the unique prefix', () => {
+    const first = createTestRecord(createTestSession('session-1'), 1)
+    const second = createTestRecord(createTestSession('session-2'), 2)
+    const updated = applySessionListUpdate(
+      {
+        pages: [
+          { items: [second, first], nextCursor: 2, total: 3 },
+          { items: [first], nextCursor: 3, total: 3 },
+        ],
+        pageParams: [0, 2],
+      },
+      (items) => items
+    )
+
+    expect(updated).toEqual({
+      pages: [
+        {
+          items: [second, first],
+          nextCursor: 2,
+          total: 3,
+        },
+      ],
+      pageParams: [0],
     })
   })
 })
