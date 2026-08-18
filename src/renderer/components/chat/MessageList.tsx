@@ -512,6 +512,12 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
             style={{ scrollbarGutter: 'stable' }}
             className={platformType === 'win32' ? 'scrollbar-custom' : ''}
             data={renderItems}
+            // MessageRenderItem already carries a stable key (message id / group ids).
+            // Without computeItemKey, Virtuoso reconciles by index and reuses DOM nodes
+            // across positions; when a message is inserted or removed mid-list (steering,
+            // fork switching, compaction), React's keyed inner <Stack> then tries to remove
+            // a node Virtuoso already moved, throwing "Failed to execute 'removeChild'".
+            computeItemKey={(_, item) => item.key}
             ref={virtuoso}
             followOutput={false}
             {...(sessionScrollPositionCache.has(currentSession.id)

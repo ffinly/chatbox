@@ -12,7 +12,6 @@ import clsx from 'clsx'
 import { type FC, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Toaster } from 'sonner'
-import { z } from 'zod'
 import { ScalableIcon } from '@/components/common/ScalableIcon'
 import SettingsKnowledgeBaseRouteComponent from '@/components/knowledge-base/KnowledgeBase'
 import { Modal } from '@/components/layout/Overlay'
@@ -39,100 +38,7 @@ import { RouteComponent as SettingsWebSearchRouteComponent } from '@/routes/sett
 
 export type SettingsModalProps = {}
 
-export const SettingsModal: FC<SettingsModalProps> = (props) => {
-  const { t } = useTranslation()
-  const location = useLocation()
-  const search = location.search as { settings?: string }
-  const { needRoomForMacWindowControls } = useNeedRoomForWinControls()
-
-  useEffect(() => {
-    if (search.settings) {
-      settingsModalHistory.replace(search.settings)
-    }
-  }, [search.settings])
-
-  const onClose = useCallback(() => {
-    const currentSearch = router.state.location.search as { settings?: string }
-    const { settings: _, ...otherSearch } = currentSearch
-    router.navigate({
-      to: router.state.location.pathname as '/',
-      search: otherSearch,
-    })
-  }, [])
-
-  return (
-    <Modal
-      opened={!!search.settings}
-      onClose={onClose}
-      // size="1200"
-      fullScreen={true}
-      centered
-      size="100%"
-      // title={<Title order={3}>{t('Settings')}</Title>}
-      withCloseButton={false}
-      classNames={{
-        content: clsx('h-full'),
-        header: 'hidden',
-        body: clsx('!p-0 flex-1  flex flex-col h-full'),
-      }}
-      transitionProps={{ transition: 'fade-up' }}
-    >
-      <Flex flex="0 0 auto" className="title-bar border-0 border-b border-chatbox-border-primary border-solid">
-        <div className={clsx('flex-[1_1_0]', needRoomForMacWindowControls ? 'min-w-16' : '')} />
-        <Flex p="sm" align="center" w={'100%'} maw={1200} gap="xs">
-          <Title order={3} flex={1}>
-            {t('Settings')}
-          </Title>
-
-          <Text c="chatbox-tertiary" size="xs">
-            ESC
-          </Text>
-          <Button
-            className="controls"
-            color="chatbox-secondary"
-            variant="light"
-            h={36}
-            w={36}
-            p={0}
-            radius="lg"
-            onClick={onClose}
-            autoFocus={false}
-          >
-            <ScalableIcon icon={IconX} size={20} />
-          </Button>
-        </Flex>
-        <div className={clsx('flex-[1_1_0]')} />
-      </Flex>
-      <Box flex={1} w="100%" maw={1200} mx="auto" className="overflow-auto">
-        <RouterProvider router={modalRouter} />
-      </Box>
-      <Toaster richColors position="bottom-center" style={{ zIndex: 2147483647 }} />
-    </Modal>
-  )
-}
-
-export default SettingsModal
-
-export function navigateToSettings(path?: string) {
-  if (window.matchMedia(`(max-width:${getThemeDesign('light', 'en').breakpoints?.values?.sm || 640}px)`).matches) {
-    router.navigate({
-      to: `/settings${path ? (path.startsWith('/') ? path : `/${path}`) : ''}` as '/settings',
-    })
-  } else {
-    router.navigate({
-      to: router.state.location.pathname as '/',
-      search: {
-        settings: `/settings${path ? (path.startsWith('/') ? path : `/${path}`) : ''}`,
-      },
-      mask: {
-        to: '/settings',
-      },
-    })
-  }
-}
-
 const RootRoute = createRootRoute({
-  validateSearch: z.object({}),
   component: SettingsRoot,
 })
 
@@ -263,10 +169,104 @@ const routeTree = RootRoute.addChildren([
 
 const settingsModalHistory = createMemoryHistory()
 
-// memoryHistory.location.href = '/about'
+// The modal router and its route tree must be initialized before SettingsModal
+// is defined. SettingsModal renders <RouterProvider router={modalRouter} />, and
+// the Settings <-> KnowledgeBase <-> Settings circular import means this module
+// can be partially evaluated (e.g. on HMR). Declaring modalRouter first keeps
+// the component from reading a binding that is still in its temporal dead zone.
 const modalRouter = createRouter({
   routeTree,
   history: settingsModalHistory,
   defaultPreload: 'intent',
   scrollRestoration: true,
 })
+
+export const SettingsModal: FC<SettingsModalProps> = (props) => {
+  const { t } = useTranslation()
+  const location = useLocation()
+  const { needRoomForMacWindowControls } = useNeedRoomForWinControls()
+
+  useEffect(() => {
+    if (location.search.settings) {
+      settingsModalHistory.replace(location.search.settings)
+    }
+  }, [location.search.settings])
+
+  const onClose = useCallback(() => {
+    const { settings: _, ...otherSearch } = router.state.location.search
+    router.navigate({
+      to: router.state.location.pathname,
+      search: otherSearch,
+    })
+  }, [])
+
+  return (
+    <Modal
+      opened={!!location.search.settings}
+      onClose={onClose}
+      // size="1200"
+      fullScreen={true}
+      centered
+      size="100%"
+      // title={<Title order={3}>{t('Settings')}</Title>}
+      withCloseButton={false}
+      classNames={{
+        content: clsx('h-full'),
+        header: 'hidden',
+        body: clsx('!p-0 flex-1  flex flex-col h-full'),
+      }}
+      transitionProps={{ transition: 'fade-up' }}
+    >
+      <Flex flex="0 0 auto" className="title-bar border-0 border-b border-chatbox-border-primary border-solid">
+        <div className={clsx('flex-[1_1_0]', needRoomForMacWindowControls ? 'min-w-16' : '')} />
+        <Flex p="sm" align="center" w={'100%'} maw={1200} gap="xs">
+          <Title order={3} flex={1}>
+            {t('Settings')}
+          </Title>
+
+          <Text c="chatbox-tertiary" size="xs">
+            ESC
+          </Text>
+          <Button
+            className="controls"
+            color="chatbox-secondary"
+            variant="light"
+            h={36}
+            w={36}
+            p={0}
+            radius="lg"
+            onClick={onClose}
+            autoFocus={false}
+          >
+            <ScalableIcon icon={IconX} size={20} />
+          </Button>
+        </Flex>
+        <div className={clsx('flex-[1_1_0]')} />
+      </Flex>
+      <Box flex={1} w="100%" maw={1200} mx="auto" className="overflow-auto">
+        <RouterProvider router={modalRouter} />
+      </Box>
+      <Toaster richColors position="bottom-center" style={{ zIndex: 2147483647 }} />
+    </Modal>
+  )
+}
+
+export default SettingsModal
+
+export function navigateToSettings(path?: string) {
+  if (window.matchMedia(`(max-width:${getThemeDesign('light', 'en').breakpoints?.values?.sm || 640}px)`).matches) {
+    router.navigate({
+      to: `/settings${path ? (path.startsWith('/') ? path : `/${path}`) : ''}`,
+    })
+  } else {
+    router.navigate({
+      to: router.state.location.pathname,
+      search: {
+        settings: `/settings${path ? (path.startsWith('/') ? path : `/${path}`) : ''}`,
+      },
+      mask: {
+        to: '/settings',
+      },
+    })
+  }
+}
