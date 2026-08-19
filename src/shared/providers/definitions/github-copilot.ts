@@ -1,5 +1,5 @@
-import { ModelProviderType } from '../../types'
 import { createCopilotOAuthFetch, createOAuthCredentialManager } from '../../oauth'
+import { ModelProviderType } from '../../types'
 import { defineProvider } from '../registry'
 import OpenAI from './models/openai'
 
@@ -22,46 +22,40 @@ export const githubCopilotProvider = defineProvider({
     apiHost: COPILOT_API_HOST,
     models: [
       {
-        modelId: 'gpt-4o',
-        capabilities: ['vision', 'tool_use'],
-        contextWindow: 128_000,
-        maxOutput: 4_096,
-      },
-      {
-        modelId: 'gpt-4o-mini',
-        capabilities: ['vision', 'tool_use'],
-        contextWindow: 128_000,
-        maxOutput: 4_096,
-      },
-      {
-        modelId: 'o4-mini',
-        capabilities: ['vision', 'tool_use', 'reasoning'],
-        contextWindow: 200_000,
-        maxOutput: 100_000,
-      },
-      {
-        modelId: 'o3-mini',
-        capabilities: ['vision', 'tool_use', 'reasoning'],
-        contextWindow: 200_000,
-        maxOutput: 200_000,
-      },
-      {
-        modelId: 'claude-sonnet-4',
+        modelId: 'gpt-5.6-sol',
         capabilities: ['vision', 'reasoning', 'tool_use'],
-        contextWindow: 200_000,
-        maxOutput: 64_000,
       },
       {
-        modelId: 'claude-haiku-3.5',
-        capabilities: ['vision', 'tool_use'],
-        contextWindow: 200_000,
-        maxOutput: 8_192,
+        modelId: 'gpt-5.6-terra',
+        capabilities: ['vision', 'reasoning', 'tool_use'],
       },
       {
-        modelId: 'gemini-2.0-flash',
-        capabilities: ['vision', 'tool_use'],
-        contextWindow: 1_048_576,
-        maxOutput: 8_192,
+        modelId: 'gpt-5.6-luna',
+        capabilities: ['vision', 'tool_use', 'reasoning'],
+      },
+      {
+        modelId: 'gpt-5.3-codex',
+        capabilities: ['vision', 'reasoning', 'tool_use'],
+      },
+      {
+        modelId: 'claude-sonnet-5',
+        capabilities: ['vision', 'reasoning', 'tool_use'],
+      },
+      {
+        modelId: 'claude-haiku-4.5',
+        capabilities: ['vision', 'reasoning', 'tool_use'],
+      },
+      {
+        modelId: 'gemini-3.6-flash',
+        capabilities: ['vision', 'reasoning', 'tool_use'],
+      },
+      {
+        modelId: 'gemini-3.7-flash',
+        capabilities: ['vision', 'reasoning', 'tool_use'],
+      },
+      {
+        modelId: 'kimi-k2.7-code',
+        capabilities: ['vision', 'reasoning', 'tool_use'],
       },
     ],
   },
