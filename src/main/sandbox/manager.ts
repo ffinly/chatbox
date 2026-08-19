@@ -598,13 +598,21 @@ function contentToFileBuffer(content: string): Buffer {
   return Buffer.from(content, 'utf-8')
 }
 
+/**
+ * View a Buffer's bytes as a plain Uint8Array. Node types `Buffer.buffer` as
+ * `ArrayBufferLike`, which no longer satisfies the `Uint8Array` parameters of
+ * `fs.writeFile` and `Buffer#equals`, so byte APIs take this zero-copy view.
+ */
+function toByteView(buffer: Buffer): Uint8Array {
+  return new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength)
+}
+
 async function writeContentToFile(targetPath: string, content: string): Promise<void> {
   const parentDir = path.dirname(targetPath)
   if (!existsSync(parentDir)) {
     mkdirSync(parentDir, { recursive: true })
   }
-  const buffer = contentToFileBuffer(content)
-  await fsWriteFile(targetPath, new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength))
+  await fsWriteFile(targetPath, toByteView(contentToFileBuffer(content)))
 }
 
 // ─── Sandbox lifecycle ───────────────────────────────────────────────
@@ -1985,7 +1993,7 @@ async function seedAttachmentBlob(
     // name; relocate the incoming blob, keeping the working copy if there is nowhere
     // else for the blob to go.
     const existing = await fsReadFile(targetPath)
-    if (contentToFileBuffer(content).equals(existing)) {
+    if (contentToFileBuffer(content).equals(toByteView(existing))) {
       recordAttachmentSeed(workDir, seedKey, blobKey)
       return { success: true, sandboxPath: targetPath }
     }
