@@ -26,7 +26,7 @@ vi.mock('@/app/renderer-application', () => ({
   },
 }))
 vi.mock('@/platform', () => ({ default: { isDesktopLike: false } }))
-vi.mock('@/router', () => ({ router: { navigate: vi.fn() } }))
+vi.mock('@/router', () => ({ router: { navigate: vi.fn() }, navigateToDynamicPath: vi.fn() }))
 vi.mock('@/storage/SessionMetaStorage', () => ({ sortSessionRecords: vi.fn((records: unknown) => records) }))
 vi.mock('../atoms', () => ({}))
 vi.mock('../scrollActions', () => ({}))

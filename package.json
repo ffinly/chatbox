@@ -52,7 +52,7 @@
     "eval:session-rag:chatbox": "node scripts/session-rag-eval/run-chatbox-flow-eval.mjs",
     "lint": "biome lint .",
     "lint:fix": "biome lint . --write",
-    "check": "node --max-old-space-size=8192 ./node_modules/typescript/bin/tsc --noEmit",
+    "check": "node scripts/generate-routes.mjs && node --max-old-space-size=8192 ./node_modules/typescript/bin/tsc --noEmit",
     "check:packages": "pnpm --filter @chatbox/core check && pnpm --filter @chatbox/react check",
     "format": "biome format --write",
     "check:biome": "biome check",

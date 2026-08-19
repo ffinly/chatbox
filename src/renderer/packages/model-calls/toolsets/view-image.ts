@@ -217,10 +217,17 @@ function boundToolResultImages(messages: ModelMessage[], limit: number): ModelMe
       const omittedFilePaths = omittedFilePathsByToolMessage.get(messageIndex) ?? []
       for (let partIndex = message.content.length - 1; partIndex >= 0; partIndex -= 1) {
         const part = message.content[partIndex]
-        if (part.output.type !== 'content') {
-          if (part.output.type === 'text') {
+        // Tool messages also carry approval responses, which have no output to bound.
+        if (part.type !== 'tool-result') {
+          boundedContent.unshift(part)
+          continue
+        }
+        const output = part.output
+        if (output.type !== 'content') {
+          if (output.type === 'text') {
+            const outputText = output.value
             const omittedPathIndex = omittedFilePaths.findIndex((filePath) =>
-              part.output.value.startsWith(`Viewed image: ${filePath}. The image is attached`)
+              outputText.startsWith(`Viewed image: ${filePath}. The image is attached`)
             )
             if (omittedPathIndex >= 0) {
               const [filePath] = omittedFilePaths.splice(omittedPathIndex, 1)
@@ -237,9 +244,9 @@ function boundToolResultImages(messages: ModelMessage[], limit: number): ModelMe
           boundedContent.unshift(part)
           continue
         }
-        const boundedValue = [] as typeof part.output.value
-        for (let valueIndex = part.output.value.length - 1; valueIndex >= 0; valueIndex -= 1) {
-          const valuePart = part.output.value[valueIndex]
+        const boundedValue = [] as typeof output.value
+        for (let valueIndex = output.value.length - 1; valueIndex >= 0; valueIndex -= 1) {
+          const valuePart = output.value[valueIndex]
           if (valuePart.type !== 'image-data') {
             boundedValue.unshift(valuePart)
             continue
@@ -249,7 +256,7 @@ function boundToolResultImages(messages: ModelMessage[], limit: number): ModelMe
             remainingImages -= 1
           }
         }
-        boundedContent.unshift({ ...part, output: { ...part.output, value: boundedValue } })
+        boundedContent.unshift({ ...part, output: { ...output, value: boundedValue } })
       }
       reversedMessages.push({ ...message, content: boundedContent })
       continue

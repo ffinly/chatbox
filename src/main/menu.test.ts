@@ -69,7 +69,7 @@ describe('desktop context menu', () => {
       selectionText: '',
       x: 12,
       y: 34,
-    } as ContextMenuParams)
+    } as unknown as ContextMenuParams)
 
     expect(event.preventDefault).not.toHaveBeenCalled()
     expect(mocks.buildFromTemplate).toHaveBeenCalledTimes(2)
@@ -96,7 +96,7 @@ describe('desktop context menu', () => {
         selectionText: 'selected text',
         x: 12,
         y: 34,
-      } as ContextMenuParams
+      } as unknown as ContextMenuParams
     )
 
     const contextMenuTemplate = mocks.buildFromTemplate.mock.calls[1][0]
@@ -119,7 +119,7 @@ describe('desktop context menu', () => {
       selectionText: '',
       x: 12,
       y: 34,
-    } as ContextMenuParams)
+    } as unknown as ContextMenuParams)
 
     expect(event.preventDefault).toHaveBeenCalledOnce()
     expect(mocks.buildFromTemplate).toHaveBeenCalledOnce()

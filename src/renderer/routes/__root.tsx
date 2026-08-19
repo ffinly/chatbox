@@ -48,6 +48,7 @@ import useScreenChange, { useSidebarWidth } from '@/hooks/useScreenChange'
 import useShortcut from '@/hooks/useShortcut'
 import useVersion from '@/hooks/useVersion'
 import '@/modals'
+import { rendererApplication } from '@/app/renderer-application'
 import DbSchemaGuardDialog from '@/components/DbSchemaGuardDialog'
 import SettingsModal from '@/modals/Settings'
 import { navigateToSettings } from '@/modals/settings-navigation'
@@ -58,13 +59,13 @@ import PictureDialog from '@/pages/PictureDialog'
 import RemoteDialogWindow from '@/pages/RemoteDialogWindow'
 import SearchDialog from '@/pages/SearchDialog'
 import platform from '@/platform'
-import { router } from '@/router'
+import { getSettingsSearchParam, navigateToDynamicPath, router } from '@/router'
 import Sidebar from '@/Sidebar'
 import storage from '@/storage'
 import * as atoms from '@/stores/atoms'
-import { rendererApplication } from '@/app/renderer-application'
 
 const useSession = (sessionId: string | null) => rendererApplication.sessionHooks.useSession(sessionId)
+
 import { initOnboardingStore, onboardingStore } from '@/stores/onboardingStore'
 import * as premiumActions from '@/stores/premiumActions'
 import * as settingActions from '@/stores/settingActions'
@@ -259,11 +260,9 @@ function Root() {
       const { startupPage } = settingsStore.getState()
       const sid = JSON.parse(localStorage.getItem('_currentSessionIdCachedAtom') || '""') as string
       if (sid && startupPage === 'session') {
-        router.navigate({
+        navigateToDynamicPath({
           to: `/session/${sid}`,
           replace: true,
-          params: (current) => current,
-          search: (current) => current,
         })
       }
     })()
@@ -280,18 +279,14 @@ function Root() {
           const settingsPath = path.substring('/settings'.length)
           navigateToSettings(settingsPath || '/')
         } else {
-          router.navigate({
-            to: path,
-            params: (current) => current,
-            search: (current) => current,
-          })
+          navigateToDynamicPath({ to: path })
         }
       })
     }
   }, [])
 
   // Page view tracking
-  const settingsSearch = (location.search as Record<string, unknown>)?.settings as string | undefined
+  const settingsSearch = getSettingsSearchParam(location.search)
   useEffect(() => {
     const pathname = location.pathname
     let pageName: string | undefined
@@ -350,7 +345,7 @@ function Root() {
       dir={language === 'ar' ? 'rtl' : 'ltr'}
     >
       <BackgroundImageOverlay />
-      {platform.type === 'desktop' && (getOS() === 'Windows' || getOS() === 'Linux') && <ExitFullscreenButton />}
+      {platform.isDesktopLike && (getOS() === 'Windows' || getOS() === 'Linux') && <ExitFullscreenButton />}
       <Grid container className="h-full relative z-[1]">
         <Sidebar />
         <Box

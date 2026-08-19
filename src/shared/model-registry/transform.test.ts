@@ -37,12 +37,12 @@ describe('transformModelEntry', () => {
 })
 
 describe('non-chat media filtering', () => {
-  it.each([
+  it.each<[string, { family: string; modalities: { input: string[]; output: string[] } }]>([
     ['grok-imagine-image-2.0', { family: 'grok', modalities: { input: ['text', 'image'], output: ['image', 'pdf'] } }],
     ['veo-3.1-generate-preview', { family: 'veo', modalities: { input: ['text'], output: ['video'] } }],
     ['lyria-3-pro-preview', { family: 'lyria', modalities: { input: ['text', 'image'], output: ['text', 'audio'] } }],
     ['gemini-2.5-flash-preview-tts', { family: 'gemini-flash', modalities: { input: ['text'], output: ['audio'] } }],
-  ] as const)('excludes %s from the chat registry', (modelId, overrides) => {
+  ])('excludes %s from the chat registry', (modelId, overrides) => {
     const entry = modelsDevEntry(modelId, overrides)
     expect(isNonChatMediaModel(entry)).toBe(true)
     expect(transformProviderModels({ [modelId]: entry })).toEqual({})

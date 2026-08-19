@@ -27,7 +27,7 @@ const { openViewer, sandboxPersistArtifact, sandboxExportFile, highlight, highli
     sandboxPersistArtifact: vi.fn(),
     sandboxExportFile: vi.fn(),
     highlight: vi.fn(async () => '<pre class="shiki"><code>highlighted async</code></pre>'),
-    highlightSync: vi.fn(() => '<pre class="shiki"><code>highlighted sync</code></pre>'),
+    highlightSync: vi.fn((): string | null => '<pre class="shiki"><code>highlighted sync</code></pre>'),
     preloadLanguage: vi.fn(async () => {}),
   })
 )

@@ -139,6 +139,7 @@ vi.mock('@/router', () => ({
   router: {
     navigate: routerNavigateMock,
   },
+  navigateToDynamicPath: routerNavigateMock,
 }))
 
 vi.mock('@/utils/session-utils', () => ({

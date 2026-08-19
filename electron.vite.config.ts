@@ -116,7 +116,12 @@ export function shouldBuildElectronViteTarget(
   return resolvedTarget === target
 }
 
-export function getRendererDevServerConfig(env: { CHATBOX_QA?: string; DEV_PORT?: string }): {
+// The index signature keeps `process.env` assignable (weak-type check).
+export function getRendererDevServerConfig(env: {
+  [key: string]: string | undefined
+  CHATBOX_QA?: string
+  DEV_PORT?: string
+}): {
   port: number
   strictPort: boolean
 } {

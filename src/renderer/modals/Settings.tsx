@@ -16,7 +16,8 @@ import { ScalableIcon } from '@/components/common/ScalableIcon'
 import SettingsKnowledgeBaseRouteComponent from '@/components/knowledge-base/KnowledgeBase'
 import { Modal } from '@/components/layout/Overlay'
 import useNeedRoomForWinControls from '@/hooks/useNeedRoomForWinControls'
-import { router } from '@/router'
+import { getSettingsSearchParam, navigateToDynamicPath, router } from '@/router'
+import { RouteComponent as SettingsAgentRouteComponent } from '@/routes/settings/agent'
 import { RouteComponent as SettingsArchiveRouteComponent } from '@/routes/settings/archive'
 import { RouteComponent as SettingsChatRouteComponent } from '@/routes/settings/chat'
 import { RouteComponent as SettingsChatboxAiRouteComponent } from '@/routes/settings/chatbox-ai'
@@ -32,7 +33,6 @@ import { RouteComponent as SettingsProviderIndexRouteComponent } from '@/routes/
 import { RouteComponent as SettingsProviderRouteRouteComponent } from '@/routes/settings/provider/route'
 import { SettingsRoot } from '@/routes/settings/route'
 import { RouteComponent as SettingsSkillsRouteComponent } from '@/routes/settings/skills'
-import { RouteComponent as SettingsAgentRouteComponent } from '@/routes/settings/agent'
 import { RouteComponent as SettingsWebSearchRouteComponent } from '@/routes/settings/web-search'
 
 export type SettingsModalProps = {}
@@ -184,15 +184,16 @@ export const SettingsModal: FC<SettingsModalProps> = (props) => {
   const location = useLocation()
   const { needRoomForMacWindowControls } = useNeedRoomForWinControls()
 
+  const settingsPath = getSettingsSearchParam(location.search)
   useEffect(() => {
-    if (location.search.settings) {
-      settingsModalHistory.replace(location.search.settings)
+    if (settingsPath) {
+      settingsModalHistory.replace(settingsPath)
     }
-  }, [location.search.settings])
+  }, [settingsPath])
 
   const onClose = useCallback(() => {
-    const { settings: _, ...otherSearch } = router.state.location.search
-    router.navigate({
+    const { settings: _closed, ...otherSearch } = router.state.location.search as Record<string, unknown>
+    navigateToDynamicPath({
       to: router.state.location.pathname,
       search: otherSearch,
     })
@@ -200,7 +201,7 @@ export const SettingsModal: FC<SettingsModalProps> = (props) => {
 
   return (
     <Modal
-      opened={!!location.search.settings}
+      opened={!!settingsPath}
       onClose={onClose}
       // size="1200"
       fullScreen={true}

@@ -122,6 +122,8 @@ import {
 import type { ModelDependencies } from '@shared/types/adapters'
 import { getMessageText } from '@shared/utils/message'
 import { formatTimestampWithZone, TIME_REMINDER_MIN_GAP_MS } from '@shared/utils/system-reminder'
+import type { ModelMessage } from 'ai'
+import { convertToLanguageModelPrompt, standardizePrompt } from 'ai/internal'
 import { computeEffectiveAgentMode, prepareAgentGenerationHarness } from './agent-harness'
 
 function createMockModel(overrides?: Partial<ModelInterface>): ModelInterface {
@@ -183,6 +185,16 @@ beforeEach(() => {
     skills: { enabledSkillNames: ['analysis'] },
   })
 })
+
+/** Runs the same prompt conversion `streamText` performs before a provider call. */
+async function toUpstreamMessages(coreMessages: ModelMessage[]) {
+  const prompt = await convertToLanguageModelPrompt({
+    prompt: await standardizePrompt({ messages: coreMessages }),
+    supportedUrls: {},
+    download: undefined,
+  })
+  return convertToOpenAICompatibleChatMessages(prompt)
+}
 
 describe('computeEffectiveAgentMode', () => {
   test('off when the platform does not support agent mode', () => {
@@ -913,7 +925,7 @@ describe('prepareAgentGenerationHarness', () => {
       signal: new AbortController().signal,
     })
 
-    const upstreamMessages = convertToOpenAICompatibleChatMessages(prepared.coreMessages)
+    const upstreamMessages = await toUpstreamMessages(prepared.coreMessages)
     expect(upstreamMessages.find((message) => message.role === 'assistant')).toEqual({
       role: 'assistant',
       content: 'Prior answer',
@@ -961,7 +973,7 @@ describe('prepareAgentGenerationHarness', () => {
         signal: new AbortController().signal,
       })
 
-      const upstreamMessages = convertToOpenAICompatibleChatMessages(prepared.coreMessages)
+      const upstreamMessages = await toUpstreamMessages(prepared.coreMessages)
       expect(upstreamMessages.find((message) => message.role === 'assistant')).toEqual({
         role: 'assistant',
         content: 'Answer',

@@ -163,7 +163,8 @@ Use \`run_command\` for project commands, shell commands, and Node.js scripts. T
         sandbox_permissions: {
           type: 'string',
           enum: ['danger-full-access'],
-          description: 'Request a one-time host retry of an exact failed sandbox command. Valid only with justification.',
+          description:
+            'Request a one-time host retry of an exact failed sandbox command. Valid only with justification.',
         },
         justification: {
           type: 'string',
@@ -186,15 +187,16 @@ Use \`run_command\` for project commands, shell commands, and Node.js scripts. T
       const escalationFields = [input.sandbox_permissions, input.justification]
       const escalationRequested = escalationFields.some((value) => value !== undefined)
       if (escalationRequested) {
-        if (escalationFields.some((value) => value === undefined)) {
+        const justification = input.justification
+        if (input.sandbox_permissions === undefined || justification === undefined) {
           return Promise.reject(
             new Error('sandbox_permissions and justification must be provided together for a host retry')
           )
         }
-        if (!input.justification.trim()) {
+        if (!justification.trim()) {
           return Promise.reject(new Error('justification must be a non-empty sentence'))
         }
-        if (input.justification.length > MAX_JUSTIFICATION_LENGTH) {
+        if (justification.length > MAX_JUSTIFICATION_LENGTH) {
           return Promise.reject(new Error(`justification must not exceed ${MAX_JUSTIFICATION_LENGTH} characters`))
         }
       }
@@ -241,9 +243,7 @@ Use \`run_command\` for project commands, shell commands, and Node.js scripts. T
         if (escalationRequested && !fullAccess) {
           const retry = await skillsController.resolveCommandRetry({
             sessionId: context.sessionId,
-            ...(alreadyApproved && approvalContext.approvalRetryOf
-              ? { retryOf: approvalContext.approvalRetryOf }
-              : {}),
+            ...(alreadyApproved && approvalContext.approvalRetryOf ? { retryOf: approvalContext.approvalRetryOf } : {}),
             command: input.command,
             cwd,
             shell,
@@ -293,7 +293,8 @@ Use \`run_command\` for project commands, shell commands, and Node.js scripts. T
         if (alreadyApproved && approvalContext.approvalRetryOf && !groundedEscalation) {
           throw new Error(retryResolutionError ?? 'The approved sandbox failure is no longer available.')
         }
-        if (groundedEscalation) {
+        // Reads as `groundedEscalation`, but narrows the mutable `retryOf` binding too.
+        if (retryOf !== undefined) {
           const justification = input.justification
           if (!justification || input.sandbox_permissions !== 'danger-full-access') {
             throw new Error('Invalid host retry request')

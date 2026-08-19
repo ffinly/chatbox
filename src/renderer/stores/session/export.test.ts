@@ -1,6 +1,8 @@
-import type { ExportChatFormat, Session } from '@shared/types'
+import type { ExportChatFormat, Message, Session } from '@shared/types'
 import { createMessage } from '@shared/types'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+type ExportedThread = { name: string; messages: Message[] }
 
 const {
   mockGetSession,
@@ -12,10 +14,13 @@ const {
 } = vi.hoisted(() => ({
   mockGetSession: vi.fn(),
   mockExportTextFile: vi.fn(),
-  mockFormatHtml: vi.fn(async () => '<html></html>'),
-  mockFormatInteractiveHtml: vi.fn(async () => '<html>interactive</html>'),
-  mockFormatMarkdown: vi.fn(() => '# export'),
-  mockFormatTxt: vi.fn(() => 'export'),
+  // Typed like the real formatters so `mock.calls[0][1]` keeps the thread type.
+  mockFormatHtml: vi.fn(async (_sessionName: string, _threads: ExportedThread[]) => '<html></html>'),
+  mockFormatInteractiveHtml: vi.fn(
+    async (_sessionName: string, _threads: ExportedThread[]) => '<html>interactive</html>'
+  ),
+  mockFormatMarkdown: vi.fn((_sessionName: string, _threads: ExportedThread[]) => '# export'),
+  mockFormatTxt: vi.fn((_sessionName: string, _threads: ExportedThread[]) => 'export'),
 }))
 
 vi.mock('@/app/renderer-application', () => ({

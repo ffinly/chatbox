@@ -20,7 +20,7 @@ vi.mock('react-i18next', () => ({
 vi.mock('@/components/ui/tooltip', () => ({ AppTooltip: ({ children }: { children: React.ReactNode }) => children }))
 vi.mock('@/hooks/useScreenChange', () => ({ useIsSmallScreen: isSmallScreenMock }))
 vi.mock('@/platform', () => ({ default: platformMock }))
-vi.mock('@/router', () => ({ router: { navigate: vi.fn() } }))
+vi.mock('@/router', () => ({ router: { navigate: vi.fn() }, navigateToDynamicPath: vi.fn() }))
 vi.mock('@/app/renderer-application', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/app/renderer-application')>()
   return {

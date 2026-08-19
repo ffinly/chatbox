@@ -13,7 +13,7 @@ import { getDefaultStore } from 'jotai'
 import { omit } from 'lodash'
 import { rendererApplication } from '@/app/renderer-application'
 import platform from '@/platform'
-import { router } from '@/router'
+import { navigateToDynamicPath, router } from '@/router'
 import { sortSessionRecords } from '@/storage/SessionMetaStorage'
 import * as atoms from '../atoms'
 import * as scrollActions from '../scrollActions'
@@ -209,7 +209,7 @@ export async function copyAndSwitchSession(source: SessionMeta) {
 export function switchCurrentSession(sessionId: string) {
   const store = getDefaultStore()
   store.set(atoms.currentSessionIdAtom, sessionId)
-  router.navigate({
+  navigateToDynamicPath({
     to: `/session/${sessionId}`,
   })
   scrollActions.clearAutoScroll()

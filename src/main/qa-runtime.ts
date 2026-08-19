@@ -2,6 +2,9 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 
 export type ChatboxQaEnvironment = {
+  // Index signature so `process.env` (NodeJS.ProcessEnv) is assignable: without
+  // it TypeScript's weak-type check rejects an all-optional target.
+  [key: string]: string | undefined
   CHATBOX_QA?: string
   CHATBOX_QA_TASK_ID?: string
   CHATBOX_QA_TASK_ROOT?: string

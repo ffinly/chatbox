@@ -1,13 +1,13 @@
 import { getThemeDesign } from '@/hooks/useAppTheme'
-import { router } from '@/router'
+import { navigateToDynamicPath, router } from '@/router'
 
 export function navigateToSettings(path?: string) {
   if (window.matchMedia(`(max-width:${getThemeDesign('light', 'en').breakpoints?.values?.sm || 640}px)`).matches) {
-    router.navigate({
+    navigateToDynamicPath({
       to: `/settings${path ? (path.startsWith('/') ? path : `/${path}`) : ''}`,
     })
   } else {
-    router.navigate({
+    navigateToDynamicPath({
       to: router.state.location.pathname,
       search: {
         settings: `/settings${path ? (path.startsWith('/') ? path : `/${path}`) : ''}`,
