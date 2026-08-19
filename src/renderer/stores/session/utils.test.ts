@@ -20,7 +20,12 @@ vi.mock('@/app/renderer-application', () => ({
 }))
 
 import { uiStore } from '../uiStore'
-import { getCompactionPointsForTarget, handleGenerationError, trackGenerateEvent } from './utils'
+import {
+  getCompactionPointsForTarget,
+  handleGenerationError,
+  initializeTargetMessage,
+  trackGenerateEvent,
+} from './utils'
 
 describe('trackGenerateEvent', () => {
   beforeEach(() => {
@@ -196,5 +201,69 @@ describe('getCompactionPointsForTarget', () => {
 
   test('falls back to session points for unknown messages', () => {
     expect(getCompactionPointsForTarget(makeSessionWithThread(), 'missing')).toEqual([sessionPoint])
+  })
+})
+
+describe('initializeTargetMessage', () => {
+  const signedMessage = (): Message => ({
+    id: 'assistant-1',
+    role: 'assistant',
+    aiProvider: 'claude',
+    modelId: 'claude-sonnet-5',
+    contentParts: [
+      {
+        type: 'reasoning',
+        text: '',
+        providerMetadata: { anthropic: { redactedData: 'encrypted' } },
+        protocolOnly: true,
+      },
+      {
+        type: 'reasoning',
+        text: 'Let me look that up.',
+        providerMetadata: { anthropic: { signature: 'signature-a' } },
+      },
+      {
+        type: 'tool-call',
+        state: 'result',
+        toolCallId: 'tool-1',
+        toolName: 'lookup',
+        args: {},
+        result: { value: 'found' },
+      },
+    ],
+  })
+  const globalSettings = {} as Settings
+
+  test('keeps replay metadata when the append run switches models', async () => {
+    const result = await initializeTargetMessage(
+      signedMessage(),
+      { provider: 'claude', modelId: 'claude-opus-5' } as SessionSettings,
+      globalSettings,
+      'chat'
+    )
+
+    expect(result.modelId).toBe('claude-opus-5')
+    expect(result.contentParts).toEqual(signedMessage().contentParts)
+  })
+
+  test('keeps replay metadata when the identity is unchanged or was never stamped', async () => {
+    const sameModel = await initializeTargetMessage(
+      signedMessage(),
+      { provider: 'claude', modelId: 'claude-sonnet-5' } as SessionSettings,
+      globalSettings,
+      'chat'
+    )
+    expect(sameModel.contentParts).toEqual(signedMessage().contentParts)
+
+    const legacy = signedMessage()
+    legacy.aiProvider = undefined
+    legacy.modelId = undefined
+    const unstamped = await initializeTargetMessage(
+      legacy,
+      { provider: 'claude', modelId: 'claude-opus-5' } as SessionSettings,
+      globalSettings,
+      'chat'
+    )
+    expect(unstamped.contentParts).toEqual(signedMessage().contentParts)
   })
 })

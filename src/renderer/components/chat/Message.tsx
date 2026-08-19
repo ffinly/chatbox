@@ -40,9 +40,9 @@ import type React from 'react'
 import { type FC, forwardRef, type MouseEventHandler, memo, useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { trackAgentModeSuggestionAction } from '@/analytics/agent-mode'
-import { rendererApplication } from '@/app/renderer-application'
 import { trackJkClickEvent } from '@/analytics/jk'
 import { JK_EVENTS, JK_PAGE_NAMES } from '@/analytics/jk-events'
+import { rendererApplication } from '@/app/renderer-application'
 import Markdown from '@/components/Markdown'
 import StreamingTextFade from '@/components/StreamingTextFade'
 import { AppTooltip as Tooltip1 } from '@/components/ui/tooltip'
@@ -503,25 +503,27 @@ const _Message: FC<Props> = (props) => {
   // the individual step durations (covers resumed/appended runs).
   const workDurationMs = useMemo(() => {
     let sum = 0
-    for (const part of contentParts) {
+    for (const part of orderedContentParts) {
       if ((part.type === 'reasoning' || part.type === 'tool-call') && part.duration) {
         sum += part.duration
       }
     }
     return Math.max(msg.generationDuration ?? 0, sum)
-  }, [contentParts, msg.generationDuration])
+  }, [orderedContentParts, msg.generationDuration])
 
   const workStepCount = useMemo(
-    () => contentParts.filter((p) => p.type === 'reasoning' || p.type === 'tool-call').length,
-    [contentParts]
+    () => orderedContentParts.filter((p) => p.type === 'reasoning' || p.type === 'tool-call').length,
+    [orderedContentParts]
   )
 
   // There is something to fold when a thinking/tool step exists before the last
   // content part (so collapsing hides the process and keeps the final answer).
   const hasFoldableProcess = useMemo(
     () =>
-      contentParts.some((p, i) => (p.type === 'reasoning' || p.type === 'tool-call') && i < contentParts.length - 1),
-    [contentParts]
+      orderedContentParts.some(
+        (p, i) => (p.type === 'reasoning' || p.type === 'tool-call') && i < orderedContentParts.length - 1
+      ),
+    [orderedContentParts]
   )
 
   // Offer the collapsible process summary on any finished assistant run that has

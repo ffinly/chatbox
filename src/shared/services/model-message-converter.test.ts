@@ -449,6 +449,254 @@ describe('convertToModelMessages — tool result sanitization', () => {
   })
 })
 
+describe('convertToModelMessages — Anthropic thinking replay', () => {
+  const signedContinuationParts = (): Message['contentParts'] => [
+    {
+      type: 'reasoning',
+      text: '',
+      providerMetadata: { anthropic: { signature: 'signature-a' } },
+      protocolOnly: true,
+    },
+    {
+      type: 'reasoning',
+      text: 'Let me look that up.',
+      providerMetadata: { anthropic: { signature: 'signature-b' } },
+    },
+    {
+      type: 'tool-call',
+      state: 'result',
+      toolCallId: 'tool-1',
+      toolName: 'lookup',
+      args: {},
+      result: { value: 'found' },
+    },
+  ]
+
+  it('replays signatures and redacted thinking in their original order', async () => {
+    const messages: Message[] = [
+      { id: 'u1', role: 'user', contentParts: [{ type: 'text', text: 'Look this up.' }] },
+      {
+        id: 'a1',
+        role: 'assistant',
+        contentParts: [
+          {
+            type: 'reasoning',
+            text: '',
+            providerMetadata: { anthropic: { redactedData: 'encrypted-thinking' } },
+            protocolOnly: true,
+          },
+          ...signedContinuationParts(),
+        ],
+      },
+    ]
+
+    const output = await convertToModelMessages(messages, noImage, {
+      modelSupportVision: true,
+      preserveReasoning: 'all-turns',
+      signedReasoningOnly: true,
+    })
+    const assistant = output.find((message) => message.role === 'assistant')
+
+    expect(assistant?.content).toMatchObject([
+      { type: 'reasoning', text: '', providerOptions: { anthropic: { redactedData: 'encrypted-thinking' } } },
+      { type: 'reasoning', text: '', providerOptions: { anthropic: { signature: 'signature-a' } } },
+      {
+        type: 'reasoning',
+        text: 'Let me look that up.',
+        providerOptions: { anthropic: { signature: 'signature-b' } },
+      },
+      { type: 'tool-call', toolCallId: 'tool-1', toolName: 'lookup' },
+    ])
+    expect(() => modelMessageSchema.parse(assistant)).not.toThrow()
+  })
+
+  it('never emits empty or protocol-only text parts', async () => {
+    const messages: Message[] = [
+      {
+        id: 'a1',
+        role: 'assistant',
+        contentParts: [
+          { type: 'text', text: '' },
+          { type: 'text', text: '', protocolOnly: true },
+          { type: 'text', text: 'visible answer' },
+        ],
+      },
+    ]
+
+    const output = await convertToModelMessages(messages, noImage, {
+      modelSupportVision: true,
+      preserveReasoning: 'all-turns',
+      signedReasoningOnly: true,
+    })
+    const assistant = output.find((message) => message.role === 'assistant')
+
+    expect(assistant?.content).toEqual([{ type: 'text', text: 'visible answer' }])
+  })
+
+  it('only replays whitelisted provider metadata', async () => {
+    const messages: Message[] = [
+      {
+        id: 'a1',
+        role: 'assistant',
+        contentParts: [
+          {
+            type: 'reasoning',
+            text: 'thought',
+            providerMetadata: {
+              anthropic: { signature: 'signature-a', cacheControl: { type: 'ephemeral' } },
+              openai: { itemId: 'rs_1', reasoningEncryptedContent: 'encrypted' },
+            },
+          },
+          { type: 'reasoning', text: '', providerMetadata: { openai: { itemId: 'rs_2' } } },
+        ],
+      },
+    ]
+
+    const output = await convertToModelMessages(messages, noImage, {
+      modelSupportVision: true,
+      preserveReasoning: 'all-turns',
+      signedReasoningOnly: true,
+    })
+    const assistant = output.find((message) => message.role === 'assistant')
+
+    expect(assistant?.content).toEqual([
+      {
+        type: 'reasoning',
+        text: 'thought',
+        providerOptions: { anthropic: { signature: 'signature-a' } },
+      },
+    ])
+  })
+
+  it('replays signed thinking from earlier turns when asked for all-turns signed replay', async () => {
+    const messages: Message[] = [
+      { id: 'u1', role: 'user', contentParts: [{ type: 'text', text: 'First question' }] },
+      { id: 'a1', role: 'assistant', contentParts: signedContinuationParts() },
+      { id: 'u2', role: 'user', contentParts: [{ type: 'text', text: 'Second question' }] },
+      { id: 'a2', role: 'assistant', contentParts: signedContinuationParts() },
+    ]
+
+    const output = await convertToModelMessages(messages, noImage, {
+      modelSupportVision: true,
+      preserveReasoning: 'all-turns',
+      signedReasoningOnly: true,
+    })
+    const assistants = output.filter((message) => message.role === 'assistant')
+
+    expect(assistants[0].content).toMatchObject([
+      { type: 'reasoning', providerOptions: { anthropic: { signature: 'signature-a' } } },
+      { type: 'reasoning', providerOptions: { anthropic: { signature: 'signature-b' } } },
+      { type: 'tool-call', toolCallId: 'tool-1' },
+    ])
+    expect(assistants[1].content).toMatchObject([
+      { type: 'reasoning', providerOptions: { anthropic: { signature: 'signature-a' } } },
+      { type: 'reasoning', providerOptions: { anthropic: { signature: 'signature-b' } } },
+      { type: 'tool-call', toolCallId: 'tool-1' },
+    ])
+  })
+
+  it('keeps Anthropic signatures when the current model id differs from the minting model', async () => {
+    const messages: Message[] = [
+      { id: 'u1', role: 'user', contentParts: [{ type: 'text', text: 'Question' }] },
+      {
+        id: 'a1',
+        role: 'assistant',
+        aiProvider: 'claude',
+        model: 'Claude API (claude-sonnet-4-5)',
+        modelId: 'claude-sonnet-4-5',
+        contentParts: signedContinuationParts(),
+      },
+    ]
+
+    const output = await convertToModelMessages(messages, noImage, {
+      modelSupportVision: true,
+      preserveReasoning: 'all-turns',
+      signedReasoningOnly: true,
+    })
+    expect(output.find((message) => message.role === 'assistant')?.content).toMatchObject([
+      { type: 'reasoning', providerOptions: { anthropic: { signature: 'signature-a' } } },
+      { type: 'reasoning', providerOptions: { anthropic: { signature: 'signature-b' } } },
+      { type: 'tool-call', toolCallId: 'tool-1' },
+    ])
+  })
+
+  it('omits unsigned reasoning from the signed replay channel', async () => {
+    // Reasoning saved by app versions predating metadata capture has text but no
+    // signature; replaying it unsigned could not pass upstream validation.
+    const messages: Message[] = [
+      { id: 'u1', role: 'user', contentParts: [{ type: 'text', text: 'Look this up.' }] },
+      {
+        id: 'a1',
+        role: 'assistant',
+        contentParts: [
+          { type: 'reasoning', text: 'Legacy unsigned thought' },
+          {
+            type: 'reasoning',
+            text: 'Signed thought',
+            providerMetadata: { anthropic: { signature: 'signature-a' } },
+          },
+          {
+            type: 'tool-call',
+            state: 'result',
+            toolCallId: 'tool-1',
+            toolName: 'lookup',
+            args: {},
+            result: { value: 'found' },
+          },
+        ],
+      },
+    ]
+
+    const signedOnly = await convertToModelMessages(messages, noImage, {
+      modelSupportVision: true,
+      preserveReasoning: 'all-turns',
+      signedReasoningOnly: true,
+    })
+    expect(signedOnly.find((message) => message.role === 'assistant')?.content).toMatchObject([
+      { type: 'reasoning', text: 'Signed thought', providerOptions: { anthropic: { signature: 'signature-a' } } },
+      { type: 'tool-call', toolCallId: 'tool-1' },
+    ])
+
+    // The DeepSeek all-turns text channel still carries unsigned reasoning.
+    const allTurns = await convertToModelMessages(messages, noImage, {
+      modelSupportVision: true,
+      preserveReasoning: 'all-turns',
+    })
+    const allTurnsAssistant = allTurns.find((message) => message.role === 'assistant')
+    expect(allTurnsAssistant?.content).toMatchObject([
+      { type: 'reasoning', text: 'Legacy unsigned thought' },
+      { type: 'reasoning', text: 'Signed thought' },
+      { type: 'tool-call', toolCallId: 'tool-1' },
+    ])
+  })
+
+  it('keeps signed replay intact when a synthetic trailing user message follows the paused turn', async () => {
+    // Stale resumes append a trailing time-gap reminder after the paused
+    // assistant turn. All-turns replay is boundary-free, so the reminder must
+    // not affect which thinking blocks go back on the wire.
+    const messages: Message[] = [
+      { id: 'u1', role: 'user', contentParts: [{ type: 'text', text: 'Look this up.' }] },
+      { id: 'a1', role: 'assistant', contentParts: signedContinuationParts() },
+      {
+        id: 'time-gap-reminder-1',
+        role: 'user',
+        contentParts: [{ type: 'text', text: '<system-reminder>Current date and time: ...</system-reminder>' }],
+      },
+    ]
+
+    const output = await convertToModelMessages(messages, noImage, {
+      modelSupportVision: true,
+      preserveReasoning: 'all-turns',
+      signedReasoningOnly: true,
+    })
+    expect(output.find((message) => message.role === 'assistant')?.content).toMatchObject([
+      { type: 'reasoning', providerOptions: { anthropic: { signature: 'signature-a' } } },
+      { type: 'reasoning', providerOptions: { anthropic: { signature: 'signature-b' } } },
+      { type: 'tool-call', toolCallId: 'tool-1' },
+    ])
+  })
+})
+
 describe('convertToModelMessages — view_image tool results', () => {
   const viewImageMessage = (result: unknown, fields: Partial<MessageContentToolCallPart> = {}): Message => ({
     id: 'a1',

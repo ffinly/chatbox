@@ -39,6 +39,7 @@ import { isExpectedGenerationError } from './error-classification'
 import { ApiError, ChatboxAIAPIError, MidStreamApiError } from './errors'
 import { wrapOpenAICompatibleNonStreamingModel } from './openai-compatible-non-streaming'
 import { stopWhenPersistentToolCallPause } from './persistent-tool-call-pause'
+import { mergeProviderMetadata, pickPersistableProviderMetadata } from './provider-part-metadata'
 import { repairToolCallJson } from './tool-call-json-repair'
 import type {
   CallChatCompletionOptions,
@@ -649,7 +650,8 @@ export default abstract class AbstractAISDKModel implements ModelInterface {
   private createOrUpdateReasoningPart(
     textDelta: string,
     contentParts: MessageContentParts,
-    currentReasoningPart: MessageReasoningPart | undefined
+    currentReasoningPart: MessageReasoningPart | undefined,
+    persistableProviderMetadata?: ProviderMetadata
   ): MessageReasoningPart {
     if (!currentReasoningPart) {
       // Create new reasoning part with start time for timer tracking in streaming mode
@@ -661,6 +663,12 @@ export default abstract class AbstractAISDKModel implements ModelInterface {
       contentParts.push(currentReasoningPart)
     }
     currentReasoningPart.text += textDelta
+    if (persistableProviderMetadata) {
+      currentReasoningPart.providerMetadata = mergeProviderMetadata(
+        currentReasoningPart.providerMetadata,
+        persistableProviderMetadata
+      )
+    }
     return currentReasoningPart
   }
 
@@ -679,10 +687,17 @@ export default abstract class AbstractAISDKModel implements ModelInterface {
     contentParts: MessageContentParts,
     currentTextPart: MessageTextPart | undefined,
     currentReasoningPart: MessageReasoningPart | undefined,
+    pendingReasoningText: string,
     _options: CallChatCompletionOptions
   ): Promise<{
     currentTextPart: MessageTextPart | undefined
     currentReasoningPart: MessageReasoningPart | undefined
+    /**
+     * Whitespace-only reasoning deltas seen before the current block has
+     * produced a part; prepended when the block materializes so signed thinking
+     * round-trips byte-for-byte (see the core stream-chunk-processor).
+     */
+    pendingReasoningText: string
   }> {
     // Finalize reasoning duration when transitioning to other content types
     const finalizeReasoningDuration = () => {
@@ -698,17 +713,92 @@ export default abstract class AbstractAISDKModel implements ModelInterface {
         return {
           currentTextPart: this.createOrUpdateTextPart(chunk.text, contentParts, currentTextPart),
           currentReasoningPart: undefined,
+          pendingReasoningText: '',
         }
 
-      case 'reasoning-delta':
-        // 部分提供方会随文本返回空的reasoning，防止分割正常的content
-        if (chunk.text.trim()) {
+      case 'reasoning-start': {
+        finalizeReasoningDuration()
+        // Anthropic delivers `redacted_thinking` payloads on the block-start chunk;
+        // metadata outside the persistable whitelist never creates a part (see
+        // the core stream-chunk-processor for the same rule).
+        const persistable = pickPersistableProviderMetadata(chunk.providerMetadata)
+        if (persistable) {
           return {
             currentTextPart: undefined,
-            currentReasoningPart: this.createOrUpdateReasoningPart(chunk.text, contentParts, currentReasoningPart),
+            currentReasoningPart: this.createOrUpdateReasoningPart('', contentParts, undefined, persistable),
+            pendingReasoningText: '',
           }
         }
-        break
+        return {
+          currentTextPart,
+          currentReasoningPart: undefined,
+          pendingReasoningText: '',
+        }
+      }
+
+      case 'reasoning-delta': {
+        // 部分提供方会随文本返回空的reasoning，防止分割正常的content。
+        // Anthropic signature_delta 是空文本 + provider metadata，需要照常落到 part 上。
+        const persistable = pickPersistableProviderMetadata(chunk.providerMetadata)
+        if (currentReasoningPart) {
+          // Signed thinking must round-trip byte-for-byte: once the block has a
+          // part, even whitespace-only deltas append verbatim.
+          return {
+            currentTextPart: undefined,
+            currentReasoningPart: this.createOrUpdateReasoningPart(
+              chunk.text,
+              contentParts,
+              currentReasoningPart,
+              persistable
+            ),
+            pendingReasoningText: '',
+          }
+        }
+        if (chunk.text.trim() || persistable) {
+          return {
+            currentTextPart: undefined,
+            currentReasoningPart: this.createOrUpdateReasoningPart(
+              pendingReasoningText + chunk.text,
+              contentParts,
+              undefined,
+              persistable
+            ),
+            pendingReasoningText: '',
+          }
+        }
+        // Whitespace before the block has produced a part: buffer it so a later
+        // signed part keeps the exact text; discarded if the block yields nothing.
+        return {
+          currentTextPart,
+          currentReasoningPart,
+          pendingReasoningText: pendingReasoningText + chunk.text,
+        }
+      }
+
+      case 'reasoning-end': {
+        const persistable = pickPersistableProviderMetadata(chunk.providerMetadata)
+        if (persistable && !currentReasoningPart) {
+          currentReasoningPart = this.createOrUpdateReasoningPart(
+            pendingReasoningText,
+            contentParts,
+            undefined,
+            persistable
+          )
+        } else if (persistable) {
+          currentReasoningPart = this.createOrUpdateReasoningPart('', contentParts, currentReasoningPart, persistable)
+        }
+        // A block that ends with replay metadata but no visible text exists only
+        // for protocol replay (redacted thinking, signed empty thinking block).
+        if (currentReasoningPart && !currentReasoningPart.text.trim() && currentReasoningPart.providerMetadata) {
+          currentReasoningPart.protocolOnly = true
+        }
+        finalizeReasoningDuration()
+        return {
+          currentTextPart,
+          currentReasoningPart: undefined,
+          pendingReasoningText: '',
+        }
+      }
 
       case 'tool-call':
         finalizeReasoningDuration()
@@ -716,6 +806,7 @@ export default abstract class AbstractAISDKModel implements ModelInterface {
         return {
           currentTextPart: undefined,
           currentReasoningPart: undefined,
+          pendingReasoningText: '',
         }
 
       case 'tool-result':
@@ -731,6 +822,7 @@ export default abstract class AbstractAISDKModel implements ModelInterface {
           return {
             currentTextPart: undefined,
             currentReasoningPart: undefined,
+            pendingReasoningText: '',
           }
         }
         break
@@ -743,7 +835,7 @@ export default abstract class AbstractAISDKModel implements ModelInterface {
         break
     }
 
-    return { currentTextPart, currentReasoningPart }
+    return { currentTextPart, currentReasoningPart, pendingReasoningText: '' }
   }
 
   private handleError(error: unknown, context: string = ''): never {
@@ -853,6 +945,7 @@ export default abstract class AbstractAISDKModel implements ModelInterface {
     const contentParts: MessageContentParts = []
     let currentTextPart: MessageTextPart | undefined
     let currentReasoningPart: MessageReasoningPart | undefined
+    let pendingReasoningText = ''
 
     try {
       for await (const chunk of result.fullStream) {
@@ -868,10 +961,12 @@ export default abstract class AbstractAISDKModel implements ModelInterface {
           contentParts,
           currentTextPart,
           currentReasoningPart,
+          pendingReasoningText,
           options
         )
         currentTextPart = chunkResult.currentTextPart
         currentReasoningPart = chunkResult.currentReasoningPart
+        pendingReasoningText = chunkResult.pendingReasoningText
 
         options.onResultChange?.({ contentParts })
       }

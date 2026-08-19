@@ -131,10 +131,16 @@ export async function initializeTargetMessage(
   globalSettings: Settings,
   sessionType: SessionType | undefined
 ): Promise<Message> {
+  // Keep thinking signatures on disk across provider/model restamps. The
+  // converter decides what goes on the wire (signed Anthropic subset vs omit).
+  // Wiping storage here would prevent switching back to the minting realm.
   return {
     ...targetMsg,
     aiProvider: settings.provider,
     model: await getModelDisplayName(settings, globalSettings, sessionType || 'chat'),
+    // Raw id alongside the display name: display names are neither stable nor
+    // parseable, so this is the message's machine-readable provenance.
+    modelId: settings.modelId,
     generating: true,
     errorCode: undefined,
     error: undefined,

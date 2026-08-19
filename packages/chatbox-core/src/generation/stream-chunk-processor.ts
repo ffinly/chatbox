@@ -1,5 +1,6 @@
 import { BaseError } from '@shared/models/errors'
 import { isPersistentToolCallPauseError } from '@shared/models/persistent-tool-call-pause'
+import { mergeProviderMetadata, pickPersistableProviderMetadata } from '@shared/models/provider-part-metadata'
 import type { ModelStreamPart } from '@shared/models/types'
 import { extractToolResultImage } from '@shared/tool-result-image'
 import type {
@@ -43,6 +44,14 @@ export interface StreamProcessorState {
    * in such a batch.
    */
   stepIndex: number
+  /**
+   * Whitespace-only reasoning deltas seen before the current block has produced
+   * a part. Signed Anthropic thinking must round-trip byte-for-byte, so leading
+   * whitespace is buffered and prepended when the block materializes; it is
+   * discarded when the block yields nothing (the spurious empty reasoning some
+   * providers interleave with text).
+   */
+  pendingReasoningText: string
 }
 
 interface PreparingToolInputState {
@@ -75,6 +84,7 @@ export function createInitialState(initialParts?: MessageContentParts): StreamPr
     usage: undefined,
     finishReason: undefined,
     stepIndex,
+    pendingReasoningText: '',
   }
 }
 
@@ -104,6 +114,7 @@ export async function processStreamChunk(
 }> {
   const { contentParts } = state
   let { currentTextPart, currentReasoningPart, preparingToolInput, usage, finishReason, stepIndex } = state
+  let { pendingReasoningText } = state
 
   const nextState = (): StreamProcessorState => ({
     contentParts,
@@ -113,7 +124,15 @@ export async function processStreamChunk(
     usage,
     finishReason,
     stepIndex,
+    pendingReasoningText,
   })
+
+  // Buffered whitespace belongs to a reasoning block still in progress; any
+  // chunk other than that block's own deltas/end (or a side-channel status)
+  // means the block yielded nothing and the buffer is stale.
+  if (chunk.type !== 'reasoning-delta' && chunk.type !== 'reasoning-end' && chunk.type !== 'status') {
+    pendingReasoningText = ''
+  }
 
   switch (chunk.type) {
     case 'text-delta': {
@@ -128,23 +147,79 @@ export async function processStreamChunk(
       }
       break
     }
-    case 'reasoning-delta': {
-      if (chunk.text.trim()) {
+    case 'reasoning-start': {
+      finalizeReasoningDuration(currentReasoningPart)
+      currentReasoningPart = undefined
+      // Anthropic delivers `redacted_thinking` payloads on the block-start chunk.
+      // Metadata outside the persistable whitelist (e.g. OpenAI Responses item
+      // ids) must not create a part — the block stays lazily created on its
+      // first non-empty delta, so spurious empty reasoning blocks that some
+      // providers interleave with text never split the current text part.
+      const persistable = pickPersistableProviderMetadata(chunk.providerMetadata)
+      if (persistable) {
         currentTextPart = undefined
-        if (currentReasoningPart) {
-          currentReasoningPart.text += chunk.text
-        } else {
-          currentReasoningPart = {
-            type: 'reasoning',
-            text: chunk.text,
-            startTime: Date.now(),
-          }
-          contentParts.push(currentReasoningPart)
+        currentReasoningPart = {
+          type: 'reasoning',
+          text: '',
+          providerMetadata: persistable,
+          startTime: Date.now(),
         }
+        contentParts.push(currentReasoningPart)
+      }
+      break
+    }
+    case 'reasoning-delta': {
+      // Anthropic signature_delta arrives as an empty-text delta carrying only
+      // provider metadata; it must still create/annotate the reasoning part.
+      const persistable = pickPersistableProviderMetadata(chunk.providerMetadata)
+      if (currentReasoningPart) {
+        // Signed thinking must round-trip byte-for-byte: once the block has a
+        // part, even whitespace-only deltas append verbatim.
+        currentReasoningPart.text += chunk.text
+      } else if (chunk.text.trim() || persistable) {
+        currentTextPart = undefined
+        currentReasoningPart = {
+          type: 'reasoning',
+          text: pendingReasoningText + chunk.text,
+          startTime: Date.now(),
+        }
+        pendingReasoningText = ''
+        contentParts.push(currentReasoningPart)
+      } else {
+        // Whitespace before the block has produced a part: buffer it so a later
+        // signed part keeps the exact text (see StreamProcessorState).
+        pendingReasoningText += chunk.text
+      }
+      if (currentReasoningPart && persistable) {
+        currentReasoningPart.providerMetadata = mergeProviderMetadata(
+          currentReasoningPart.providerMetadata,
+          persistable
+        )
       }
       break
     }
     case 'reasoning-end': {
+      const persistable = pickPersistableProviderMetadata(chunk.providerMetadata)
+      if (persistable) {
+        if (!currentReasoningPart) {
+          currentReasoningPart = {
+            type: 'reasoning',
+            text: pendingReasoningText,
+            startTime: Date.now(),
+          }
+          contentParts.push(currentReasoningPart)
+        }
+        currentReasoningPart.providerMetadata = mergeProviderMetadata(
+          currentReasoningPart.providerMetadata,
+          persistable
+        )
+      }
+      pendingReasoningText = ''
+      // A block that ends with replay metadata but no visible text exists only
+      // for protocol replay (redacted thinking, signed empty thinking block).
+      if (currentReasoningPart && !currentReasoningPart.text.trim() && currentReasoningPart.providerMetadata) {
+        currentReasoningPart.protocolOnly = true
+      }
       finalizeReasoningDuration(currentReasoningPart)
       currentReasoningPart = undefined
       preparingToolInput = { inputText: '', startedAt: Date.now() }

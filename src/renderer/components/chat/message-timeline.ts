@@ -1,4 +1,5 @@
 import type { MessageContentParts } from '@shared/types'
+import { visibleContentParts } from '@shared/utils/message'
 
 type MessageContentPart = MessageContentParts[number]
 type TimelinePart = Extract<MessageContentPart, { type: 'reasoning' | 'text' | 'tool-call' }>
@@ -36,8 +37,8 @@ export function createMessageTimelineLayout(
   contentParts: MessageContentParts,
   isStreamingMode: boolean | undefined
 ): MessageTimelineLayout {
-  const orderedContentParts = contentParts
-  const preserveLegacyTextReasoningPair = isLegacyNonStreamingTextReasoningPair(contentParts, isStreamingMode)
+  const orderedContentParts = visibleContentParts(contentParts)
+  const preserveLegacyTextReasoningPair = isLegacyNonStreamingTextReasoningPair(orderedContentParts, isStreamingMode)
 
   // Text before the last reasoning/tool-call part is intermediate narration;
   // text after it is the final answer.

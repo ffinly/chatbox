@@ -109,6 +109,12 @@ const MessageProviderMetadataSchema: z.ZodType<ProviderMetadata> = z.record(
 export const MessageTextPartSchema = z.object({
   type: z.literal('text'),
   text: z.string(),
+  /**
+   * The part exists only to keep the provider's block structure intact for
+   * request replay (e.g. an empty Anthropic text block between thinking
+   * blocks). Never rendered, exported, or counted as a work step.
+   */
+  protocolOnly: z.literal(true).optional(),
 })
 
 export const MessageImagePartSchema = z.object({
@@ -131,6 +137,18 @@ export const MessageAgentModeSuggestionPartSchema = z.object({
 export const MessageReasoningPartSchema = z.object({
   type: z.literal('reasoning'),
   text: z.string(),
+  /**
+   * Replay-critical provider metadata (whitelisted in
+   * `models/provider-part-metadata.ts`), e.g. Anthropic thinking signatures and
+   * redacted thinking payloads required to resume a paused tool-use turn.
+   */
+  providerMetadata: MessageProviderMetadataSchema.optional(),
+  /**
+   * The part carries only protocol replay data and no visible reasoning text
+   * (e.g. Anthropic `redacted_thinking`, or a signed empty thinking block).
+   * Never rendered, exported, or counted as a work step.
+   */
+  protocolOnly: z.literal(true).optional(),
   startTime: z.number().optional(),
   duration: z.number().optional(),
 })
@@ -325,7 +343,14 @@ export const MessageSchema = z.object({
   name: z.string().optional(),
   generating: z.boolean().optional(),
   aiProvider: z.union([ModelProviderSchema, z.string()]).optional(),
+  /** Display name of the generating model (e.g. "Claude API (claude-sonnet-4-6)"), for the UI only. */
   model: z.string().optional(),
+  /**
+   * Raw model id of the generating model (`settings.modelId`). Display names
+   * are neither stable nor parseable, so this is the machine-readable
+   * provenance record for a message.
+   */
+  modelId: z.string().optional(),
   style: z.string().optional(),
   files: z.array(MessageFileSchema).optional(),
   links: z.array(MessageLinkSchema).optional(),

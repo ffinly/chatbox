@@ -968,6 +968,408 @@ describe('prepareAgentGenerationHarness', () => {
       })
     }
   )
+
+  test('replays signed Anthropic thinking on every assistant turn', async () => {
+    const signedParts = (signature: string): Message['contentParts'] => [
+      {
+        type: 'reasoning',
+        text: 'Let me look that up.',
+        providerMetadata: { anthropic: { signature } },
+      },
+      {
+        type: 'tool-call',
+        state: 'result',
+        toolCallId: `tool-${signature}`,
+        toolName: 'lookup',
+        args: {},
+        result: { value: 'found' },
+      },
+    ]
+    const messages: Message[] = [
+      { id: 'user-1', role: MessageRoleEnum.User, contentParts: [{ type: 'text', text: 'First question' }] },
+      {
+        id: 'assistant-1',
+        role: MessageRoleEnum.Assistant,
+        aiProvider: ModelProviderEnum.Claude,
+        model: 'Claude API (claude-sonnet-5)',
+        modelId: 'claude-sonnet-5',
+        contentParts: signedParts('signature-old'),
+      },
+      { id: 'user-2', role: MessageRoleEnum.User, contentParts: [{ type: 'text', text: 'Look this up.' }] },
+      {
+        id: 'assistant-2',
+        role: MessageRoleEnum.Assistant,
+        aiProvider: ModelProviderEnum.Claude,
+        model: 'Claude API (claude-sonnet-5)',
+        modelId: 'claude-sonnet-5',
+        contentParts: signedParts('signature-current'),
+      },
+    ]
+
+    const prepared = await prepareAgentGenerationHarness({
+      session: createSession(),
+      settings: { provider: ModelProviderEnum.Claude, modelId: 'claude-sonnet-5' } as SessionSettings,
+      globalSettings: {} as Settings,
+      configs: { uuid: 'config-1' } as Config,
+      messages,
+      targetMsgIx: messages.length,
+      model: createMockModel({ modelId: 'claude-sonnet-5', apiStyle: 'anthropic' }),
+      dependencies: createModelDependencies(),
+      webBrowsing: false,
+      agentModeValue: 'off',
+      agentModeLocked: false,
+      agentModeSupported: true,
+      signal: new AbortController().signal,
+    })
+
+    const assistantMessages = prepared.coreMessages.filter((message) => message.role === 'assistant')
+    expect(assistantMessages[0]?.content).toMatchObject([
+      {
+        type: 'reasoning',
+        text: 'Let me look that up.',
+        providerOptions: { anthropic: { signature: 'signature-old' } },
+      },
+      { type: 'tool-call', toolCallId: 'tool-signature-old' },
+    ])
+    expect(assistantMessages[1]?.content).toMatchObject([
+      {
+        type: 'reasoning',
+        text: 'Let me look that up.',
+        providerOptions: { anthropic: { signature: 'signature-current' } },
+      },
+      { type: 'tool-call', toolCallId: 'tool-signature-current' },
+    ])
+  })
+
+  test('still replays signed thinking after switching Claude models in the same session', async () => {
+    const messages: Message[] = [
+      { id: 'user-1', role: MessageRoleEnum.User, contentParts: [{ type: 'text', text: 'Look this up.' }] },
+      {
+        id: 'assistant-1',
+        role: MessageRoleEnum.Assistant,
+        aiProvider: ModelProviderEnum.Claude,
+        modelId: 'claude-sonnet-5',
+        contentParts: [
+          {
+            type: 'reasoning',
+            text: 'Let me look that up.',
+            providerMetadata: { anthropic: { signature: 'signature-a' } },
+          },
+          {
+            type: 'tool-call',
+            state: 'result',
+            toolCallId: 'tool-1',
+            toolName: 'lookup',
+            args: {},
+            result: { value: 'found' },
+          },
+        ],
+      },
+    ]
+
+    const prepared = await prepareAgentGenerationHarness({
+      session: createSession(),
+      settings: { provider: ModelProviderEnum.Claude, modelId: 'claude-opus-5' } as SessionSettings,
+      globalSettings: {} as Settings,
+      configs: { uuid: 'config-1' } as Config,
+      messages,
+      targetMsgIx: messages.length,
+      model: createMockModel({ modelId: 'claude-opus-5', apiStyle: 'anthropic' }),
+      dependencies: createModelDependencies(),
+      webBrowsing: false,
+      agentModeValue: 'off',
+      agentModeLocked: false,
+      agentModeSupported: true,
+      signal: new AbortController().signal,
+    })
+
+    const assistantMessage = prepared.coreMessages.find((message) => message.role === 'assistant')
+    expect(assistantMessage?.content).toMatchObject([
+      {
+        type: 'reasoning',
+        text: 'Let me look that up.',
+        providerOptions: { anthropic: { signature: 'signature-a' } },
+      },
+      { type: 'tool-call', toolCallId: 'tool-1' },
+    ])
+  })
+
+  test('degrades an unsigned resumed turn to a thinking-free request', async () => {
+    const messages: Message[] = [
+      { id: 'user-1', role: MessageRoleEnum.User, contentParts: [{ type: 'text', text: 'First question' }] },
+      {
+        // An earlier signed turn: its blocks must also stay off the wire once
+        // this request degrades to thinking-off.
+        id: 'assistant-1',
+        role: MessageRoleEnum.Assistant,
+        contentParts: [
+          {
+            type: 'reasoning',
+            text: 'Signed earlier turn',
+            providerMetadata: { anthropic: { signature: 'signature-early' } },
+          },
+          { type: 'text', text: 'Done.' },
+        ],
+      },
+      { id: 'user-2', role: MessageRoleEnum.User, contentParts: [{ type: 'text', text: 'Look this up.' }] },
+      {
+        id: 'assistant-2',
+        role: MessageRoleEnum.Assistant,
+        contentParts: [
+          { type: 'reasoning', text: 'Legacy unsigned thought' },
+          {
+            type: 'tool-call',
+            state: 'result',
+            toolCallId: 'tool-1',
+            toolName: 'lookup',
+            args: {},
+            result: { value: 'found' },
+          },
+        ],
+      },
+    ]
+
+    const prepared = await prepareAgentGenerationHarness({
+      session: createSession(),
+      settings: { provider: ModelProviderEnum.Claude, modelId: 'claude-haiku-4-5' } as SessionSettings,
+      globalSettings: {} as Settings,
+      configs: { uuid: 'config-1' } as Config,
+      messages,
+      targetMsgIx: messages.length,
+      model: createMockModel({ modelId: 'claude-haiku-4-5', apiStyle: 'anthropic' }),
+      dependencies: createModelDependencies(),
+      webBrowsing: false,
+      agentModeValue: 'off',
+      agentModeLocked: false,
+      agentModeSupported: true,
+      signal: new AbortController().signal,
+    })
+
+    expect(prepared.chatOptions.providerOptions?.claude?.thinking).toEqual({ type: 'disabled' })
+    const assistantMessages = prepared.coreMessages.filter((message) => message.role === 'assistant')
+    for (const message of assistantMessages) {
+      const content = Array.isArray(message.content) ? message.content : []
+      expect(content.some((part) => part.type === 'reasoning')).toBe(false)
+    }
+    expect(assistantMessages.at(-1)?.content).toMatchObject([{ type: 'tool-call', toolCallId: 'tool-1' }])
+  })
+
+  test('keeps thinking on when a resumed multi-step turn opens with signed thinking', async () => {
+    // Non-interleaved budget thinking: only the first loop step carries a
+    // thinking block; later steps are bare tool calls. Resuming must not
+    // degrade this documented shape.
+    const messages: Message[] = [
+      { id: 'user-1', role: MessageRoleEnum.User, contentParts: [{ type: 'text', text: 'Look this up.' }] },
+      {
+        id: 'assistant-1',
+        role: MessageRoleEnum.Assistant,
+        contentParts: [
+          {
+            type: 'reasoning',
+            text: 'Signed opening thought',
+            providerMetadata: { anthropic: { signature: 'signature-a' } },
+          },
+          {
+            type: 'tool-call',
+            state: 'result',
+            toolCallId: 'tool-1',
+            toolName: 'lookup',
+            args: {},
+            result: { value: 'found' },
+          },
+          {
+            type: 'tool-call',
+            state: 'result',
+            toolCallId: 'tool-2',
+            toolName: 'lookup',
+            args: {},
+            result: { value: 'found more' },
+          },
+        ],
+      },
+    ]
+
+    const prepared = await prepareAgentGenerationHarness({
+      session: createSession(),
+      settings: { provider: ModelProviderEnum.Claude, modelId: 'claude-haiku-4-5' } as SessionSettings,
+      globalSettings: {} as Settings,
+      configs: { uuid: 'config-1' } as Config,
+      messages,
+      targetMsgIx: messages.length,
+      model: createMockModel({ modelId: 'claude-haiku-4-5', apiStyle: 'anthropic' }),
+      dependencies: createModelDependencies(),
+      webBrowsing: false,
+      agentModeValue: 'off',
+      agentModeLocked: false,
+      agentModeSupported: true,
+      signal: new AbortController().signal,
+    })
+
+    expect(prepared.chatOptions.providerOptions?.claude?.thinking).toBeUndefined()
+    // The wire mirrors the documented shape: the turn opens with the signed
+    // thinking block, and the later loop step ships as a bare tool_use message.
+    const assistantMessages = prepared.coreMessages.filter((message) => message.role === 'assistant')
+    expect(assistantMessages[0]?.content).toMatchObject([
+      { type: 'reasoning', providerOptions: { anthropic: { signature: 'signature-a' } } },
+      { type: 'tool-call', toolCallId: 'tool-1' },
+    ])
+    expect(assistantMessages[1]?.content).toMatchObject([{ type: 'tool-call', toolCallId: 'tool-2' }])
+  })
+
+  test('leaves thinking untouched on a fresh user turn after an unsigned tool history', async () => {
+    const messages: Message[] = [
+      { id: 'user-1', role: MessageRoleEnum.User, contentParts: [{ type: 'text', text: 'Look this up.' }] },
+      {
+        id: 'assistant-1',
+        role: MessageRoleEnum.Assistant,
+        contentParts: [
+          { type: 'reasoning', text: 'Legacy unsigned thought' },
+          {
+            type: 'tool-call',
+            state: 'result',
+            toolCallId: 'tool-1',
+            toolName: 'lookup',
+            args: {},
+            result: { value: 'found' },
+          },
+          { type: 'text', text: 'Found it.' },
+        ],
+      },
+      { id: 'user-2', role: MessageRoleEnum.User, contentParts: [{ type: 'text', text: 'New question' }] },
+    ]
+
+    const prepared = await prepareAgentGenerationHarness({
+      session: createSession(),
+      settings: { provider: ModelProviderEnum.Claude, modelId: 'claude-haiku-4-5' } as SessionSettings,
+      globalSettings: {} as Settings,
+      configs: { uuid: 'config-1' } as Config,
+      messages,
+      targetMsgIx: messages.length,
+      model: createMockModel({ modelId: 'claude-haiku-4-5', apiStyle: 'anthropic' }),
+      dependencies: createModelDependencies(),
+      webBrowsing: false,
+      agentModeValue: 'off',
+      agentModeLocked: false,
+      agentModeSupported: true,
+      signal: new AbortController().signal,
+    })
+
+    // The request ends with the user message: no resumed tool exchange, so the
+    // turn-start rule must not degrade thinking for the new turn.
+    expect(prepared.chatOptions.providerOptions?.claude?.thinking).toBeUndefined()
+  })
+
+  test('still replays signed thinking when a stale resume appends a trailing time reminder', async () => {
+    const staleTs = Date.now() - 2 * TIME_REMINDER_MIN_GAP_MS
+    const messages: Message[] = [
+      {
+        id: 'user-1',
+        role: MessageRoleEnum.User,
+        timestamp: staleTs,
+        contentParts: [{ type: 'text', text: 'Look this up.' }],
+      },
+      {
+        id: 'assistant-1',
+        role: MessageRoleEnum.Assistant,
+        timestamp: staleTs + 60_000,
+        aiProvider: ModelProviderEnum.Claude,
+        modelId: 'claude-sonnet-5',
+        contentParts: [
+          {
+            type: 'reasoning',
+            text: 'Let me look that up.',
+            providerMetadata: { anthropic: { signature: 'signature-a' } },
+          },
+          {
+            type: 'tool-call',
+            state: 'result',
+            toolCallId: 'tool-1',
+            toolName: 'lookup',
+            args: {},
+            result: { value: 'found' },
+          },
+        ],
+      },
+    ]
+
+    const prepared = await prepareAgentGenerationHarness({
+      session: createSession(),
+      settings: { provider: ModelProviderEnum.Claude, modelId: 'claude-sonnet-5' } as SessionSettings,
+      globalSettings: {} as Settings,
+      configs: { uuid: 'config-1' } as Config,
+      messages,
+      targetMsgIx: messages.length,
+      model: createMockModel({ modelId: 'claude-sonnet-5', apiStyle: 'anthropic' }),
+      dependencies: createModelDependencies(),
+      webBrowsing: false,
+      agentModeValue: 'off',
+      agentModeLocked: false,
+      agentModeSupported: true,
+      signal: new AbortController().signal,
+    })
+
+    // The synthetic trailing user reminder must not drop the paused assistant
+    // turn's signed thinking: both coexist on the wire.
+    const lastMessage = prepared.coreMessages.at(-1)
+    expect(lastMessage?.role).toBe('user')
+    expect(JSON.stringify(lastMessage)).toContain('Current date and time:')
+    const assistantMessage = prepared.coreMessages.find((message) => message.role === 'assistant')
+    expect(assistantMessage?.content).toMatchObject([
+      {
+        type: 'reasoning',
+        text: 'Let me look that up.',
+        providerOptions: { anthropic: { signature: 'signature-a' } },
+      },
+      { type: 'tool-call', toolCallId: 'tool-1' },
+    ])
+  })
+
+  test('does not replay Anthropic-namespace thinking metadata on the Bedrock route', async () => {
+    const messages: Message[] = [
+      { id: 'user-1', role: MessageRoleEnum.User, contentParts: [{ type: 'text', text: 'Look this up.' }] },
+      {
+        id: 'assistant-1',
+        role: MessageRoleEnum.Assistant,
+        contentParts: [
+          {
+            type: 'reasoning',
+            text: 'Let me look that up.',
+            providerMetadata: { anthropic: { signature: 'signature-a' } },
+          },
+          {
+            type: 'tool-call',
+            state: 'result',
+            toolCallId: 'tool-1',
+            toolName: 'lookup',
+            args: {},
+            result: { value: 'found' },
+          },
+        ],
+      },
+    ]
+
+    const prepared = await prepareAgentGenerationHarness({
+      session: createSession(),
+      settings: {
+        provider: ModelProviderEnum.Bedrock,
+        modelId: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
+      } as SessionSettings,
+      globalSettings: {} as Settings,
+      configs: { uuid: 'config-1' } as Config,
+      messages,
+      targetMsgIx: messages.length,
+      model: createMockModel({ modelId: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0', apiStyle: 'anthropic' }),
+      dependencies: createModelDependencies(),
+      webBrowsing: false,
+      agentModeValue: 'off',
+      agentModeLocked: false,
+      agentModeSupported: true,
+      signal: new AbortController().signal,
+    })
+
+    const assistantMessage = prepared.coreMessages.find((message) => message.role === 'assistant')
+    expect(assistantMessage?.content).toMatchObject([{ type: 'tool-call', toolCallId: 'tool-1' }])
+  })
 })
 
 describe('session prompt context snapshot', () => {

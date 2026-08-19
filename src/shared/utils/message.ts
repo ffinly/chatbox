@@ -2,6 +2,20 @@ import { assign, cloneDeep, omit } from 'lodash'
 import type { Message, MessageContentParts, MessagePicture, SearchResultItem } from '../types'
 import { countWord } from './word_count'
 
+/**
+ * Parts kept only for provider protocol replay (Anthropic redacted thinking,
+ * signed empty thinking blocks). They are persisted with the message but must
+ * never surface anywhere a user can see: rendering, exports, step counts.
+ */
+export function isProtocolOnlyPart(part: MessageContentParts[number]): boolean {
+  return (part.type === 'text' || part.type === 'reasoning') && part.protocolOnly === true
+}
+
+/** The user-visible projection of a message's content parts. */
+export function visibleContentParts(parts: MessageContentParts): MessageContentParts {
+  return parts.some(isProtocolOnlyPart) ? parts.filter((part) => !isProtocolOnlyPart(part)) : parts
+}
+
 export function getMessageText(message: Message, includeImagePlaceHolder = true, includeReasoning = false): string {
   if (message.contentParts && message.contentParts.length > 0) {
     return message.contentParts

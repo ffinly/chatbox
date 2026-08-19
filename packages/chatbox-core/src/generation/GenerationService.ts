@@ -565,6 +565,9 @@ export class GenerationService<TContext> {
             status: [],
             aiProvider: targetMessage.aiProvider,
             model: targetMessage.model,
+            // The raw model identity travels with the display name so a split
+            // continuation keeps the same provenance record as its source.
+            modelId: targetMessage.modelId,
             name: targetMessage.name,
             style: targetMessage.style,
             isStreamingMode: targetMessage.isStreamingMode,

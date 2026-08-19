@@ -150,6 +150,203 @@ describe('processStreamChunk', () => {
     expect(result.state.contentParts).toHaveLength(0)
   })
 
+  it('persists ordered signed Anthropic thinking blocks and marks empty ones protocol-only', async () => {
+    const chunks = [
+      chunk('reasoning-start', { id: 'reasoning-0' }),
+      chunk('reasoning-delta', {
+        id: 'reasoning-0',
+        text: '',
+        providerMetadata: { anthropic: { signature: 'signature-a' } },
+      }),
+      chunk('reasoning-end', { id: 'reasoning-0' }),
+      chunk('reasoning-start', { id: 'reasoning-1' }),
+      chunk('reasoning-delta', { id: 'reasoning-1', text: 'Let me look that up.' }),
+      chunk('reasoning-delta', {
+        id: 'reasoning-1',
+        text: '',
+        providerMetadata: { anthropic: { signature: 'signature-b' } },
+      }),
+      chunk('reasoning-end', { id: 'reasoning-1' }),
+      chunk('tool-call', { toolCallId: 'tool-1', toolName: 'lookup', input: {} }),
+    ]
+
+    let state = createInitialState()
+    for (const streamChunk of chunks) {
+      state = (await processStreamChunk(streamChunk, state, callbacks)).state
+    }
+
+    expect(state.contentParts).toMatchObject([
+      {
+        type: 'reasoning',
+        text: '',
+        providerMetadata: { anthropic: { signature: 'signature-a' } },
+        protocolOnly: true,
+      },
+      {
+        type: 'reasoning',
+        text: 'Let me look that up.',
+        providerMetadata: { anthropic: { signature: 'signature-b' } },
+      },
+      { type: 'tool-call', toolCallId: 'tool-1', toolName: 'lookup' },
+    ])
+    expect((state.contentParts[1] as MessageReasoningPart).protocolOnly).toBeUndefined()
+  })
+
+  it('persists Anthropic redacted thinking metadata emitted at block start', async () => {
+    const started = await processStreamChunk(
+      chunk('reasoning-start', {
+        id: 'reasoning-0',
+        providerMetadata: { anthropic: { redactedData: 'encrypted-thinking' } },
+      }),
+      createInitialState(),
+      callbacks
+    )
+    const ended = await processStreamChunk(chunk('reasoning-end', { id: 'reasoning-0' }), started.state, callbacks)
+
+    expect(ended.state.contentParts).toMatchObject([
+      {
+        type: 'reasoning',
+        text: '',
+        providerMetadata: { anthropic: { redactedData: 'encrypted-thinking' } },
+        protocolOnly: true,
+      },
+    ])
+  })
+
+  it('does not persist non-whitelisted provider metadata or create parts for it', async () => {
+    const chunks = [
+      chunk('reasoning-start', {
+        id: 'reasoning-0',
+        providerMetadata: { openai: { itemId: 'rs_1', reasoningEncryptedContent: 'encrypted' } },
+      }),
+      chunk('reasoning-delta', {
+        id: 'reasoning-0',
+        text: '',
+        providerMetadata: { openai: { itemId: 'rs_1' } },
+      }),
+      chunk('reasoning-end', { id: 'reasoning-0', providerMetadata: { openai: { itemId: 'rs_1' } } }),
+      chunk('reasoning-delta', {
+        id: 'reasoning-1',
+        text: 'visible thought',
+        providerMetadata: { openai: { itemId: 'rs_2' } },
+      }),
+      chunk('reasoning-end', { id: 'reasoning-1' }),
+    ]
+
+    let state = createInitialState()
+    for (const streamChunk of chunks) {
+      state = (await processStreamChunk(streamChunk, state, callbacks)).state
+    }
+
+    expect(state.contentParts).toHaveLength(1)
+    expect(state.contentParts[0]).toMatchObject({ type: 'reasoning', text: 'visible thought' })
+    expect((state.contentParts[0] as MessageReasoningPart).providerMetadata).toBeUndefined()
+  })
+
+  it('preserves whitespace-only deltas inside a signed reasoning block verbatim', async () => {
+    const chunks = [
+      chunk('reasoning-start', { id: 'reasoning-0' }),
+      chunk('reasoning-delta', { id: 'reasoning-0', text: '\n ' }),
+      chunk('reasoning-delta', { id: 'reasoning-0', text: 'first thought' }),
+      chunk('reasoning-delta', { id: 'reasoning-0', text: '\n\n' }),
+      chunk('reasoning-delta', { id: 'reasoning-0', text: 'second thought' }),
+      chunk('reasoning-delta', {
+        id: 'reasoning-0',
+        text: '',
+        providerMetadata: { anthropic: { signature: 'signature-a' } },
+      }),
+      chunk('reasoning-end', { id: 'reasoning-0' }),
+    ]
+
+    let state = createInitialState()
+    for (const streamChunk of chunks) {
+      state = (await processStreamChunk(streamChunk, state, callbacks)).state
+    }
+
+    expect(state.contentParts).toMatchObject([
+      {
+        type: 'reasoning',
+        text: '\n first thought\n\nsecond thought',
+        providerMetadata: { anthropic: { signature: 'signature-a' } },
+      },
+    ])
+  })
+
+  it('prepends buffered whitespace when only the signature materializes the block', async () => {
+    const chunks = [
+      chunk('reasoning-start', { id: 'reasoning-0' }),
+      chunk('reasoning-delta', { id: 'reasoning-0', text: '\n' }),
+      chunk('reasoning-delta', {
+        id: 'reasoning-0',
+        text: '',
+        providerMetadata: { anthropic: { signature: 'signature-a' } },
+      }),
+      chunk('reasoning-end', { id: 'reasoning-0' }),
+    ]
+
+    let state = createInitialState()
+    for (const streamChunk of chunks) {
+      state = (await processStreamChunk(streamChunk, state, callbacks)).state
+    }
+
+    expect(state.contentParts).toMatchObject([
+      {
+        type: 'reasoning',
+        text: '\n',
+        providerMetadata: { anthropic: { signature: 'signature-a' } },
+        protocolOnly: true,
+      },
+    ])
+  })
+
+  it('discards buffered whitespace from blocks that never materialize', async () => {
+    const chunks = [
+      chunk('reasoning-delta', { id: 'reasoning-0', text: '   ' }),
+      chunk('reasoning-end', { id: 'reasoning-0' }),
+      chunk('text-delta', { id: 'text-0', text: 'answer' }),
+      chunk('reasoning-start', { id: 'reasoning-1' }),
+      chunk('reasoning-delta', { id: 'reasoning-1', text: 'real thought' }),
+      chunk('reasoning-end', { id: 'reasoning-1' }),
+    ]
+
+    let state = createInitialState()
+    for (const streamChunk of chunks) {
+      state = (await processStreamChunk(streamChunk, state, callbacks)).state
+    }
+
+    expect(state.contentParts).toMatchObject([
+      { type: 'text', text: 'answer' },
+      { type: 'reasoning', text: 'real thought' },
+    ])
+  })
+
+  it('does not split a streaming text part on spurious empty reasoning blocks', async () => {
+    const chunks = [
+      chunk('text-delta', { id: 'text-0', text: 'Hello ' }),
+      chunk('reasoning-start', { id: 'reasoning-0' }),
+      chunk('reasoning-end', { id: 'reasoning-0' }),
+      chunk('text-delta', { id: 'text-0', text: 'world' }),
+    ]
+
+    let state = createInitialState()
+    for (const streamChunk of chunks) {
+      state = (await processStreamChunk(streamChunk, state, callbacks)).state
+    }
+
+    expect(state.contentParts).toMatchObject([{ type: 'text', text: 'Hello world' }])
+  })
+
+  it('finalizes the previous reasoning duration when a new block starts', async () => {
+    let state = createInitialState()
+    state = (await processStreamChunk(chunk('reasoning-delta', { id: 'reasoning-0', text: 'first' }), state, callbacks))
+      .state
+    const firstPart = state.contentParts[0] as MessageReasoningPart
+    expect(firstPart.duration).toBeUndefined()
+
+    state = (await processStreamChunk(chunk('reasoning-start', { id: 'reasoning-1' }), state, callbacks)).state
+    expect(firstPart.duration).toBeDefined()
+  })
+
   it('emits generic preparing status when reasoning ends', async () => {
     const state = createInitialState()
     const reasoning = await processStreamChunk(chunk('reasoning-delta', { text: 'Thinking...' }), state, callbacks)

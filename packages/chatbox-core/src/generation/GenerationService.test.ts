@@ -511,7 +511,7 @@ describe('GenerationService', () => {
 
     await harness.service.orchestrate(
       'session-1',
-      { ...targetMessage(), isStreamingMode: true },
+      { ...targetMessage(), isStreamingMode: true, aiProvider: 'claude', modelId: 'claude-sonnet-5' },
       { operationType: 'send_message' }
     )
 
@@ -537,6 +537,10 @@ describe('GenerationService', () => {
     expect(continuation.message.role).toBe('assistant')
     expect(continuation.message.id).not.toBe('assistant-1')
     expect(continuation.message.isStreamingMode).toBe(true)
+    // Raw model identity travels with the continuation so a later model switch
+    // is detectable by the reasoning replay provenance check.
+    expect(continuation.message.aiProvider).toBe('claude')
+    expect(continuation.message.modelId).toBe('claude-sonnet-5')
     expect(harness.steeringAdmitAnchor).toHaveBeenCalledWith(continuation.message.id)
 
     // The rest of the run streams into the continuation and finishes there.

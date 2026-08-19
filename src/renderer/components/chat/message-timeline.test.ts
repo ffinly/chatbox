@@ -73,4 +73,37 @@ describe('createMessageTimelineLayout', () => {
 
     expect(result.orderedContentParts).toBe(contentParts)
   })
+
+  test('hides protocol-only parts from the visible timeline', () => {
+    const toolCall = {
+      type: 'tool-call' as const,
+      state: 'result' as const,
+      toolCallId: 'tool-1',
+      toolName: 'lookup',
+      args: {},
+      result: { value: 'found' },
+    }
+    const contentParts: MessageContentParts = [
+      {
+        type: 'reasoning',
+        text: '',
+        providerMetadata: { anthropic: { signature: 'signature-a' } },
+        protocolOnly: true,
+      },
+      { type: 'text', text: '', protocolOnly: true },
+      {
+        type: 'reasoning',
+        text: '',
+        providerMetadata: { anthropic: { redactedData: 'encrypted' } },
+        protocolOnly: true,
+      },
+      toolCall,
+    ]
+
+    const result = createMessageTimelineLayout(contentParts, true)
+
+    expect(result.orderedContentParts).toEqual([toolCall])
+    expect(result.lastStepIndex).toBe(0)
+    expect(result.groupedContentParts).toEqual([{ type: 'step_group', parts: [toolCall] }])
+  })
 })
