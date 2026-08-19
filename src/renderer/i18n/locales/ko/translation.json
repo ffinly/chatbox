@@ -958,7 +958,7 @@
   "Skill \"{{name}}\" is already installed from {{existingSource}}. Replace with the version from {{newSource}}?": "\"{{name}}\" 스킬이 {{existingSource}}에서 이미 설치되어 있습니다. {{newSource}} 버전으로 교체하시겠습니까?",
   "Skill deleted": "스킬이 삭제되었습니다",
   "Skills": "스킬",
-  "Skip approval prompts for commands and file changes.": "명령과 파일 변경에 대한 승인 요청을 건너뜁니다.",
+  "Skip approval prompts for commands and file changes, and run without periodic step confirmations.": "명령과 파일 변경에 대한 승인 요청을 건너뛰고, 주기적인 단계 확인 없이 실행합니다.",
   "Skip for now": "나중에 하기",
   "Skip guide": "가이드 건너뛰기",
   "Smart Switching": "스마트 전환",

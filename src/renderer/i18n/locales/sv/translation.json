@@ -958,7 +958,7 @@
   "Skill \"{{name}}\" is already installed from {{existingSource}}. Replace with the version from {{newSource}}?": "Färdigheten \"{{name}}\" är redan installerad från {{existingSource}}. Ersätt med versionen från {{newSource}}?",
   "Skill deleted": "Färdighet borttagen",
   "Skills": "Färdigheter",
-  "Skip approval prompts for commands and file changes.": "Hoppa över godkännandefrågor för kommandon och filändringar.",
+  "Skip approval prompts for commands and file changes, and run without periodic step confirmations.": "Hoppa över godkännandefrågor för kommandon och filändringar och kör utan periodiska stegbekräftelser.",
   "Skip for now": "Hoppa över tills vidare",
   "Skip guide": "Hoppa över guide",
   "Smart Switching": "Smart växling",

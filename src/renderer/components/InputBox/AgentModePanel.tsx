@@ -817,7 +817,7 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
                 {t('Full Access')}
               </Text>
               <Text size="xs" c="red" className="leading-snug">
-                {t('Skip approval prompts for commands and file changes.')}
+                {t('Skip approval prompts for commands and file changes, and run without periodic step confirmations.')}
               </Text>
             </Stack>
             {commandApprovalMode === 'full_access' && <IconCheck size={14} className="text-red-600 shrink-0" />}

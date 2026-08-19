@@ -958,7 +958,7 @@
   "Skill \"{{name}}\" is already installed from {{existingSource}}. Replace with the version from {{newSource}}?": "المهارة \"{{name}}\" مثبتة بالفعل من {{existingSource}}. هل تريد استبدالها بالنسخة الموجودة في {{newSource}}؟",
   "Skill deleted": "تم حذف المهارة",
   "Skills": "المهارات",
-  "Skip approval prompts for commands and file changes.": "تخطي مطالبات الموافقة للأوامر وتغييرات الملفات.",
+  "Skip approval prompts for commands and file changes, and run without periodic step confirmations.": "تخطي مطالبات الموافقة للأوامر وتغييرات الملفات، والتشغيل دون تأكيدات دورية للخطوات.",
   "Skip for now": "تخطي في الوقت الحالي",
   "Skip guide": "تخطي الدليل",
   "Smart Switching": "تبديل ذكي",

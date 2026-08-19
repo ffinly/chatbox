@@ -170,7 +170,7 @@ Chat Agent 不再 fallback 注入底层 `sandbox_*` 工具。
 
 | pauseReason | 触发 | 继续行为 |
 |-------------|------|----------|
-| `tool_call_limit` | 多轮工具调用达到上限 | 用户确认后执行原本暂停的工具调用 |
+| `tool_call_limit` | 多轮工具调用达到上限，且未解析为无人值守（见「多轮工具调用上限」） | 用户确认后执行原本暂停的工具调用 |
 | `user_exec_approval` | `user_exec` 命令未命中白名单、未通过 AI 安全评估且未开启 Full Access | 批准后执行命令，拒绝后写入拒绝结果 |
 | `command_escalation_approval` | `run_command` 在沙箱真实失败后，携带该结果明确返回的一次性 `retry_of` 请求主机重试 | 校验命令、目录和 shell 完全一致，批准后消费 reference 并执行一次 |
 | `file_mutation_approval` | 写入或编辑绑定目录之外的用户真实文件系统，且未开启 Full Access | 批准后执行文件变更，拒绝后写入拒绝结果 |
@@ -192,7 +192,11 @@ GenerationService（`packages/chatbox-core/src/generation/`）通过 `withToolCa
 
 用户可以关闭这一确认暂停（针对长期挂机任务）：
 
-- 设置项为 `pauseOnToolCallLimit`，会话级（`SessionSettingsSchema`，三态：`undefined` 跟随全局）与全局级（`SettingsSchema`，默认 `true`）各有一份，`shouldPauseOnToolCallLimit()` 按「会话覆盖全局、默认暂停」解析。
+- 设置项为 `pauseOnToolCallLimit`，会话级（`SessionSettingsSchema`，三态：`undefined` 跟随全局）与全局级（`SettingsSchema`，默认 `true`）各有一份。`shouldPauseOnToolCallLimit()` 的解析顺序为：
+  1. 会话级设置存在时直接生效 —— 单个会话的显式选择优先级最高，保证对话设置里的开关不会显示与实际行为不符的状态。
+  2. 会话解析为 Full Access（`resolveCommandApprovalMode()`，含 legacy `agentFullAccess`）时不暂停。Full Access 本身已跳过逐次审批、语义是无人值守，而全局设置默认为 `true`（始终有值），因此这里覆盖的是**全局默认值**而不是会话自己的选择。
+  3. 否则取全局设置，默认暂停。
+- 注意 `commandApprovalMode` 是会话级持久设置，与 agent mode 开关相互独立：曾开过 Full Access 的会话即使后来关掉 agent mode，默认仍不暂停。此时对话设置里的开关会显示为关闭状态，用户可显式打开重新拿回检查点。
 - 暂停卡片上的 "Don't ask again" 菜单（`PausedToolCallDetails`）可选择仅当前会话或所有会话生效，写入设置后通过 `disableToolCallLimitPauseAndContinue()` 立即恢复当前暂停的批次。
 - 会话级开关在对话设置（`SessionSettings.tsx`）中可重新打开；全局开关在设置 → 聊天设置（`routes/settings/chat.tsx`）中。
 

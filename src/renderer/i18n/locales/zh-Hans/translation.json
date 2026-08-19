@@ -958,7 +958,7 @@
   "Skill \"{{name}}\" is already installed from {{existingSource}}. Replace with the version from {{newSource}}?": "技能 \"{{name}}\" 已从 {{existingSource}} 安装。是否替换为来自 {{newSource}} 的版本？",
   "Skill deleted": "技能已删除",
   "Skills": "技能",
-  "Skip approval prompts for commands and file changes.": "跳过命令和文件修改的批准提示。",
+  "Skip approval prompts for commands and file changes, and run without periodic step confirmations.": "跳过命令和文件修改的批准提示，并且不再每隔若干步暂停确认。",
   "Skip for now": "跳过",
   "Skip guide": "跳过引导",
   "Smart Switching": "智能切换",

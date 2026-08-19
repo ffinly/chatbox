@@ -3,7 +3,7 @@ import { ActionIcon, Box, Button, FileButton, Flex, Input, Stack, Switch, Text, 
 import { TestId } from '@shared/automation/testids'
 import { chatSessionSettings } from '@shared/defaults'
 import { createMessage, isChatSession, ModelProviderEnum, type Session } from '@shared/types'
-import { MAX_TOOL_CALLS_BEFORE_CONFIRMATION } from '@shared/utils/tool-call-limit-pause'
+import { MAX_TOOL_CALLS_BEFORE_CONFIRMATION, shouldPauseOnToolCallLimit } from '@shared/utils/tool-call-limit-pause'
 import { IconInfoCircle, IconTrash, IconUpload } from '@tabler/icons-react'
 import { pick } from 'lodash'
 import { useEffect, useState } from 'react'
@@ -468,7 +468,7 @@ export function ChatConfig({
           </Flex>
           <Switch
             data-testid={TestId.settings.sessionPauseOnToolCallLimitSwitch}
-            checked={settings?.pauseOnToolCallLimit ?? globalPauseOnToolCallLimit ?? true}
+            checked={shouldPauseOnToolCallLimit(settings, { pauseOnToolCallLimit: globalPauseOnToolCallLimit })}
             onChange={(v) => onSettingsChange({ pauseOnToolCallLimit: v.target.checked })}
           />
         </Flex>

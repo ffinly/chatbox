@@ -43,6 +43,8 @@ interface Harness {
   storedBlobs: Map<string, string>
   storeBlob: ReturnType<typeof vi.fn>
   session: Session
+  /** The object `getSessionSettings` resolves to; mutate it to drive per-chat settings. */
+  sessionSettings: SessionSettings
   globalSettings: Settings
   trackPauseAction: ReturnType<typeof vi.fn>
   afterMessageGenerated: ReturnType<typeof vi.fn>
@@ -333,6 +335,7 @@ function createHarness(): Harness {
     storedBlobs,
     storeBlob,
     session,
+    sessionSettings,
     globalSettings,
     trackPauseAction,
     afterMessageGenerated,
@@ -385,6 +388,28 @@ function lastPersisted(harness: Harness): Message {
   const entry = harness.persisted.at(-1)
   if (!entry) throw new Error('Expected a persisted message')
   return entry.message
+}
+
+const probeExecute = () => Promise.resolve('ok')
+
+/**
+ * Route one executable tool through preparation and report the `execute` the model
+ * actually received: `probeExecute` itself when the step-limit pause left the tool
+ * alone, a wrapper when the pause was installed.
+ */
+function captureToolsOnStream(harness: Harness): () => unknown {
+  harness.setPreparedTools({
+    probe: { description: 'probe', inputSchema: jsonSchema({ type: 'object' }), execute: probeExecute },
+  } as unknown as ToolSet)
+  let receivedExecute: unknown
+  harness.setChatStreamFactory((_messages, options) =>
+    (async function* captureStream() {
+      await Promise.resolve()
+      receivedExecute = (options.tools?.probe as { execute?: unknown } | undefined)?.execute
+      yield { type: 'finish', finishReason: 'stop' } as ModelStreamPart<ToolSet>
+    })()
+  )
+  return () => receivedExecute
 }
 
 describe('GenerationService', () => {
@@ -1145,6 +1170,35 @@ describe('GenerationService', () => {
     await vi.waitFor(() => {
       expect(harness.coordinationEvents).toEqual(['lock:session-1', 'wake:session-1'])
     })
+  })
+
+  it('wraps tools with the step-limit pause for an attended chat', async () => {
+    const capturedTools = captureToolsOnStream(harness)
+
+    await harness.service.orchestrate('session-1', targetMessage(), { operationType: 'send_message' })
+
+    expect(typeof capturedTools()).toBe('function')
+    expect(capturedTools()).not.toBe(probeExecute)
+  })
+
+  it('leaves tools unwrapped for a full access chat so an unattended run is never stalled', async () => {
+    harness.sessionSettings.commandApprovalMode = 'full_access'
+    const capturedTools = captureToolsOnStream(harness)
+
+    await harness.service.orchestrate('session-1', targetMessage(), { operationType: 'send_message' })
+
+    expect(capturedTools()).toBe(probeExecute)
+  })
+
+  it('keeps the step-limit pause for a full access chat that opted back in', async () => {
+    harness.sessionSettings.commandApprovalMode = 'full_access'
+    harness.sessionSettings.pauseOnToolCallLimit = true
+    const capturedTools = captureToolsOnStream(harness)
+
+    await harness.service.orchestrate('session-1', targetMessage(), { operationType: 'send_message' })
+
+    expect(typeof capturedTools()).toBe('function')
+    expect(capturedTools()).not.toBe(probeExecute)
   })
 
   it('still resumes the paused batch when persisting the opt-out fails', async () => {

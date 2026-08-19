@@ -958,7 +958,7 @@
   "Skill \"{{name}}\" is already installed from {{existingSource}}. Replace with the version from {{newSource}}?": "La compétence \"{{name}}\" est déjà installée depuis {{existingSource}}. Remplacer par la version provenant de {{newSource}} ?",
   "Skill deleted": "Compétence supprimée",
   "Skills": "Compétences",
-  "Skip approval prompts for commands and file changes.": "Ignorer les demandes d'approbation pour les commandes et les modifications de fichiers.",
+  "Skip approval prompts for commands and file changes, and run without periodic step confirmations.": "Ignorer les demandes d'approbation pour les commandes et les modifications de fichiers, et exécuter sans confirmations d'étapes périodiques.",
   "Skip for now": "Ignorer pour le moment",
   "Skip guide": "Passer le guide",
   "Smart Switching": "Bascule intelligente",

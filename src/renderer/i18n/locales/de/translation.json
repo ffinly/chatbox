@@ -958,7 +958,7 @@
   "Skill \"{{name}}\" is already installed from {{existingSource}}. Replace with the version from {{newSource}}?": "Skill \"{{name}}\" ist bereits von {{existingSource}} installiert. Durch die Version von {{newSource}} ersetzen?",
   "Skill deleted": "Skill gelöscht",
   "Skills": "Fähigkeiten",
-  "Skip approval prompts for commands and file changes.": "Genehmigungsabfragen für Befehle und Dateiänderungen überspringen.",
+  "Skip approval prompts for commands and file changes, and run without periodic step confirmations.": "Genehmigungsabfragen für Befehle und Dateiänderungen überspringen und ohne regelmäßige Schrittbestätigungen ausführen.",
   "Skip for now": "Vorerst überspringen",
   "Skip guide": "Anleitung überspringen",
   "Smart Switching": "Intelligentes Umschalten",

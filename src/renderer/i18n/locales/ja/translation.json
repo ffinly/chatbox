@@ -958,7 +958,7 @@
   "Skill \"{{name}}\" is already installed from {{existingSource}}. Replace with the version from {{newSource}}?": "スキル\"{{name}}\"は既に{{existingSource}}からインストールされています。{{newSource}}のバージョンに置き換えますか？",
   "Skill deleted": "スキルを削除しました",
   "Skills": "スキル",
-  "Skip approval prompts for commands and file changes.": "コマンドとファイル変更の承認確認を省略します。",
+  "Skip approval prompts for commands and file changes, and run without periodic step confirmations.": "コマンドとファイル変更の承認確認を省略し、ステップごとの定期的な確認なしで実行します。",
   "Skip for now": "今はスキップする",
   "Skip guide": "ガイドをスキップ",
   "Smart Switching": "スマート切り替え",

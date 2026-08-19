@@ -958,7 +958,7 @@
   "Skill \"{{name}}\" is already installed from {{existingSource}}. Replace with the version from {{newSource}}?": "Навык \"{{name}}\" уже установлен из {{existingSource}}. Заменить версией из {{newSource}}?",
   "Skill deleted": "Навык удален",
   "Skills": "Навыки",
-  "Skip approval prompts for commands and file changes.": "Пропускать запросы подтверждения для команд и изменений файлов.",
+  "Skip approval prompts for commands and file changes, and run without periodic step confirmations.": "Пропускать запросы подтверждения для команд и изменений файлов и выполнять без периодических подтверждений шагов.",
   "Skip for now": "Пропустить пока что",
   "Skip guide": "Пропустить руководство",
   "Smart Switching": "Умное переключение",
