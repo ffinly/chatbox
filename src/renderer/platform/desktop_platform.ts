@@ -484,6 +484,13 @@ export default class DesktopPlatform implements Platform {
     return this.ipc.invoke('sandbox:copy-blob', params)
   }
 
+  public async sandboxSeedBlobs(params: {
+    items: Array<{ blobKey: string; targetFilename: string }>
+    sessionId?: string
+  }) {
+    return this.ipc.invoke('sandbox:seed-blobs', params)
+  }
+
   public async sandboxExportFile(params: { sandboxPath: string; suggestedName?: string }) {
     return this.ipc.invoke('sandbox:export-file', params)
   }

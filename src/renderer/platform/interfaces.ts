@@ -220,6 +220,14 @@ export interface Platform extends Storage {
     targetFilename: string
     sessionId?: string
   }): Promise<{ success: boolean; sandboxPath?: string; error?: string }>
+  sandboxSeedBlobs?(params: {
+    items: Array<{ blobKey: string; targetFilename: string }>
+    sessionId?: string
+  }): Promise<{
+    success: boolean
+    results: Array<{ targetFilename: string; success: boolean; skipped: boolean; sandboxPath?: string; error?: string }>
+    error?: string
+  }>
   sandboxExportFile?(params: {
     sandboxPath: string
     suggestedName?: string

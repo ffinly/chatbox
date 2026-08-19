@@ -7,6 +7,7 @@ import {
 } from '@chatbox/core/generation'
 import type { LoggerPort } from '@chatbox/core/ports'
 import { buildContext } from '@shared/context'
+import { toSandboxSeedAttachment } from '@shared/sandbox/attachment-path'
 import type { Message, Session, SessionSettings } from '@shared/types'
 import type { ModelDependencies } from '@shared/types/adapters'
 import {
@@ -145,14 +146,7 @@ async function buildToolsForPausedToolCall(session: Session, settings: SessionSe
       ? {
           sessionId: session.id,
           provider: sandboxProvider,
-          files: messagesBeforeTarget.flatMap(
-            (message) =>
-              message.files?.map((file) => ({
-                storageKey: file.storageKey || '',
-                rawStorageKey: file.rawStorageKey,
-                name: file.name,
-              })) || []
-          ),
+          files: messagesBeforeTarget.flatMap((message) => message.files?.map(toSandboxSeedAttachment) || []),
         }
       : undefined
 

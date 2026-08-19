@@ -55,6 +55,25 @@ export interface SandboxSearchParams {
 
 export type SandboxSearchResult = SandboxOperationResult
 
+export type SandboxSeedBlobItem = {
+  blobKey: string
+  targetFilename: string
+}
+
+export type SandboxSeedBlobResult = {
+  targetFilename: string
+  success: boolean
+  skipped: boolean
+  sandboxPath?: string
+  error?: string
+}
+
+export type SandboxSeedBlobsResult = {
+  success: boolean
+  results: SandboxSeedBlobResult[]
+  error?: string
+}
+
 export interface SandboxProvider {
   type: 'local' | 'cloud'
 
@@ -97,6 +116,12 @@ export interface SandboxProvider {
 
   /** Copy a file from the blob store into the sandbox (avoids sending content through IPC) */
   copyBlobIn(blobKey: string, targetFilename: string): Promise<{ success: boolean; error?: string }>
+
+  /**
+   * Seed many attachment blobs in one round-trip. Destinations that already hold
+   * the same blob are left untouched (no blob read, no write).
+   */
+  seedBlobsIn?(items: SandboxSeedBlobItem[]): Promise<SandboxSeedBlobsResult>
 
   /** Read a bounded line range from a file in the sandbox. */
   readFileOut(sandboxPath: string, options?: { offset?: number; limit?: number }): Promise<SandboxReadResult>

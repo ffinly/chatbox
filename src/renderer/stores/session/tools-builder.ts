@@ -1,4 +1,5 @@
 import type { ModelInterface } from '@shared/models/types'
+import type { SandboxSeedAttachment } from '@shared/sandbox/attachment-path'
 import type { SandboxProvider } from '@shared/sandbox-provider'
 import { supportsToolResultImages } from '@shared/tools/view-image'
 import type { KnowledgeBase, Message, SessionSettings, Settings } from '@shared/types'
@@ -68,7 +69,7 @@ export interface BuildToolsOptions {
   codeExecution?: {
     sessionId: string
     provider: SandboxProvider
-    files: Array<{ storageKey: string; rawStorageKey?: string; name: string }>
+    files: SandboxSeedAttachment[]
   }
   commandExecution?: {
     sessionId: string

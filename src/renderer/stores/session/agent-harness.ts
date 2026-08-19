@@ -3,6 +3,7 @@ import { buildContext, flattenToolCallPartsToText, selectContextMessages } from 
 import type { AttachmentResolver } from '@shared/context/types'
 import { ChatboxAIAPIError, OCRError } from '@shared/models/errors'
 import type { ChatStreamOptions, ModelInterface } from '@shared/models/types'
+import { toSandboxSeedAttachment } from '@shared/sandbox/attachment-path'
 import type { SandboxProvider } from '@shared/sandbox-provider'
 import { supportsToolResultImages } from '@shared/tools/view-image'
 import type {
@@ -352,14 +353,7 @@ export async function prepareAgentGenerationHarness(
       ? {
           sessionId: session.id,
           provider: sandboxProvider,
-          files: allMessages.flatMap(
-            (message) =>
-              message.files?.map((file) => ({
-                storageKey: file.storageKey || '',
-                rawStorageKey: file.rawStorageKey,
-                name: file.name,
-              })) || []
-          ),
+          files: allMessages.flatMap((message) => message.files?.map(toSandboxSeedAttachment) || []),
         }
       : undefined
 

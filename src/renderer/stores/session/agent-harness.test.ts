@@ -109,6 +109,7 @@ vi.mock('@/packages/user-exec-approval', () => ({
 
 import { convertToOpenAICompatibleChatMessages } from '@ai-sdk/openai-compatible/internal'
 import type { ModelInterface } from '@shared/models/types'
+import { sandboxAttachmentRelPath } from '@shared/sandbox/attachment-path'
 import type { SandboxProvider } from '@shared/sandbox-provider'
 import {
   type Config,
@@ -276,7 +277,7 @@ describe('prepareAgentGenerationHarness', () => {
     const promptText = lastPromptMessage ? getMessageText(lastPromptMessage, true, false) : ''
     expect(promptText).toContain('<ATTACHMENT_FILE>')
     expect(promptText).toContain('<SANDBOX_MODE>true</SANDBOX_MODE>')
-    expect(promptText).toContain('<SANDBOX_PATH>sales.xlsx</SANDBOX_PATH>')
+    expect(promptText).toContain(`<SANDBOX_PATH>${sandboxAttachmentRelPath('sales.xlsx', 'raw-sales')}</SANDBOX_PATH>`)
     expect(promptText).not.toContain('ATTACHED_FILES')
 
     const serializedCoreMessages = JSON.stringify(prepared.coreMessages)

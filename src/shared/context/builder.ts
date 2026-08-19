@@ -1,4 +1,9 @@
 import { isTextFilePath } from '../file-extensions'
+import {
+  sandboxAttachmentIdentity,
+  sandboxAttachmentParsedRelPath,
+  sandboxAttachmentRelPath,
+} from '../sandbox/attachment-path'
 import type { CompactionPoint, Message, MessageContentParts, MessageContentToolCallPart } from '../types'
 import { orderSteeredMessagesForModel } from '../utils/message'
 import { findLatestApplicableCompactionPoint } from './compaction-points'
@@ -304,14 +309,17 @@ function injectSandboxFileMetadata(msg: Message): Message {
   if (msg.files) {
     for (const file of msg.files) {
       const isText = isTextFilePath(file.name)
+      const sandboxPath = sandboxAttachmentRelPath(file.name, sandboxAttachmentIdentity(file))
       const attachment = buildSandboxAttachment({
         index: index++,
         name: file.name,
         key: file.sessionAttachmentId ? `session-attachment:${file.sessionAttachmentId}` : (file.storageKey ?? file.id),
         size: formatFileSize(file.byteLength),
-        sandboxPath: file.name,
+        sandboxPath,
         parsedSandboxPath:
-          !isText && file.storageKey && file.parserType !== 'sandbox-raw' ? `${file.name}_parsed.txt` : undefined,
+          !isText && file.storageKey && file.parserType !== 'sandbox-raw'
+            ? sandboxAttachmentParsedRelPath(sandboxPath)
+            : undefined,
         retrieval:
           file.ragMode === 'session-retrieval'
             ? {
@@ -510,8 +518,8 @@ function buildSandboxAttachment(params: {
       '<SYSTEM_REMINDER>',
       'This uploaded file is available in the sandbox working directory, not inlined in the conversation. ',
       parsedSandboxPath
-        ? 'Use read_file on PARSED_SANDBOX_PATH for extracted text, or code_execution on SANDBOX_PATH for the original binary.'
-        : 'Use read_file or code_execution on SANDBOX_PATH to inspect it.',
+        ? 'Use read_file on PARSED_SANDBOX_PATH for extracted text, or code_execution on SANDBOX_PATH for the original binary. Use those paths exactly — uploads that share a filename live in distinct subdirectories.'
+        : 'Use read_file or code_execution on SANDBOX_PATH to inspect it. Use that path exactly — uploads that share a filename live in distinct subdirectories.',
       '</SYSTEM_REMINDER>\n',
     ].join('')
   }

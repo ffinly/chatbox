@@ -1,3 +1,4 @@
+import { sandboxAttachmentParsedRelPath, sandboxAttachmentRelPath } from '@shared/sandbox/attachment-path'
 import type { CompactionPoint, Message } from '@shared/types'
 import { describe, expect, it, vi } from 'vitest'
 import { buildContext } from './builder'
@@ -774,8 +775,9 @@ describe('buildContext', () => {
       expect(text).not.toContain('<ATTACHED_FILES>')
       expect(text).toContain('<FILE_NAME>budget.xlsx</FILE_NAME>')
       expect(text).toContain('<SANDBOX_MODE>true</SANDBOX_MODE>')
-      expect(text).toContain('<SANDBOX_PATH>budget.xlsx</SANDBOX_PATH>')
-      expect(text).toContain('<PARSED_SANDBOX_PATH>budget.xlsx_parsed.txt</PARSED_SANDBOX_PATH>')
+      const budgetPath = sandboxAttachmentRelPath('budget.xlsx', 'file-key-raw')
+      expect(text).toContain(`<SANDBOX_PATH>${budgetPath}</SANDBOX_PATH>`)
+      expect(text).toContain(`<PARSED_SANDBOX_PATH>${sandboxAttachmentParsedRelPath(budgetPath)}</PARSED_SANDBOX_PATH>`)
       expect(text).toContain('code_execution')
       expect(text).not.toContain('parsed content should stay out of sandbox prompt')
     })
@@ -809,7 +811,7 @@ describe('buildContext', () => {
 
       const textContent = result[0].contentParts.find((p) => p.type === 'text')
       const text = (textContent as { type: 'text'; text: string }).text
-      expect(text).toContain('<SANDBOX_PATH>archive.bin</SANDBOX_PATH>')
+      expect(text).toContain(`<SANDBOX_PATH>${sandboxAttachmentRelPath('archive.bin', 'file-key-raw')}</SANDBOX_PATH>`)
       expect(text).not.toContain('<PARSED_SANDBOX_PATH>')
       expect(text).toContain('Use read_file or code_execution on SANDBOX_PATH')
     })
@@ -851,10 +853,52 @@ describe('buildContext', () => {
       expect(text).toContain('<FILE_KEY>session-attachment:42</FILE_KEY>')
       expect(text).toContain('<RETRIEVAL_MODE>session_attachment_rag</RETRIEVAL_MODE>')
       expect(text).toContain('<INDEX_STATUS>ready</INDEX_STATUS>')
-      expect(text).toContain('<SANDBOX_PATH>manual.pdf</SANDBOX_PATH>')
-      expect(text).toContain('<PARSED_SANDBOX_PATH>manual.pdf_parsed.txt</PARSED_SANDBOX_PATH>')
+      const manualPath = sandboxAttachmentRelPath('manual.pdf', 'file-key-raw')
+      expect(text).toContain(`<SANDBOX_PATH>${manualPath}</SANDBOX_PATH>`)
+      expect(text).toContain(`<PARSED_SANDBOX_PATH>${sandboxAttachmentParsedRelPath(manualPath)}</PARSED_SANDBOX_PATH>`)
       expect(text).toContain('query_session_attachment')
       expect(text).not.toContain('large parsed content should stay out of context')
+    })
+
+    it('gives same-named uploads distinct sandbox paths', async () => {
+      const messages: Message[] = [
+        createMessage({
+          id: '1',
+          role: 'user',
+          contentParts: [{ type: 'text', text: 'Compare these two reports' }],
+          files: [
+            {
+              id: 'file-a',
+              name: 'report.html',
+              fileType: 'text/html',
+              storageKey: 'file-a',
+              rawStorageKey: 'raw-a',
+            },
+            {
+              id: 'file-b',
+              name: 'report.html',
+              fileType: 'text/html',
+              storageKey: 'file-b',
+              rawStorageKey: 'raw-b',
+            },
+          ],
+        }),
+      ]
+
+      const result = await buildContext(messages, {
+        attachmentResolver: createMockResolver(),
+        toolCleanupMode: 'none',
+        sandboxMode: true,
+      })
+
+      const textContent = result[0].contentParts.find((p) => p.type === 'text')
+      const text = (textContent as { type: 'text'; text: string }).text
+      const pathA = sandboxAttachmentRelPath('report.html', 'raw-a')
+      const pathB = sandboxAttachmentRelPath('report.html', 'raw-b')
+      expect(pathA).not.toBe(pathB)
+      expect(text).toContain(`<SANDBOX_PATH>${pathA}</SANDBOX_PATH>`)
+      expect(text).toContain(`<SANDBOX_PATH>${pathB}</SANDBOX_PATH>`)
+      expect(text).toContain('<FILE_NAME>report.html</FILE_NAME>')
     })
   })
 

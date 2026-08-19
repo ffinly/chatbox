@@ -11,19 +11,18 @@ import {
   findFiles,
   getSandboxAllowedRoots,
   getStatus,
-  hasSessionArtifacts,
   initSandboxWithTempDir,
   killRunningCommand,
   listDir,
-  persistSandboxArtifact,
   readFile,
-  removeSessionArtifacts,
   resetSandbox,
   resolveSandboxWorkingDir,
   runSandboxCommand,
   searchFiles,
+  seedBlobsToSandbox,
   writeFile,
 } from './manager'
+import { hasSessionArtifacts, persistSandboxArtifact, removeSessionArtifacts } from './persist-artifact'
 import { createSandboxHtmlPreviewUrl } from './preview-server'
 import { bufferToArrayBuffer, readSandboxFileBase64, readSandboxFileBytes } from './read-file-base64'
 
@@ -248,6 +247,20 @@ export function registerSandboxIPCHandlers() {
         const msg = error instanceof Error ? error.message : String(error)
         log.error('sandbox:copy-blob failed', msg)
         return { success: false, error: msg }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'sandbox:seed-blobs',
+    async (_event, params: { items: Array<{ blobKey: string; targetFilename: string }>; sessionId?: string }) => {
+      try {
+        log.debug(`sandbox:seed-blobs count=${params.items.length}`)
+        return await seedBlobsToSandbox(params.items, params.sessionId)
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error)
+        log.error('sandbox:seed-blobs failed', msg)
+        return { success: false, error: msg, results: [] }
       }
     }
   )

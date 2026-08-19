@@ -1,5 +1,15 @@
+import { realpathSync } from 'node:fs'
 import { homedir } from 'node:os'
 import path from 'node:path'
+
+/** Resolve symlinks with the same native semantics as fs.promises.realpath(). */
+export function safeRealpathSync(p: string): string {
+  try {
+    return realpathSync.native(p)
+  } catch {
+    return path.normalize(p)
+  }
+}
 
 function pathContains(parent: string, child: string): boolean {
   const relative = path.relative(parent, child)
