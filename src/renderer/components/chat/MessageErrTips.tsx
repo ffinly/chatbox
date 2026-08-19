@@ -1,6 +1,7 @@
 import NiceModal from '@ebay/nice-modal-react'
 import { ActionIcon, Flex, Loader, Text } from '@mantine/core'
 import { Link } from '@mui/material'
+import { TestId } from '@shared/automation/testids'
 import { aiProviderNameHash } from '@shared/models'
 import { ChatboxAIAPIError } from '@shared/models/errors'
 import type { Message } from '@shared/types'
@@ -547,6 +548,7 @@ export default function MessageErrTips(props: {
   return (
     <div
       role="alert"
+      data-testid={TestId.message.errorTips}
       className={`message-error-tips text-sm text-chatbox-tint-error ${isBubbleLayout ? 'py-2' : 'px-4 py-3 rounded-lg border border-solid border-chatbox-border-error bg-chatbox-background-error-secondary'}`}
     >
       {tips.map((tip, i) => (
@@ -555,7 +557,14 @@ export default function MessageErrTips(props: {
       {/* Intentional: icon + text label are separate click targets to enlarge the tap area */}
       {onRetry && (
         <Flex mt="xs" gap="xs" align="center">
-          <ActionIcon variant="light" size="sm" color="red" onClick={onRetry} aria-label={t('Retry')}>
+          <ActionIcon
+            variant="light"
+            size="sm"
+            color="red"
+            onClick={onRetry}
+            aria-label={t('Retry')}
+            data-testid={TestId.message.errorRetry}
+          >
             <IconReload size={14} />
           </ActionIcon>
           <Text

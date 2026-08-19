@@ -7,7 +7,7 @@
  */
 
 export const AUTOMATION_CONTRACT_ID = 'chatbox-ui'
-export const AUTOMATION_CONTRACT_VERSION = '1.2.0'
+export const AUTOMATION_CONTRACT_VERSION = '1.3.0'
 export const AUTOMATION_CONTRACT_VERSION_ATTRIBUTE = 'data-automation-contract-version'
 
 export type AutomationReasoningLevel = 'default' | 'off' | 'low' | 'medium' | 'high'
@@ -31,6 +31,8 @@ export const TestId = {
     queuedMessageEdit: 'queued-message-edit',
     queuedMessageSendNow: 'queued-message-send-now',
     queuedMessageClear: 'queued-message-clear',
+    newThread: 'new-thread-button',
+    rollbackThread: 'rollback-thread-button',
   },
   model: {
     selectorTrigger: 'model-selector-trigger',
@@ -78,6 +80,8 @@ export const TestId = {
     actionQuote: 'message-action-quote',
     actionDelete: 'message-action-delete',
     actionDeleteConfirm: 'message-action-delete-confirm',
+    errorTips: 'message-error-tips',
+    errorRetry: 'message-error-retry',
     forkGroup: 'message-fork-group',
     forkPrevious: 'message-fork-previous',
     forkCounter: 'message-fork-counter',

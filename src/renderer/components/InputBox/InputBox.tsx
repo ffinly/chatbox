@@ -1840,6 +1840,8 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                   (showRollbackThreadButton ? (
                     <Tooltip label={t('Rollback Thread')} position="top" withArrow>
                       <UnstyledButton
+                        data-testid={TestId.chat.rollbackThread}
+                        aria-label={t('Rollback Thread')}
                         onClick={rollbackThread}
                         className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors"
                       >
@@ -1853,6 +1855,8 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                   ) : (
                     <Tooltip label={t('New Thread')} position="top" withArrow>
                       <UnstyledButton
+                        data-testid={TestId.chat.newThread}
+                        aria-label={t('New Thread')}
                         onClick={startNewThread}
                         disabled={!onStartNewThread}
                         className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors disabled:opacity-50"
@@ -1904,7 +1908,11 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                       </UnstyledButton>
                     </Menu.Target>
                     <Menu.Dropdown>
-                      <Menu.Item leftSection={<ScalableIcon icon={IconPlus} size={16} />} onClick={startNewThread}>
+                      <Menu.Item
+                        data-testid={TestId.chat.newThread}
+                        leftSection={<ScalableIcon icon={IconPlus} size={16} />}
+                        onClick={startNewThread}
+                      >
                         {t('New Thread')}
                       </Menu.Item>
                       <Menu.Item
