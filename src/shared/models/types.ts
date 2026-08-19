@@ -100,7 +100,13 @@ export interface ChatStreamOptions {
   providerOptions?: ProviderOptions
   maxSteps?: number
   prepareStep?: PrepareStepFunction<ToolSet>
-  /** Runs after each step's preparation resolves provider-facing messages/tools and before dispatch. */
+  /**
+   * Runs after each step's preparation resolves provider-facing messages/tools
+   * and before dispatch. **Fail-closed**: the hook is awaited and a rejection
+   * propagates instead of starting the provider stream. A consumer that must
+   * not block dispatch (request logging, telemetry) has to swallow its own
+   * failures.
+   */
   onRequestResolved?: (request: ResolvedChatRequest) => void | Promise<void>
   /**
    * Enables mid-run tool-result relief for long tool loops: when the estimated

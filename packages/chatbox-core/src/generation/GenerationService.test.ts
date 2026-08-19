@@ -42,7 +42,6 @@ interface Harness {
   coordinationEvents: string[]
   storedBlobs: Map<string, string>
   storeBlob: ReturnType<typeof vi.fn>
-  touchBlob: ReturnType<typeof vi.fn>
   session: Session
   globalSettings: Settings
   trackPauseAction: ReturnType<typeof vi.fn>
@@ -94,7 +93,6 @@ function createHarness(): Harness {
     storedBlobs.set(storageKey, value)
     return Promise.resolve()
   })
-  const touchBlob = vi.fn()
   let agentModeSuggestionEnabled = false
   let suggestionResult: Message['contentParts'] = []
   let sessionSettingsUpdateError: Error | undefined
@@ -293,7 +291,6 @@ function createHarness(): Harness {
     blobs: {
       get: (storageKey) => Promise.resolve(storedBlobs.get(storageKey) ?? null),
       set: storeBlob,
-      touch: touchBlob,
     },
     attachments: {
       read: () => Promise.resolve(null),
@@ -335,7 +332,6 @@ function createHarness(): Harness {
     coordinationEvents,
     storedBlobs,
     storeBlob,
-    touchBlob,
     session,
     globalSettings,
     trackPauseAction,

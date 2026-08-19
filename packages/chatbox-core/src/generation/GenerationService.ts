@@ -269,7 +269,7 @@ export interface GenerationServiceDependencies<TContext> {
   coordination: GenerationCoordinationPort
   steering?: GenerationSteeringPort
   runtime: GenerationRuntimeStore
-  blobs: Pick<BlobStoragePort, 'get' | 'set' | 'touch'>
+  blobs: Pick<BlobStoragePort, 'get' | 'set'>
   attachments: AttachmentContentPort
   capabilities: PlatformCapabilitiesPort
   host: GenerationHostPort

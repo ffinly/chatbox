@@ -12,10 +12,6 @@ export class InMemoryBlobStorage implements BlobStoragePort {
     return Promise.resolve()
   }
 
-  touch(_key: string): void {
-    // This adapter has no orphan cleanup clock, so every stored value remains live.
-  }
-
   remove(key: string): Promise<void> {
     this.values.delete(key)
     return Promise.resolve()

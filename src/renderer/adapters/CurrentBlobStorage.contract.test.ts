@@ -1,6 +1,5 @@
 import type { BlobStoragePort } from '@chatbox/core/ports'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { getRecentlyWrittenBlobKeys, isBlobRecentlyWritten } from '@/storage/blob-write-tracker'
 import { CurrentBlobStorage, type CurrentBlobStorageBackend } from './CurrentBlobStorage'
 
 function createHarness() {
@@ -42,17 +41,6 @@ describe('CurrentBlobStorage contract', () => {
 
   test('returns null for missing blobs', async () => {
     await expect(harness.storage.get('missing')).resolves.toBeNull()
-  })
-
-  test('touches a key into the in-flight window without rewriting the blob', () => {
-    const key = 'generation-request:touch-contract'
-    harness.values.set(key, 'definitions')
-
-    harness.storage.touch(key)
-
-    expect(getRecentlyWrittenBlobKeys(60_000)).toContain(key)
-    expect(isBlobRecentlyWritten(key, 60_000)).toBe(true)
-    expect(harness.backend.setBlob).not.toHaveBeenCalled()
   })
 
   test('deletes values through the current blob backend', async () => {

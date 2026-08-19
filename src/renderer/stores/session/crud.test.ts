@@ -12,6 +12,7 @@ const { generationRuntimeMock, sessionsMock, sessionQueryBridgeMock, clearQueueM
     listArchivedSessionsMeta: vi.fn().mockResolvedValue([]),
   },
   sessionQueryBridgeMock: {
+    getCachedSession: vi.fn((_sessionId: string) => null as Session | null | undefined),
     getSession: vi.fn().mockResolvedValue(null),
   },
   clearQueueMock: vi.fn(),
@@ -50,13 +51,13 @@ function sessionFixture(id: string): Session {
 beforeEach(() => {
   vi.clearAllMocks()
   generationRuntimeMock.getActiveMessageIds.mockReturnValue(new Set<string>())
-  sessionQueryBridgeMock.getSession.mockResolvedValue(null)
+  sessionQueryBridgeMock.getCachedSession.mockReturnValue(null)
 })
 
 describe('deleteSession', () => {
   it('aborts registered runtimes and generating placeholders before the repository delete', async () => {
     generationRuntimeMock.getActiveMessageIds.mockReturnValue(new Set(['streaming-1']))
-    sessionQueryBridgeMock.getSession.mockResolvedValue(sessionFixture('session-1'))
+    sessionQueryBridgeMock.getCachedSession.mockReturnValue(sessionFixture('session-1'))
 
     await deleteSession('session-1')
 
@@ -71,14 +72,24 @@ describe('deleteSession', () => {
     expect(clearQueueMock).toHaveBeenCalledWith('session-1')
   })
 
-  it('still deletes when the session surface cannot be read', async () => {
+  it('still deletes when the session surface is not cached', async () => {
     generationRuntimeMock.getActiveMessageIds.mockReturnValue(new Set(['streaming-1']))
-    sessionQueryBridgeMock.getSession.mockRejectedValue(new Error('bridge unavailable'))
+    sessionQueryBridgeMock.getCachedSession.mockReturnValue(undefined)
 
     await deleteSession('session-1')
 
     expect(generationRuntimeMock.requestAbort).toHaveBeenCalledWith('session-1', 'streaming-1', 'session-deleted')
+    expect(generationRuntimeMock.requestAbort).toHaveBeenCalledTimes(1)
     expect(sessionsMock.deleteSession).toHaveBeenCalledWith('session-1')
+  })
+
+  it('never fetches the session surface to scan for placeholders', async () => {
+    await deleteSession('session-1')
+
+    // Fetching would pull the full message list into the query cache; bulk
+    // deletion does this once per session and keeps every one of them resident
+    // until the deletion completes.
+    expect(sessionQueryBridgeMock.getSession).not.toHaveBeenCalled()
   })
 })
 
@@ -91,6 +102,7 @@ describe('deleteSessions', () => {
     await deleteSessions(['session-1', 'session-2'])
 
     expect(generationRuntimeMock.requestAbort).toHaveBeenCalledWith('session-2', 'streaming-2', 'session-deleted')
+    expect(sessionQueryBridgeMock.getSession).not.toHaveBeenCalled()
     expect(sessionsMock.deleteSessions).toHaveBeenCalledWith(['session-1', 'session-2'])
     expect(clearQueueMock).toHaveBeenCalledWith('session-1')
     expect(clearQueueMock).toHaveBeenCalledWith('session-2')

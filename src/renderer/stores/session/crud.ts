@@ -47,21 +47,29 @@ function abortSessionGenerations(sessionId: string, session: Session | null | un
   }
 }
 
-async function abortGenerationsBeforeDeletion(sessionId: string): Promise<void> {
+function abortGenerationsBeforeDeletion(sessionId: string): void {
   // Deletion must stop in-flight work before the session disappears: a
   // generation still preparing its request (attachments, OCR, tools) would
   // otherwise dispatch a billable provider call for a deleted conversation.
   // (The removed request-snapshot checkpoint used to fail that dispatch as a
   // side effect of its pre-dispatch persist.)
+  //
+  // The placeholder scan reads the cache only, never a fetch: bulk deletion
+  // (delete-all-archived) would otherwise pull every session's full message
+  // list into the query cache before the first delete, and those entries stay
+  // resident until the deletion completes. An unregistered `generating`
+  // placeholder can only exist for a session this renderer is generating in,
+  // and such a session is always cached — a cache miss has nothing to abort
+  // beyond the registered runtimes handled above.
   abortSessionGenerations(
     sessionId,
-    await rendererApplication.sessionQueryBridge.getSession(sessionId).catch(() => null),
+    rendererApplication.sessionQueryBridge.getCachedSession(sessionId),
     'session-deleted'
   )
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {
-  await abortGenerationsBeforeDeletion(sessionId)
+  abortGenerationsBeforeDeletion(sessionId)
   // Clear only after the deletion succeeded: queued messages are the sole copy
   // of the user's text, and a failed deletion leaves the session (and queue) alive.
   await rendererApplication.sessions.deleteSession(sessionId)
@@ -70,7 +78,7 @@ export async function deleteSession(sessionId: string): Promise<void> {
 
 export async function deleteSessions(sessionIds: string[]): Promise<void> {
   for (const sessionId of sessionIds) {
-    await abortGenerationsBeforeDeletion(sessionId)
+    abortGenerationsBeforeDeletion(sessionId)
   }
   await rendererApplication.sessions.deleteSessions(sessionIds)
   await clearMessageQueues(sessionIds)
