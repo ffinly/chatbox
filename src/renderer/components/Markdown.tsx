@@ -518,9 +518,14 @@ function useShikiHtml(code: string, language: string, theme: ShikiTheme): string
   useEffect(() => {
     if (syncHtml !== null) return
     let cancelled = false
-    void highlight(code, language, theme).then((result) => {
-      if (!cancelled) setAsyncHtml(result)
-    })
+    highlight(code, language, theme)
+      .then((result) => {
+        if (!cancelled && result !== null) setAsyncHtml(result)
+      })
+      .catch(() => {
+        // highlight resolves null on failure; keep the plain fallback rendered
+        // even if a rejection ever slips through.
+      })
     return () => {
       cancelled = true
     }
