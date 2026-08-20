@@ -6,7 +6,6 @@ import type {
   AgentModeValue,
   CompactionPoint,
   Message,
-  ModelProvider,
   Session,
   SessionSettings,
   SessionType,
@@ -15,18 +14,16 @@ import type {
 import { resolveCommandApprovalMode } from '@shared/types/command-execution'
 import { normalizeErrorForSentry } from '@shared/utils/sentry_policy'
 import { identity, pickBy } from 'lodash'
-import {
-  type AgentModeEntrySource,
-  bucketCount,
-  captureAgentModeException,
-  toBooleanString,
-} from '@/analytics/agent-mode'
+import { normalizePlausibleModel, normalizePlausibleProvider } from '@/analytics/plausible'
+import { bucketCount, toBooleanString } from '@/analytics/values'
+import { captureAgentModeException } from '@/observability/agent-mode'
 import { getModelDisplayName } from '@/packages/model-setting-utils'
 import platform from '@/platform'
 import { reportError } from '@/utils/sentry'
 import { trackEvent } from '@/utils/track'
 import { uiStore } from '../uiStore'
 import { getSessionAgentModeEntry } from './agent-mode'
+import type { AgentModeEntrySource } from './types'
 import { resolveWebBrowsingMode } from './web-browsing'
 
 /**
@@ -50,24 +47,12 @@ export function trackGenerateEvent(
   options?: { operationType?: 'send_message' | 'regenerate'; agentModeEntrySource?: AgentModeEntrySource }
 ) {
   try {
-    let providerIdentifier: ModelProvider = settings.provider || 'unknown'
-    if (settings.provider?.startsWith('custom-provider-')) {
-      const providerSettings = globalSettings.providers?.[settings.provider]
-      if (providerSettings?.apiHost) {
-        try {
-          const url = new URL(providerSettings.apiHost)
-          providerIdentifier = `custom:${url.hostname}`
-        } catch {
-          providerIdentifier = `custom:${providerSettings.apiHost}`
-        }
-      } else {
-        providerIdentifier = 'custom:unknown'
-      }
-    }
+    const providerIdentifier = normalizePlausibleProvider(settings.provider)
+    const modelIdentifier = normalizePlausibleModel(settings.provider, settings.modelId)
 
     const webBrowsing = getSessionWebBrowsing(sessionId, settings.provider)
     const agentModeEntry = getSessionAgentModeEntry(sessionId, { settings })
-    const agentModeActive = platform.type === 'desktop' && agentModeEntry.value === 'on'
+    const agentModeActive = platform.isDesktopLike && agentModeEntry.value === 'on'
     const agentModeEntrySource: AgentModeEntrySource =
       options?.agentModeEntrySource ??
       (agentModeActive ? (agentModeEntry.locked ? 'locked_session' : 'manual') : 'none')
@@ -81,7 +66,7 @@ export function trackGenerateEvent(
 
     trackEvent('generate', {
       provider: providerIdentifier,
-      model: settings.modelId || 'unknown',
+      model: modelIdentifier,
       operation_type: options?.operationType || 'unknown',
       web_browsing_enabled: webBrowsing ? 'true' : 'false',
       session_type: sessionType || 'chat',

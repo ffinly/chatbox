@@ -11,13 +11,13 @@ import { toSandboxSeedAttachment } from '@shared/sandbox/attachment-path'
 import type { Message, Session, SessionSettings } from '@shared/types'
 import type { ModelDependencies } from '@shared/types/adapters'
 import {
-  captureAgentModeException,
   trackAgentModePauseAction,
   trackAgentModeSuggested,
   trackWorkModeSuggestionDecision,
 } from '@/analytics/agent-mode'
 import { rendererApplication } from '@/app/renderer-application'
 import { getLogger } from '@/lib/utils'
+import { captureAgentModeException } from '@/observability/agent-mode'
 import * as appleAppStore from '@/packages/apple_app_store'
 import { wakeBackgroundTaskFollowUps } from '@/packages/chatbox-cli/background-follow-up'
 import platform from '@/platform'

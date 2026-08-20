@@ -5,7 +5,6 @@ import { supportsSessionGeneration } from '@shared/session/capabilities'
 import { findMessageContext } from '@shared/session/message-forks'
 import { type CompactionPoint, createMessage, type Message, type Session, type SessionSettings } from '@shared/types'
 import { currentGenerationService } from '@/adapters/CurrentGenerationService'
-import type { AgentModeEntrySource } from '@/analytics/agent-mode'
 import { rendererApplication } from '@/app/renderer-application'
 import { assessContextPressure, getConfiguredContextWindow } from '@/packages/context-management/context-pressure'
 import { settingsStore } from '@/stores/settingsStore'
@@ -14,6 +13,7 @@ import { createAttachmentResolver } from './attachment-resolver'
 import { createInactiveFork, createNewFork, findMessageLocation } from './forks'
 import { insertMessageAfter } from './messages'
 import { getSessionSettings } from './session-settings'
+import type { AgentModeEntrySource } from './types'
 
 /** Internal generation entry point for callers that already hold the session generation lock. */
 export async function _generateWithoutSessionLock(

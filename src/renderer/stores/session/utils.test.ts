@@ -1,8 +1,12 @@
 // @vitest-environment jsdom
 
-import { ChatboxAIAPIError, OCRError } from '@shared/models/errors'
+import { ChatboxAIAPIError, MESSAGE_ERROR_CODES, OCRError } from '@shared/models/errors'
 import type { Message, Session, SessionSettings, Settings } from '@shared/types'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
+import {
+  isMessageReminderPresentation,
+  resolveMessageErrorPresentation,
+} from '@/components/chat/message-error-presentation'
 
 const { reportErrorMock, trackEventMock } = vi.hoisted(() => ({
   reportErrorMock: vi.fn(),
@@ -71,6 +75,30 @@ describe('trackGenerateEvent', () => {
     expect(result.errorCode).toBe(10004)
   })
 
+  test.each(['file_preprocess_failed', 'file_storage_quota_exceeded'] as const)(
+    'keeps %s on the generic backend-error path',
+    (codeName) => {
+      const error = ChatboxAIAPIError.fromCodeName('file failed', codeName)
+      expect(error).not.toBeNull()
+      if (!error) throw new Error(`Expected a known Chatbox AI error: ${codeName}`)
+      const message = {
+        id: 'message-1',
+        role: 'assistant',
+        contentParts: [],
+      } as Message
+      const settings = {
+        modelId: 'chatboxai-4',
+        provider: 'chatboxai',
+      } as SessionSettings
+
+      const result = handleGenerationError(error, message, settings, { operationType: 'send_message' })
+      const presentation = resolveMessageErrorPresentation(result)
+
+      expect(presentation.kind).toBe('known-chatbox-api')
+      expect(isMessageReminderPresentation(presentation)).toBe(false)
+    }
+  )
+
   test.each([
     ['primitive', 'quota exceeded', 'quota exceeded'],
     [
@@ -117,10 +145,14 @@ describe('trackGenerateEvent', () => {
 
     const result = handleGenerationError(error, message, settings, { operationType: 'send_message' })
 
-    expect(result.errorCode).toBe(20041)
+    expect(result.errorCode).toBe(MESSAGE_ERROR_CODES.CHATBOX_AI_OCR_QUOTA_EXHAUSTED)
     expect(result.errorExtra).toMatchObject({
       aiProvider: 'Chatbox AI',
       causeErrorCode: 10004,
+    })
+    expect(resolveMessageErrorPresentation(result)).toMatchObject({
+      kind: 'quota',
+      cardKind: 'ocr-quota-exhausted',
     })
   })
 
@@ -141,10 +173,14 @@ describe('trackGenerateEvent', () => {
 
     const result = handleGenerationError(error, message, settings, { operationType: 'send_message' })
 
-    expect(result.errorCode).toBe(20042)
+    expect(result.errorCode).toBe(MESSAGE_ERROR_CODES.CHATBOX_AI_FREE_OCR_QUOTA_EXHAUSTED)
     expect(result.errorExtra).toMatchObject({
       aiProvider: 'Chatbox AI',
       causeErrorCode: 20039,
+    })
+    expect(resolveMessageErrorPresentation(result)).toMatchObject({
+      kind: 'quota',
+      cardKind: 'free-ocr-quota-exhausted',
     })
   })
 })

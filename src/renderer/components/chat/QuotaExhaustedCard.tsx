@@ -1,10 +1,11 @@
 import { Box, Button, Group, Paper, Stack, Text, ThemeIcon } from '@mantine/core'
 import { IconArrowUpRight, IconInfoCircle } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
+import type { QuotaCardAction, QuotaCardKind } from './message-error-presentation'
 
 interface QuotaExhaustedCardProps {
-  kind: 'quota-exhausted' | 'free-quota-exhausted' | 'ocr-quota-exhausted' | 'free-ocr-quota-exhausted'
-  action: 'upgrade-plan' | 'buy-expansion-pack'
+  kind: QuotaCardKind
+  action: QuotaCardAction
   onAction: () => void
   onConfigureOcr?: () => void
 }

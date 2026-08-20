@@ -1,29 +1,30 @@
-import platform from '@/platform'
+import type { ChatboxAIPlanType } from '@shared/types'
+import { buildChatJkTrackingOptions, type ChatTrackingContext } from './chat'
 import { trackJkAutoEvent, trackJkClickEvent } from './jk'
-import { JK_EVENTS, JK_PAGE_NAMES } from './jk-events'
+import { JK_EVENTS } from './jk-events'
 
-export type TokenExhaustedCardAction = 'upgrade' | 'buy_token'
+export type TokenExhaustedCardAction = 'upgrade-plan' | 'buy-expansion-pack'
+export type TokenExhaustedCardEvent = 'exposure' | 'click'
 
-export type TokenExhaustedCardTrackingContext = {
-  sessionId: string
-  mode: 'chat_mode' | 'work_mode'
+export type TokenExhaustedCardTrackingContext = ChatTrackingContext & {
   action: TokenExhaustedCardAction
-  provider?: string
-  plan?: string
-  model?: string
+  plan?: ChatboxAIPlanType
 }
 
-function buildTokenExhaustedCardTrackingOptions(context: TokenExhaustedCardTrackingContext) {
+function buildTokenExhaustedCardTrackingOptions(
+  context: ChatTrackingContext,
+  card: Pick<TokenExhaustedCardTrackingContext, 'action' | 'plan'>
+) {
+  const baseOptions = buildChatJkTrackingOptions(context)
   return {
-    pageName: JK_PAGE_NAMES.CHAT_PAGE,
-    platform: platform.type === 'web' ? ('web' as const) : ('app' as const),
-    content: context.plan ?? null,
+    ...baseOptions,
+    content: card.plan ?? null,
     contentType: context.model,
     props: {
+      ...baseOptions.props,
       agent_info: {
-        content: context.action,
-        mode: context.mode,
-        session_id: context.sessionId,
+        content: card.action === 'buy-expansion-pack' ? 'buy_token' : 'upgrade',
+        ...baseOptions.props.agent_info,
       },
       content_add_info: {
         content: context.provider ?? null,
@@ -32,10 +33,14 @@ function buildTokenExhaustedCardTrackingOptions(context: TokenExhaustedCardTrack
   }
 }
 
-export function trackTokenExhaustedCard(context: TokenExhaustedCardTrackingContext) {
-  trackJkAutoEvent(JK_EVENTS.TOKEN_EXHAUSTED_CARD, buildTokenExhaustedCardTrackingOptions(context))
-}
-
-export function trackTokenExhaustedCardClick(context: TokenExhaustedCardTrackingContext) {
-  trackJkClickEvent(JK_EVENTS.TOKEN_EXHAUSTED_CARD_CLICK, buildTokenExhaustedCardTrackingOptions(context))
+export function trackTokenExhaustedCard(
+  event: TokenExhaustedCardEvent,
+  context: TokenExhaustedCardTrackingContext
+): void {
+  const options = buildTokenExhaustedCardTrackingOptions(context, context)
+  if (event === 'exposure') {
+    trackJkAutoEvent(JK_EVENTS.TOKEN_EXHAUSTED_CARD, options)
+  } else {
+    trackJkClickEvent(JK_EVENTS.TOKEN_EXHAUSTED_CARD_CLICK, options)
+  }
 }

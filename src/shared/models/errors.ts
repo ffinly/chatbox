@@ -12,8 +12,11 @@ export const MESSAGE_ERROR_CODES = {
   OCR_FAILED: 10006,
   CHATBOX_AI_FREE_QUOTA_EXHAUSTED: 20039,
   CHATBOX_AI_FREE_AGENT_MODE_QUOTA_EXHAUSTED: 20040,
-  CHATBOX_AI_OCR_QUOTA_EXHAUSTED: 20041,
-  CHATBOX_AI_FREE_OCR_QUOTA_EXHAUSTED: 20042,
+  FILE_PREPROCESS_FAILED: 20041,
+  FILE_STORAGE_QUOTA_EXCEEDED: 20042,
+  EMPTY_ATTACHMENT_CONTENT: 20043,
+  CHATBOX_AI_OCR_QUOTA_EXHAUSTED: 20044,
+  CHATBOX_AI_FREE_OCR_QUOTA_EXHAUSTED: 20045,
 } as const
 
 // 10000 - 19999 为通用网络接口错误
@@ -316,7 +319,7 @@ export class ChatboxAIAPIError extends BaseError {
     file_storage_quota_exceeded: {
       name: 'file_storage_quota_exceeded',
       // 20036 reserved by searxng_base_url_required (PR #794, unmerged)
-      code: 20042,
+      code: MESSAGE_ERROR_CODES.FILE_STORAGE_QUOTA_EXCEEDED,
       i18nKey:
         'Storage is full. Delete some old conversations or large attachments, or free up device space, then try again.',
     },
@@ -339,12 +342,12 @@ export class ChatboxAIAPIError extends BaseError {
     },
     file_preprocess_failed: {
       name: 'file_preprocess_failed',
-      code: 20041,
+      code: MESSAGE_ERROR_CODES.FILE_PREPROCESS_FAILED,
       i18nKey: 'Failed to parse file. Please try again or use a different file format.',
     },
     empty_attachment_content: {
       name: 'empty_attachment_content',
-      code: 20043,
+      code: MESSAGE_ERROR_CODES.EMPTY_ATTACHMENT_CONTENT,
       i18nKey: 'No readable content was found in this attachment. Please check the file and try again.',
     },
     // Free 用户在工作模式中点数耗尽，但仍可领取一次奖励额度继续当前任务

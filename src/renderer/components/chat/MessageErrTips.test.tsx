@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 
 import { MantineProvider } from '@mantine/core'
-import type { ChatboxAILicenseDetail, ChatboxAIPlanType, Message } from '@shared/types'
+import { TestId } from '@shared/automation/testids'
+import { MESSAGE_ERROR_CODES } from '@shared/models/errors'
+import type { ChatboxAILicenseDetail, ChatboxAIPlanType, Message, Session } from '@shared/types'
 import { afterEach, expect, test, vi } from 'vitest'
-import { rendererApplication } from '@/app/renderer-application'
 import { settingsStore } from '@/stores/settingsStore'
 import { fireEvent, render, screen } from '@/test-utils'
 import MessageErrTips from './MessageErrTips'
@@ -13,7 +14,10 @@ const platformMocks = vi.hoisted(() => ({
 }))
 const trackingMocks = vi.hoisted(() => ({
   trackTokenExhaustedCard: vi.fn(),
-  trackTokenExhaustedCardClick: vi.fn(),
+  useSession: vi.fn<(sessionId: string | null) => { session?: Pick<Session, 'settings'>; isFetched: boolean }>(() => ({
+    session: undefined,
+    isFetched: false,
+  })),
 }))
 
 vi.mock('@/platform', () => ({
@@ -26,8 +30,20 @@ vi.mock('@/platform', () => ({
 
 vi.mock('@/analytics/token-exhausted-card', () => ({
   trackTokenExhaustedCard: trackingMocks.trackTokenExhaustedCard,
-  trackTokenExhaustedCardClick: trackingMocks.trackTokenExhaustedCardClick,
 }))
+
+vi.mock('@/app/renderer-application', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/app/renderer-application')>()
+  return {
+    rendererApplication: {
+      ...actual.rendererApplication,
+      sessionHooks: {
+        ...actual.rendererApplication.sessionHooks,
+        useSession: trackingMocks.useSession,
+      },
+    },
+  }
+})
 
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
@@ -73,7 +89,8 @@ const proPlusLicenseDetail: ChatboxAILicenseDetail = {
 afterEach(() => {
   platformMocks.openLink.mockReset()
   trackingMocks.trackTokenExhaustedCard.mockReset()
-  trackingMocks.trackTokenExhaustedCardClick.mockReset()
+  trackingMocks.useSession.mockReset()
+  trackingMocks.useSession.mockReturnValue({ session: undefined, isFetched: false })
   settingsStore.setState(initialSettings)
 })
 
@@ -81,10 +98,28 @@ test.each([
   { name: 'paid quota for Pro', errorCode: 10004, plan: 'pro', agentMode: false, action: 'upgrade' },
   { name: 'paid quota for Pro+', errorCode: 10004, plan: 'pro_plus', agentMode: false, action: 'buy_token' },
   { name: 'Free quota', errorCode: 20039, plan: 'free', agentMode: false, action: 'upgrade' },
-  { name: 'paid OCR quota for Pro', errorCode: 20041, plan: 'pro', agentMode: true, action: 'upgrade' },
-  { name: 'paid OCR quota for Pro+', errorCode: 20041, plan: 'pro_plus', agentMode: true, action: 'buy_token' },
-  { name: 'Free OCR quota', errorCode: 20042, plan: 'free', agentMode: true, action: 'upgrade' },
-] as const)('tracks exposure and click for $name', async ({ errorCode, plan, agentMode, action }) => {
+  {
+    name: 'paid OCR quota for Pro',
+    errorCode: MESSAGE_ERROR_CODES.CHATBOX_AI_OCR_QUOTA_EXHAUSTED,
+    plan: 'pro',
+    agentMode: true,
+    action: 'upgrade',
+  },
+  {
+    name: 'paid OCR quota for Pro+',
+    errorCode: MESSAGE_ERROR_CODES.CHATBOX_AI_OCR_QUOTA_EXHAUSTED,
+    plan: 'pro_plus',
+    agentMode: true,
+    action: 'buy_token',
+  },
+  {
+    name: 'Free OCR quota',
+    errorCode: MESSAGE_ERROR_CODES.CHATBOX_AI_FREE_OCR_QUOTA_EXHAUSTED,
+    plan: 'free',
+    agentMode: true,
+    action: 'upgrade',
+  },
+] as const)('tracks exposure and click for $name', ({ errorCode, plan, agentMode, action }) => {
   settingsStore.setState((state) => ({
     ...state,
     language: 'en',
@@ -98,6 +133,10 @@ test.each([
             plan: plan as ChatboxAIPlanType,
           },
   }))
+  trackingMocks.useSession.mockReturnValue({
+    session: { settings: { agentMode: { value: agentMode ? 'on' : 'off', locked: false, lockReason: null } } },
+    isFetched: true,
+  })
   const msg = {
     id: 'assistant-error',
     role: 'assistant',
@@ -107,20 +146,12 @@ test.each([
     aiProvider: 'chatbox-ai',
     model: 'claude-opus-5',
   } as Message
-  // The tracked mode resolves from the session's agent-mode entry via the
-  // session query bridge (the request-snapshot marker is gone).
-  vi.spyOn(rendererApplication.sessionQueryBridge, 'getSession').mockResolvedValue({
-    id: 'session-123',
-    name: 'Session',
-    messages: [],
-    settings: { agentMode: { value: agentMode ? 'on' : 'off', locked: false, lockReason: null } },
-  } as never)
   const expectedContext = {
     sessionId: 'session-123',
-    mode: agentMode ? 'work_mode' : 'chat_mode',
-    action,
-    provider: 'chatbox-ai',
+    action: action === 'buy_token' ? 'buy-expansion-pack' : 'upgrade-plan',
     plan,
+    mode: agentMode ? 'work_mode' : 'chat_mode',
+    provider: 'chatbox-ai',
     model: 'claude-opus-5',
   }
 
@@ -130,15 +161,79 @@ test.each([
     </MantineProvider>
   )
 
-  // Mode resolution reads the session asynchronously before tracking fires.
-  await vi.waitFor(() => expect(trackingMocks.trackTokenExhaustedCard).toHaveBeenCalledOnce())
-  expect(trackingMocks.trackTokenExhaustedCard).toHaveBeenCalledWith(expectedContext)
+  expect(trackingMocks.trackTokenExhaustedCard).toHaveBeenCalledOnce()
+  expect(trackingMocks.trackTokenExhaustedCard).toHaveBeenCalledWith('exposure', expectedContext)
 
   fireEvent.click(screen.getByRole('button', { name: action === 'buy_token' ? 'Buy expansion pack' : 'Upgrade plan' }))
 
-  await vi.waitFor(() => expect(trackingMocks.trackTokenExhaustedCardClick).toHaveBeenCalledOnce())
-  expect(trackingMocks.trackTokenExhaustedCardClick).toHaveBeenCalledWith(expectedContext)
+  expect(trackingMocks.trackTokenExhaustedCard).toHaveBeenCalledTimes(2)
+  expect(trackingMocks.trackTokenExhaustedCard).toHaveBeenLastCalledWith('click', expectedContext)
   expect(platformMocks.openLink).toHaveBeenCalledWith(
     'https://chatboxai.app/redirect_app/view_more_plans/en?utm_source=app&utm_content=msg_quota_exhausted'
   )
+})
+
+test('renders file preprocessing errors as generic backend errors instead of OCR quota cards', () => {
+  settingsStore.setState((state) => ({ ...state, language: 'en', licenseKey: 'test-license' }))
+  const onRetry = vi.fn()
+  const msg = {
+    id: 'assistant-error',
+    role: 'assistant',
+    contentParts: [],
+    error: 'file failed',
+    errorCode: MESSAGE_ERROR_CODES.FILE_PREPROCESS_FAILED,
+  } as Message
+
+  render(
+    <MantineProvider>
+      <MessageErrTips msg={msg} sessionId="session-123" onRetry={onRetry} />
+    </MantineProvider>
+  )
+
+  expect(screen.getByRole('alert').textContent).toContain(
+    'Failed to parse file. Please try again or use a different file format.'
+  )
+  expect(screen.getByTestId(TestId.message.errorTips)).toBe(screen.getByRole('alert'))
+  fireEvent.click(screen.getByTestId(TestId.message.errorRetry))
+  expect(onRetry).toHaveBeenCalledOnce()
+  expect(screen.queryByRole('status')).toBeNull()
+  expect(trackingMocks.trackTokenExhaustedCard).not.toHaveBeenCalled()
+})
+
+test('resolves a missing generation mode from the cached session before tracking', () => {
+  trackingMocks.useSession.mockReturnValue({
+    session: { settings: { agentMode: { value: 'on', locked: false, lockReason: null } } },
+    isFetched: true,
+  })
+  settingsStore.setState((state) => ({
+    ...state,
+    language: 'en',
+    licenseKey: 'pro-license',
+    licenseDetail: { ...proPlusLicenseDetail, name: 'Chatbox AI Pro', plan: 'pro' },
+  }))
+  const msg = {
+    id: 'assistant-error',
+    role: 'assistant',
+    contentParts: [],
+    error: 'Token Quota Exhausted',
+    errorCode: MESSAGE_ERROR_CODES.CHATBOX_AI_QUOTA_EXHAUSTED,
+    aiProvider: 'chatbox-ai',
+    model: 'claude-opus-5',
+  } as Message
+
+  render(
+    <MantineProvider>
+      <MessageErrTips msg={msg} sessionId="session-123" />
+    </MantineProvider>
+  )
+
+  expect(trackingMocks.useSession).toHaveBeenCalledWith('session-123')
+  expect(trackingMocks.trackTokenExhaustedCard).toHaveBeenCalledWith('exposure', {
+    sessionId: 'session-123',
+    mode: 'work_mode',
+    provider: 'chatbox-ai',
+    model: 'claude-opus-5',
+    action: 'upgrade-plan',
+    plan: 'pro',
+  })
 })
