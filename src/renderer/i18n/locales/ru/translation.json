@@ -1363,7 +1363,7 @@
   "Import selected": "Импортировать выбранное",
   "Failed to scan local memories.": "Не удалось просканировать локальные воспоминания.",
   "Scan again": "Сканировать снова",
-  "Chatbox automatically scans local Claude and Codex memories. Nothing is imported until you review and confirm it.": "Chatbox автоматически сканирует локальные воспоминания Claude и Codex. Ничего не импортируется, пока вы не проверите и не подтвердите.",
+  "Local Claude and Codex memories are scanned automatically only once; use the scan button to check for new ones. Nothing is imported until you review and confirm it.": "Локальные воспоминания Claude и Codex сканируются автоматически только один раз; используйте кнопку сканирования, чтобы проверить новые. Ничего не импортируется, пока вы не проверите и не подтвердите.",
   "Scanning local memories…": "Сканирование локальных воспоминаний…",
   "Found {{count}} new local memories.": "Найдено новых локальных воспоминаний: {{count}}.",
   "Review": "Проверить",

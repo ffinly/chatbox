@@ -1363,7 +1363,7 @@
   "Import selected": "Auswahl importieren",
   "Failed to scan local memories.": "Lokale Erinnerungen konnten nicht durchsucht werden.",
   "Scan again": "Erneut suchen",
-  "Chatbox automatically scans local Claude and Codex memories. Nothing is imported until you review and confirm it.": "Chatbox durchsucht automatisch lokale Erinnerungen von Claude und Codex. Erst nach deiner Prüfung und Bestätigung wird etwas importiert.",
+  "Local Claude and Codex memories are scanned automatically only once; use the scan button to check for new ones. Nothing is imported until you review and confirm it.": "Lokale Erinnerungen von Claude und Codex werden nur einmal automatisch gescannt; nutze die Scan-Schaltfläche, um nach neuen zu suchen. Erst nach deiner Prüfung und Bestätigung wird etwas importiert.",
   "Scanning local memories…": "Lokale Erinnerungen werden durchsucht…",
   "Found {{count}} new local memories.": "{{count}} neue lokale Erinnerungen gefunden.",
   "Review": "Prüfen",

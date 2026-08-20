@@ -22,6 +22,9 @@ import storage from '@/storage'
 
 export const AGENT_SOUL_STORAGE_KEY = 'agent-soul'
 export const AGENT_MEMORIES_STORAGE_KEY = 'agent-memories'
+// Local device state (not part of AGENT_PERSONA_BACKUP_KEYS): whether the one-time
+// automatic local-memory scan has already run on this device.
+export const AGENT_MEMORIES_AUTO_SCAN_DONE_KEY = 'agent-memories-auto-scan-done'
 
 const SoulRecordSchema = z.object({
   content: z.string().catch(''),
@@ -108,6 +111,20 @@ export function updateSoul(
     if (typeof next !== 'string') return next
     return { record: await writeSoulRecord(next) }
   })
+}
+
+/**
+ * The local-memory scan auto-runs only once per device; afterwards it is
+ * user-triggered via the "Scan again" button. Marked before the scan starts so
+ * a failed first scan still counts as the one automatic attempt.
+ */
+export async function hasCompletedLocalMemoryAutoScan(): Promise<boolean> {
+  const raw = await storage.getItem<boolean>(AGENT_MEMORIES_AUTO_SCAN_DONE_KEY, false)
+  return raw === true
+}
+
+export async function markLocalMemoryAutoScanCompleted(): Promise<void> {
+  await storage.setItemNow(AGENT_MEMORIES_AUTO_SCAN_DONE_KEY, true)
 }
 
 const MemoriesRecordSchema = z.array(MemoryEntrySchema).catch([])

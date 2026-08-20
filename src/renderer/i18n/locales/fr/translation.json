@@ -1363,7 +1363,7 @@
   "Import selected": "Importer la sélection",
   "Failed to scan local memories.": "Échec de l’analyse des souvenirs locaux.",
   "Scan again": "Analyser à nouveau",
-  "Chatbox automatically scans local Claude and Codex memories. Nothing is imported until you review and confirm it.": "Chatbox analyse automatiquement les souvenirs locaux de Claude et Codex. Rien n’est importé avant votre vérification et votre confirmation.",
+  "Local Claude and Codex memories are scanned automatically only once; use the scan button to check for new ones. Nothing is imported until you review and confirm it.": "Les souvenirs locaux de Claude et Codex ne sont analysés automatiquement qu’une seule fois ; utilisez le bouton d’analyse pour rechercher les nouveaux. Rien n’est importé avant votre vérification et votre confirmation.",
   "Scanning local memories…": "Analyse des souvenirs locaux…",
   "Found {{count}} new local memories.": "{{count}} nouveaux souvenirs locaux ont été trouvés.",
   "Review": "Vérifier",

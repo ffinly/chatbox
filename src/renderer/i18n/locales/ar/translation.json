@@ -1363,7 +1363,7 @@
   "Import selected": "استيراد المحدد",
   "Failed to scan local memories.": "تعذر فحص الذكريات المحلية.",
   "Scan again": "إعادة الفحص",
-  "Chatbox automatically scans local Claude and Codex memories. Nothing is imported until you review and confirm it.": "يفحص Chatbox تلقائيًا ذكريات Claude وCodex المحلية. لن يتم استيراد أي شيء حتى تراجعه وتؤكده.",
+  "Local Claude and Codex memories are scanned automatically only once; use the scan button to check for new ones. Nothing is imported until you review and confirm it.": "يتم فحص ذكريات Claude وCodex المحلية تلقائيًا مرة واحدة فقط؛ استخدم زر الفحص للبحث عن ذكريات جديدة. لن يتم استيراد أي شيء حتى تراجعه وتؤكده.",
   "Scanning local memories…": "جارٍ فحص الذكريات المحلية…",
   "Found {{count}} new local memories.": "تم العثور على {{count}} من الذكريات المحلية الجديدة.",
   "Review": "مراجعة",

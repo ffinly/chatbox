@@ -1363,7 +1363,7 @@
   "Import selected": "選択項目をインポート",
   "Failed to scan local memories.": "ローカルメモリーをスキャンできませんでした。",
   "Scan again": "再スキャン",
-  "Chatbox automatically scans local Claude and Codex memories. Nothing is imported until you review and confirm it.": "Chatbox はローカルの Claude と Codex のメモリーを自動でスキャンします。確認して承認するまでインポートされません。",
+  "Local Claude and Codex memories are scanned automatically only once; use the scan button to check for new ones. Nothing is imported until you review and confirm it.": "ローカルの Claude と Codex のメモリーは初回のみ自動でスキャンされます。新しいメモリーを確認するにはスキャンボタンを使ってください。確認して承認するまでインポートされません。",
   "Scanning local memories…": "ローカルメモリーをスキャン中…",
   "Found {{count}} new local memories.": "新しいローカルメモリーが {{count}} 件見つかりました。",
   "Review": "確認",

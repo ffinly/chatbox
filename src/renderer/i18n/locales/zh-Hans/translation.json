@@ -1363,7 +1363,7 @@
   "Import selected": "导入所选内容",
   "Failed to scan local memories.": "扫描本地记忆失败。",
   "Scan again": "重新扫描",
-  "Chatbox automatically scans local Claude and Codex memories. Nothing is imported until you review and confirm it.": "Chatbox 会自动扫描本机的 Claude 和 Codex 记忆。只有经过你的审阅和确认后才会导入。",
+  "Local Claude and Codex memories are scanned automatically only once; use the scan button to check for new ones. Nothing is imported until you review and confirm it.": "本机的 Claude 和 Codex 记忆只会自动扫描一次；之后请使用扫描按钮检查是否有新记忆。只有经过你的审阅和确认后才会导入。",
   "Scanning local memories…": "正在扫描本地记忆…",
   "Found {{count}} new local memories.": "发现 {{count}} 条新的本地记忆。",
   "Review": "审阅",

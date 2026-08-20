@@ -1363,7 +1363,7 @@
   "Import selected": "Importer valgte",
   "Failed to scan local memories.": "Kunne ikke skanne lokale minner.",
   "Scan again": "Skann på nytt",
-  "Chatbox automatically scans local Claude and Codex memories. Nothing is imported until you review and confirm it.": "Chatbox skanner automatisk lokale minner fra Claude og Codex. Ingenting importeres før du har sett gjennom og bekreftet det.",
+  "Local Claude and Codex memories are scanned automatically only once; use the scan button to check for new ones. Nothing is imported until you review and confirm it.": "Lokale minner fra Claude og Codex skannes automatisk bare én gang; bruk skanneknappen for å se etter nye. Ingenting importeres før du har sett gjennom og bekreftet det.",
   "Scanning local memories…": "Skanner lokale minner…",
   "Found {{count}} new local memories.": "Fant {{count}} nye lokale minner.",
   "Review": "Se gjennom",

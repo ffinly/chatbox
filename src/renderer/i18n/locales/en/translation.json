@@ -1363,7 +1363,7 @@
   "Import selected": "Import selected",
   "Failed to scan local memories.": "Failed to scan local memories.",
   "Scan again": "Scan again",
-  "Chatbox automatically scans local Claude and Codex memories. Nothing is imported until you review and confirm it.": "Chatbox automatically scans local Claude and Codex memories. Nothing is imported until you review and confirm it.",
+  "Local Claude and Codex memories are scanned automatically only once; use the scan button to check for new ones. Nothing is imported until you review and confirm it.": "Local Claude and Codex memories are scanned automatically only once; use the scan button to check for new ones. Nothing is imported until you review and confirm it.",
   "Scanning local memories…": "Scanning local memories…",
   "Found {{count}} new local memories.": "Found {{count}} new local memories.",
   "Review": "Review",

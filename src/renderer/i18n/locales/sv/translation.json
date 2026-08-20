@@ -1363,7 +1363,7 @@
   "Import selected": "Importera valda",
   "Failed to scan local memories.": "Det gick inte att skanna lokala minnen.",
   "Scan again": "Skanna igen",
-  "Chatbox automatically scans local Claude and Codex memories. Nothing is imported until you review and confirm it.": "Chatbox skannar automatiskt lokala minnen från Claude och Codex. Inget importeras förrän du har granskat och bekräftat det.",
+  "Local Claude and Codex memories are scanned automatically only once; use the scan button to check for new ones. Nothing is imported until you review and confirm it.": "Lokala minnen från Claude och Codex skannas automatiskt bara en gång; använd skanningsknappen för att leta efter nya. Inget importeras förrän du har granskat och bekräftat det.",
   "Scanning local memories…": "Skannar lokala minnen…",
   "Found {{count}} new local memories.": "Hittade {{count}} nya lokala minnen.",
   "Review": "Granska",

@@ -30,12 +30,15 @@ vi.mock('@/packages/model-calls/workspace-instructions', () => ({
 }))
 
 import {
+  AGENT_MEMORIES_AUTO_SCAN_DONE_KEY,
   AGENT_MEMORIES_STORAGE_KEY,
   addMemory,
   captureSessionPromptContextSnapshot,
   deleteMemory,
+  hasCompletedLocalMemoryAutoScan,
   importMemories,
   listMemories,
+  markLocalMemoryAutoScanCompleted,
   readSoul,
   updateSoul,
   writeSoul,
@@ -130,5 +133,19 @@ describe('soul mutation serialization', () => {
     const result = await updateSoul(() => ({ error: 'search text not found' }))
     expect(result).toEqual({ error: 'search text not found' })
     expect((await readSoul()).content).toBe('stable content')
+  })
+})
+
+describe('local memory auto-scan flag', () => {
+  test('defaults to not completed and flips after marking', async () => {
+    await expect(hasCompletedLocalMemoryAutoScan()).resolves.toBe(false)
+    await markLocalMemoryAutoScanCompleted()
+    await expect(hasCompletedLocalMemoryAutoScan()).resolves.toBe(true)
+    expect(storageValues.get(AGENT_MEMORIES_AUTO_SCAN_DONE_KEY)).toBe(true)
+  })
+
+  test('treats corrupted stored values as not completed', async () => {
+    storageValues.set(AGENT_MEMORIES_AUTO_SCAN_DONE_KEY, 'yes')
+    await expect(hasCompletedLocalMemoryAutoScan()).resolves.toBe(false)
   })
 })

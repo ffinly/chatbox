@@ -6,7 +6,13 @@ import { IconRefresh, IconTrash } from '@tabler/icons-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import platform from '@/platform'
-import { deleteMemory, importMemories, listMemories } from '@/stores/agentPersonaStore'
+import {
+  deleteMemory,
+  hasCompletedLocalMemoryAutoScan,
+  importMemories,
+  listMemories,
+  markLocalMemoryAutoScanCompleted,
+} from '@/stores/agentPersonaStore'
 import { add as addToast } from '@/stores/toastActions'
 import { MemoryImportReviewModal } from './MemoryImportReviewModal'
 
@@ -54,6 +60,12 @@ export function MemoriesSection() {
       if (!mounted) return
       setMemories(entries)
       setLoading(false)
+      // The scan auto-runs only on its first opportunity per device; afterwards
+      // it is triggered manually via the "Scan again" button.
+      if (!platform.scanLocalAgentMemories) return
+      if (await hasCompletedLocalMemoryAutoScan()) return
+      if (!mounted) return
+      await markLocalMemoryAutoScanCompleted()
       await scanLocalMemories(entries, true)
     })
     return () => {
@@ -130,7 +142,7 @@ export function MemoriesSection() {
       {platform.scanLocalAgentMemories && (
         <Text size="xs" c="dimmed">
           {t(
-            'Chatbox automatically scans local Claude and Codex memories. Nothing is imported until you review and confirm it.'
+            'Local Claude and Codex memories are scanned automatically only once; use the scan button to check for new ones. Nothing is imported until you review and confirm it.'
           )}
         </Text>
       )}
