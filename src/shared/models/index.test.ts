@@ -155,6 +155,8 @@ describe('getModel', () => {
     [ModelProviderEnum.MiniMaxCN, 'MiniMax-M2.5', 'https://api.minimaxi.com/v1', OpenAI],
     [ModelProviderEnum.Moonshot, 'kimi-k2.5', 'https://api.moonshot.ai/v1', OpenAI],
     [ModelProviderEnum.MoonshotCN, 'kimi-k2.5', 'https://api.moonshot.cn/v1', OpenAI],
+    [ModelProviderEnum.OpenCodeGo, 'glm-5.3', 'https://opencode.ai/zen/go/v1', OpenAI],
+    [ModelProviderEnum.OpenCodeZen, 'glm-5.2', 'https://opencode.ai/zen/v1', OpenAI],
   ])('returns OpenAI-compatible model instances for %s', (provider, modelId, apiHost, expectedModelClass) => {
     const sessionSettings: SessionSettings = {
       provider,

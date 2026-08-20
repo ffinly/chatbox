@@ -262,6 +262,8 @@ Provider 系统除了处理 API Key，也承载了桌面端 OAuth 登录能力�
 | `openai-responses` | `openai` | callback | 复用 OpenAI OAuth provider |
 | `claude` | `claude` | code-paste | `src/main/oauth/providers/anthropic.ts` |
 | `github-copilot` | `github-copilot` | device-code | `src/main/oauth/providers/github-copilot.ts` |
+| `qwen-portal` | `qwen-portal` | device-code | `src/main/oauth/providers/qwen.ts` |
+| `minimax` / `minimax-cn` | `minimax` / `minimax-cn` | device-code | `src/main/oauth/providers/minimax.ts` |
 
 ### 三种 OAuth 流程
 
@@ -304,6 +306,17 @@ Provider 系统除了处理 API Key，也承载了桌面端 OAuth 登录能力�
 - `createBearerOAuthFetch()`：Anthropic 等直接注入 Bearer token
 - `createCopilotOAuthFetch()`：GitHub Copilot 专用头与 endpoint 适配
 
+OpenCode 的两个网关（Zen 按量付费 / Go 订阅制）**都不是** OAuth 供应商：官方只提供控制台 API Key。两者共用一套 `defineOpenCodeModelClasses()` / `createOpenCodeModel()`（`src/shared/providers/definitions/opencode-shared.ts`），按 model id 前缀分发到不同 surface，但路由规则各自独立：
+
+| 网关 | apiHost | Responses | Anthropic Messages | Google | Chat Completions |
+|------|---------|-----------|--------------------|--------|------------------|
+| Zen | `https://opencode.ai/zen/v1` | `gpt-` / `grok-` / `muse-spark` | `claude-` / `qwen3.` | `gemini-` | 其余（含 MiniMax） |
+| Go | `https://opencode.ai/zen/go/v1` | `gpt-` / `grok-` / `muse-spark` | `minimax-` / `qwen3.` | — | 其余 |
+
+注意 MiniMax 在两个网关上落到不同 surface，所以路由规则不能共用一张表。两个网关的模型目录都是 OpenAI 形状的 `/models`，因此 Anthropic / Gemini 子类改为拉这个目录，而不是各自厂商的目录端点。Zen 的 Gemini 直接挂在 `<host>/models/<id>`，不带 `/v1beta`，所以 Gemini 子类覆盖了 `getProvider()`。
+
+Cursor 订阅的 CLI PKCE 登录无法接到公开聊天 API，调研结论见 [Cursor / OpenCode Go 订阅登录](./subscription-oauth-research.md)。
+
 ### 关键实现约束
 
 - **桌面端限定**
@@ -338,12 +351,12 @@ Provider 系统除了处理 API Key，也承载了桌面端 OAuth 登录能力�
 
 ### 当前内置供应商
 
-系统内置 16 个供应商定义（通过副作用导入注册），加上用户自建供应商，总共支持 30+ 家服务商。内置供应商涵盖：
+系统内置供应商定义通过副作用导入注册（见 `src/shared/providers/index.contract.test.ts` 的顺序快照），加上用户自建供应商，总共支持 30+ 家服务商。内置供应商涵盖：
 
 - **云端大厂**：OpenAI、Claude（Anthropic）、Gemini（Google）、Azure OpenAI
 - **专业服务**：DeepSeek、Groq、xAI、Mistral AI、Perplexity
 - **国内平台**：SiliconFlow（硅基流动）、VolcEngine（火山引擎）、ChatGLM（智谱）
-- **聚合平台**：OpenRouter
+- **聚合 / 订阅网关**：OpenRouter、GitHub Copilot、OpenCode Zen、OpenCode Go、Vercel AI Gateway
 - **本地推理**：Ollama、LM Studio
 - **自有服务**：ChatboxAI
 

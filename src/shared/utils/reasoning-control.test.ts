@@ -16,6 +16,7 @@ import {
   resolveReasoningReplayPolicy,
   setReasoningProviderOptionsForModel,
   shouldDisableClaudeThinkingForUnsignedResume,
+  shouldPreserveDeepSeekReasoning,
   stripReasoningProviderOptions,
   usesClaudeEffortControl,
 } from './reasoning-control'
@@ -764,6 +765,61 @@ describe('reasoning-control', () => {
     expect(isClaudeAdaptiveThinkingModel('claude-opus-50')).toBe(false)
     expect(usesClaudeEffortControl('claude-opus-4-5-20251101')).toBe(true)
     expect(usesClaudeEffortControl('claude-opus-4-50')).toBe(false)
+  })
+
+  it('treats OpenCode Go as a mixed-style gateway for reasoning controls', () => {
+    const deepseek = model('deepseek-v4-pro', 'openai')
+    const luna = model('gpt-5.6-luna', 'openai-responses')
+    const qwen = model('qwen3.8-max', 'anthropic')
+    const grok = model('grok-4.5', 'openai-responses')
+
+    expect(getReasoningControlCapabilities(ModelProviderEnum.OpenCodeGo, deepseek)).toEqual({
+      supported: true,
+      kind: 'deepseek-effort',
+    })
+    expect(getReasoningProviderOptions(ModelProviderEnum.OpenCodeGo, deepseek, 'off')).toEqual({
+      deepseek: { thinking: { type: 'disabled' } },
+    })
+    expect(shouldPreserveDeepSeekReasoning(ModelProviderEnum.OpenCodeGo, deepseek)).toBe(true)
+    expect(shouldPreserveDeepSeekReasoning(ModelProviderEnum.OpenCodeGo, { modelId: 'deepseek-v4-pro' })).toBe(true)
+
+    expect(getReasoningControlCapabilities(ModelProviderEnum.OpenCodeGo, luna)).toEqual({
+      supported: true,
+      kind: 'openai-effort',
+    })
+    expect(getReasoningControlCapabilities(ModelProviderEnum.OpenCodeGo, qwen)).toEqual({
+      supported: false,
+      kind: 'toggle',
+    })
+    expect(getReasoningControlCapabilities(ModelProviderEnum.OpenCodeGo, grok)).toEqual({
+      supported: false,
+      kind: 'toggle',
+    })
+  })
+
+  it('treats OpenCode Zen as a mixed-style gateway for reasoning controls', () => {
+    const deepseek = model('deepseek-v4-pro', 'openai')
+    const sol = model('gpt-5.6-sol', 'openai-responses')
+    const claude = model('claude-opus-5', 'anthropic')
+    const gemini = model('gemini-3.7-flash', 'google')
+
+    expect(getReasoningControlCapabilities(ModelProviderEnum.OpenCodeZen, deepseek)).toEqual({
+      supported: true,
+      kind: 'deepseek-effort',
+    })
+    expect(shouldPreserveDeepSeekReasoning(ModelProviderEnum.OpenCodeZen, deepseek)).toBe(true)
+
+    expect(getReasoningControlCapabilities(ModelProviderEnum.OpenCodeZen, sol)).toEqual({
+      supported: true,
+      kind: 'openai-effort',
+    })
+    expect(getReasoningControlCapabilities(ModelProviderEnum.OpenCodeZen, claude).kind).toBe(
+      'anthropic-adaptive-effort'
+    )
+    expect(getReasoningControlCapabilities(ModelProviderEnum.OpenCodeZen, gemini)).toEqual({
+      supported: true,
+      kind: 'level',
+    })
   })
 
   describe('stripReasoningProviderOptions', () => {

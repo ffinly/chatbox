@@ -31,6 +31,8 @@ describe('provider control-plane contracts', () => {
       'volcengine',
       'chatglm-6b',
       'github-copilot',
+      'opencode-go',
+      'opencode-zen',
       'bedrock',
       'vercel-ai-gateway',
     ])

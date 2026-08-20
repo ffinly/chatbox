@@ -347,21 +347,28 @@ function isCustomProviderId(provider: ModelProvider | undefined): boolean {
   return !!provider && !BUILTIN_PROVIDER_IDS.has(provider)
 }
 
+function isOpenCodeGatewayProvider(provider: ModelProvider | undefined): boolean {
+  return provider === ModelProviderEnum.OpenCodeGo || provider === ModelProviderEnum.OpenCodeZen
+}
+
 function usesModelApiStyleForReasoning(provider: ModelProvider | undefined): boolean {
-  // ChatboxAI proxies many backend models, and custom providers wrap an upstream API,
-  // so for both we resolve the effective provider from the model's API style rather than
-  // the provider id itself.
+  // ChatboxAI and the OpenCode gateways proxy many backend models, and custom providers
+  // wrap an upstream API, so we resolve the effective provider from the model's API style
+  // rather than the provider id itself.
   return (
-    provider === ModelProviderEnum.ChatboxAI || provider === ModelProviderEnum.Custom || isCustomProviderId(provider)
+    provider === ModelProviderEnum.ChatboxAI ||
+    provider === ModelProviderEnum.Custom ||
+    isOpenCodeGatewayProvider(provider) ||
+    isCustomProviderId(provider)
   )
 }
 
 function isOpenAICompatibleApiStyle(provider: ModelProvider | undefined, model: ProviderModelInfo): boolean {
-  // ChatboxAI and custom providers can both expose OpenAI-compatible endpoints; treat a
-  // missing/`openai` API style as OpenAI-compatible so model-id based detection (e.g. DeepSeek)
-  // works the same way for both.
+  // ChatboxAI, the OpenCode gateways, and custom providers can all expose OpenAI-compatible
+  // endpoints; treat a missing/`openai` API style as OpenAI-compatible so model-id
+  // based detection (e.g. DeepSeek) works the same way for all three.
   return (
-    (provider === ModelProviderEnum.ChatboxAI || isCustomProviderId(provider)) &&
+    (provider === ModelProviderEnum.ChatboxAI || isOpenCodeGatewayProvider(provider) || isCustomProviderId(provider)) &&
     (!model.apiStyle || model.apiStyle === 'openai')
   )
 }
@@ -370,10 +377,13 @@ function usesOpenAICompatibleReasoningHistory(provider: ModelProvider | undefine
   if (model.apiStyle === 'openai') return true
 
   // getModel() stamps the provider type onto current models. Keep the missing-style
-  // fallback for older ChatboxAI/custom model records that predate that metadata.
+  // fallback for older ChatboxAI/OpenCode/custom model records that predate that metadata.
   return (
     !model.apiStyle &&
-    (provider === ModelProviderEnum.ChatboxAI || provider === ModelProviderEnum.Custom || isCustomProviderId(provider))
+    (provider === ModelProviderEnum.ChatboxAI ||
+      provider === ModelProviderEnum.Custom ||
+      isOpenCodeGatewayProvider(provider) ||
+      isCustomProviderId(provider))
   )
 }
 
@@ -612,12 +622,17 @@ function getApiStyleDisabledReason(
   if (
     matchesAny(modelId, QWEN_THINKING_MODELS) &&
     effectiveProvider !== ModelProviderEnum.Qwen &&
-    effectiveProvider !== ModelProviderEnum.QwenPortal
+    effectiveProvider !== ModelProviderEnum.QwenPortal &&
+    !isOpenCodeGatewayProvider(provider)
   ) {
     return 'requires-qwen-api-style'
   }
 
-  if (matchesAny(modelId, GROK_REASONING_EFFORT_MODELS) && effectiveProvider !== ModelProviderEnum.XAI) {
+  if (
+    matchesAny(modelId, GROK_REASONING_EFFORT_MODELS) &&
+    effectiveProvider !== ModelProviderEnum.XAI &&
+    !isOpenCodeGatewayProvider(provider)
+  ) {
     return 'requires-xai-api-style'
   }
 
