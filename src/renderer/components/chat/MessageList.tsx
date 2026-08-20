@@ -2,6 +2,7 @@ import { getSessionActionGate } from '@chatbox/core/session/action-gates'
 import NiceModal from '@ebay/nice-modal-react'
 import { Button, Flex, Stack, Transition } from '@mantine/core'
 import { useThrottledCallback } from '@mantine/hooks'
+import { TestId } from '@shared/automation/testids'
 import type { Session, Message as SessionMessage, SessionThreadBrief } from '@shared/types'
 import {
   IconArrowBarToUp,
@@ -698,6 +699,7 @@ const ThreadLabel: FC<ThreadLabelProps> = memo(({ thread, sessionId }) => {
         ]}
       >
         <span
+          data-testid={TestId.message.threadLabel}
           className="cursor-pointer font-bold border-solid border rounded-xxl py-2 px-3 border-slate-400/25"
           onDoubleClick={handleOpenHistoryDrawer}
           // onClick={onClick}
