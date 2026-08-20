@@ -29,6 +29,10 @@ export enum ModelProviderEnum {
   VercelAIGateway = 'vercel-ai-gateway',
   OpenCodeGo = 'opencode-go',
   OpenCodeZen = 'opencode-zen',
+  TencentHunyuan = 'tencent-hunyuan',
+  XiaomiMiMo = 'xiaomi-mimo',
+  LongCat = 'longcat',
+  ZhipuGLMCodingPlan = 'zhipu-glm-coding-plan',
   Custom = 'custom',
 }
 

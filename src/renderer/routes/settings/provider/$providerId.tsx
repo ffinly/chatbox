@@ -88,6 +88,10 @@ const BUILTIN_API_HOST_PROVIDERS = new Set<string>([
   ModelProviderEnum.VercelAIGateway,
   ModelProviderEnum.OpenCodeGo,
   ModelProviderEnum.OpenCodeZen,
+  ModelProviderEnum.TencentHunyuan,
+  ModelProviderEnum.XiaomiMiMo,
+  ModelProviderEnum.LongCat,
+  ModelProviderEnum.ZhipuGLMCodingPlan,
 ])
 
 const OAUTH_ONLY_PROVIDERS = new Set<string>([ModelProviderEnum.QwenPortal])

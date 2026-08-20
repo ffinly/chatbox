@@ -35,6 +35,10 @@ describe('provider control-plane contracts', () => {
       'opencode-zen',
       'bedrock',
       'vercel-ai-gateway',
+      'tencent-hunyuan',
+      'xiaomi-mimo',
+      'longcat',
+      'zhipu-glm-coding-plan',
     ])
   })
 

@@ -1,8 +1,12 @@
 import { settings as getDefaultSettings, newConfigs } from 'src/shared/defaults'
 import { getModel } from 'src/shared/providers'
+import LongCat from 'src/shared/providers/definitions/models/longcat'
 import OpenAI from 'src/shared/providers/definitions/models/openai'
 import OpenAIResponses from 'src/shared/providers/definitions/models/openai-responses'
 import Qwen from 'src/shared/providers/definitions/models/qwen'
+import TencentHunyuan from 'src/shared/providers/definitions/models/tencent-hunyuan'
+import XiaomiMiMo from 'src/shared/providers/definitions/models/xiaomi-mimo'
+import ZhipuGLMCodingPlan from 'src/shared/providers/definitions/models/zhipu-glm-coding-plan'
 import { ModelProviderEnum, type SessionSettings, type Settings } from 'src/shared/types'
 import type { ModelDependencies } from 'src/shared/types/adapters'
 import type { SentryScope } from 'src/shared/utils/sentry_adapter'
@@ -157,6 +161,20 @@ describe('getModel', () => {
     [ModelProviderEnum.MoonshotCN, 'kimi-k2.5', 'https://api.moonshot.cn/v1', OpenAI],
     [ModelProviderEnum.OpenCodeGo, 'glm-5.3', 'https://opencode.ai/zen/go/v1', OpenAI],
     [ModelProviderEnum.OpenCodeZen, 'glm-5.2', 'https://opencode.ai/zen/v1', OpenAI],
+    [
+      ModelProviderEnum.TencentHunyuan,
+      'hunyuan-turbos-latest',
+      'https://api.hunyuan.cloud.tencent.com/v1',
+      TencentHunyuan,
+    ],
+    [ModelProviderEnum.XiaomiMiMo, 'mimo-v2.5-pro', 'https://api.xiaomimimo.com/v1', XiaomiMiMo],
+    [ModelProviderEnum.LongCat, 'LongCat-2.0', 'https://api.longcat.chat/openai/v1', LongCat],
+    [
+      ModelProviderEnum.ZhipuGLMCodingPlan,
+      'glm-5.3',
+      'https://open.bigmodel.cn/api/coding/paas/v4',
+      ZhipuGLMCodingPlan,
+    ],
   ])('returns OpenAI-compatible model instances for %s', (provider, modelId, apiHost, expectedModelClass) => {
     const sessionSettings: SessionSettings = {
       provider,

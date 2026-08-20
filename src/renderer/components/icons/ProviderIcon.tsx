@@ -1,6 +1,10 @@
+import HunyuanColor from '@lobehub/icons/es/Hunyuan/components/Color'
+import LongCatColor from '@lobehub/icons/es/LongCat/components/Color'
 import MinimaxColor from '@lobehub/icons/es/Minimax/components/Color'
 import MoonshotMono from '@lobehub/icons/es/Moonshot/components/Mono'
 import QwenColor from '@lobehub/icons/es/Qwen/components/Color'
+import XiaomiMiMoMono from '@lobehub/icons/es/XiaomiMiMo/components/Mono'
+import ZhipuColor from '@lobehub/icons/es/Zhipu/components/Color'
 import { type ModelProvider, ModelProviderEnum } from '@shared/types'
 import BrandGithub from './BrandGithub'
 
@@ -21,6 +25,22 @@ export default function ProviderIcon(props: { className?: string; size?: number;
 
   if ([ModelProviderEnum.Moonshot, ModelProviderEnum.MoonshotCN].includes(provider as ModelProviderEnum)) {
     return <MoonshotMono className={className} size={size} style={{ color: 'currentColor' }} />
+  }
+
+  if (provider === ModelProviderEnum.TencentHunyuan) {
+    return <HunyuanColor className={className} size={size} />
+  }
+
+  if (provider === ModelProviderEnum.XiaomiMiMo) {
+    return <XiaomiMiMoMono className={className} size={size} style={{ color: 'currentColor' }} />
+  }
+
+  if (provider === ModelProviderEnum.LongCat) {
+    return <LongCatColor className={className} size={size} />
+  }
+
+  if (provider === ModelProviderEnum.ZhipuGLMCodingPlan) {
+    return <ZhipuColor className={className} size={size} />
   }
 
   return (
