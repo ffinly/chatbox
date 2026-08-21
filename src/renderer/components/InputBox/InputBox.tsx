@@ -131,6 +131,7 @@ import { getSubmitAction, getSubmitControl } from './submitAction'
 import TokenCountMenu from './TokenCountMenu'
 import { useModelToolCapabilities } from './useModelToolCapabilities'
 import { useReasoningControlState } from './useReasoningControlState'
+import WorkModeStatusRow from './WorkModeStatusRow'
 
 const useSession = (sessionId: string | null) => rendererApplication.sessionHooks.useSession(sessionId)
 
@@ -1515,6 +1516,16 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                 document.body
               )}
 
+            {/* Work Mode status row: approval policy + working directories, always visible
+                above the input with their own in-place menus (mirrors the mode panel). */}
+            {platform.isDesktopLike && agentModeUIState.isActive && (
+              <WorkModeStatusRow
+                sessionId={currentSessionId || 'new'}
+                providerId={model?.provider}
+                modelId={model?.modelId}
+              />
+            )}
+
             {/* Input Row */}
             <Flex align="flex-end" gap={4}>
               <MessageInputField
@@ -1812,7 +1823,6 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                   model={reasoningModelInfo}
                   providerOptions={effectiveProviderOptions}
                   iconSize={toolbarIconSize}
-                  compact={isSmallScreen}
                   onChange={(level) => void handleReasoningLevelChange(level)}
                 />
 

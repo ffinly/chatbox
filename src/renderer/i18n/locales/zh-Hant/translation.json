@@ -1372,5 +1372,7 @@
   "Always Ask": "一律詢問",
   "Ask before every command that needs host access.": "每次命令需要存取主機環境時都詢問。",
   "Automatically approve safe commands and ask when uncertain.": "自動批准安全命令，無法確定時再詢問。",
-  "Smart Approval": "智慧批准"
+  "Smart Approval": "智慧批准",
+  "New chats will keep this choice": "新對話將沿用這個選擇",
+  "Same as last time": "沿用上次的選擇"
 }

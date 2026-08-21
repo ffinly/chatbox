@@ -1372,5 +1372,7 @@
   "Always Ask": "اسأل دائمًا",
   "Ask before every command that needs host access.": "اسأل قبل كل أمر يحتاج إلى الوصول إلى النظام المضيف.",
   "Automatically approve safe commands and ask when uncertain.": "وافق تلقائيًا على الأوامر الآمنة واسأل عند عدم اليقين.",
-  "Smart Approval": "موافقة ذكية"
+  "Smart Approval": "موافقة ذكية",
+  "New chats will keep this choice": "ستحتفظ الدردشات الجديدة بهذا الاختيار",
+  "Same as last time": "كما في المرة السابقة"
 }

@@ -56,6 +56,11 @@ export const uiStore = createStore(
           agentFullAccess?: boolean
           commandApprovalMode?: CommandApprovalMode
         },
+        // Last explicit command-approval / working-directory choices (from any chat).
+        // New chats start from these so users don't re-configure every conversation.
+        // Undefined = never chosen, so resolveCommandApprovalMode keeps its own default.
+        newSessionCommandApprovalModeDefault: undefined as CommandApprovalMode | undefined,
+        newSessionWorkingDirectoriesDefault: undefined as string[] | undefined,
         pictureShow: null as {
           picture: MessagePicture
           extraButtons?: {
@@ -220,6 +225,14 @@ export const uiStore = createStore(
           })
         },
 
+        setNewSessionCommandApprovalModeDefault: (mode: CommandApprovalMode) => {
+          set({ newSessionCommandApprovalModeDefault: mode })
+        },
+
+        setNewSessionWorkingDirectoriesDefault: (directories: string[]) => {
+          set({ newSessionWorkingDirectoriesDefault: directories })
+        },
+
         setShowCopilotsInNewSession: (showCopilotsInNewSession: boolean) => {
           set({ showCopilotsInNewSession })
         },
@@ -259,6 +272,8 @@ export const uiStore = createStore(
         agentModeSmartSwitchingDefault: state.agentModeSmartSwitchingDefault,
         agentModeLastSelected: state.agentModeLastSelected,
         newSessionWebBrowsingDefault: state.newSessionWebBrowsingDefault,
+        newSessionCommandApprovalModeDefault: state.newSessionCommandApprovalModeDefault,
+        newSessionWorkingDirectoriesDefault: state.newSessionWorkingDirectoriesDefault,
         sessionWebBrowsingMap: state.sessionWebBrowsingMap,
         sessionKnowledgeBaseMap: state.sessionKnowledgeBaseMap,
       }),

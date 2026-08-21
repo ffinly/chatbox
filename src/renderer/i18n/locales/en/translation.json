@@ -1372,5 +1372,7 @@
   "Always Ask": "Always Ask",
   "Ask before every command that needs host access.": "Ask before every command that needs host access.",
   "Automatically approve safe commands and ask when uncertain.": "Automatically approve safe commands and ask when uncertain.",
-  "Smart Approval": "Smart Approval"
+  "Smart Approval": "Smart Approval",
+  "New chats will keep this choice": "New chats will keep this choice",
+  "Same as last time": "Same as last time"
 }

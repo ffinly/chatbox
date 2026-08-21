@@ -1372,5 +1372,7 @@
   "Always Ask": "Fråga alltid",
   "Ask before every command that needs host access.": "Fråga före varje kommando som behöver åtkomst till värdsystemet.",
   "Automatically approve safe commands and ask when uncertain.": "Godkänn säkra kommandon automatiskt och fråga vid osäkerhet.",
-  "Smart Approval": "Smart godkännande"
+  "Smart Approval": "Smart godkännande",
+  "New chats will keep this choice": "Nya chattar behåller det här valet",
+  "Same as last time": "Samma som förra gången"
 }

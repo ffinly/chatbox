@@ -1,34 +1,15 @@
-import {
-  ActionIcon,
-  Badge,
-  Button,
-  Divider,
-  Flex,
-  Group,
-  Loader,
-  Stack,
-  Switch,
-  Text,
-  UnstyledButton,
-} from '@mantine/core'
+import { ActionIcon, Badge, Button, Divider, Flex, Group, Loader, Stack, Switch, Text } from '@mantine/core'
 import { TestId } from '@shared/automation/testids'
-import {
-  type AgentModeValue,
-  type CommandApprovalMode,
-  type KnowledgeBase,
-  resolveCommandApprovalMode,
-} from '@shared/types'
+import type { AgentModeValue, KnowledgeBase } from '@shared/types'
 import {
   IconCheck,
   IconChevronRight,
   IconCode,
   IconFile,
-  IconFolder,
   IconFolderCog,
   IconHammer,
   IconNotes,
   IconSettings2,
-  IconTrash,
   IconVocabulary,
   IconWand,
   IconWorldWww,
@@ -39,7 +20,6 @@ import { type FC, useCallback, useEffect, useMemo, useRef, useState } from 'reac
 import { useTranslation } from 'react-i18next'
 import {
   trackAgentModeSelect,
-  trackCodeExecutionClick,
   trackMemoryClick,
   trackSmartSwitchingClick,
   trackWebSearchClick,
@@ -52,18 +32,21 @@ import { navigateToSettings } from '@/modals/settings-navigation'
 import { BUILTIN_MCP_SERVERS } from '@/packages/mcp/builtin'
 import { skillsController, subscribeSkillsChanged } from '@/packages/skills/controller'
 import { WEB_SEARCH_PROVIDERS, type WebSearchProviderValue } from '@/packages/web-search/constants'
-import platform from '@/platform'
 import { listMemories } from '@/stores/agentPersonaStore'
 import { useAutoValidate } from '@/stores/premiumActions'
-import { recentDirectoriesStore, useRecentDirectories } from '@/stores/recentDirectoriesStore'
 import { setSessionAgentMode, useSessionAgentMode } from '@/stores/session/agent-mode'
-import { useSessionSettings } from '@/stores/session/session-settings'
 import { useMcpSettings, useSettingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
 import { ScalableIcon } from '../common/ScalableIcon'
 import MCPStatus from '../mcp/MCPStatus'
+import { CommandApprovalOptions, WorkingDirectoryContent } from './AgentModeSettingsContent'
 import AgentModeStatusIcon from './AgentModeStatusIcon'
 import { getAgentModeUIState } from './agentModeState'
+import {
+  supportsWorkingDirectories,
+  useCommandApprovalModeState,
+  useWorkingDirectoriesState,
+} from './useAgentModeSettingsState'
 
 const useSession = (sessionId: string | null) => rendererApplication.sessionHooks.useSession(sessionId)
 
@@ -76,14 +59,6 @@ type PanelPage =
   | 'mcp'
   | 'knowledge-base'
   | 'working-directory'
-
-// The working-directory feature needs the desktop filesystem and directory picker. Windows
-// uses the native execution backend; bound directory writes are validated in the main process.
-const supportsWorkingDirectories = platform.type === 'desktop' && !!platform.openDirectoryDialog
-
-function getDirectoryName(directory: string) {
-  return directory.split(/[\\/]/).filter(Boolean).pop() || directory
-}
 
 export interface AgentModePanelProps {
   sessionId: string
@@ -284,117 +259,19 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
     [modelId, providerId, sessionId, setAgentModeSmartSwitchingDefault]
   )
 
-  // Working directories (desktop only): real local dirs the sandbox may read/write freely.
-  // A brand-new chat (sessionId === 'new') is not yet persisted, so its binding is held in
-  // newSessionState and transferred into the created session's settings on first submit
-  // (see routes/index.tsx) — mirroring how knowledge base / web browsing are handled.
-  const newSessionState = useUIStore((s) => s.newSessionState)
-  const setNewSessionState = useUIStore((s) => s.setNewSessionState)
-  const { sessionSettings } = useSessionSettings(sessionId)
-  const workingDirectories = useMemo(
-    () => (isNewSession ? (newSessionState.workingDirectories ?? []) : (sessionSettings.workingDirectories ?? [])),
-    [isNewSession, newSessionState.workingDirectories, sessionSettings]
-  )
-  const recentDirectories = useRecentDirectories()
-  const availableRecentDirectories = useMemo(
-    () => recentDirectories.filter((dir) => !workingDirectories.includes(dir)),
-    [recentDirectories, workingDirectories]
-  )
-  const commandApprovalMode = resolveCommandApprovalMode(
-    isNewSession
-      ? {
-          commandApprovalMode: newSessionState.commandApprovalMode,
-          agentFullAccess: newSessionState.agentFullAccess,
-        }
-      : sessionSettings
-  )
-  const updateWorkingDirectories = useCallback(
-    async (next: string[]) => {
-      const value = next.length ? next : undefined
-      if (isNewSession) {
-        setNewSessionState((prev) => ({ ...prev, workingDirectories: value }))
-        return
-      }
-      try {
-        await rendererApplication.sessions.updateSession(sessionId, (session) => {
-          if (!session) {
-            throw new Error('Session not found')
-          }
-          return { ...session, settings: { ...session.settings, workingDirectories: value } }
-        })
-      } catch (err) {
-        console.error('Failed to update working directories:', err)
-      }
-    },
-    [isNewSession, sessionId, setNewSessionState]
-  )
-
-  const handleAddWorkingDirectory = useCallback(async () => {
-    if (!platform.openDirectoryDialog) return
-    const result = await platform.openDirectoryDialog()
-    if (result.canceled || !result.path) return
-    recentDirectoriesStore.getState().addDirectory(result.path)
-    if (workingDirectories.includes(result.path)) return
-    await updateWorkingDirectories([...workingDirectories, result.path])
-  }, [workingDirectories, updateWorkingDirectories])
-
-  const handleSelectRecentDirectory = useCallback(
-    async (dir: string) => {
-      recentDirectoriesStore.getState().addDirectory(dir)
-      if (workingDirectories.includes(dir)) return
-      await updateWorkingDirectories([...workingDirectories, dir])
-    },
-    [workingDirectories, updateWorkingDirectories]
-  )
-
-  const handleRemoveWorkingDirectory = useCallback(
-    async (dir: string) => {
-      await updateWorkingDirectories(workingDirectories.filter((item) => item !== dir))
-    },
-    [workingDirectories, updateWorkingDirectories]
-  )
-
-  const updateCommandApprovalMode = useCallback(
-    async (mode: CommandApprovalMode) => {
-      if (mode === commandApprovalMode) return
-      trackCodeExecutionClick(
-        {
-          sessionId,
-          mode: 'work_mode',
-          provider: providerId,
-          model: modelId,
-        },
-        mode === 'full_access' ? 'full_access' : 'approval'
-      )
-      const legacyFullAccess = mode === 'full_access' || undefined
-      if (isNewSession) {
-        setNewSessionState((prev) => ({
-          ...prev,
-          agentFullAccess: legacyFullAccess,
-          commandApprovalMode: mode,
-        }))
-        return
-      }
-      try {
-        await rendererApplication.sessions.updateSession(sessionId, (session) => {
-          if (!session) {
-            throw new Error('Session not found')
-          }
-          return {
-            ...session,
-            settings: {
-              ...session.settings,
-              agentFullAccess: legacyFullAccess,
-              commandApprovalMode: mode,
-            },
-          }
-        })
-      } catch (err) {
-        console.error('Failed to update command approval mode:', err)
-      }
-    },
-    [commandApprovalMode, isNewSession, modelId, providerId, sessionId, setNewSessionState]
-  )
+  // Command approval + working directories are shared with the composer status row
+  // (WorkModeStatusRow): one store, two entry points, so both stay in sync.
+  const { commandApprovalMode, updateCommandApprovalMode } = useCommandApprovalModeState(sessionId, {
+    providerId,
+    modelId,
+  })
+  const {
+    workingDirectories,
+    availableRecentDirectories,
+    addWorkingDirectory: handleAddWorkingDirectory,
+    selectRecentDirectory: handleSelectRecentDirectory,
+    removeWorkingDirectory: handleRemoveWorkingDirectory,
+  } = useWorkingDirectoriesState(sessionId)
 
   const selectedKB = useMemo(
     () => knowledgeBases?.find((kb) => kb.id === currentKnowledgeBaseId),
@@ -740,88 +617,11 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
         <>
           <SubPanelHeader title={t('Code Execution')} disabled={workModeCapabilitiesDisabled} />
           <Divider my={4} />
-          <Flex
-            justify="space-between"
-            align="center"
-            px="sm"
-            py={6}
-            gap="sm"
-            className={`rounded ${
-              workModeCapabilitiesDisabled
-                ? 'cursor-default opacity-50'
-                : 'cursor-pointer hover:bg-[var(--mantine-color-gray-0)] dark:hover:bg-[var(--mantine-color-dark-5)]'
-            }`}
-            onClick={() => {
-              if (workModeCapabilitiesDisabled) return
-              void updateCommandApprovalMode('always_ask')
-            }}
-          >
-            <Stack gap={0} className="min-w-0">
-              <Text size="sm" c={commandApprovalMode === 'always_ask' ? 'chatbox-brand' : undefined}>
-                {t('Always Ask')}
-              </Text>
-              <Text size="xs" c="chatbox-secondary" className="leading-snug">
-                {t('Ask before every command that needs host access.')}
-              </Text>
-            </Stack>
-            {commandApprovalMode === 'always_ask' && (
-              <IconCheck size={14} className="text-[var(--chatbox-tint-brand)] shrink-0" />
-            )}
-          </Flex>
-          <Flex
-            justify="space-between"
-            align="center"
-            px="sm"
-            py={6}
-            gap="sm"
-            className={`rounded ${
-              workModeCapabilitiesDisabled
-                ? 'cursor-default opacity-50'
-                : 'cursor-pointer hover:bg-[var(--mantine-color-gray-0)] dark:hover:bg-[var(--mantine-color-dark-5)]'
-            }`}
-            onClick={() => {
-              if (workModeCapabilitiesDisabled) return
-              void updateCommandApprovalMode('smart')
-            }}
-          >
-            <Stack gap={0} className="min-w-0">
-              <Text size="sm" c={commandApprovalMode === 'smart' ? 'chatbox-brand' : undefined}>
-                {t('Smart Approval')}
-              </Text>
-              <Text size="xs" c="chatbox-secondary" className="leading-snug">
-                {t('Automatically approve safe commands and ask when uncertain.')}
-              </Text>
-            </Stack>
-            {commandApprovalMode === 'smart' && (
-              <IconCheck size={14} className="text-[var(--chatbox-tint-brand)] shrink-0" />
-            )}
-          </Flex>
-          <Flex
-            justify="space-between"
-            align="center"
-            px="sm"
-            py={6}
-            gap="sm"
-            className={`rounded ${
-              workModeCapabilitiesDisabled
-                ? 'cursor-default opacity-50'
-                : 'cursor-pointer hover:bg-red-50 dark:hover:bg-red-950/30'
-            }`}
-            onClick={() => {
-              if (workModeCapabilitiesDisabled) return
-              void updateCommandApprovalMode('full_access')
-            }}
-          >
-            <Stack gap={0} className="min-w-0">
-              <Text size="sm" c="red" fw={500}>
-                {t('Full Access')}
-              </Text>
-              <Text size="xs" c="red" className="leading-snug">
-                {t('Skip approval prompts for commands and file changes, and run without periodic step confirmations.')}
-              </Text>
-            </Stack>
-            {commandApprovalMode === 'full_access' && <IconCheck size={14} className="text-red-600 shrink-0" />}
-          </Flex>
+          <CommandApprovalOptions
+            mode={commandApprovalMode}
+            disabled={workModeCapabilitiesDisabled}
+            onSelect={(mode) => void updateCommandApprovalMode(mode)}
+          />
         </>
       )
     }
@@ -992,81 +792,14 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
         <>
           <SubPanelHeader title={t('Working Directory')} disabled={workModeCapabilitiesDisabled} />
           <Divider my={4} />
-          <Text size="xs" c="dimmed" px="sm" pb={4}>
-            {t('Grant the agent read/write access to local folders without per-action approval.')}
-          </Text>
-          {workingDirectories.map((dir) => (
-            <Flex key={dir} justify="space-between" align="center" px="sm" py={6} gap="xs">
-              <Flex gap="xs" align="center" className="min-w-0">
-                <IconFile size={14} className="text-[var(--chatbox-tint-tertiary)] shrink-0" />
-                <Tooltip label={dir} withArrow position="right" openDelay={400}>
-                  <Text size="sm" truncate className="min-w-0">
-                    {getDirectoryName(dir)}
-                  </Text>
-                </Tooltip>
-              </Flex>
-              <ActionIcon
-                variant="subtle"
-                size={20}
-                color="red"
-                disabled={workModeCapabilitiesDisabled}
-                aria-label={t('Remove')}
-                onClick={() => {
-                  if (workModeCapabilitiesDisabled) return
-                  void handleRemoveWorkingDirectory(dir)
-                }}
-              >
-                <IconTrash size={14} />
-              </ActionIcon>
-            </Flex>
-          ))}
-          {availableRecentDirectories.length > 0 && (
-            <>
-              <Divider my={4} mx="sm" label={t('Recent')} labelPosition="left" />
-              {availableRecentDirectories.map((dir) => (
-                <UnstyledButton
-                  key={dir}
-                  className={`w-full rounded px-3 py-1.5 text-left ${
-                    workModeCapabilitiesDisabled
-                      ? 'cursor-default opacity-50'
-                      : 'hover:bg-[var(--mantine-color-gray-0)] dark:hover:bg-[var(--mantine-color-dark-5)]'
-                  }`}
-                  disabled={workModeCapabilitiesDisabled}
-                  aria-label={dir}
-                  onClick={() => {
-                    if (workModeCapabilitiesDisabled) return
-                    void handleSelectRecentDirectory(dir)
-                  }}
-                >
-                  <Flex gap="xs" align="center" className="min-w-0">
-                    <IconFolder size={14} className="text-[var(--chatbox-tint-tertiary)] shrink-0" />
-                    <Stack gap={0} className="min-w-0 flex-1">
-                      <Text size="sm" truncate>
-                        {getDirectoryName(dir)}
-                      </Text>
-                      <Text size="xs" c="dimmed" truncate>
-                        {dir}
-                      </Text>
-                    </Stack>
-                  </Flex>
-                </UnstyledButton>
-              ))}
-            </>
-          )}
-          <Group justify="center" py="md">
-            <Button
-              size="xs"
-              variant="light"
-              disabled={workModeCapabilitiesDisabled}
-              onClick={() => {
-                if (workModeCapabilitiesDisabled) return
-                void handleAddWorkingDirectory()
-              }}
-            >
-              <PlusIcon size={14} className="mr-1" />
-              {t('Add Folder')}
-            </Button>
-          </Group>
+          <WorkingDirectoryContent
+            workingDirectories={workingDirectories}
+            availableRecentDirectories={availableRecentDirectories}
+            disabled={workModeCapabilitiesDisabled}
+            onRemove={(dir) => void handleRemoveWorkingDirectory(dir)}
+            onSelectRecent={(dir) => void handleSelectRecentDirectory(dir)}
+            onAdd={() => void handleAddWorkingDirectory()}
+          />
         </>
       )
     }

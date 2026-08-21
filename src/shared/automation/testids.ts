@@ -46,6 +46,10 @@ export const TestId = {
     modePanel: 'agent-mode-panel',
     modeChat: 'agent-mode-chat',
     modeWork: 'agent-mode-work',
+    approvalStatusTrigger: 'agent-approval-status-trigger',
+    approvalStatusMenu: 'agent-approval-status-menu',
+    workingDirStatusTrigger: 'agent-working-dir-status-trigger',
+    workingDirStatusMenu: 'agent-working-dir-status-menu',
   },
   reasoning: {
     trigger: 'reasoning-control-trigger',

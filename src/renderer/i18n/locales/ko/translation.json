@@ -1372,5 +1372,7 @@
   "Always Ask": "항상 묻기",
   "Ask before every command that needs host access.": "호스트 접근이 필요한 모든 명령 전에 묻습니다.",
   "Automatically approve safe commands and ask when uncertain.": "안전한 명령은 자동 승인하고 확실하지 않을 때 묻습니다.",
-  "Smart Approval": "스마트 승인"
+  "Smart Approval": "스마트 승인",
+  "New chats will keep this choice": "새 채팅에도 이 선택이 유지됩니다",
+  "Same as last time": "지난번 선택 그대로"
 }

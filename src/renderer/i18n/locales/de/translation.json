@@ -1372,5 +1372,7 @@
   "Always Ask": "Immer nachfragen",
   "Ask before every command that needs host access.": "Vor jedem Befehl nachfragen, der Hostzugriff benötigt.",
   "Automatically approve safe commands and ask when uncertain.": "Sichere Befehle automatisch genehmigen und bei Unsicherheit nachfragen.",
-  "Smart Approval": "Intelligente Genehmigung"
+  "Smart Approval": "Intelligente Genehmigung",
+  "New chats will keep this choice": "Neue Chats übernehmen diese Auswahl",
+  "Same as last time": "Wie beim letzten Mal"
 }

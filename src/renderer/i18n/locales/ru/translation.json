@@ -1372,5 +1372,7 @@
   "Always Ask": "Всегда спрашивать",
   "Ask before every command that needs host access.": "Запрашивать подтверждение перед каждой командой, которой нужен доступ к системе.",
   "Automatically approve safe commands and ask when uncertain.": "Автоматически одобрять безопасные команды и спрашивать при сомнениях.",
-  "Smart Approval": "Умное одобрение"
+  "Smart Approval": "Умное одобрение",
+  "New chats will keep this choice": "Новые чаты сохранят этот выбор",
+  "Same as last time": "Как в прошлый раз"
 }

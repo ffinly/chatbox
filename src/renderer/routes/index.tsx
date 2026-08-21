@@ -19,6 +19,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { z } from 'zod'
 import { trackJkClickEvent } from '@/analytics/jk'
 import { JK_EVENTS, JK_PAGE_NAMES } from '@/analytics/jk-events'
+import { rendererApplication } from '@/app/renderer-application'
 import { ChatboxWelcomeCard } from '@/components/common/ChatboxWelcomeCard'
 import { ScalableIcon } from '@/components/common/ScalableIcon'
 import { ImageInStorage } from '@/components/Image'
@@ -33,7 +34,6 @@ import useVersion from '@/hooks/useVersion'
 import * as remote from '@/packages/remote'
 import { router } from '@/router'
 import { useAuthInfoStore } from '@/stores/authInfoStore'
-import { rendererApplication } from '@/app/renderer-application'
 import { resolveChatboxLicenseDefaultModel } from '@/stores/defaultChatModel'
 import { getHasCompletedFirstSuccessfulChat } from '@/stores/firstSuccessfulChat'
 import { getSessionAgentModeEntry } from '@/stores/session/agent-mode'
@@ -80,6 +80,8 @@ function Index() {
   const widthFull = useUIStore((s) => s.widthFull)
   const sessionWebBrowsingMap = useUIStore((s) => s.sessionWebBrowsingMap)
   const newSessionWebBrowsingDefault = useUIStore((s) => s.newSessionWebBrowsingDefault)
+  const newSessionCommandApprovalModeDefault = useUIStore((s) => s.newSessionCommandApprovalModeDefault)
+  const newSessionWorkingDirectoriesDefault = useUIStore((s) => s.newSessionWorkingDirectoriesDefault)
   const setSessionWebBrowsing = useUIStore((s) => s.setSessionWebBrowsing)
   const clearSessionWebBrowsing = useUIStore((s) => s.clearSessionWebBrowsing)
   const sessionAgentModeMap = useUIStore((s) => s.sessionAgentModeMap)
@@ -283,6 +285,10 @@ function Index() {
       settingsPatch?: Partial<SessionSettings>
       settingsOverride?: Partial<SessionSettings>
     }) => {
+      // Transient choices made while the chat was "new" win; otherwise new chats
+      // continue the last explicit choice remembered from any earlier chat.
+      const effectiveApprovalMode = newSessionState.commandApprovalMode ?? newSessionCommandApprovalModeDefault
+      const effectiveWorkingDirectories = newSessionState.workingDirectories ?? newSessionWorkingDirectoriesDefault
       const newSession = await rendererApplication.sessions.createSession({
         name: options?.name ?? session.name,
         type: 'chat',
@@ -298,12 +304,18 @@ function Index() {
           // Bake the exact mode shown while the chat was "new" into the created session, so
           // remembered defaults and transient selections follow the same resolution path.
           agentMode: getSessionAgentModeEntry('new', undefined, sessionAgentModeMap),
-          // Working directories bound while the chat was still "new" (not yet persisted).
-          ...(newSessionState.workingDirectories?.length
-            ? { workingDirectories: newSessionState.workingDirectories }
-            : {}),
-          ...(newSessionState.agentFullAccess ? { agentFullAccess: true } : {}),
-          ...(newSessionState.commandApprovalMode ? { commandApprovalMode: newSessionState.commandApprovalMode } : {}),
+          // Working directories bound while the chat was still "new" (not yet persisted),
+          // falling back to the remembered default from earlier chats.
+          ...(effectiveWorkingDirectories?.length ? { workingDirectories: effectiveWorkingDirectories } : {}),
+          ...(effectiveApprovalMode
+            ? {
+                commandApprovalMode: effectiveApprovalMode,
+                // Keep the legacy flag in lockstep for older readers.
+                ...(effectiveApprovalMode === 'full_access' ? { agentFullAccess: true } : {}),
+              }
+            : newSessionState.agentFullAccess
+              ? { agentFullAccess: true }
+              : {}),
           ...options?.settingsOverride,
         },
       })
@@ -355,6 +367,8 @@ function Index() {
       newSessionState.workingDirectories,
       newSessionState.agentFullAccess,
       newSessionState.commandApprovalMode,
+      newSessionCommandApprovalModeDefault,
+      newSessionWorkingDirectoriesDefault,
       setNewSessionState,
       sessionWebBrowsingMap,
       newSessionWebBrowsingDefault,

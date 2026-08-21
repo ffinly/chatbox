@@ -1372,5 +1372,7 @@
   "Always Ask": "常に確認",
   "Ask before every command that needs host access.": "ホストへのアクセスが必要なコマンドごとに確認します。",
   "Automatically approve safe commands and ask when uncertain.": "安全なコマンドは自動承認し、判断できない場合は確認します。",
-  "Smart Approval": "スマート承認"
+  "Smart Approval": "スマート承認",
+  "New chats will keep this choice": "新規チャットにもこの選択が引き継がれます",
+  "Same as last time": "前回と同じ"
 }

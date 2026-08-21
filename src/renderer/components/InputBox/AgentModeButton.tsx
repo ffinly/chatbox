@@ -9,6 +9,7 @@ import { useSessionAgentMode } from '@/stores/session/agent-mode'
 import AgentModePanel from './AgentModePanel'
 import AgentModeStatusIcon from './AgentModeStatusIcon'
 import { getAgentModeUIState } from './agentModeState'
+import { useComposerMenuStore } from './composerMenuStore'
 
 interface AgentModeButtonProps {
   sessionId: string
@@ -85,22 +86,38 @@ const AgentModeButton: FC<AgentModeButtonProps> = ({
     }
   }, [agentModeUIState.displayValue, t])
 
+  // The status-row chip menus overlap the same area above the composer; the shared
+  // slot keeps the hover panel (and the one-time tip) mutually exclusive with them.
+  const suppressedByChipMenu = useComposerMenuStore((s) => s.activeMenu !== null && s.activeMenu !== 'work-mode-panel')
+  const setPanelOpened = useCallback((next: boolean) => {
+    setOpened(next)
+    const { openMenu, closeMenu } = useComposerMenuStore.getState()
+    if (next) openMenu('work-mode-panel')
+    else closeMenu('work-mode-panel')
+  }, [])
+
   // Hover open/close with delays, matching Menu trigger="hover" behavior
   const handleMouseEnter = useCallback(() => {
     clearTimeout(closeTimerRef.current)
-    openTimerRef.current = setTimeout(() => setOpened(true), OPEN_DELAY)
-  }, [])
+    openTimerRef.current = setTimeout(() => setPanelOpened(true), OPEN_DELAY)
+  }, [setPanelOpened])
 
   const handleMouseLeave = useCallback(() => {
     clearTimeout(openTimerRef.current)
-    closeTimerRef.current = setTimeout(() => setOpened(false), CLOSE_DELAY)
-  }, [])
+    closeTimerRef.current = setTimeout(() => setPanelOpened(false), CLOSE_DELAY)
+  }, [setPanelOpened])
 
   const handleClose = useCallback(() => {
     clearTimeout(openTimerRef.current)
     clearTimeout(closeTimerRef.current)
-    setOpened(false)
-  }, [])
+    setPanelOpened(false)
+  }, [setPanelOpened])
+
+  useEffect(() => {
+    if (suppressedByChipMenu) {
+      handleClose()
+    }
+  }, [suppressedByChipMenu, handleClose])
 
   const handleDismissWebSearchMovedTip = useCallback(() => {
     setShowWebSearchMovedTip(false)
@@ -116,6 +133,8 @@ const AgentModeButton: FC<AgentModeButtonProps> = ({
     return () => {
       clearTimeout(openTimerRef.current)
       clearTimeout(closeTimerRef.current)
+      // Release the shared slot if the hover panel still owns it when the composer unmounts.
+      useComposerMenuStore.getState().closeMenu('work-mode-panel')
     }
   }, [])
 
@@ -129,8 +148,8 @@ const AgentModeButton: FC<AgentModeButtonProps> = ({
     <Popover
       position="top-start"
       shadow="md"
-      opened={(showWebSearchMovedTip || opened) && !settingsOpened && !disabled}
-      onChange={setOpened}
+      opened={(showWebSearchMovedTip || opened) && !settingsOpened && !disabled && !suppressedByChipMenu}
+      onChange={setPanelOpened}
       keepMounted
       transitionProps={{ transition: 'pop', duration: 200 }}
     >

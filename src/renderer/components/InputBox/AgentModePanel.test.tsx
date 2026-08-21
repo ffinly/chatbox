@@ -42,9 +42,13 @@ const mocks = vi.hoisted(() => {
   }
   const uiState = {
     newSessionState: {},
+    newSessionCommandApprovalModeDefault: undefined as string | undefined,
+    newSessionWorkingDirectoriesDefault: undefined as string[] | undefined,
     setAgentModeSmartSwitchingDefault: vi.fn(),
     setAgentModeLastSelected: vi.fn(),
     setNewSessionState: vi.fn(),
+    setNewSessionCommandApprovalModeDefault: vi.fn(),
+    setNewSessionWorkingDirectoriesDefault: vi.fn(),
   }
   const agentModeEntry = {
     value: 'on' as 'auto' | 'on' | 'off',
@@ -175,6 +179,8 @@ beforeEach(() => {
   mocks.settingsState.memoryEnabled = true
   mocks.listMemoriesMock.mockImplementation(() => new Promise(() => {}))
   mocks.uiState.newSessionState = {}
+  mocks.uiState.newSessionCommandApprovalModeDefault = undefined
+  mocks.uiState.newSessionWorkingDirectoriesDefault = undefined
   recentDirectoriesStore.setState({ directories: [] })
 })
 
@@ -426,6 +432,52 @@ describe('AgentModePanel memory', () => {
     ).toBeTruthy()
     expect(screen.queryByText('All chats')).toBeNull()
     expect(screen.queryByText('This chat keeps memories already loaded until you start a new chat.')).toBeNull()
+  })
+})
+
+describe('AgentModePanel remembered defaults', () => {
+  test('remembers an approval mode change for future new chats', () => {
+    renderPanel()
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: /^Code Execution/ }))
+    fireEvent.click(screen.getByText('Always Ask'))
+
+    expect(mocks.uiState.setNewSessionCommandApprovalModeDefault).toHaveBeenCalledWith('always_ask')
+    expect(mocks.uiState.setNewSessionState).toHaveBeenCalledOnce()
+    const updater = mocks.uiState.setNewSessionState.mock.calls[0][0]
+    expect(updater({})).toEqual({ agentFullAccess: undefined, commandApprovalMode: 'always_ask' })
+  })
+
+  test('shows the remembered approval mode in a fresh chat', () => {
+    mocks.uiState.newSessionCommandApprovalModeDefault = 'full_access'
+    renderPanel()
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: /^Code Execution/ }))
+    // [0] is the row badge in the main panel; [1] is the sub-panel option.
+    fireEvent.click(screen.getAllByText('Full Access')[1])
+
+    // Selecting the already-active remembered mode is a no-op.
+    expect(mocks.uiState.setNewSessionState).not.toHaveBeenCalled()
+  })
+
+  test('remembers working directory changes for future new chats', () => {
+    const selectedDirectory = '/Users/themez/workspace/chatbox-pro'
+    recentDirectoriesStore.setState({ directories: [selectedDirectory] })
+    renderPanel()
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Working Directory' }))
+    fireEvent.click(screen.getByRole('button', { name: selectedDirectory }))
+
+    expect(mocks.uiState.setNewSessionWorkingDirectoriesDefault).toHaveBeenCalledWith([selectedDirectory])
+  })
+
+  test('shows remembered working directories in a fresh chat', () => {
+    mocks.uiState.newSessionWorkingDirectoriesDefault = ['/Users/themez/workspace/chatbox-pro']
+    renderPanel()
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: /^Working Directory/ }))
+
+    expect(screen.getByText('chatbox-pro')).toBeTruthy()
   })
 })
 
