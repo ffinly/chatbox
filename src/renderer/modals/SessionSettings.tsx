@@ -4,23 +4,24 @@ import { TestId } from '@shared/automation/testids'
 import { chatSessionSettings } from '@shared/defaults'
 import { createMessage, isChatSession, ModelProviderEnum, type Session } from '@shared/types'
 import { MAX_TOOL_CALLS_BEFORE_CONFIRMATION, shouldPauseOnToolCallLimit } from '@shared/utils/tool-call-limit-pause'
-import { IconInfoCircle, IconTrash, IconUpload } from '@tabler/icons-react'
+import { IconTrash, IconUpload } from '@tabler/icons-react'
 import { pick } from 'lodash'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { rendererApplication } from '@/app/renderer-application'
 import { AdaptiveModal } from '@/components/common/AdaptiveModal'
 import { AssistantAvatar } from '@/components/common/Avatar'
 import LazyNumberInput from '@/components/common/LazyNumberInput'
 import MaxContextMessageCountSlider from '@/components/common/MaxContextMessageCountSlider'
 import { ScalableIcon } from '@/components/common/ScalableIcon'
 import SliderWithInput from '@/components/common/SliderWithInput'
+import { TooltipInfoTrigger } from '@/components/common/TooltipInfoTrigger'
 import { handleImageInputAndSave, ImageInStorage } from '@/components/Image'
 import { AppTooltip as Tooltip } from '@/components/ui/tooltip'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { trackingEvent } from '@/packages/event'
 import storage from '@/storage'
 import { StorageKeyGenerator } from '@/storage/StoreStorage'
-import { rendererApplication } from '@/app/renderer-application'
 import { getSessionMeta } from '@/stores/sessionHelpers'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { add as addToast } from '@/stores/toastActions'
@@ -267,8 +268,12 @@ const SessionSettingsModal = NiceModal.create(
                     label={t('Support jpg or png file smaller than 5MB. Overrides global background when set.')}
                     withArrow
                     offset={4}
+                    maw={320}
+                    className="!whitespace-normal"
+                    zIndex={3000}
+                    openOnTouch
                   >
-                    <ScalableIcon icon={IconInfoCircle} size={20} className="text-chatbox-tint-tertiary" />
+                    <TooltipInfoTrigger label={t('Background Image')} />
                   </Tooltip>
                 </Flex>
 
@@ -375,8 +380,9 @@ export function ChatConfig({
             maw={320}
             className="!whitespace-normal"
             zIndex={3000}
+            openOnTouch
           >
-            <ScalableIcon icon={IconInfoCircle} size={20} className="text-chatbox-tint-tertiary" />
+            <TooltipInfoTrigger label={t('Temperature')} />
           </Tooltip>
         </Flex>
 
@@ -396,8 +402,9 @@ export function ChatConfig({
             maw={320}
             className="!whitespace-normal"
             zIndex={3000}
+            openOnTouch
           >
-            <ScalableIcon icon={IconInfoCircle} size={20} className="text-chatbox-tint-tertiary" />
+            <TooltipInfoTrigger label="Top P" />
           </Tooltip>
         </Flex>
 
@@ -417,8 +424,9 @@ export function ChatConfig({
             maw={320}
             className="!whitespace-normal"
             zIndex={3000}
+            openOnTouch
           >
-            <ScalableIcon icon={IconInfoCircle} size={20} className="text-chatbox-tint-tertiary" />
+            <TooltipInfoTrigger label={t('Max Output Tokens')} />
           </Tooltip>
         </Flex>
 
@@ -462,8 +470,11 @@ export function ChatConfig({
               maw={320}
               className="!whitespace-normal"
               zIndex={3000}
+              openOnTouch
             >
-              <ScalableIcon icon={IconInfoCircle} size={20} className="text-chatbox-tint-tertiary" />
+              <TooltipInfoTrigger
+                label={t('Pause after every {{count}} steps', { count: MAX_TOOL_CALLS_BEFORE_CONFIRMATION })}
+              />
             </Tooltip>
           </Flex>
           <Switch

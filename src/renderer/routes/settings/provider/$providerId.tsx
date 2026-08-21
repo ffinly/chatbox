@@ -684,6 +684,7 @@ function ProviderSettings({ providerId }: { providerId: string }) {
                   disabled={isOAuthActive}
                 />
                 <Tooltip
+                  openOnTouch
                   disabled={!!providerSettings?.apiKey && displayModels.length > 0}
                   label={
                     !providerSettings?.apiKey
@@ -917,6 +918,7 @@ function ProviderSettings({ providerId }: { providerId: string }) {
 
             <Flex gap="xs" align="center">
               <Tooltip
+                openOnTouch
                 disabled={!!providerSettings?.accessKey && !!providerSettings?.secretKey && displayModels.length > 0}
                 label={
                   !providerSettings?.accessKey || !providerSettings?.secretKey
@@ -1173,7 +1175,7 @@ function ProviderSettings({ providerId }: { providerId: string }) {
                           <ScalableIcon icon={IconCircleCheck} color="var(--chatbox-tint-success)" />
                         ) : modelTestResult.visionTest?.status === 'error' ? (
                           <Flex align="center" gap="xs" maw={400}>
-                            <Tooltip label={modelTestResult.visionTest.error} multiline>
+                            <Tooltip label={modelTestResult.visionTest.error} multiline openOnTouch>
                               <ScalableIcon icon={IconX} className="cursor-help" color="var(--chatbox-tint-error)" />
                             </Tooltip>
                             <Text>{t('This model does not support vision')}</Text>
@@ -1195,7 +1197,7 @@ function ProviderSettings({ providerId }: { providerId: string }) {
                           <ScalableIcon icon={IconCircleCheck} color="var(--chatbox-tint-success)" />
                         ) : modelTestResult.toolTest?.status === 'error' ? (
                           <Flex align="center" gap="xs" maw={400}>
-                            <Tooltip label={modelTestResult.toolTest.error} multiline>
+                            <Tooltip label={modelTestResult.toolTest.error} multiline openOnTouch>
                               <ScalableIcon icon={IconX} className="cursor-help" color="var(--chatbox-tint-error)" />
                             </Tooltip>
                             <Text>{t('This model does not support tool use')}</Text>

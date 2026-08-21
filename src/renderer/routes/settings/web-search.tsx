@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { trackJkClickEvent } from '@/analytics/jk'
 import { JK_EVENTS, JK_PAGE_NAMES } from '@/analytics/jk-events'
 import { AdaptiveSelect } from '@/components/AdaptiveSelect'
+import { TooltipInfoTrigger } from '@/components/common/TooltipInfoTrigger'
 import { AppTooltip as Tooltip } from '@/components/ui/tooltip'
 import { PROVIDERS_WITH_PARSE_LINK } from '@/packages/web-search'
 import { BochaSearch } from '@/packages/web-search/bocha'
@@ -331,10 +332,15 @@ export function RouteComponent() {
             <Stack gap="xs">
               <Flex align="center" gap="xs">
                 <Text size="sm">{t('Max Results')}</Text>
-                <Tooltip label={t('Maximum number of results to return.')}>
-                  <Text size="sm" c="gray">
-                    ⓘ
-                  </Text>
+                <Tooltip
+                  label={t('Maximum number of results to return.')}
+                  withArrow
+                  maw={320}
+                  className="!whitespace-normal"
+                  zIndex={3000}
+                  openOnTouch
+                >
+                  <TooltipInfoTrigger label={t('Max Results')} />
                 </Tooltip>
               </Flex>
               <Select
@@ -372,10 +378,15 @@ export function RouteComponent() {
             <Stack gap="xs">
               <Flex align="center" gap="xs">
                 <Text size="sm">{t('Time Range')}</Text>
-                <Tooltip label={t('Time range of the search. For example, the last month.')}>
-                  <Text size="sm" c="gray">
-                    ⓘ
-                  </Text>
+                <Tooltip
+                  label={t('Time range of the search. For example, the last month.')}
+                  withArrow
+                  maw={320}
+                  className="!whitespace-normal"
+                  zIndex={3000}
+                  openOnTouch
+                >
+                  <TooltipInfoTrigger label={t('Time Range')} />
                 </Tooltip>
               </Flex>
               <Select
