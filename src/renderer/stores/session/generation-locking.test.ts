@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   getSessionMock,
   getSessionSettingsMock,
-  createInactiveForkMock,
   createNewForkMock,
   findMessageLocationMock,
   insertMessageAfterMock,
@@ -13,7 +12,6 @@ const {
 } = vi.hoisted(() => ({
   getSessionMock: vi.fn(),
   getSessionSettingsMock: vi.fn(),
-  createInactiveForkMock: vi.fn(),
   createNewForkMock: vi.fn(),
   findMessageLocationMock: vi.fn(),
   insertMessageAfterMock: vi.fn(),
@@ -29,7 +27,6 @@ vi.mock('./session-settings', () => ({
 }))
 vi.mock('./attachment-resolver', () => ({ createAttachmentResolver: vi.fn() }))
 vi.mock('./forks', () => ({
-  createInactiveFork: createInactiveForkMock,
   createNewFork: createNewForkMock,
   findMessageLocation: findMessageLocationMock,
 }))
@@ -54,10 +51,6 @@ describe('generation entry-point locking', () => {
     getSessionMock.mockResolvedValue({ id: 'session-1', name: 'Session', messages: [] })
     getSessionSettingsMock.mockResolvedValue({})
     guardSessionActionMock.mockResolvedValue(true)
-    createInactiveForkMock.mockImplementation(async (_sessionId, _msgId, branchMessages: Message[]) => [
-      { id: 'user-1', role: 'user', contentParts: [] },
-      ...branchMessages,
-    ])
     insertMessageAfterMock.mockResolvedValue(undefined)
   })
 
@@ -95,24 +88,27 @@ describe('generation entry-point locking', () => {
     const second = generateMore('session-1', 'user-1')
     await vi.waitFor(() => expect(orchestrateGenerationMock).toHaveBeenCalledTimes(2))
 
-    expect(createInactiveForkMock).toHaveBeenCalledTimes(2)
-    expect(createInactiveForkMock.mock.calls.map((call) => call[1])).toEqual(['user-1', 'user-1'])
-    expect(insertMessageAfterMock).not.toHaveBeenCalled()
-    expect(orchestrateGenerationMock.mock.calls.every((call) => call[2].contextMessages.length === 2)).toBe(true)
+    // Reply Again Below inserts flat into the active path — no fork branches.
+    expect(createNewForkMock).not.toHaveBeenCalled()
+    expect(insertMessageAfterMock).toHaveBeenCalledTimes(2)
+    expect(insertMessageAfterMock.mock.calls.map((call) => call[2])).toEqual(['user-1', 'user-1'])
+    expect(
+      orchestrateGenerationMock.mock.calls.every(
+        (call) => call[2].operationType === 'regenerate' && !call[2].contextMessages
+      )
+    ).toBe(true)
 
     finishFirst()
     await Promise.all([first, second])
   })
 
-  it('inserts the first reply normally when the prompt has no active answer yet', async () => {
-    createInactiveForkMock.mockResolvedValueOnce(null)
-
+  it('inserts the new reply directly below the target message', async () => {
     await generateMore('session-1', 'user-1')
 
     expect(insertMessageAfterMock).toHaveBeenCalledOnce()
     expect(insertMessageAfterMock).toHaveBeenCalledWith(
       'session-1',
-      expect.objectContaining({ role: 'assistant' }),
+      expect.objectContaining({ role: 'assistant', generating: true }),
       'user-1'
     )
     expect(orchestrateGenerationMock).toHaveBeenCalledWith(
@@ -120,6 +116,20 @@ describe('generation entry-point locking', () => {
       expect.objectContaining({ role: 'assistant' }),
       { operationType: 'regenerate' }
     )
+  })
+
+  it('refuses Reply Again Below in work-mode sessions (mode-policy backstop)', async () => {
+    getSessionMock.mockResolvedValue({
+      id: 'session-1',
+      name: 'Session',
+      messages: [],
+      settings: { agentMode: { value: 'on', locked: true, lockReason: 'message_sent' } },
+    })
+
+    await generateMore('session-1', 'user-1')
+
+    expect(insertMessageAfterMock).not.toHaveBeenCalled()
+    expect(orchestrateGenerationMock).not.toHaveBeenCalled()
   })
 
   it('keeps legacy picture sessions read-only across generation entry points', async () => {
@@ -139,7 +149,6 @@ describe('generation entry-point locking', () => {
     ])
 
     expect(orchestrateGenerationMock).not.toHaveBeenCalled()
-    expect(createInactiveForkMock).not.toHaveBeenCalled()
     expect(createNewForkMock).not.toHaveBeenCalled()
     expect(findMessageLocationMock).not.toHaveBeenCalled()
     expect(insertMessageAfterMock).not.toHaveBeenCalled()

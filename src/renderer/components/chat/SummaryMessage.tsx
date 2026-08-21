@@ -1,4 +1,5 @@
 import NiceModal from '@ebay/nice-modal-react'
+import { isActionAvailableInMode, type SessionMode } from '@chatbox/core/session/mode-policy'
 import { ActionIcon, Button, Collapse, Flex, Group, Stack, Text } from '@mantine/core'
 import type { Message } from '@shared/types'
 import { getMessageText } from '@shared/utils/message'
@@ -18,9 +19,18 @@ interface SummaryMessageProps {
   isLatestSummary?: boolean
   onDelete?: () => void
   sessionId: string
+  /** Resolved by the list container; work mode hides summary edit/delete (mode-policy). */
+  sessionMode?: SessionMode
 }
 
-const SummaryMessage: FC<SummaryMessageProps> = ({ msg, className, isLatestSummary, onDelete, sessionId }) => {
+const SummaryMessage: FC<SummaryMessageProps> = ({
+  msg,
+  className,
+  isLatestSummary,
+  onDelete,
+  sessionId,
+  sessionMode = 'chat',
+}) => {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -29,6 +39,12 @@ const SummaryMessage: FC<SummaryMessageProps> = ({ msg, className, isLatestSumma
   const enableMermaidRendering = useSettingsStore((state) => state.enableMermaidRendering)
 
   const summaryText = getMessageText(msg)
+
+  // The summary editor is a plain save of model-generated context, and deleting
+  // re-expands the compacted history — both are the message surgery work mode
+  // forbids, so the entries follow the same static policy as ordinary messages.
+  const canEditSummary = isActionAvailableInMode('edit-assistant-message', sessionMode)
+  const canDeleteSummary = onDelete !== undefined && isActionAvailableInMode('delete-message', sessionMode)
 
   const handleConfirmDelete = () => {
     setShowDeleteConfirm(false)
@@ -80,24 +96,26 @@ const SummaryMessage: FC<SummaryMessageProps> = ({ msg, className, isLatestSumma
             </Text>
           )}
 
-          {isLatestSummary && (
+          {isLatestSummary && (canEditSummary || canDeleteSummary) && (
             <Flex gap={0} mt="xs" className="opacity-0 group-hover/summary:opacity-100 transition-opacity">
-              <Tooltip label={t('Edit')} openDelay={1000} withArrow>
-                <ActionIcon
-                  variant="subtle"
-                  w="auto"
-                  h="auto"
-                  miw="auto"
-                  mih="auto"
-                  p={4}
-                  bd={0}
-                  color="chatbox-secondary"
-                  onClick={handleEdit}
-                >
-                  <ScalableIcon icon={IconPencil} size={16} />
-                </ActionIcon>
-              </Tooltip>
-              {onDelete && (
+              {canEditSummary && (
+                <Tooltip label={t('Edit')} openDelay={1000} withArrow>
+                  <ActionIcon
+                    variant="subtle"
+                    w="auto"
+                    h="auto"
+                    miw="auto"
+                    mih="auto"
+                    p={4}
+                    bd={0}
+                    color="chatbox-secondary"
+                    onClick={handleEdit}
+                  >
+                    <ScalableIcon icon={IconPencil} size={16} />
+                  </ActionIcon>
+                </Tooltip>
+              )}
+              {canDeleteSummary && (
                 <Tooltip label={t('Delete')} openDelay={1000} withArrow>
                   <ActionIcon
                     variant="subtle"

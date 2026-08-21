@@ -15,27 +15,30 @@ import { modifyMessage } from '@/stores/session/messages'
 import * as toastActions from '@/stores/toastActions'
 import { notifySessionLockBlocked } from '@/utils/session-lock-copy'
 
-const MessageEdit = NiceModal.create((props: { sessionId: string; msg: Message; hideSaveAndResend?: boolean }) => {
-  const modal = useModal()
+const MessageEdit = NiceModal.create(
+  (props: { sessionId: string; msg: Message; hideSaveAndResend?: boolean; resendOnly?: boolean }) => {
+    const modal = useModal()
 
-  if (!props.msg) {
-    return null
+    if (!props.msg) {
+      return null
+    }
+
+    return (
+      <MessageEditModal
+        key={`${props.msg.id}-${modal.visible}`}
+        sessionId={props.sessionId}
+        msg={props.msg}
+        opened={modal.visible}
+        hideSaveAndResend={props.hideSaveAndResend}
+        resendOnly={props.resendOnly}
+        onClose={() => {
+          modal.resolve()
+          modal.hide()
+        }}
+      />
+    )
   }
-
-  return (
-    <MessageEditModal
-      key={`${props.msg.id}-${modal.visible}`}
-      sessionId={props.sessionId}
-      msg={props.msg}
-      opened={modal.visible}
-      hideSaveAndResend={props.hideSaveAndResend}
-      onClose={() => {
-        modal.resolve()
-        modal.hide()
-      }}
-    />
-  )
-})
+)
 
 export default MessageEdit
 
@@ -45,12 +48,19 @@ const MessageEditModal = ({
   opened,
   onClose,
   hideSaveAndResend,
+  resendOnly,
 }: {
   sessionId: string
   msg: Message
   opened: boolean
   onClose(): void
   hideSaveAndResend?: boolean
+  /**
+   * Work mode: editing must resend (append-only history — a silent save would
+   * rewrite context the assistant never saw). Hides plain Save and locks the
+   * role selector; Ctrl+Enter maps to Save & Resend.
+   */
+  resendOnly?: boolean
 }) => {
   const { t } = useTranslation()
   const isSmallScreen = useIsSmallScreen()
@@ -267,15 +277,15 @@ const MessageEditModal = ({
     const shift = event.shiftKey
 
     // ctrl + shift + enter 保存并生成 (skip if hideSaveAndResend is true)
-    if (event.key === 'Enter' && ctrlOrCmd && shift && !hideSaveAndResend) {
+    if (event.key === 'Enter' && ctrlOrCmd && shift && (!hideSaveAndResend || resendOnly)) {
       event.preventDefault()
       void onSaveAndReply()
       return
     }
-    // ctrl + enter 保存
+    // ctrl + enter 保存（resend-only 模式下等同保存并生成）
     if (event.key === 'Enter' && ctrlOrCmd && !shift) {
       event.preventDefault()
-      void onSave()
+      void (resendOnly ? onSaveAndReply() : onSave())
       return
     }
   }
@@ -322,10 +332,12 @@ const MessageEditModal = ({
                 component="button"
                 type="button"
                 classNames={{ root: 'self-start', input: 'p-xs pr-8 h-auto ' }}
-                pointer
-                rightSection={<Combobox.Chevron />}
+                pointer={!resendOnly}
+                rightSection={resendOnly ? undefined : <Combobox.Chevron />}
                 rightSectionPointerEvents="none"
-                onClick={() => combobox.toggleDropdown()}
+                onClick={() => {
+                  if (!resendOnly) combobox.toggleDropdown()
+                }}
               >
                 {msg.role ? avatars[msg.role] : <Input.Placeholder>Pick value</Input.Placeholder>}
               </InputBase>
@@ -390,12 +402,12 @@ const MessageEditModal = ({
 
         <AdaptiveModal.Actions>
           <AdaptiveModal.CloseButton onClick={handleClose} />
-          {!hideSaveAndResend && (
-            <Button onClick={onSaveAndReply} variant="light">
+          {(!hideSaveAndResend || resendOnly) && (
+            <Button onClick={onSaveAndReply} variant={resendOnly ? 'filled' : 'light'}>
               {t('Save & Resend')}
             </Button>
           )}
-          <Button onClick={onSave}>{t('Save')}</Button>
+          {!resendOnly && <Button onClick={onSave}>{t('Save')}</Button>}
         </AdaptiveModal.Actions>
       </AdaptiveModal>
 

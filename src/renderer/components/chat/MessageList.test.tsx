@@ -171,6 +171,14 @@ vi.mock('@/stores/uiStore', () => ({
       setMessageListElement: vi.fn(),
       setMessageScrolling: vi.fn(),
     }),
+  // getSessionAgentModeEntry falls back to the legacy per-session mode map.
+  uiStore: {
+    getState: () => ({
+      sessionAgentModeMap: {},
+      agentModeSmartSwitchingDefault: false,
+      agentModeLastSelected: 'off',
+    }),
+  },
 }))
 
 vi.mock('@/stores/session/forks', () => ({

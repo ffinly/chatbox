@@ -1,4 +1,5 @@
 import { getSessionActionGate } from '@chatbox/core/session/action-gates'
+import { resolveSessionMode } from '@chatbox/core/session/mode-policy'
 import NiceModal from '@ebay/nice-modal-react'
 import { Button, Flex, Stack, Transition } from '@mantine/core'
 import { useThrottledCallback } from '@mantine/hooks'
@@ -35,6 +36,7 @@ import { useSessionLockState } from '@/hooks/useSessionLockState'
 import { cn } from '@/lib/utils'
 import platform from '@/platform'
 import * as atoms from '@/stores/atoms'
+import { getSessionAgentModeEntry } from '@/stores/session/agent-mode'
 import { removeMessage } from '@/stores/session/messages'
 import { moveThreadToConversations, removeThread, switchThread } from '@/stores/session/threads'
 import { getAllMessageList, getCurrentThreadHistoryHash } from '@/stores/sessionHelpers'
@@ -108,6 +110,14 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
   )
   const currentMessageList = useMemo(() => getAllMessageList(currentSession), [currentSession])
   const sessionLocks = useSessionLockState(currentSession)
+  // Resolved once per session snapshot and passed down as a plain prop: with
+  // multi-thousand-row sessions, per-row store subscriptions would re-run a
+  // selector on every streaming chunk. Mode changes rewrite session.settings,
+  // so the session prop already re-renders this component when it matters.
+  const sessionMode = useMemo(
+    () => resolveSessionMode(getSessionAgentModeEntry(currentSession.id, currentSession).value),
+    [currentSession]
+  )
 
   const latestSummaryMessageId = useMemo(() => {
     for (let i = currentMessageList.length - 1; i >= 0; i--) {
@@ -454,6 +464,7 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
                       }
                 }
                 sessionId={currentSession.id}
+                sessionMode={sessionMode}
               />
             ) : (
               <Message
@@ -466,6 +477,8 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
                 collapseThreshold={msg.role === 'system' ? 150 : undefined}
                 buttonGroup={options.isLastItem && msg.role === 'assistant' ? 'always' : 'auto'}
                 sessionLocks={sessionLocks}
+                sessionMode={sessionMode}
+                allowGeneratingStop
                 assistantAvatarKey={currentSession.assistantAvatarKey}
                 sessionPicUrl={currentSession.picUrl}
               />
@@ -479,6 +492,7 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
               msgId={msg.id}
               forks={currentSession.messageForksHash[msg.id]}
               sessionLocks={sessionLocks}
+              sessionMode={sessionMode}
               assistantAvatarKey={currentSession.assistantAvatarKey}
               sessionPicUrl={currentSession.picUrl}
             />
@@ -486,7 +500,7 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
         </Stack>
       )
     },
-    [currentSession, currentThreadHash, sessionLocks, latestSummaryMessageId, t]
+    [currentSession, currentThreadHash, sessionLocks, sessionMode, latestSummaryMessageId, t]
   )
 
   useImperativeHandle(ref, () => ({

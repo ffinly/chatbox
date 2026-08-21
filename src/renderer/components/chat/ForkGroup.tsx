@@ -1,4 +1,5 @@
 import { getSessionActionGate, type SessionLockState } from '@chatbox/core/session/action-gates'
+import { isActionAvailableInMode, type SessionMode } from '@chatbox/core/session/mode-policy'
 import { ActionIcon, Box, Button, Flex, Stack, Text, Tooltip } from '@mantine/core'
 import { TestId } from '@shared/automation/testids'
 import { supportsSessionGeneration } from '@shared/session/capabilities'
@@ -18,12 +19,23 @@ type ForkGroupProps = {
   msgId: string
   forks: NonNullable<Session['messageForksHash']>[string]
   sessionLocks: SessionLockState
+  /** Resolved by the list container; work mode hides branch deletion (mode-policy). */
+  sessionMode?: SessionMode
   assistantAvatarKey?: string
   sessionPicUrl?: string
 }
 
 export default function ForkGroup(props: ForkGroupProps) {
-  const { sessionId, sessionType, msgId, forks, sessionLocks, assistantAvatarKey, sessionPicUrl } = props
+  const {
+    sessionId,
+    sessionType,
+    msgId,
+    forks,
+    sessionLocks,
+    sessionMode = 'chat',
+    assistantAvatarKey,
+    sessionPicUrl,
+  } = props
   const [flash, setFlash] = useState(false)
   const prevLength = useRef(forks.lists.length)
   const previousPosition = useRef(forks.position)
@@ -39,14 +51,30 @@ export default function ForkGroup(props: ForkGroupProps) {
           .map((list) => list.id)
       )
   )
+  // Follow-up candidates that stream inside a saved branch stay rendered after
+  // they finish (mirrors the sticky branch reveal above); collapsing or
+  // switching branches drops them back into the count-only summary.
+  const [revealedFollowupIds, setRevealedFollowupIds] = useState<Set<string>>(
+    () =>
+      new Set(
+        forks.lists.flatMap((list, index) =>
+          index === forks.position
+            ? []
+            : list.messages.filter((message) => message.generating === true).map((message) => message.id)
+        )
+      )
+  )
   const { t } = useTranslation()
   const isSmallScreen = useIsSmallScreen()
 
-  // The shared gate locks fork controls while replies stream or a compaction
-  // summary runs (see getSessionActionGate for the rationale).
-  const forkGate = getSessionActionGate('switch-fork', sessionLocks)
-  const forkControlsLocked = !forkGate.allowed
-  const lockReason = forkGate.allowed ? '' : getSessionLockNotice(forkGate.reason, t)
+  // Switching and deleting no longer share one gate: chat mode may switch
+  // branches while replies stream (the mode-aware switch-fork gate), while
+  // deleting a branch stays locked during generation in every mode.
+  const switchGate = getSessionActionGate('switch-fork', sessionLocks, { sessionMode })
+  const forkControlsLocked = !switchGate.allowed
+  const lockReason = switchGate.allowed ? '' : getSessionLockNotice(switchGate.reason, t)
+  const deleteGate = getSessionActionGate('delete-fork', sessionLocks, { sessionMode })
+  const deleteLocked = !deleteGate.allowed
 
   useEffect(() => {
     if (forks.lists.length > prevLength.current) {
@@ -59,15 +87,40 @@ export default function ForkGroup(props: ForkGroupProps) {
   }, [forks.lists.length])
 
   useEffect(() => {
+    // Branches with a live stream stay revealed no matter how they got here:
+    // switching away from a streaming reply saves its tail into an *existing*
+    // list slot (same id), which the new-id detection below cannot see, and a
+    // hidden stream would leave the user no visible stop control on the card.
+    // The streaming message ids are tracked too, so candidates that live in a
+    // branch's follow-up tail get rendered (and keep their per-reply stop).
+    const inactiveLists = forks.lists.filter((_, index) => index !== forks.position)
+    const generatingBranchIds = inactiveLists
+      .filter((list) => list.messages.some((message) => message.generating === true))
+      .map((list) => list.id)
+    const generatingMessageIds = inactiveLists.flatMap((list) =>
+      list.messages.filter((message) => message.generating === true).map((message) => message.id)
+    )
+
     if (forks.position !== previousPosition.current) {
       setExpanded(false)
-      setRevealedBranchIds(new Set())
+      setRevealedBranchIds(new Set(generatingBranchIds))
+      setRevealedFollowupIds(new Set(generatingMessageIds))
     } else {
       const addedInactiveBranchIds = forks.lists
         .filter((list, index) => index !== forks.position && !previousListIds.current.has(list.id))
         .map((list) => list.id)
-      if (addedInactiveBranchIds.length > 0) {
-        setRevealedBranchIds((current) => new Set([...current, ...addedInactiveBranchIds]))
+      const toReveal = [...addedInactiveBranchIds, ...generatingBranchIds]
+      if (toReveal.length > 0) {
+        setRevealedBranchIds((current) => {
+          if (toReveal.every((id) => current.has(id))) return current
+          return new Set([...current, ...toReveal])
+        })
+      }
+      if (generatingMessageIds.length > 0) {
+        setRevealedFollowupIds((current) => {
+          if (generatingMessageIds.every((id) => current.has(id))) return current
+          return new Set([...current, ...generatingMessageIds])
+        })
       }
     }
 
@@ -91,12 +144,22 @@ export default function ForkGroup(props: ForkGroupProps) {
       return []
     }
 
+    // A branch saved mid-stream can hold live candidates *after* a completed
+    // first reply (flat Reply Below, then switching an earlier fork). Render
+    // those follow-ups too — hiding them would make the revealed card look
+    // finished while it still streams and strip their per-reply stop controls.
+    const shownFollowups = list.messages.filter(
+      (message, messageIndex) =>
+        messageIndex > firstReplyIndex && (message.generating === true || revealedFollowupIds.has(message.id))
+    )
+
     return [
       {
         list,
         index,
         firstReply,
-        followupCount: Math.max(0, list.messages.length - firstReplyIndex - 1),
+        shownFollowups,
+        followupCount: Math.max(0, list.messages.length - firstReplyIndex - 1 - shownFollowups.length),
       },
     ]
   })
@@ -105,10 +168,10 @@ export default function ForkGroup(props: ForkGroupProps) {
   ].reverse()
 
   const notifyControlsLocked = useCallback(() => {
-    if (!forkGate.allowed) {
-      void notifySessionLockBlocked(forkGate.reason, t)
+    if (!switchGate.allowed) {
+      void notifySessionLockBlocked(switchGate.reason, t)
     }
-  }, [forkGate, t])
+  }, [switchGate, t])
 
   const handleSwitch = useCallback(
     (direction: 'next' | 'prev') => {
@@ -121,17 +184,15 @@ export default function ForkGroup(props: ForkGroupProps) {
     [forkControlsLocked, msgId, notifyControlsLocked, sessionId]
   )
 
-  // delete-fork shares the switch-fork policy by design (one fallthrough case
-  // in action-gates), so the menu item's disabled state and this handler stay
-  // on the same component-level gate; the store-side deleteFork guard is the
-  // per-action backstop.
+  // Deleting follows its own gate (locked during generation in every mode);
+  // the store-side deleteFork guard is the per-action backstop.
   const handleDelete = useCallback(() => {
-    if (forkControlsLocked) {
-      notifyControlsLocked()
+    if (!deleteGate.allowed) {
+      void notifySessionLockBlocked(deleteGate.reason, t)
       return
     }
     void deleteFork(sessionId, msgId)
-  }, [forkControlsLocked, msgId, notifyControlsLocked, sessionId])
+  }, [deleteGate, msgId, sessionId, t])
 
   const handleSwitchTo = useCallback(
     (position: number) => {
@@ -179,20 +240,21 @@ export default function ForkGroup(props: ForkGroupProps) {
                   onClick: () => {
                     setExpanded(false)
                     setRevealedBranchIds(new Set())
+                    setRevealedFollowupIds(new Set())
                   },
                 },
               ]
             : []),
-          ...(supportsSessionGeneration(sessionType)
+          ...(supportsSessionGeneration(sessionType) && isActionAvailableInMode('delete-fork', sessionMode)
             ? ([
                 {
                   divider: true,
                 },
                 {
-                  doubleCheck: !forkControlsLocked,
+                  doubleCheck: !deleteLocked,
                   text: t('delete'),
                   icon: IconTrash,
-                  disabled: forkControlsLocked && !isSmallScreen,
+                  disabled: deleteLocked && !isSmallScreen,
                   onClick: handleDelete,
                 },
               ] satisfies ActionMenuItemProps[])
@@ -235,7 +297,7 @@ export default function ForkGroup(props: ForkGroupProps) {
           navigation
         )}
       </Flex>
-      {visibleBranches.map(({ list, index, firstReply, followupCount }) => {
+      {visibleBranches.map(({ list, index, firstReply, shownFollowups, followupCount }) => {
         const switchButton = (
           <Button
             variant="subtle"
@@ -287,9 +349,26 @@ export default function ForkGroup(props: ForkGroupProps) {
               readOnly
               allowGeneratingStop
               sessionLocks={sessionLocks}
+              sessionMode={sessionMode}
               assistantAvatarKey={assistantAvatarKey}
               sessionPicUrl={sessionPicUrl}
             />
+            {shownFollowups.map((followup) => (
+              <Message
+                key={followup.id}
+                id={followup.id}
+                msg={followup}
+                sessionId={sessionId}
+                sessionType={sessionType}
+                buttonGroup="none"
+                readOnly
+                allowGeneratingStop
+                sessionLocks={sessionLocks}
+                sessionMode={sessionMode}
+                assistantAvatarKey={assistantAvatarKey}
+                sessionPicUrl={sessionPicUrl}
+              />
+            ))}
           </Stack>
         )
       })}

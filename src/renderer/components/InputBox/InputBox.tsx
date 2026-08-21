@@ -82,6 +82,7 @@ import platform from '@/platform'
 import { StorageKeyGenerator } from '@/storage/StoreStorage'
 import * as atoms from '@/stores/atoms'
 import { resolveWebBrowsingMode } from '@/stores/session'
+import { isActionAvailableInMode, resolveSessionMode } from '@chatbox/core/session/mode-policy'
 import { useSessionAgentMode } from '@/stores/session/agent-mode'
 import { useSessionSettings } from '@/stores/session/session-settings'
 import { settingsStore, useSettingsStore } from '@/stores/settingsStore'
@@ -509,6 +510,10 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
 
     // Agent mode value for conditional toolbar rendering
     const agentModeEntry = useSessionAgentMode(currentSessionId || 'new')
+    // Chat mode has no message queue (mode policy): streaming keeps the Stop
+    // control and submits are blocked with the standard generating notice.
+    // Items already queued before the mode split still drain in order.
+    const queueEnabled = isActionAvailableInMode('queue-message', resolveSessionMode(agentModeEntry.value))
 
     const [showCompressionModal, setShowCompressionModal] = useState(false)
 
@@ -736,6 +741,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
       generating,
       hasDraft: !disableSubmit,
       canQueueDraft: !submitBlocked && currentQueueLength < MAX_QUEUED_MESSAGES,
+      queueEnabled,
       sessionType,
       hasModel: Boolean(model),
     })
@@ -854,13 +860,17 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
           submitAvailability.blockReason !== undefined ||
           hasPreprocessErrors ||
           hasBlockedSessionRagFiles,
+        queueEnabled,
         hasModel: Boolean(model),
       })
       if (submitAction === 'block' || (submitAction !== 'send' && !currentSessionId)) {
         // Compaction and approval blocks keep the standard notice. A generating
-        // reply is intentionally handled by the queue action instead.
+        // reply is handled by the queue action in work mode; in chat mode the
+        // queue is disabled, so surface the generating lock notice instead.
         if (submitAvailability.blockReason) {
           void notifySessionLockBlocked(submitAvailability.blockReason, t)
+        } else if (generating && needGenerating && !queueEnabled) {
+          void notifySessionLockBlocked('generating', t)
         }
         return
       }

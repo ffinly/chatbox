@@ -1,6 +1,7 @@
 import { listPendingApprovalToolCalls } from '../message-approval'
 import type { Session, SessionType } from '../types'
 import { countCancellableGeneratingAssistantMessages, getGenerationControlMessages } from './generation-state'
+import type { SessionMode } from './mode-policy'
 
 /**
  * Pure lock/gate decisions for session actions while replies stream, a
@@ -71,6 +72,12 @@ export type SessionAction =
 export type SessionActionContext = {
   /** Whether the message the action targets is itself still streaming. */
   messageGenerating?: boolean
+  /**
+   * Resolved session mode (see mode-policy). Only switch-fork consults it:
+   * chat mode may switch branches while replies stream. Hosts that do not
+   * pass it keep the conservative pre-split behavior everywhere.
+   */
+  sessionMode?: SessionMode
 }
 
 const ALLOWED: SessionActionGate = { allowed: true }
@@ -146,10 +153,23 @@ export function getSessionActionGate(
     case 'delete-summary':
       return generationLocked ? blocked('generating') : ALLOWED
     case 'switch-fork':
+      // Chat mode may switch branches while replies stream: every write path
+      // addresses streaming messages by id in any container (root / threads /
+      // fork lists), the lock derivation keeps counting a stream moved into a
+      // stored branch, and stop-all sweeps the whole reachable graph — see
+      // docs/technical/chat-work-mode-split.md. Work mode (and hosts that do
+      // not pass sessionMode) keeps the conservative lock: a live agent run's
+      // tool side effects cannot be forked by moving it between branches.
+      if (generationLocked && context.sessionMode !== 'chat') {
+        return blocked('generating')
+      }
+      // Switching branches while a compaction summary streams would move the
+      // pending boundary off the active path and waste the summary run
+      // (commit would route it back to the stored branch).
+      return locks.compactionRunning ? blocked('compaction') : ALLOWED
     case 'delete-fork':
-      // Switching or deleting branches while a compaction summary streams
-      // would move the pending boundary off the active path and waste the
-      // summary run (commit would route it back to the stored branch).
+      // Destructive in every mode while replies stream: the deleted branch
+      // may hold a live stream, and runtime discard is a last resort.
       if (generationLocked) {
         return blocked('generating')
       }
@@ -220,9 +240,10 @@ export function getSubmitAvailability(locks: SessionLockState): SubmitAvailabili
 
 export function shouldShowConcurrentReplyStop(options: {
   /**
-   * Explicit opt-in used by fork-group alternatives. The active reply in the
-   * main list must stay button-free while generating; it is stopped from the
-   * input box instead.
+   * Explicit opt-in set by the main message list and fork-group alternatives.
+   * The `generatingReplyCount > 1` guard below keeps a lone streaming reply
+   * button-free (it is stopped from the input box); per-reply stops appear
+   * only while several candidates stream concurrently.
    */
   allowStop: boolean
   cancellable: boolean

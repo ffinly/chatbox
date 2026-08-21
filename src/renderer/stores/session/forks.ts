@@ -1,13 +1,6 @@
 import { ForkService } from '@chatbox/core/application/session'
 import { getReachableSessionMessages } from '@chatbox/core/session/generation-state'
-import {
-  buildCreateInactiveForkPatch,
-  buildDeleteForkPatch,
-  buildSwitchForkToPatch,
-  findMessageLocation,
-  forkTailStartIndex,
-} from '@shared/session/message-forks'
-import type { Message } from '@shared/types'
+import { buildDeleteForkPatch, buildSwitchForkToPatch, findMessageLocation } from '@shared/session/message-forks'
 import { v4 as uuidv4 } from 'uuid'
 import { rendererApplication } from '@/app/renderer-application'
 import { guardSessionAction } from './action-guard'
@@ -20,7 +13,9 @@ const forkIdentity = {
 const forkService = new ForkService(
   {
     updateSessionWithMessages: (sessionId, updater) =>
-      rendererApplication.sessions.updateSessionWithMessages(sessionId, updater, { preserveCachedGeneratingMessages: true }),
+      rendererApplication.sessions.updateSessionWithMessages(sessionId, updater, {
+        preserveCachedGeneratingMessages: true,
+      }),
   },
   forkIdentity
 )
@@ -36,44 +31,6 @@ export { findMessageLocation }
 /** Create a new fork branch at the specified message. */
 export function createNewFork(sessionId: string, forkMessageId: string) {
   return forkService.create(sessionId, forkMessageId)
-}
-
-/**
- * Create an inactive branch and return the isolated message path that should be
- * used to generate its first reply. Returns null when the fork point has no
- * active answer yet.
- */
-export async function createInactiveFork(
-  sessionId: string,
-  forkMessageId: string,
-  branchMessages: Message[]
-): Promise<Message[] | null> {
-  let branchContext: Message[] | null = null
-
-  await rendererApplication.sessions.updateSessionWithMessages(
-    sessionId,
-    (session) => {
-      if (!session) {
-        throw new Error('Session not found')
-      }
-
-      const location = findMessageLocation(session, forkMessageId)
-      if (!location) {
-        return session
-      }
-
-      const patch = buildCreateInactiveForkPatch(session, forkMessageId, branchMessages, forkIdentity)
-      if (!patch) {
-        return session
-      }
-
-      branchContext = [...location.list.slice(0, forkTailStartIndex(location.list, location.index)), ...branchMessages]
-      return { ...session, ...patch }
-    },
-    { preserveCachedGeneratingMessages: true }
-  )
-
-  return branchContext
 }
 
 /** Switch between fork branches. */

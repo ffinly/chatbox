@@ -1,0 +1,57 @@
+import { describe, expect, it } from 'vitest'
+import type { Session } from '../types'
+import { hasConversationStarted, isActionAvailableInMode, resolveSessionMode } from './mode-policy'
+
+describe('resolveSessionMode', () => {
+  it('maps on to work and everything else to chat', () => {
+    expect(resolveSessionMode('on')).toBe('work')
+    expect(resolveSessionMode('off')).toBe('chat')
+    expect(resolveSessionMode('auto')).toBe('chat')
+    expect(resolveSessionMode(undefined)).toBe('chat')
+  })
+})
+
+describe('isActionAvailableInMode', () => {
+  it('removes structural surgery from work mode', () => {
+    for (const action of [
+      'reply-below',
+      'edit-assistant-message',
+      'delete-message',
+      'delete-fork',
+      'save-message-edit',
+    ] as const) {
+      expect(isActionAvailableInMode(action, 'work')).toBe(false)
+      expect(isActionAvailableInMode(action, 'chat')).toBe(true)
+    }
+  })
+
+  it('removes queueing and steering from chat mode', () => {
+    for (const action of ['queue-message', 'steer-queued-message'] as const) {
+      expect(isActionAvailableInMode(action, 'chat')).toBe(false)
+      expect(isActionAvailableInMode(action, 'work')).toBe(true)
+    }
+  })
+})
+
+describe('hasConversationStarted', () => {
+  const user = { id: 'u1', role: 'user', contentParts: [] } as unknown as Session['messages'][number]
+  const system = { id: 's1', role: 'system', contentParts: [] } as unknown as Session['messages'][number]
+
+  it('ignores system-only sessions', () => {
+    expect(hasConversationStarted({ messages: [system] })).toBe(false)
+    expect(hasConversationStarted({ messages: [] })).toBe(false)
+  })
+
+  it('detects a user message on the active path', () => {
+    expect(hasConversationStarted({ messages: [system, user] })).toBe(true)
+  })
+
+  it('detects exchanges archived into threads after clearing context', () => {
+    expect(
+      hasConversationStarted({
+        messages: [system],
+        threads: [{ id: 't1', name: '', createdAt: 0, messages: [user] }],
+      })
+    ).toBe(true)
+  })
+})

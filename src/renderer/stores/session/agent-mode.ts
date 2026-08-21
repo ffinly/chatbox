@@ -1,3 +1,4 @@
+import { hasConversationStarted, resolveSessionMode } from '@chatbox/core/session/mode-policy'
 import type {
   AgentModeEntry,
   AgentModeLockReason,
@@ -153,7 +154,17 @@ export function persistSessionPromptContextSnapshotGuarded(
   void rendererApplication.sessions.updateSession(sessionId, (current) => applySnapshot(current))
 }
 
-export async function setSessionAgentMode(sessionId: string, value: AgentModeValue): Promise<AgentModeEntry> {
+export type SetAgentModeSource =
+  /** An explicit user choice in the mode panel. */
+  | 'user'
+  /** Suggestion resolution and other generation-flow adjustments. */
+  | 'system'
+
+export async function setSessionAgentMode(
+  sessionId: string,
+  value: AgentModeValue,
+  options: { source?: SetAgentModeSource } = {}
+): Promise<AgentModeEntry> {
   if (sessionId === 'new') {
     return setNewSessionAgentMode(value)
   }
@@ -165,6 +176,18 @@ export async function setSessionAgentMode(sessionId: string, value: AgentModeVal
 
   let next = getSessionAgentModeEntry(sessionId, session)
   if (next.locked && value !== 'on') return next
+  // Manual cross-mode switching is only offered before the conversation
+  // starts; afterwards the modes have diverged too far (structural freedom vs
+  // queue/steering) to swap in place — the user starts a new chat instead.
+  // Smart-switching resolution ('system') is exempt, and 'auto' ↔ 'off' is a
+  // chat-internal preference, not a mode change.
+  if (
+    (options.source ?? 'user') === 'user' &&
+    resolveSessionMode(value) !== resolveSessionMode(next.value) &&
+    hasConversationStarted(session)
+  ) {
+    return next
+  }
 
   rendererApplication.sessionQueryBridge.updateSessionCache(sessionId, (currentSession) => {
     const resolved = resolveSetAgentMode(sessionId, currentSession, value)
@@ -195,7 +218,9 @@ export async function lockSessionAgentMode(
   }
 
   const next: AgentModeEntry = { value: 'on', locked: true, lockReason: reason }
-  rendererApplication.sessionQueryBridge.updateSessionCache(sessionId, (currentSession) => applyAgentMode(currentSession, next))
+  rendererApplication.sessionQueryBridge.updateSessionCache(sessionId, (currentSession) =>
+    applyAgentMode(currentSession, next)
+  )
   await rendererApplication.sessions.updateSession(sessionId, (currentSession) => applyAgentMode(currentSession, next))
   uiStore.getState().clearSessionAgentMode(sessionId)
   return next

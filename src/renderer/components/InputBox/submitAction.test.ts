@@ -7,6 +7,7 @@ const base = {
   sessionType: 'chat' as const,
   queueLength: 0,
   blockedForOtherReasons: false,
+  queueEnabled: true,
   hasModel: true,
 }
 
@@ -23,6 +24,16 @@ describe('getSubmitAction', () => {
 
   it('queues while generating', () => {
     expect(getSubmitAction({ ...base, generating: true })).toBe('queue')
+  })
+
+  it('blocks instead of queueing while generating when the queue is disabled (chat mode)', () => {
+    expect(getSubmitAction({ ...base, generating: true, queueEnabled: false })).toBe('block')
+  })
+
+  it('still drains behind legacy queued items when the queue is disabled', () => {
+    // Order preservation wins over "no new enqueues": an idle send must not
+    // jump ahead of items queued before the mode split.
+    expect(getSubmitAction({ ...base, queueEnabled: false, queueLength: 2 })).toBe('queue-resume')
   })
 
   it('keeps the historical no-op for "insert without reply" during generation', () => {
@@ -50,6 +61,7 @@ describe('getSubmitControl', () => {
     generating: true,
     hasDraft: true,
     canQueueDraft: true,
+    queueEnabled: true,
     sessionType: 'chat' as const,
     hasModel: true,
   }
@@ -74,5 +86,9 @@ describe('getSubmitControl', () => {
   it('keeps stop available when generating sessions do not support queueing', () => {
     expect(getSubmitControl({ ...controlBase, sessionType: 'picture' })).toBe('stop')
     expect(getSubmitControl({ ...controlBase, hasModel: false })).toBe('stop')
+  })
+
+  it('keeps stop while generating when the queue is disabled (chat mode)', () => {
+    expect(getSubmitControl({ ...controlBase, queueEnabled: false })).toBe('stop')
   })
 })

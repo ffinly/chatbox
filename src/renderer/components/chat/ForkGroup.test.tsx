@@ -76,7 +76,8 @@ function generationLocks(): SessionLockState {
 function renderGroup(
   forks: ForkEntry,
   sessionLocks: SessionLockState = locks(),
-  sessionType: 'chat' | 'picture' = 'chat'
+  sessionType: 'chat' | 'picture' = 'chat',
+  sessionMode: 'chat' | 'work' = 'chat'
 ) {
   return render(
     <MantineProvider>
@@ -86,6 +87,7 @@ function renderGroup(
         msgId="user-1"
         forks={forks}
         sessionLocks={sessionLocks}
+        sessionMode={sessionMode}
       />
     </MantineProvider>
   )
@@ -252,6 +254,54 @@ describe('ForkGroup', () => {
     expect(screen.getByRole('button', { name: 'Collapse other branches' })).toBeTruthy()
   })
 
+  test('renders live follow-up candidates in a revealed branch and keeps them after they finish', () => {
+    const branchWithStreamingTail = (generating: boolean): ForkEntry => ({
+      position: 0,
+      lists: [
+        { id: 'current', messages: [] },
+        {
+          id: 'saved',
+          messages: [
+            message('saved-first-reply'),
+            message('saved-question', { role: 'user' }),
+            message('saved-candidate-a', { generating }),
+            message('saved-candidate-b', { generating }),
+          ],
+        },
+      ],
+      createdAt: 1,
+    })
+    const group = (forks: ForkEntry) => (
+      <MantineProvider>
+        <ForkGroup
+          sessionId="session-1"
+          sessionType="chat"
+          msgId="user-1"
+          forks={forks}
+          sessionLocks={generationLocks()}
+        />
+      </MantineProvider>
+    )
+    const { rerender } = render(group(branchWithStreamingTail(true)))
+
+    // The live tail reveals the branch; both streaming candidates render below
+    // the first reply, and the follow-up count only covers hidden messages.
+    expect(screen.getByTestId('message-saved-first-reply')).toBeTruthy()
+    expect(screen.getByTestId('message-saved-candidate-a')).toBeTruthy()
+    expect(screen.getByTestId('message-saved-candidate-b')).toBeTruthy()
+    expect(screen.getByText('1 follow-up message')).toBeTruthy()
+
+    // Finished candidates stay visible (sticky, like the branch reveal itself).
+    rerender(group(branchWithStreamingTail(false)))
+    expect(screen.getByTestId('message-saved-candidate-a')).toBeTruthy()
+    expect(screen.getByTestId('message-saved-candidate-b')).toBeTruthy()
+    expect(screen.getByText('1 follow-up message')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse other branches' }))
+    expect(screen.queryByTestId('message-saved-candidate-a')).toBeNull()
+    expect(screen.queryByTestId('message-saved-first-reply')).toBeNull()
+  })
+
   test('shows alternative replies newest-first so a generating reply stays on top', () => {
     renderGroup(
       {
@@ -281,7 +331,7 @@ describe('ForkGroup', () => {
     ])
   })
 
-  test('blocks branch switching during generation and explains why', async () => {
+  test('lets chat mode switch branches while replies stream but keeps deletion locked', () => {
     renderGroup(
       {
         position: 0,
@@ -297,6 +347,34 @@ describe('ForkGroup', () => {
       generationLocks()
     )
 
+    fireEvent.click(screen.getByTestId(TestId.message.forkNext))
+    expect(switchForkMock).toHaveBeenCalledWith('session-1', 'user-1', 'next')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to this branch' }))
+    expect(switchForkToMock).toHaveBeenCalledWith('session-1', 'user-1', 1)
+
+    // Deleting a branch may kill the live stream — locked in every mode.
+    expect((screen.getByRole('button', { name: 'delete' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  test('keeps work mode branch switching locked during generation and explains why', async () => {
+    renderGroup(
+      {
+        position: 0,
+        lists: [
+          { id: 'current', messages: [] },
+          {
+            id: 'alternative',
+            messages: [message('alternative-reply', { generating: true })],
+          },
+        ],
+        createdAt: 1,
+      },
+      generationLocks(),
+      'chat',
+      'work'
+    )
+
     fireEvent.click(screen.getAllByLabelText('Wait for the current replies to finish')[0])
 
     expect(switchForkMock).not.toHaveBeenCalled()
@@ -306,7 +384,7 @@ describe('ForkGroup', () => {
     expect(switchForkToMock).not.toHaveBeenCalled()
   })
 
-  test('explains the disabled direct switch when tapped on mobile', async () => {
+  test('explains the disabled direct switch when tapped on mobile (work mode)', async () => {
     isSmallScreenMock.mockReturnValue(true)
     renderGroup(
       {
@@ -320,7 +398,9 @@ describe('ForkGroup', () => {
         ],
         createdAt: 1,
       },
-      generationLocks()
+      generationLocks(),
+      'chat',
+      'work'
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'Switch to this branch' }))

@@ -1,4 +1,5 @@
 import { withSessionGenerationLock } from '@chatbox/core/generation'
+import { isActionAvailableInMode, resolveSessionMode } from '@chatbox/core/session/mode-policy'
 import { buildContext, selectContextMessages } from '@shared/context'
 import type { AttachmentResolver } from '@shared/context/types'
 import { supportsSessionGeneration } from '@shared/session/capabilities'
@@ -10,7 +11,7 @@ import { assessContextPressure, getConfiguredContextWindow } from '@/packages/co
 import { settingsStore } from '@/stores/settingsStore'
 import { guardSessionAction } from './action-guard'
 import { createAttachmentResolver } from './attachment-resolver'
-import { createInactiveFork, createNewFork, findMessageLocation } from './forks'
+import { createNewFork, findMessageLocation } from './forks'
 import { insertMessageAfter } from './messages'
 import { getSessionSettings } from './session-settings'
 import type { AgentModeEntrySource } from './types'
@@ -23,7 +24,6 @@ export async function _generateWithoutSessionLock(
     operationType?: 'send_message' | 'regenerate'
     skipAgentModeSuggestion?: boolean
     agentModeEntrySource?: AgentModeEntrySource
-    contextMessages?: Message[]
   }
 ) {
   const session = await rendererApplication.sessionQueryBridge.getSession(sessionId)
@@ -65,36 +65,34 @@ export function generate(
  * @param sessionId Session ID
  * @param msgId Message ID
  */
-async function generateActiveReplyWithoutSessionLock(sessionId: string, msgId: string) {
+async function generateReplyBelowWithoutSessionLock(sessionId: string, msgId: string) {
   const newAssistantMsg = createMessage('assistant', '')
   newAssistantMsg.generating = true // prevent estimating token count before generating done
   await insertMessageAfter(sessionId, newAssistantMsg, msgId)
   await _generateWithoutSessionLock(sessionId, newAssistantMsg, { operationType: 'regenerate' })
 }
 
-async function generateInactiveReply(sessionId: string, msgId: string) {
-  const newAssistantMsg = createMessage('assistant', '')
-  newAssistantMsg.generating = true
-  const contextMessages = await createInactiveFork(sessionId, msgId, [newAssistantMsg])
-
-  if (!contextMessages) {
-    await insertMessageAfter(sessionId, newAssistantMsg, msgId)
-    await _generateWithoutSessionLock(sessionId, newAssistantMsg, { operationType: 'regenerate' })
-    return
-  }
-
-  await _generateWithoutSessionLock(sessionId, newAssistantMsg, {
-    operationType: 'regenerate',
-    contextMessages,
-  })
-}
-
+/**
+ * Reply Again Below: insert a new reply flat into the active path, right after
+ * the target message. Alternatives stay ordinary messages (comparable in place,
+ * individually editable/deletable) instead of saved fork branches — see
+ * docs/technical/chat-work-mode-split.md. Deliberately skips the session
+ * generation lock so several candidates can stream concurrently; orchestrate()
+ * drains unsettled streams before dispatching.
+ */
 export async function generateMore(sessionId: string, msgId: string) {
   const session = await rendererApplication.sessionQueryBridge.getSession(sessionId)
   if (!session || !supportsSessionGeneration(session.type)) {
     return
   }
-  return generateInactiveReply(sessionId, msgId)
+  // Mode-policy backstop for entry points the UI failed to hide (stale
+  // surfaces, programmatic callers): work mode has no Reply Again Below.
+  // Session-persisted mode only — the uiStore legacy-map fallback stays a UI
+  // concern; this is defense-in-depth behind the hidden entry, not the gate.
+  if (!isActionAvailableInMode('reply-below', resolveSessionMode(session.settings?.agentMode?.value))) {
+    return
+  }
+  return generateReplyBelowWithoutSessionLock(sessionId, msgId)
 }
 
 export function generateMoreInNewFork(sessionId: string, msgId: string) {
@@ -129,7 +127,7 @@ export function generateMoreInNewFork(sessionId: string, msgId: string) {
       return
     }
     await createNewFork(sessionId, msgId)
-    await generateActiveReplyWithoutSessionLock(sessionId, msgId)
+    await generateReplyBelowWithoutSessionLock(sessionId, msgId)
   })
 }
 
@@ -149,7 +147,7 @@ async function regenerateInNewForkWithoutSessionLock(
   msg: Message,
   options?: { runGenerateMore?: GenerateMoreFn }
 ) {
-  const runGenerateMore = options?.runGenerateMore ?? generateActiveReplyWithoutSessionLock
+  const runGenerateMore = options?.runGenerateMore ?? generateReplyBelowWithoutSessionLock
   const session = await rendererApplication.sessionQueryBridge.getSession(sessionId)
   if (!session || !supportsSessionGeneration(session.type)) {
     return

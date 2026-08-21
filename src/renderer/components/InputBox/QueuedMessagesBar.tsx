@@ -1,3 +1,4 @@
+import { isActionAvailableInMode, resolveSessionMode } from '@chatbox/core/session/mode-policy'
 import { ActionIcon, Badge, Box, Button, Flex, Text, Textarea } from '@mantine/core'
 import { TestId } from '@shared/automation/testids'
 import type { Message } from '@shared/types'
@@ -20,6 +21,7 @@ import {
   updateQueuedMessageText,
   wakeQueuedUserMessages,
 } from '@/stores/session/message-queue'
+import { useSessionAgentMode } from '@/stores/session/agent-mode'
 import { ScalableIcon } from '../common/ScalableIcon'
 
 function getQueuedMessageText(message: Message): string {
@@ -58,15 +60,17 @@ interface QueuedItemRowProps {
   item: QueuedUserMessage
   order: number
   paused: boolean
+  /** Mode policy: chat mode drains legacy items but offers no queue-jumping. */
+  steeringEnabled: boolean
 }
 
-function QueuedItemRow({ sessionId, item, order, paused }: QueuedItemRowProps) {
+function QueuedItemRow({ sessionId, item, order, paused, steeringEnabled }: QueuedItemRowProps) {
   const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
 
   const attachmentCount = countQueuedAttachments(item.message)
-  const steerable = isSteerableQueuedMessage(item.message) && !paused && !item.steerRequested
+  const steerable = steeringEnabled && isSteerableQueuedMessage(item.message) && !paused && !item.steerRequested
 
   const startEdit = () => {
     setDraft(getQueuedMessageText(item.message))
@@ -157,7 +161,7 @@ function QueuedItemRow({ sessionId, item, order, paused }: QueuedItemRowProps) {
           <Text size="xs" c="chatbox-brand" fw={600} className="animate-pulse px-1">
             {t('Interjecting…')}
           </Text>
-        ) : (
+        ) : steeringEnabled ? (
           <Tooltip
             label={
               steerable
@@ -177,7 +181,7 @@ function QueuedItemRow({ sessionId, item, order, paused }: QueuedItemRowProps) {
               {t('Send now')}
             </Button>
           </Tooltip>
-        )}
+        ) : null}
         <Tooltip label={t('Edit')}>
           <ActionIcon
             data-testid={TestId.chat.queuedMessageEdit}
@@ -215,6 +219,10 @@ export const QueuedMessagesBar = memo(function QueuedMessagesBar({ sessionId }: 
   const { t } = useTranslation()
   const queue = useStore(messageQueueStore, (state) => state.queues[sessionId])
   const pausedReason = useStore(messageQueueStore, (state) => state.paused[sessionId])
+  // Chat mode still drains items queued before the mode split (drain-only),
+  // but never offers queue-jumping — steering is a work-mode capability.
+  const agentModeEntry = useSessionAgentMode(sessionId)
+  const steeringEnabled = isActionAvailableInMode('steer-queued-message', resolveSessionMode(agentModeEntry.value))
 
   // Covers entries restored from persistence after an app restart: no enqueue
   // rekicks the drain, so nudge it when the bar appears (no-op while paused,
@@ -282,6 +290,7 @@ export const QueuedMessagesBar = memo(function QueuedMessagesBar({ sessionId }: 
             item={item}
             order={index + 1}
             paused={Boolean(pausedReason)}
+            steeringEnabled={steeringEnabled}
           />
         ))}
       </Flex>

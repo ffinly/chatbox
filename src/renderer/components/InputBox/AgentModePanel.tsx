@@ -1,6 +1,7 @@
 import { ActionIcon, Badge, Button, Divider, Flex, Group, Loader, Stack, Switch, Text } from '@mantine/core'
 import { TestId } from '@shared/automation/testids'
 import type { AgentModeValue, KnowledgeBase } from '@shared/types'
+import { hasConversationStarted, resolveSessionMode } from '@chatbox/core/session/mode-policy'
 import {
   IconCheck,
   IconChevronRight,
@@ -362,12 +363,22 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
     subPanelRef.current?.scrollTo({ top: 0 })
   }, [page])
 
+  // Manual cross-mode switching (chat ↔ work) is only offered before the
+  // conversation starts — mirroring the work-side `entry.locked` in the other
+  // direction. Same-mode toggles are unaffected; the store enforces the same
+  // rule in setSessionAgentMode.
+  const conversationStarted = useMemo(
+    () => (currentSession ? hasConversationStarted(currentSession) : false),
+    [currentSession]
+  )
+
   // --- Mode button ---
   const ModeButton: FC<{ value: Extract<AgentModeValue, 'on' | 'off'>; label: string }> = ({ value, label }) => {
     const isActive = agentModeUIState.displayValue === value
     const isLockedDisabled = entry.locked && value !== 'on'
+    const isSwitchFrozen = conversationStarted && resolveSessionMode(value) !== resolveSessionMode(entry.value)
     const isModelDisabled = !modelSupportsAgentMode && value !== 'off'
-    const isDisabled = isLockedDisabled || isModelDisabled
+    const isDisabled = isLockedDisabled || isSwitchFrozen || isModelDisabled
     const tooltipLabel = isModelDisabled
       ? t('This model does not support Agent Mode')
       : t('Locked after the chat starts to keep tools and context consistent — start a new chat to change')

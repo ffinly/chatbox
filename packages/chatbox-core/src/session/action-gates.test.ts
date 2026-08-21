@@ -116,6 +116,28 @@ describe('getSessionActionGate', () => {
     expect(getSessionActionGate('switch-fork', IDLE_SESSION_LOCK_STATE)).toEqual({ allowed: true })
   })
 
+  it('lets chat mode switch forks while replies stream; deleting and other modes stay locked', () => {
+    const streaming = locks({ generatingReplyCount: 1, anyReplyGenerating: true })
+
+    expect(getSessionActionGate('switch-fork', streaming, { sessionMode: 'chat' })).toEqual({ allowed: true })
+    // Work mode and hosts that do not pass sessionMode keep the conservative lock.
+    expect(getSessionActionGate('switch-fork', streaming, { sessionMode: 'work' })).toEqual({
+      allowed: false,
+      reason: 'generating',
+    })
+    expect(getSessionActionGate('switch-fork', streaming)).toEqual({ allowed: false, reason: 'generating' })
+    // Deleting a branch may kill a live stream — locked in every mode.
+    expect(getSessionActionGate('delete-fork', streaming, { sessionMode: 'chat' })).toEqual({
+      allowed: false,
+      reason: 'generating',
+    })
+    // The compaction boundary lock is mode-independent.
+    expect(getSessionActionGate('switch-fork', locks({ compactionRunning: true }), { sessionMode: 'chat' })).toEqual({
+      allowed: false,
+      reason: 'compaction',
+    })
+  })
+
   it('blocks submission during the placeholder window, compaction, and pending approval', () => {
     expect(getSessionActionGate('submit-message', locks({ anyReplyGenerating: true }))).toEqual({
       allowed: false,

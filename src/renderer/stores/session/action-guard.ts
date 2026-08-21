@@ -5,12 +5,14 @@ import {
   type SessionActionContext,
   type SessionLockState,
 } from '@chatbox/core/session/action-gates'
+import { resolveSessionMode } from '@chatbox/core/session/mode-policy'
 import { supportsSessionGeneration } from '@shared/session/capabilities'
 import type { Session } from '@shared/types'
 import { t } from 'i18next'
 import { rendererApplication } from '@/app/renderer-application'
 import { notifySessionLockBlocked } from '@/utils/session-lock-copy'
 import { getCompactionUIState } from '../atoms/compactionAtoms'
+import { getSessionAgentModeEntry } from './agent-mode'
 
 /**
  * Derive the lock snapshot for a session from its current stored state plus
@@ -23,7 +25,10 @@ export async function getSessionLockStateNow(
   sessionId: string,
   preloadedSession?: Session | null
 ): Promise<SessionLockState | null> {
-  const session = preloadedSession !== undefined ? preloadedSession : await rendererApplication.sessionQueryBridge.getSession(sessionId)
+  const session =
+    preloadedSession !== undefined
+      ? preloadedSession
+      : await rendererApplication.sessionQueryBridge.getSession(sessionId)
   if (!session) {
     return null
   }
@@ -54,7 +59,10 @@ export async function guardSessionAction(
   let session: Session | null
   let locks: SessionLockState | null
   try {
-    session = preloadedSession !== undefined ? preloadedSession : await rendererApplication.sessionQueryBridge.getSession(sessionId)
+    session =
+      preloadedSession !== undefined
+        ? preloadedSession
+        : await rendererApplication.sessionQueryBridge.getSession(sessionId)
     locks = await getSessionLockStateNow(sessionId, session)
   } catch {
     // A failed session read must not turn a void-called action into an
@@ -69,7 +77,13 @@ export async function guardSessionAction(
     await notifySessionLockBlocked('read-only', t)
     return false
   }
-  const gate = getSessionActionGate(action, locks, context)
+  // Store-side calls resolve the session mode here so every guarded action
+  // sees the same mode-aware policy as the UI pre-checks; an explicitly
+  // passed context.sessionMode wins.
+  const gate = getSessionActionGate(action, locks, {
+    sessionMode: resolveSessionMode(getSessionAgentModeEntry(sessionId, session).value),
+    ...context,
+  })
   if (gate.allowed) {
     return true
   }

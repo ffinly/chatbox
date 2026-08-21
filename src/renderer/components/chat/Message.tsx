@@ -8,6 +8,7 @@ import {
   shouldShowConcurrentReplyStop,
 } from '@chatbox/core/session/action-gates'
 import { isCancellableGeneratingAssistantMessage } from '@chatbox/core/session/generation-state'
+import { isActionAvailableInMode, type SessionMode } from '@chatbox/core/session/mode-policy'
 import NiceModal from '@ebay/nice-modal-react'
 import { ActionIcon, type ActionIconProps, Button, Flex, Loader, Modal, Stack, Text } from '@mantine/core'
 import { Box, Grid, useTheme } from '@mui/material'
@@ -114,6 +115,13 @@ interface Props {
   collapseThreshold?: number // 文本长度阀值, 超过这个长度则会被折叠
   buttonGroup?: MessageButtonGroup // 按钮组显示策略, auto: 只在 hover 时显示; always: 总是显示; none: 不显示
   sessionLocks?: SessionLockState
+  /**
+   * Resolved once by the list container and passed down (never subscribe
+   * per-row — selectors would re-run on every streaming chunk). Work mode
+   * hides structural surgery entries: Reply Again Below, assistant/system
+   * edit, delete (see @chatbox/core session/mode-policy).
+   */
+  sessionMode?: SessionMode
   readOnly?: boolean
   allowGeneratingStop?: boolean
   small?: boolean
@@ -159,6 +167,7 @@ const _Message: FC<Props> = (props) => {
     collapseThreshold,
     buttonGroup = 'auto',
     sessionLocks = IDLE_SESSION_LOCK_STATE,
+    sessionMode = 'chat',
     readOnly = false,
     allowGeneratingStop = false,
     small,
@@ -219,6 +228,14 @@ const _Message: FC<Props> = (props) => {
   }, [sessionId, msg])
 
   const generationLocked = isGenerationLocked(sessionLocks)
+
+  // Static mode policy (hidden entries), as opposed to the transient
+  // sessionLocks gates (disabled + notice). Work mode keeps the conversation
+  // append-only: user messages may only be edited together with a resend.
+  const canReplyBelow = isActionAvailableInMode('reply-below', sessionMode)
+  const canDeleteMessage = isActionAvailableInMode('delete-message', sessionMode)
+  const canEditMessage = msg.role === 'user' || isActionAvailableInMode('edit-assistant-message', sessionMode)
+  const editIsResendOnly = !isActionAvailableInMode('save-message-edit', sessionMode)
 
   const notifyActionBlocked = useCallback(
     (reason: SessionActionBlockReason) => {
@@ -294,7 +311,7 @@ const _Message: FC<Props> = (props) => {
     agentModeSuggestionHandledRef.current = true
     trackAgentModeSuggestionActionAsync('decline')
     try {
-      await setSessionAgentMode(sessionId, 'off')
+      await setSessionAgentMode(sessionId, 'off', { source: 'system' })
       const nextMsg = resetMessageForAgentModeResponse(msg)
       await modifyMessage(sessionId, nextMsg, true)
       await generate(sessionId, nextMsg, { operationType: 'send_message', skipAgentModeSuggestion: true })
@@ -398,8 +415,19 @@ const _Message: FC<Props> = (props) => {
     // Plain saves are safe while replies stream, but Save & Resend is a
     // regenerate-class action and stays locked like Retry.
     const resendGate = getSessionActionGate('save-and-resend', sessionLocks, { messageGenerating: msg.generating })
-    await NiceModal.show('message-edit', { sessionId, msg, hideSaveAndResend: !resendGate.allowed })
-  }, [sessionLocks, msg, notifyActionBlocked, sessionId])
+    if (editIsResendOnly && !resendGate.allowed) {
+      // Work mode edits must resend; with the resend gate closed the editor
+      // would have no primary action left, so surface the block instead.
+      notifyActionBlocked(resendGate.reason)
+      return
+    }
+    await NiceModal.show('message-edit', {
+      sessionId,
+      msg,
+      hideSaveAndResend: !resendGate.allowed,
+      resendOnly: editIsResendOnly,
+    })
+  }, [sessionLocks, msg, notifyActionBlocked, sessionId, editIsResendOnly])
 
   const onViewMessageJson = useCallback(async () => {
     await NiceModal.show('json-viewer', { title: t('Message Raw JSON'), data: msg })
@@ -612,13 +640,15 @@ const _Message: FC<Props> = (props) => {
                 onClick: handleRefresh,
                 disabled: generationLocked && !isSmallScreen,
               },
-            msg.role !== 'assistant' && {
-              text: t('Reply Again Below'),
-              icon: IconArrowDown,
-              testId: TestId.message.actionMenuRetryBelow,
-              onClick: onGenerateMore,
-            },
-            !msg.model?.startsWith('Chatbox-AI') &&
+            canReplyBelow &&
+              msg.role !== 'assistant' && {
+                text: t('Reply Again Below'),
+                icon: IconArrowDown,
+                testId: TestId.message.actionMenuRetryBelow,
+                onClick: onGenerateMore,
+              },
+            canEditMessage &&
+              !msg.model?.startsWith('Chatbox-AI') &&
               !(msg.role === 'assistant' && props.sessionType === 'picture') && {
                 text: t('Edit'),
                 icon: IconPencil,
@@ -665,15 +695,19 @@ const _Message: FC<Props> = (props) => {
             },
           ]
         : []),
-      {
-        doubleCheck: true,
-        text: t('delete'),
-        icon: IconTrash,
-        testId: TestId.message.actionDelete,
-        confirmTestId: TestId.message.actionDeleteConfirm,
-        confirmPanelTestId: TestId.message.deleteConfirmation,
-        onClick: onDelMsg,
-      },
+      ...(canDeleteMessage
+        ? [
+            {
+              doubleCheck: true,
+              text: t('delete'),
+              icon: IconTrash,
+              testId: TestId.message.actionDelete,
+              confirmTestId: TestId.message.actionDeleteConfirm,
+              confirmPanelTestId: TestId.message.deleteConfirmation,
+              onClick: onDelMsg,
+            },
+          ]
+        : []),
     ],
     [
       t,
@@ -691,6 +725,9 @@ const _Message: FC<Props> = (props) => {
       msg.model,
       props.sessionType,
       generationLocked,
+      canReplyBelow,
+      canEditMessage,
+      canDeleteMessage,
     ]
   )
   const [actionMenuOpened, setActionMenuOpened] = useState(false)
@@ -1048,7 +1085,7 @@ const _Message: FC<Props> = (props) => {
             disabled={generationLocked && !isSmallScreen}
           />
         )}
-        {msg.role !== 'assistant' && (
+        {canReplyBelow && msg.role !== 'assistant' && (
           <MessageActionIcon
             testId={TestId.message.actionBarRetryBelow}
             icon={IconArrowDown}
@@ -1056,14 +1093,16 @@ const _Message: FC<Props> = (props) => {
             onClick={onGenerateMore}
           />
         )}
-        {!msg.model?.startsWith('Chatbox-AI') && !(msg.role === 'assistant' && props.sessionType === 'picture') && (
-          <MessageActionIcon
-            testId={TestId.message.actionBarEdit}
-            icon={IconPencil}
-            tooltip={t('Edit')}
-            onClick={onEditClick}
-          />
-        )}
+        {canEditMessage &&
+          !msg.model?.startsWith('Chatbox-AI') &&
+          !(msg.role === 'assistant' && props.sessionType === 'picture') && (
+            <MessageActionIcon
+              testId={TestId.message.actionBarEdit}
+              icon={IconPencil}
+              tooltip={t('Edit')}
+              onClick={onEditClick}
+            />
+          )}
         {!(props.sessionType === 'picture' && msg.role === 'assistant') && (
           <MessageActionIcon
             testId={TestId.message.actionBarCopy}
