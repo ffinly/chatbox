@@ -108,3 +108,38 @@ describe('legacy Claude overlays', () => {
     expect(registry.claude['claude-3-haiku-20240307']?.maxOutput).toBe(4096)
   })
 })
+
+describe('DeepSeek compatibility overlays', () => {
+  it('adds the vision model when a cached catalog predates it', () => {
+    const registry = applyRegistryOverlays({
+      deepseek: {
+        'deepseek-v4-flash': {
+          modelId: 'deepseek-v4-flash',
+          type: 'chat',
+          capabilities: ['reasoning', 'tool_use'],
+          contextWindow: 1_000_000,
+          maxOutput: 384_000,
+        },
+      },
+    })
+
+    expect(registry.deepseek['deepseek-v4-flash-vision-exp']?.capabilities).toEqual(['tool_use', 'reasoning', 'vision'])
+  })
+
+  it('does not overwrite live metadata for the vision model', () => {
+    const registry = applyRegistryOverlays({
+      deepseek: {
+        'deepseek-v4-flash-vision-exp': {
+          modelId: 'deepseek-v4-flash-vision-exp',
+          type: 'chat',
+          capabilities: ['vision'],
+          contextWindow: 2_000_000,
+          maxOutput: 512_000,
+        },
+      },
+    })
+
+    expect(registry.deepseek['deepseek-v4-flash-vision-exp']?.capabilities).toEqual(['vision'])
+    expect(registry.deepseek['deepseek-v4-flash-vision-exp']?.contextWindow).toBe(2_000_000)
+  })
+})

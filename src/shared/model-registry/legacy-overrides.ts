@@ -44,19 +44,46 @@ const LEGACY_CLAUDE_MODELS: Record<string, ModelMetadata> = {
   },
 }
 
+const DEEPSEEK_COMPATIBILITY_MODELS: Record<string, ModelMetadata> = {
+  'deepseek-v4-flash-vision-exp': {
+    modelId: 'deepseek-v4-flash-vision-exp',
+    name: 'DeepSeek V4 Flash Vision Exp',
+    type: 'chat',
+    capabilities: ['tool_use', 'reasoning', 'vision'],
+    contextWindow: 1_000_000,
+    maxOutput: 384_000,
+    costInput: 0.14,
+    costOutput: 0.28,
+    family: 'deepseek-flash',
+    releaseDate: '2026-08-21',
+    status: 'beta',
+  },
+}
+
+const REGISTRY_OVERLAYS: ModelRegistryData = {
+  claude: LEGACY_CLAUDE_MODELS,
+  deepseek: DEEPSEEK_COMPATIBILITY_MODELS,
+}
+
 /**
  * Merge compatibility metadata into a registry without overwriting live entries.
  */
 export function applyRegistryOverlays(registry: ModelRegistryData): ModelRegistryData {
-  const existingClaude = registry.claude ?? {}
-  const missing = Object.keys(LEGACY_CLAUDE_MODELS).some((modelId) => !existingClaude[modelId])
-  if (!missing) return registry
+  let result = registry
 
-  return {
-    ...registry,
-    claude: {
-      ...LEGACY_CLAUDE_MODELS,
-      ...existingClaude,
-    },
+  for (const [providerId, overlayModels] of Object.entries(REGISTRY_OVERLAYS)) {
+    const existingModels = result[providerId] ?? {}
+    const hasMissingModel = Object.keys(overlayModels).some((modelId) => !existingModels[modelId])
+    if (!hasMissingModel) continue
+
+    result = {
+      ...result,
+      [providerId]: {
+        ...overlayModels,
+        ...existingModels,
+      },
+    }
   }
+
+  return result
 }

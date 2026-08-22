@@ -10,4 +10,20 @@ describe('getRegistryModelMeta', () => {
     setRuntimeRegistry({ claude: {} })
     expect(getRegistryModelMeta('claude', 'claude-3-haiku-20240307')?.maxOutput).toBe(4096)
   })
+
+  it('returns DeepSeek vision metadata when the cached catalog predates the model', () => {
+    setRuntimeRegistry({
+      deepseek: {
+        'deepseek-v4-flash': {
+          modelId: 'deepseek-v4-flash',
+          type: 'chat',
+          capabilities: ['reasoning', 'tool_use'],
+          contextWindow: 1_000_000,
+          maxOutput: 384_000,
+        },
+      },
+    })
+
+    expect(getRegistryModelMeta('deepseek', 'deepseek-v4-flash-vision-exp')?.capabilities).toContain('vision')
+  })
 })
