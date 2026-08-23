@@ -1288,6 +1288,7 @@
   "Expand view": "Ampliar vista",
   "Collapse other branches": "Contraer otras ramas",
   "Reply {{index}}": "Respuesta {{index}}",
+  "Branch {{index}}": "Rama {{index}}",
   "1 follow-up message": "1 mensaje de seguimiento",
   "{{count}} follow-up messages": "{{count}} mensajes de seguimiento",
   "Showing {{shown}} of {{total}} other replies": "Se muestran {{shown}} de {{total}} respuestas adicionales",

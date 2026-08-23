@@ -1,8 +1,10 @@
 import { SessionNotFoundError } from '@chatbox/core'
 import { withSessionGenerationLock } from '@chatbox/core/generation'
+import { getReachableSessionMessages } from '@chatbox/core/session/generation-state'
 import { isExpectedGenerationError } from '@shared/models/error-classification'
 import { BaseError, ChatboxAIAPIError } from '@shared/models/errors'
 import { extractStreamErrorMessage } from '@shared/models/utils/stream-error-message'
+import { planAttachmentOwnershipTransfers } from '@shared/session-attachment-rag/ownership'
 import { supportsSessionGeneration } from '@shared/session/capabilities'
 import { findMessageLocation } from '@shared/session/message-forks'
 import { createMessage, type Message } from '@shared/types'
@@ -189,7 +191,25 @@ export async function removeMessage(sessionId: string, messageId: string) {
   }
   if (platform.isDesktopLike) {
     try {
-      await platform.getSessionAttachmentRagController().deleteMessageAttachments(messageId)
+      const controller = platform.getSessionAttachmentRagController()
+      // Save & Resend versioning lets several messages share one indexed
+      // attachment row. Rebind shared rows to a surviving reference first so
+      // the delete-by-owner below (and later orphan maintenance) only takes
+      // down rows nobody references any more.
+      const removedMessage = location?.list[location.index]
+      if (session && removedMessage) {
+        for (const transfer of planAttachmentOwnershipTransfers(
+          [removedMessage],
+          getReachableSessionMessages(session)
+        )) {
+          await controller.rebindAttachment({
+            attachmentId: transfer.attachmentId,
+            sessionId,
+            messageId: transfer.messageId,
+          })
+        }
+      }
+      await controller.deleteMessageAttachments(messageId)
     } catch (error) {
       console.warn('Failed to cleanup session attachment RAG entries for message deletion:', error)
     }

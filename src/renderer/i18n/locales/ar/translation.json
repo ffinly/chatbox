@@ -1288,6 +1288,7 @@
   "Expand view": "توسيع العرض",
   "Collapse other branches": "طي الفروع الأخرى",
   "Reply {{index}}": "الرد {{index}}",
+  "Branch {{index}}": "الفرع {{index}}",
   "1 follow-up message": "رسالة متابعة واحدة",
   "{{count}} follow-up messages": "{{count}} من رسائل المتابعة",
   "Showing {{shown}} of {{total}} other replies": "يتم عرض {{shown}} من أصل {{total}} من الردود الأخرى",

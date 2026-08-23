@@ -171,6 +171,23 @@ export interface SessionAttachmentRagDebugSnapshot {
   }>
 }
 
+export interface SessionAttachmentOwnershipClaim {
+  attachmentId: number
+  sessionId: string
+  messageId: string
+}
+
+export interface SessionAttachmentRagMaintenanceScope {
+  sessionIds: string[]
+  messageIds: string[]
+  /**
+   * One live (session, message) claim per indexed attachment id. Rows whose
+   * recorded owner is gone but that a claim can still place are rebound rather
+   * than swept, so a shared attachment survives an owner removal on its own.
+   */
+  attachmentReferences: SessionAttachmentOwnershipClaim[]
+}
+
 export interface SessionAttachmentRagMaintenanceResult {
   interruptedFailedCount: number
   canceledPurgedCount: number

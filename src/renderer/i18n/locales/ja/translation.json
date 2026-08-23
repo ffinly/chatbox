@@ -1288,6 +1288,7 @@
   "Expand view": "展開して表示",
   "Collapse other branches": "他の分岐を折りたたむ",
   "Reply {{index}}": "回答 {{index}}",
+  "Branch {{index}}": "分岐 {{index}}",
   "1 follow-up message": "後続メッセージ 1 件",
   "{{count}} follow-up messages": "後続メッセージ {{count}} 件",
   "Showing {{shown}} of {{total}} other replies": "他の回答 {{total}} 件中 {{shown}} 件を表示",

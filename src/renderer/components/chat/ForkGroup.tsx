@@ -136,30 +136,47 @@ export default function ForkGroup(props: ForkGroupProps) {
       return []
     }
 
-    const firstReplyIndex = list.messages.findIndex(
-      (message) => message.role === 'assistant' && !message.isSummary && !message.isForkMarker
-    )
-    const firstReply = list.messages[firstReplyIndex]
-    if (!firstReply) {
+    // The preview starts at the branch's first real message, whatever its
+    // role: Reply Again branches lead with an assistant candidate, while Save
+    // & Resend branches lead with the original (pre-edit) prompt — exactly
+    // what tells those branches apart. A prompt-headed branch also previews
+    // the first reply below it, so the card reads as a question/answer pair.
+    const headIndex = list.messages.findIndex((message) => !message.isSummary && !message.isForkMarker)
+    const head = list.messages[headIndex]
+    if (!head) {
       return []
     }
+    const pairedReply =
+      head.role === 'user'
+        ? list.messages.find(
+            (message, messageIndex) =>
+              messageIndex > headIndex && message.role === 'assistant' && !message.isSummary && !message.isForkMarker
+          )
+        : undefined
+    const previewedIds = new Set(pairedReply ? [head.id, pairedReply.id] : [head.id])
 
-    // A branch saved mid-stream can hold live candidates *after* a completed
-    // first reply (flat Reply Below, then switching an earlier fork). Render
+    // A branch saved mid-stream can hold live candidates beyond the previewed
+    // messages (flat Reply Below, then switching an earlier fork). Render
     // those follow-ups too — hiding them would make the revealed card look
     // finished while it still streams and strip their per-reply stop controls.
     const shownFollowups = list.messages.filter(
       (message, messageIndex) =>
-        messageIndex > firstReplyIndex && (message.generating === true || revealedFollowupIds.has(message.id))
+        messageIndex > headIndex &&
+        !previewedIds.has(message.id) &&
+        (message.generating === true || revealedFollowupIds.has(message.id))
     )
 
     return [
       {
         list,
         index,
-        firstReply,
+        head,
+        pairedReply,
         shownFollowups,
-        followupCount: Math.max(0, list.messages.length - firstReplyIndex - 1 - shownFollowups.length),
+        followupCount: Math.max(
+          0,
+          list.messages.length - headIndex - 1 - (pairedReply ? 1 : 0) - shownFollowups.length
+        ),
       },
     ]
   })
@@ -297,7 +314,7 @@ export default function ForkGroup(props: ForkGroupProps) {
           navigation
         )}
       </Flex>
-      {visibleBranches.map(({ list, index, firstReply, shownFollowups, followupCount }) => {
+      {visibleBranches.map(({ list, index, head, pairedReply, shownFollowups, followupCount }) => {
         const switchButton = (
           <Button
             variant="subtle"
@@ -321,7 +338,9 @@ export default function ForkGroup(props: ForkGroupProps) {
           >
             <Flex justify="space-between" align="center" gap="xs" wrap="wrap" px="xs" pb="xxs">
               <Text size="xs" c="chatbox-tertiary">
-                {t('Reply {{index}}', { index: index + 1 })}
+                {head.role === 'user'
+                  ? t('Branch {{index}}', { index: index + 1 })
+                  : t('Reply {{index}}', { index: index + 1 })}
               </Text>
               <Flex gap="xs" align="center" justify="flex-end" wrap="wrap">
                 {followupCount > 0 && (
@@ -341,8 +360,8 @@ export default function ForkGroup(props: ForkGroupProps) {
               </Flex>
             </Flex>
             <Message
-              id={firstReply.id}
-              msg={firstReply}
+              id={head.id}
+              msg={head}
               sessionId={sessionId}
               sessionType={sessionType}
               buttonGroup="none"
@@ -353,6 +372,21 @@ export default function ForkGroup(props: ForkGroupProps) {
               assistantAvatarKey={assistantAvatarKey}
               sessionPicUrl={sessionPicUrl}
             />
+            {pairedReply && (
+              <Message
+                id={pairedReply.id}
+                msg={pairedReply}
+                sessionId={sessionId}
+                sessionType={sessionType}
+                buttonGroup="none"
+                readOnly
+                allowGeneratingStop
+                sessionLocks={sessionLocks}
+                sessionMode={sessionMode}
+                assistantAvatarKey={assistantAvatarKey}
+                sessionPicUrl={sessionPicUrl}
+              />
+            )}
             {shownFollowups.map((followup) => (
               <Message
                 key={followup.id}

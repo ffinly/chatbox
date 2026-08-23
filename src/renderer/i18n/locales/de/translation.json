@@ -1288,6 +1288,7 @@
   "Expand view": "Ansicht erweitern",
   "Collapse other branches": "Andere Zweige einklappen",
   "Reply {{index}}": "Antwort {{index}}",
+  "Branch {{index}}": "Zweig {{index}}",
   "1 follow-up message": "1 Folgenachricht",
   "{{count}} follow-up messages": "{{count}} Folgenachrichten",
   "Showing {{shown}} of {{total}} other replies": "{{shown}} von {{total}} anderen Antworten werden angezeigt",

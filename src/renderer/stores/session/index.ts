@@ -39,18 +39,26 @@ export {
 } from './crud'
 // Export operations
 export { exportSessionChat } from './export'
-// Fork operations (6 functions)
-export { createNewFork, deleteFork, expandFork, findMessageLocation, switchFork, switchForkTo } from './forks'
+// Fork operations (7 functions)
+export {
+  createNewFork,
+  createSaveAndResendFork,
+  deleteFork,
+  expandFork,
+  findMessageLocation,
+  switchFork,
+  switchForkTo,
+} from './forks'
 // Generation operations (8 functions)
 export {
   generate,
   generateMore,
-  generateMoreInNewFork,
   genMessageContext,
   getMessageThreadContext,
   getSessionWebBrowsing,
   regenerateInNewFork,
   retryFromLastToolCallAfterApiError,
+  saveAndResendMessage,
 } from './generation'
 export type { GenerationCancellationDependencies } from './generation-cancellation'
 export { stopAllMessageGenerations, stopMessageGeneration } from './generation-cancellation'

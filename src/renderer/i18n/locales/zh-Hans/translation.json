@@ -1288,6 +1288,7 @@
   "Expand view": "展开查看",
   "Collapse other branches": "折叠其他分支",
   "Reply {{index}}": "回答 {{index}}",
+  "Branch {{index}}": "分支 {{index}}",
   "1 follow-up message": "还有 1 条后续消息",
   "{{count}} follow-up messages": "还有 {{count}} 条后续消息",
   "Showing {{shown}} of {{total}} other replies": "已显示其他回答中的 {{shown}} / {{total}} 条",

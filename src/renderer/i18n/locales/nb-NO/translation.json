@@ -1288,6 +1288,7 @@
   "Expand view": "Utvid visningen",
   "Collapse other branches": "Skjul andre grener",
   "Reply {{index}}": "Svar {{index}}",
+  "Branch {{index}}": "Gren {{index}}",
   "1 follow-up message": "1 oppfølgingsmelding",
   "{{count}} follow-up messages": "{{count}} oppfølgingsmeldinger",
   "Showing {{shown}} of {{total}} other replies": "Viser {{shown}} av {{total}} andre svar",

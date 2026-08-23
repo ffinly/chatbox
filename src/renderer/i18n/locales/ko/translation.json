@@ -1288,6 +1288,7 @@
   "Expand view": "펼쳐 보기",
   "Collapse other branches": "다른 분기 접기",
   "Reply {{index}}": "답변 {{index}}",
+  "Branch {{index}}": "분기 {{index}}",
   "1 follow-up message": "후속 메시지 1개",
   "{{count}} follow-up messages": "후속 메시지 {{count}}개",
   "Showing {{shown}} of {{total}} other replies": "다른 답변 {{total}}개 중 {{shown}}개 표시",

@@ -1288,6 +1288,7 @@
   "Expand view": "Espandi vista",
   "Collapse other branches": "Comprimi gli altri rami",
   "Reply {{index}}": "Risposta {{index}}",
+  "Branch {{index}}": "Ramo {{index}}",
   "1 follow-up message": "1 messaggio successivo",
   "{{count}} follow-up messages": "{{count}} messaggi successivi",
   "Showing {{shown}} of {{total}} other replies": "Visualizzate {{shown}} di {{total}} altre risposte",

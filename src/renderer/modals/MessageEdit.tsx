@@ -10,7 +10,7 @@ import { AssistantAvatar, SystemAvatar, UserAvatar } from '@/components/common/A
 import { rendererApplication } from '@/app/renderer-application'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { getSessionLockStateNow } from '@/stores/session/action-guard'
-import { generateMoreInNewFork } from '@/stores/session/generation'
+import { saveAndResendMessage } from '@/stores/session/generation'
 import { modifyMessage } from '@/stores/session/messages'
 import * as toastActions from '@/stores/toastActions'
 import { notifySessionLockBlocked } from '@/utils/session-lock-copy'
@@ -184,9 +184,9 @@ const MessageEditModal = ({
     // regenerate-class action. Blocking keeps the modal open — the edit and
     // the resend intent both survive instead of being silently downgraded.
     // (A stream that starts in the instant after this check is caught by the
-    // store-side guard inside generateMoreInNewFork; in that residual race
-    // the edit is saved and only the resend is stopped, with the standard
-    // notice.)
+    // store-side guard inside saveAndResendMessage; in that residual race
+    // the edit is saved in place and only the resend is stopped, with the
+    // standard notice.)
     const liveMessage = await findLiveMessage()
     const locks = liveMessage === 'missing' ? null : await getSessionLockStateNow(sessionId)
     if (liveMessage === 'missing' || !locks) {
@@ -200,9 +200,8 @@ const MessageEditModal = ({
       void notifySessionLockBlocked(gate.reason, t)
       return
     }
-    void modifyMessage(sessionId, msg, true)
     onClose()
-    void generateMoreInNewFork(sessionId, msg.id)
+    void saveAndResendMessage(sessionId, msg)
   }
 
   const onContentPartInput = (index: number, text: string) => {

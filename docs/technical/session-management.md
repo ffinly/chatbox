@@ -212,7 +212,7 @@ Web browsing、知识库、Agent Mode、Jotai atom、滚动位置和 Sandbox art
 - **上下文构建**（`genMessageContext`）：收集当前消息、线程历史、系统提示词、知识库检索结果等，构建发送给模型的完整上下文。
 - **流式生成**（`generate`）：调用 AI 模型生成回复，支持流式响应、工具调用、图片生成等多种模式。
 - **继续生成**（`generateMore`）：在当前消息后继续生成新回复。
-- **分叉生成**（`generateMoreInNewFork` / `regenerateInNewFork`）：创建新分支后在分支中生成，保留原始回复。
+- **分叉生成**（`regenerateInNewFork` / `saveAndResendMessage`）：以前驱消息为 pivot 把旧回复存入分支后生成；编辑重发（Save & Resend）会把原始提问连同旧回复一起留在分支里，编辑后的内容以新消息进入活跃路径。
 
 ---
 

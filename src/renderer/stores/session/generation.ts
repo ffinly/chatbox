@@ -5,14 +5,17 @@ import type { AttachmentResolver } from '@shared/context/types'
 import { supportsSessionGeneration } from '@shared/session/capabilities'
 import { findMessageContext } from '@shared/session/message-forks'
 import { type CompactionPoint, createMessage, type Message, type Session, type SessionSettings } from '@shared/types'
+import { countMessageWords } from '@shared/utils/message'
+import { v4 as uuidv4 } from 'uuid'
 import { currentGenerationService } from '@/adapters/CurrentGenerationService'
 import { rendererApplication } from '@/app/renderer-application'
 import { assessContextPressure, getConfiguredContextWindow } from '@/packages/context-management/context-pressure'
+import { estimateTokensFromMessages } from '@/packages/token'
 import { settingsStore } from '@/stores/settingsStore'
 import { guardSessionAction } from './action-guard'
 import { createAttachmentResolver } from './attachment-resolver'
-import { createNewFork, findMessageLocation } from './forks'
-import { insertMessageAfter } from './messages'
+import { createNewFork, createSaveAndResendFork, findMessageLocation } from './forks'
+import { insertMessageAfter, modifyMessage } from './messages'
 import { getSessionSettings } from './session-settings'
 import type { AgentModeEntrySource } from './types'
 
@@ -95,23 +98,51 @@ export async function generateMore(sessionId: string, msgId: string) {
   return generateReplyBelowWithoutSessionLock(sessionId, msgId)
 }
 
-export function generateMoreInNewFork(sessionId: string, msgId: string) {
-  // Save & Resend resolves the target again inside the session lock. The
-  // target may have started streaming since the editor's pre-check, including
-  // the short window before its AbortController is registered.
+/**
+ * Fall back to keeping the edit without resending it. MessageEdit closes as
+ * soon as it hands the edit over and void-calls the action, so any failure on
+ * the resend path would otherwise take the user's text with it; the write path
+ * re-reads the session on its own, and a failure there leaves nothing to
+ * recover with — the caller cannot observe rejections either way.
+ */
+async function saveEditWithoutResend(sessionId: string, editedMessage: Message) {
+  try {
+    await modifyMessage(sessionId, editedMessage, true)
+  } catch (error) {
+    console.warn('Failed to save the edited message after Save & Resend was aborted:', error)
+  }
+}
+
+/**
+ * Save & Resend: version the edited message instead of overwriting it in
+ * place. [original, ...old tail] are preserved as a fork branch under the
+ * predecessor (same pivot convention as regenerateInNewFork) and the edited
+ * copy — a NEW message id — heads the fresh active tail before getting its
+ * reply, so the stored branch keeps the prompt its replies actually answered.
+ * Targets without an eligible predecessor (conversation-first message) keep
+ * the legacy shape: overwrite in place, old replies forked under the target.
+ */
+export function saveAndResendMessage(
+  sessionId: string,
+  editedMessage: Message,
+  options?: { runGenerateMore?: GenerateMoreFn }
+) {
+  const runGenerateMore = options?.runGenerateMore ?? generateReplyBelowWithoutSessionLock
+  // The target is resolved again inside the session lock. It may have started
+  // streaming since the editor's pre-check, including the short window before
+  // its AbortController is registered.
   return withSessionGenerationLock(sessionId, async () => {
     let session: Session | null
     try {
       session = await rendererApplication.sessionQueryBridge.getSession(sessionId)
     } catch {
-      // MessageEdit intentionally void-calls this action. Keep storage/query
-      // read failures from escaping as unhandled rejections.
+      await saveEditWithoutResend(sessionId, editedMessage)
       return
     }
     if (!session || !supportsSessionGeneration(session.type)) {
       return
     }
-    const location = findMessageLocation(session, msgId)
+    const location = findMessageLocation(session, editedMessage.id)
     if (!location) {
       return
     }
@@ -124,10 +155,36 @@ export function generateMoreInNewFork(sessionId: string, msgId: string) {
         session
       ))
     ) {
+      // Only the resend is blocked; the edit is still saved so the user's
+      // text survives the race.
+      await saveEditWithoutResend(sessionId, editedMessage)
       return
     }
-    await createNewFork(sessionId, msgId)
-    await generateReplyBelowWithoutSessionLock(sessionId, msgId)
+    const replacement: Message = {
+      ...editedMessage,
+      id: uuidv4(),
+      timestamp: Date.now(),
+      wordCount: countMessageWords(editedMessage),
+      tokenCount: estimateTokensFromMessages([editedMessage]),
+      tokenCountMap: undefined,
+    }
+    let forked: boolean
+    try {
+      forked = await createSaveAndResendFork(sessionId, editedMessage.id, replacement)
+    } catch {
+      // The fork write only rejects when nothing reached storage, so the edit
+      // still exists in this call alone. Save it where the original prompt
+      // also still is, instead of losing it with the resend.
+      await saveEditWithoutResend(sessionId, editedMessage)
+      return
+    }
+    if (forked) {
+      await runGenerateMore(sessionId, replacement.id)
+      return
+    }
+    await modifyMessage(sessionId, editedMessage, true)
+    await createNewFork(sessionId, editedMessage.id)
+    await runGenerateMore(sessionId, editedMessage.id)
   })
 }
 

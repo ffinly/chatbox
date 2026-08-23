@@ -18,7 +18,7 @@ vi.mock('@/app/renderer-application', async () => {
 vi.mock('./action-guard', () => ({ guardSessionAction: guardSessionActionMock }))
 vi.mock('uuid', () => ({ v4: vi.fn(() => 'id') }))
 
-import { deleteFork } from './forks'
+import { createSaveAndResendFork, deleteFork } from './forks'
 import { rendererApplication } from '@/app/renderer-application'
 
 const generationRuntimeStore = rendererApplication.generationRuntime
@@ -154,5 +154,47 @@ describe('fork runtime cleanup', () => {
 
     expect(runtime.abortController.signal).toMatchObject({ aborted: true, reason: 'fork-deleted' })
     expect(generationRuntimeStore.get(session.id, reply.id)).toBeUndefined()
+  })
+})
+
+describe('Save & Resend fork write', () => {
+  const original: Message = { id: 'user-1', role: 'user', contentParts: [{ type: 'text', text: 'original' }] }
+  const replacement: Message = { id: 'user-2', role: 'user', contentParts: [{ type: 'text', text: 'edited' }] }
+
+  function sessionWithPredecessor(): Session {
+    return {
+      id: 'session-1',
+      name: 'Session',
+      messages: [message('assistant-0'), original, message('assistant-1')],
+    }
+  }
+
+  beforeEach(() => {
+    updateSessionWithMessagesMock.mockReset()
+  })
+
+  it('reports the fork when the full Session persisted before metadata failed', async () => {
+    const session = sessionWithPredecessor()
+    let persistedSession: Session | undefined
+    updateSessionWithMessagesMock.mockImplementation((_sessionId, updater, options) => {
+      if (typeof updater !== 'function') throw new Error('Expected updater')
+      persistedSession = updater(session)
+      options?.onFullSessionPersisted?.(persistedSession)
+      return Promise.reject(new Error('metadata failed'))
+    })
+
+    await expect(createSaveAndResendFork(session.id, original.id, replacement)).resolves.toBe(true)
+
+    // The branch owns the original id, so the caller must not re-save the edit
+    // under it — that would overwrite the archived prompt in place.
+    const archived = Object.values(persistedSession?.messageForksHash ?? {}).flatMap((fork) => fork.lists)
+    expect(archived.some((list) => list.messages[0]?.id === original.id)).toBe(true)
+    expect(persistedSession?.messages.at(-1)).toMatchObject({ id: replacement.id })
+  })
+
+  it('rejects when the write fails before anything is persisted', async () => {
+    updateSessionWithMessagesMock.mockRejectedValue(new Error('storage failed'))
+
+    await expect(createSaveAndResendFork('session-1', original.id, replacement)).rejects.toThrow('storage failed')
   })
 })

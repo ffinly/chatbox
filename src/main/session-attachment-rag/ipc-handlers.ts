@@ -1,4 +1,4 @@
-import type { SessionAttachmentQueryPlan } from '@shared/types'
+import type { SessionAttachmentQueryPlan, SessionAttachmentRagMaintenanceScope } from '@shared/types'
 import { embedMany } from 'ai'
 import { ipcMain } from 'electron'
 import { rerank } from '../../shared/models/rerank'
@@ -167,12 +167,16 @@ export function registerSessionAttachmentRagHandlers() {
 
   ipcMain.handle(
     'session-attachment-rag:run-maintenance',
-    async (_event, params: { sessionIds: string[]; messageIds: string[] }) => {
+    async (_event, params: SessionAttachmentRagMaintenanceScope) => {
       log.debug(
         `${SESSION_ATTACHMENT_RAG_LOG_PREFIX} [IPC] Run maintenance: sessions=${params.sessionIds.length}, messages=${params.messageIds.length}`
       )
       const canceledPurgedCount = await purgeCanceledSessionAttachments(50)
-      const orphanDeletedIds = await cleanupOrphanAttachments(params.sessionIds ?? [], params.messageIds ?? [])
+      const orphanDeletedIds = await cleanupOrphanAttachments(
+        params.sessionIds ?? [],
+        params.messageIds ?? [],
+        params.attachmentReferences ?? []
+      )
       return {
         interruptedFailedCount: 0,
         canceledPurgedCount,

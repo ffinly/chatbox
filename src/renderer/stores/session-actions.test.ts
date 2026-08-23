@@ -20,6 +20,8 @@ const { uuidQueue, uuidv4Mock } = vi.hoisted(() => {
 const {
   updateSessionWithMessages,
   updateSessionMock,
+  updateMessageMock,
+  insertMessageMock,
   createSessionMock,
   useSessionMock,
   getSessionMock,
@@ -34,6 +36,8 @@ const {
 } = vi.hoisted(() => ({
   updateSessionWithMessages: vi.fn(),
   updateSessionMock: vi.fn(),
+  updateMessageMock: vi.fn(),
+  insertMessageMock: vi.fn(),
   createSessionMock: vi.fn(),
   useSessionMock: vi.fn(),
   getSessionMock: vi.fn(),
@@ -95,6 +99,8 @@ vi.mock('@/app/renderer-application', async () => {
       sessions: {
         updateSessionWithMessages,
         updateSession: updateSessionMock,
+        updateMessage: updateMessageMock,
+        insertMessage: insertMessageMock,
         createSession: createSessionMock,
         listAllSessionsMeta: listAllSessionsMetaMock,
         archiveSessions: archiveSessionsMock,
@@ -619,7 +625,41 @@ describe('fork actions', () => {
     expect(runGenerateMore).toHaveBeenCalledWith(session.id, pivot.id)
   })
 
-  test('generateMoreInNewFork blocks Save & Resend when the target is in the pre-controller streaming window', async () => {
+  test('saveAndResendMessage versions the prompt under its predecessor', async () => {
+    // replacement id + seed/stored/new-active fork list ids.
+    uuidQueue.push('replacement-id', 'seed-list', 'stored-list', 'new-active-list')
+    const before = [makeMessage('u1', 'user'), makeMessage('a1', 'assistant')]
+    const original = makeMessage('u2', 'user')
+    const oldReply = makeMessage('a2', 'assistant')
+    const session: Session = {
+      id: 'session-save-resend',
+      name: 'Test',
+      messages: [...before, original, oldReply],
+    }
+
+    getSessionMock.mockResolvedValue(session)
+    let updated: Session | undefined
+    updateSessionWithMessages.mockImplementation(async (_, updater) => {
+      updated = updater(session) as Session
+      return updated
+    })
+    const runGenerateMore = vi.fn().mockResolvedValue(undefined)
+
+    const edited = { ...original, contentParts: [{ type: 'text' as const, text: 'edited prompt' }] }
+    await sessionActions.saveAndResendMessage(session.id, edited, { runGenerateMore })
+
+    // The edited copy replaces the tail under a new id; the original prompt
+    // and its replies survive as a branch keyed on the predecessor.
+    expect(updated?.messages.map((m) => m.id)).toEqual(['u1', 'a1', 'replacement-id'])
+    expect(updated?.messages.at(-1)?.contentParts).toEqual(edited.contentParts)
+    const fork = updated?.messageForksHash?.['a1']
+    expect(fork?.position).toBe(1)
+    expect(fork?.lists.map((list) => list.messages.map((m) => m.id))).toEqual([['u2', 'a2'], []])
+    expect(updateMessageMock).not.toHaveBeenCalled()
+    expect(runGenerateMore).toHaveBeenCalledWith(session.id, 'replacement-id')
+  })
+
+  test('saveAndResendMessage blocks the resend when the target is in the pre-controller streaming window', async () => {
     const pivot = makeMessage('pivot', 'user')
     const target = { ...makeMessage('target', 'assistant'), generating: true }
     const session: Session = {
@@ -630,14 +670,18 @@ describe('fork actions', () => {
 
     getSessionMock.mockResolvedValue(session)
 
-    await sessionActions.generateMoreInNewFork(session.id, target.id)
+    await sessionActions.saveAndResendMessage(session.id, target)
 
-    expect(getSessionMock).toHaveBeenCalledTimes(1)
+    // The edit is still saved in place (user text survives); only the fork
+    // and the resend are blocked. The extra session read belongs to that
+    // in-place save.
+    expect(getSessionMock).toHaveBeenCalledTimes(2)
     expect(updateSessionWithMessages).not.toHaveBeenCalled()
+    expect(updateMessageMock).toHaveBeenCalledWith(session.id, target.id, expect.objectContaining({ id: target.id }))
     expect(toastMock).toHaveBeenCalledWith('Wait for the current replies to finish', 2500)
   })
 
-  test('generateMoreInNewFork stops when the Save & Resend target no longer exists', async () => {
+  test('saveAndResendMessage stops when the target no longer exists', async () => {
     const session: Session = {
       id: 'session-save-resend-missing',
       name: 'Test',
@@ -646,21 +690,42 @@ describe('fork actions', () => {
 
     getSessionMock.mockResolvedValue(session)
 
-    await sessionActions.generateMoreInNewFork(session.id, 'deleted-target')
+    await sessionActions.saveAndResendMessage(session.id, makeMessage('deleted-target', 'user'))
 
     expect(getSessionMock).toHaveBeenCalledTimes(1)
     expect(updateSessionWithMessages).not.toHaveBeenCalled()
     expect(toastMock).not.toHaveBeenCalled()
   })
 
-  test('generateMoreInNewFork stays rejection-free when the session read fails', async () => {
+  test('saveAndResendMessage still saves the edit when the session read fails', async () => {
+    const session: Session = {
+      id: 'session-save-resend-read-error',
+      name: 'Test',
+      messages: [makeMessage('target', 'user'), makeMessage('reply', 'assistant')],
+    }
+    getSessionMock.mockRejectedValueOnce(new Error('session read failed'))
+    getSessionMock.mockResolvedValue(session)
+    const edited = { ...makeMessage('target', 'user'), contentParts: [{ type: 'text' as const, text: 'edited' }] }
+
+    await expect(sessionActions.saveAndResendMessage(session.id, edited)).resolves.toBeUndefined()
+
+    // The failed guarded read falls back to a plain in-place save of the edit.
+    expect(updateMessageMock).toHaveBeenCalledWith(
+      session.id,
+      'target',
+      expect.objectContaining({ id: 'target', contentParts: [{ type: 'text', text: 'edited' }] })
+    )
+    expect(updateSessionWithMessages).not.toHaveBeenCalled()
+    expect(toastMock).not.toHaveBeenCalled()
+  })
+
+  test('saveAndResendMessage stays rejection-free when every session read fails', async () => {
     getSessionMock.mockRejectedValue(new Error('session read failed'))
 
     await expect(
-      sessionActions.generateMoreInNewFork('session-save-resend-read-error', 'target')
+      sessionActions.saveAndResendMessage('session-save-resend-read-error', makeMessage('target', 'user'))
     ).resolves.toBeUndefined()
 
-    expect(getSessionMock).toHaveBeenCalledTimes(1)
     expect(updateSessionWithMessages).not.toHaveBeenCalled()
     expect(toastMock).not.toHaveBeenCalled()
   })

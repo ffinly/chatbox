@@ -254,6 +254,52 @@ describe('ForkGroup', () => {
     expect(screen.getByRole('button', { name: 'Collapse other branches' })).toBeTruthy()
   })
 
+  test('previews a Save & Resend branch as its question/answer pair', () => {
+    renderGroup({
+      position: 0,
+      lists: [
+        { id: 'current', messages: [] },
+        {
+          id: 'resend-branch',
+          messages: [
+            message('old-prompt', { role: 'user' }),
+            message('old-reply'),
+            message('later-question', { role: 'user' }),
+          ],
+        },
+      ],
+      createdAt: 1,
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand view' }))
+
+    // The head is the original prompt (what tells branches apart), previewed
+    // together with the reply it actually received; the label says Branch,
+    // not Reply, and the remaining messages stay a count.
+    expect(screen.getByText('Branch 2')).toBeTruthy()
+    expect(screen.getByTestId('message-old-prompt')).toBeTruthy()
+    expect(screen.getByTestId('message-old-reply')).toBeTruthy()
+    expect(screen.queryByTestId('message-later-question')).toBeNull()
+    expect(screen.getByText('1 follow-up message')).toBeTruthy()
+  })
+
+  test('shows a prompt-only branch instead of dropping it from the preview', () => {
+    renderGroup({
+      position: 0,
+      lists: [
+        { id: 'current', messages: [] },
+        { id: 'unanswered', messages: [message('old-prompt', { role: 'user' })] },
+      ],
+      createdAt: 1,
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand view' }))
+
+    expect(screen.getByText('Branch 2')).toBeTruthy()
+    expect(screen.getByTestId('message-old-prompt')).toBeTruthy()
+    expect(screen.queryByText(/follow-up/)).toBeNull()
+  })
+
   test('renders live follow-up candidates in a revealed branch and keeps them after they finish', () => {
     const branchWithStreamingTail = (generating: boolean): ForkEntry => ({
       position: 0,

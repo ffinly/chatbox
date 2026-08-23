@@ -1288,6 +1288,7 @@
   "Expand view": "Развернуть просмотр",
   "Collapse other branches": "Свернуть другие ветки",
   "Reply {{index}}": "Ответ {{index}}",
+  "Branch {{index}}": "Ветка {{index}}",
   "1 follow-up message": "1 последующее сообщение",
   "{{count}} follow-up messages": "Последующих сообщений: {{count}}",
   "Showing {{shown}} of {{total}} other replies": "Показано {{shown}} из {{total}} других ответов",

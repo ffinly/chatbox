@@ -4,6 +4,8 @@ import { type Client, createClient } from '@libsql/client'
 import { LibSQLVector } from '@mastra/libsql'
 import { app } from 'electron'
 import { SESSION_ATTACHMENT_RAG_LOG_PREFIX } from '../../shared/session-attachment-rag/logging'
+import { planOrphanCleanup } from '../../shared/session-attachment-rag/ownership'
+import type { SessionAttachmentOwnershipClaim } from '../../shared/types'
 import { sentry } from '../adapters/sentry'
 import { getLogger } from '../util'
 
@@ -865,27 +867,31 @@ export async function clearAllSessionAttachments(): Promise<number> {
 
 export async function cleanupOrphanAttachments(
   validSessionIds: string[],
-  validMessageIds: string[]
+  validMessageIds: string[],
+  attachmentReferences: SessionAttachmentOwnershipClaim[] = []
 ): Promise<number[]> {
   const client = getDatabase()
-  const validSessionIdSet = new Set(validSessionIds)
-  const validMessageIdSet = new Set(validMessageIds)
   const rs = await client.execute({
     sql: 'SELECT id, session_id, message_id FROM session_attachment',
   })
 
-  const orphanIds = rs.rows
-    .map((row) => ({
+  const { deleteIds, repairs } = planOrphanCleanup(
+    rs.rows.map((row) => ({
       id: Number(row.id),
       sessionId: String(row.session_id),
       messageId: String(row.message_id),
-    }))
-    .filter((row) => !validSessionIdSet.has(row.sessionId) || !validMessageIdSet.has(row.messageId))
-    .map((row) => row.id)
+    })),
+    { sessionIds: validSessionIds, messageIds: validMessageIds, attachmentReferences }
+  )
 
-  await deleteAttachmentGraphsBatch(orphanIds)
+  // Repair before deleting: a row handed to a live message must never be swept
+  // in the same pass, and a failed repair leaves it for the next one.
+  for (const repair of repairs) {
+    await rebindSessionAttachment(repair.attachmentId, repair.sessionId, repair.messageId)
+  }
+  await deleteAttachmentGraphsBatch(deleteIds)
 
-  return orphanIds
+  return deleteIds
 }
 
 export async function getSessionAttachmentDebugSnapshot(): Promise<SessionAttachmentDebugSnapshot> {

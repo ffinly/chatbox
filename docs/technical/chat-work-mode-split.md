@@ -102,6 +102,20 @@
 
 UI 补丁：ForkGroup 对包含生成中消息的非活跃分支强制 reveal（切换保存回 slot 时 list id 不变，原有"新 id 才展开"的逻辑覆盖不到）。分支卡片除首条回复外还渲染 follow-up 尾部的流式候选（先平铺多条候选、再切走更早的分支时，live 流在 `firstReply` 之后）——否则卡片看起来已完成且没有单条停止入口；候选完成后保持可见（与分支级 sticky reveal 一致），折叠或切换分支时回到仅计数摘要，follow-up 计数只统计未展示的消息。
 
+### 阶段五：Save & Resend 消息版本化
+
+编辑用户消息后重发采用**消息版本化**，两个模式共用（工作模式下它还是唯一的编辑路径）：`buildSaveAndResendForkPatch`（shared）把 **[原消息, ...旧尾巴]** 整段存为**前驱消息**下的分支（pivot 跳过 summary，与 `regenerateInNewFork` 的既有约定一致），编辑后的内容以**新 id** 作为新活跃尾巴的开头再生成回复——每条时间线各自携带自己的 prompt，切回旧分支看到的仍是它当初回应的那句提问。fork + 替换在一次 session 写内完成，避免 prompt 在两次写之间闪断；fork 切换器因此落在前驱消息上（通常是上一条助手回复）。
+
+pivot 必须是前驱而非被编辑消息自身，这是数据模型强制的：分支只保存 pivot **之后**的尾巴，pivot 本身是各分支共享的主线，以被编辑消息为 pivot 会让改写后的 prompt 成为所有分支的共同前缀。同类产品的选型一致——pi 的会话树、ChatGPT / Open WebUI / LibreChat 的消息版本化、Claude Code / Codex CLI 的 rewind、deepseek-harness 的纯 append-only，没有一家把 prompt 覆写与"旧回复留作可切分支"并存。
+
+边界与回退（口径统一为**用户文本永不丢**）：
+
+- 无合法前驱（会话首条消息，或前面只有 summary）：就地覆写 + 在被编辑消息自身建分支。
+- guard 拦截、锁内 session 读失败、fork 写失败：仅就地保存编辑，不重发。编辑弹窗在交出内容后即关闭并 void-call 该动作，因此这条路径上的失败一律吞掉，不外抛未处理 rejection。
+- fork 写入的"部分成功"（session 数据已落盘、仅列表元数据投影失败）按成功处理并照常重发：分支此时已按原 id 持有原提问，就地保存反而会把归档的提问覆写成编辑后的文本。`createSaveAndResendFork` 因此只在**什么都没落盘**时才 reject。
+
+**共享 RAG 附件所有权**：版本化让原消息与副本引用同一条 `session_attachment` 索引行，而该行按 `message_id` 单一归属。删消息 / 删分支时先按 `planAttachmentOwnershipTransfers` 把幸存者仍引用的行 `rebindAttachment` 过去，再执行按 owner 的删除；孤儿维护则以"是否仍被活跃消息引用"而非"owner 是否可达"判定（`planOrphanCleanup`），被引用的行改为修复归属而不是删除。因此转移失败只影响时效，不会让幸存分支丢掉索引文件。
+
 ## 性能考量
 
 聊天模式重度用户的会话可达**数十 MB 文本、大量分支与 threads**，以下是各改动的性能账：

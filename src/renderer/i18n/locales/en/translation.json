@@ -1288,6 +1288,7 @@
   "Expand view": "Expand view",
   "Collapse other branches": "Collapse other branches",
   "Reply {{index}}": "Reply {{index}}",
+  "Branch {{index}}": "Branch {{index}}",
   "1 follow-up message": "1 follow-up message",
   "{{count}} follow-up messages": "{{count}} follow-up messages",
   "Showing {{shown}} of {{total}} other replies": "Showing {{shown}} of {{total}} other replies",

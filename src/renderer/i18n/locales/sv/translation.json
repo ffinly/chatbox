@@ -1288,6 +1288,7 @@
   "Expand view": "Expandera vyn",
   "Collapse other branches": "Fäll ihop andra grenar",
   "Reply {{index}}": "Svar {{index}}",
+  "Branch {{index}}": "Gren {{index}}",
   "1 follow-up message": "1 uppföljningsmeddelande",
   "{{count}} follow-up messages": "{{count}} uppföljningsmeddelanden",
   "Showing {{shown}} of {{total}} other replies": "Visar {{shown}} av {{total}} andra svar",
