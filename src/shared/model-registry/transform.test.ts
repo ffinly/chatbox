@@ -142,4 +142,20 @@ describe('DeepSeek compatibility overlays', () => {
     expect(registry.deepseek['deepseek-v4-flash-vision-exp']?.capabilities).toEqual(['vision'])
     expect(registry.deepseek['deepseek-v4-flash-vision-exp']?.contextWindow).toBe(2_000_000)
   })
+
+  it('adds vision capability when a stale catalog already lists the model without it', () => {
+    const registry = applyRegistryOverlays({
+      deepseek: {
+        'deepseek-v4-flash-vision-exp': {
+          modelId: 'deepseek-v4-flash-vision-exp',
+          type: 'chat',
+          capabilities: ['reasoning', 'tool_use'],
+          contextWindow: 1_000_000,
+          maxOutput: 384_000,
+        },
+      },
+    })
+
+    expect(registry.deepseek['deepseek-v4-flash-vision-exp']?.capabilities).toEqual(['reasoning', 'tool_use', 'vision'])
+  })
 })

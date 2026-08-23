@@ -68,20 +68,44 @@ const REGISTRY_OVERLAYS: ModelRegistryData = {
 /**
  * Merge compatibility metadata into a registry without overwriting live entries.
  */
+function mergeCompatibilityModel(existing: ModelMetadata | undefined, overlay: ModelMetadata): ModelMetadata {
+  if (!existing) return overlay
+
+  if (
+    overlay.modelId === 'deepseek-v4-flash-vision-exp' &&
+    overlay.capabilities.includes('vision') &&
+    !existing.capabilities.includes('vision')
+  ) {
+    return {
+      ...existing,
+      capabilities: [...existing.capabilities, 'vision'],
+    }
+  }
+
+  return existing
+}
+
 export function applyRegistryOverlays(registry: ModelRegistryData): ModelRegistryData {
   let result = registry
 
   for (const [providerId, overlayModels] of Object.entries(REGISTRY_OVERLAYS)) {
     const existingModels = result[providerId] ?? {}
-    const hasMissingModel = Object.keys(overlayModels).some((modelId) => !existingModels[modelId])
-    if (!hasMissingModel) continue
+    const nextModels = { ...existingModels }
+    let changed = false
 
-    result = {
-      ...result,
-      [providerId]: {
-        ...overlayModels,
-        ...existingModels,
-      },
+    for (const [modelId, overlayModel] of Object.entries(overlayModels)) {
+      const mergedModel = mergeCompatibilityModel(existingModels[modelId], overlayModel)
+      if (mergedModel !== existingModels[modelId]) {
+        nextModels[modelId] = mergedModel
+        changed = true
+      }
+    }
+
+    if (changed) {
+      result = {
+        ...result,
+        [providerId]: nextModels,
+      }
     }
   }
 

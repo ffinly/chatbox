@@ -26,4 +26,20 @@ describe('getRegistryModelMeta', () => {
 
     expect(getRegistryModelMeta('deepseek', 'deepseek-v4-flash-vision-exp')?.capabilities).toContain('vision')
   })
+
+  it('adds vision capability when a stale catalog already lists the model without it', () => {
+    setRuntimeRegistry({
+      deepseek: {
+        'deepseek-v4-flash-vision-exp': {
+          modelId: 'deepseek-v4-flash-vision-exp',
+          type: 'chat',
+          capabilities: ['reasoning', 'tool_use'],
+          contextWindow: 1_000_000,
+          maxOutput: 384_000,
+        },
+      },
+    })
+
+    expect(getRegistryModelMeta('deepseek', 'deepseek-v4-flash-vision-exp')?.capabilities).toContain('vision')
+  })
 })
