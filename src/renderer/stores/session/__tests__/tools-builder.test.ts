@@ -376,7 +376,8 @@ describe('buildToolsForSession', () => {
       expect(result.tools[name]).toBeUndefined()
     }
     expect(result.tools.code_execution).toBeDefined()
-    expect(result.instructions).toContain('## Git Commits')
+    expect(result.instructions).toContain('## Git')
+    expect(result.instructions).toContain('prefix its name with `chatbox/`')
     expect(result.instructions).toContain('Co-authored-by: Chatbox <chatbox@chatboxai.com>')
   })
 
