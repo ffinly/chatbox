@@ -82,6 +82,7 @@ export function createDefaultSettings(): Settings {
         queritApiKey: '',
         queritMaxResults: 5,
         queritTimeRange: 'none',
+        searxngBaseUrl: '',
       },
       knowledgeBase: {
         models: {

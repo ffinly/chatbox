@@ -10,6 +10,7 @@ import { BingNewsSearch } from './bing-news'
 import { BochaSearch } from './bocha'
 import { ChatboxSearch } from './chatbox-search'
 import { QueritSearch } from './querit'
+import { normalizeSearxngBaseUrl, SearxngSearch } from './searxng'
 import { TavilySearch } from './tavily'
 
 const MAX_CONTEXT_ITEMS = 10
@@ -63,6 +64,14 @@ function getSearchProviders() {
         )
       )
       break
+    case 'searxng': {
+      const searxngBaseUrl = normalizeSearxngBaseUrl(settings.webSearch.searxngBaseUrl ?? '')
+      if (!searxngBaseUrl) {
+        throw ChatboxAIAPIError.fromCodeName('searxng_base_url_required', 'searxng_base_url_required')
+      }
+      selectedProviders.push(new SearxngSearch(searxngBaseUrl))
+      break
+    }
     default:
       throw new Error(`Unsupported search provider: ${provider}`)
   }
@@ -118,10 +127,13 @@ export const webSearchExecutor = async (
   { query }: { query: string },
   { abortSignal }: { abortSignal?: AbortSignal }
 ) => {
-  const provider = getExtensionSettings().webSearch.provider
+  const webSearch = getExtensionSettings().webSearch
+  const provider = webSearch.provider
+  const cacheIdentity =
+    provider === 'searxng' ? `${provider}:${normalizeSearxngBaseUrl(webSearch.searxngBaseUrl ?? '')}` : provider
   const searchResults = await cachified({
     cache,
-    key: `search-context:${provider}:${query}`,
+    key: `search-context:${cacheIdentity}:${query}`,
     ttl: 1000 * 60 * 5,
     getFreshValue: () => _searchRelatedResults(query, abortSignal),
   })

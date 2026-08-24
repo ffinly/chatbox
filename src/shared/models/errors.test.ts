@@ -138,6 +138,7 @@ describe('ChatboxAIAPIError', () => {
     [10004, 'token_quota_exhausted'],
     [20039, 'free_token_quota_exhausted'],
     [20040, 'free_agent_mode_token_quota_exhausted'],
+    [20036, 'searxng_base_url_required'],
     [MESSAGE_ERROR_CODES.FILE_PREPROCESS_FAILED, 'file_preprocess_failed'],
     [MESSAGE_ERROR_CODES.FILE_STORAGE_QUOTA_EXCEEDED, 'file_storage_quota_exceeded'],
     [MESSAGE_ERROR_CODES.EMPTY_ATTACHMENT_CONTENT, 'empty_attachment_content'],

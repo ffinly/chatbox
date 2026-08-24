@@ -318,7 +318,6 @@ export class ChatboxAIAPIError extends BaseError {
     },
     file_storage_quota_exceeded: {
       name: 'file_storage_quota_exceeded',
-      // 20036 reserved by searxng_base_url_required (PR #794, unmerged)
       code: MESSAGE_ERROR_CODES.FILE_STORAGE_QUOTA_EXCEEDED,
       i18nKey:
         'Storage is full. Delete some old conversations or large attachments, or free up device space, then try again.',
@@ -328,6 +327,12 @@ export class ChatboxAIAPIError extends BaseError {
       code: 20035,
       i18nKey:
         'You have selected BoCha as the search provider, but an API key has not been entered yet. Please <OpenExtensionSettingButton>click here to open Settings</OpenExtensionSettingButton> and enter your API key, or choose a different search provider.',
+    },
+    searxng_base_url_required: {
+      name: 'searxng_base_url_required',
+      code: 20036,
+      i18nKey:
+        'You have selected SearXNG as the search provider, but an instance URL has not been entered yet. Please <OpenExtensionSettingButton>click here to open Settings</OpenExtensionSettingButton> and enter your SearXNG instance URL, or choose a different search provider.',
     },
     parse_link_failed: {
       name: 'parse_link_failed',

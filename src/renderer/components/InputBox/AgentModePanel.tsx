@@ -1,7 +1,7 @@
+import { hasConversationStarted, resolveSessionMode } from '@chatbox/core/session/mode-policy'
 import { ActionIcon, Badge, Button, Divider, Flex, Group, Loader, Stack, Switch, Text } from '@mantine/core'
 import { TestId } from '@shared/automation/testids'
 import type { AgentModeValue, KnowledgeBase } from '@shared/types'
-import { hasConversationStarted, resolveSessionMode } from '@chatbox/core/session/mode-policy'
 import {
   IconCheck,
   IconChevronRight,
@@ -150,6 +150,7 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
   const tavilyApiKey = useSettingsStore((s) => s.extension.webSearch.tavilyApiKey)
   const bochaApiKey = useSettingsStore((s) => s.extension.webSearch.bochaApiKey)
   const queritApiKey = useSettingsStore((s) => s.extension.webSearch.queritApiKey)
+  const searxngBaseUrl = useSettingsStore((s) => s.extension.webSearch.searxngBaseUrl)
   const webSearchProviderLabel =
     WEB_SEARCH_PROVIDERS.find((p) => p.value === webSearchProvider)?.label ?? webSearchProvider
 
@@ -177,9 +178,10 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
       if (provider === 'tavily') return !!tavilyApiKey
       if (provider === 'bocha') return !!bochaApiKey
       if (provider === 'querit') return !!queritApiKey
+      if (provider === 'searxng') return !!searxngBaseUrl?.trim()
       return true
     },
-    [bochaApiKey, licenseKey, queritApiKey, tavilyApiKey]
+    [bochaApiKey, licenseKey, queritApiKey, searxngBaseUrl, tavilyApiKey]
   )
 
   // MCP state
