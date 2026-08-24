@@ -3,11 +3,12 @@ import { ActionIcon, Badge, Box, Button, Flex, Text, Textarea } from '@mantine/c
 import { TestId } from '@shared/automation/testids'
 import type { Message } from '@shared/types'
 import { IconAlertCircle, IconArrowUp, IconClockHour4, IconPaperclip, IconPencil, IconX } from '@tabler/icons-react'
-import { memo, useEffect, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useStore } from 'zustand'
 import { AppTooltip as Tooltip } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { useSessionAgentMode } from '@/stores/session/agent-mode'
 import {
   clearPendingQueuedMessages,
   isSteerableQueuedMessage,
@@ -21,7 +22,6 @@ import {
   updateQueuedMessageText,
   wakeQueuedUserMessages,
 } from '@/stores/session/message-queue'
-import { useSessionAgentMode } from '@/stores/session/agent-mode'
 import { ScalableIcon } from '../common/ScalableIcon'
 
 function getQueuedMessageText(message: Message): string {
@@ -68,9 +68,18 @@ function QueuedItemRow({ sessionId, item, order, paused, steeringEnabled }: Queu
   const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
+  const editorRef = useRef<HTMLDivElement>(null)
 
   const attachmentCount = countQueuedAttachments(item.message)
   const steerable = steeringEnabled && isSteerableQueuedMessage(item.message) && !paused && !item.steerRequested
+
+  // The editor is much taller than the collapsed row, so it can extend past
+  // the bottom of the scroll area it expands inside.
+  useEffect(() => {
+    if (editing) {
+      editorRef.current?.scrollIntoView({ block: 'nearest' })
+    }
+  }, [editing])
 
   const startEdit = () => {
     setDraft(getQueuedMessageText(item.message))
@@ -88,7 +97,11 @@ function QueuedItemRow({ sessionId, item, order, paused, steeringEnabled }: Queu
 
   if (editing) {
     return (
-      <Box data-testid={TestId.chat.queuedMessageItem} className="rounded-md bg-chatbox-background-primary px-2 py-1.5">
+      <Box
+        ref={editorRef}
+        data-testid={TestId.chat.queuedMessageItem}
+        className="rounded-md bg-chatbox-background-primary px-2 py-1.5"
+      >
         <Textarea
           value={draft}
           onChange={(event) => setDraft(event.currentTarget.value)}
@@ -223,6 +236,8 @@ export const QueuedMessagesBar = memo(function QueuedMessagesBar({ sessionId }: 
   // but never offers queue-jumping — steering is a work-mode capability.
   const agentModeEntry = useSessionAgentMode(sessionId)
   const steeringEnabled = isActionAvailableInMode('steer-queued-message', resolveSessionMode(agentModeEntry.value))
+  const listRef = useRef<HTMLDivElement>(null)
+  const previousTailRef = useRef<{ id: string | undefined; count: number } | null>(null)
 
   // Covers entries restored from persistence after an app restart: no enqueue
   // rekicks the drain, so nudge it when the bar appears (no-op while paused,
@@ -234,6 +249,23 @@ export const QueuedMessagesBar = memo(function QueuedMessagesBar({ sessionId }: 
   // In-flight items are already being delivered (their reply is streaming);
   // showing them as "will send later" would be misleading.
   const visibleQueue = queue?.filter((item) => !item.inFlight)
+  const visibleCount = visibleQueue?.length ?? 0
+  const tailId = visibleQueue?.at(-1)?.id
+
+  // A longer list ending on a new id is the shape a local append takes, and
+  // only the local user appends — so that is the one case worth scrolling for.
+  // Counting alone would also fire when a failed delivery clears `inFlight` and
+  // returns an item to the head, scrolling away from the very item retried
+  // next. The first run is the baseline: a queue restored from persistence
+  // stays at its head, which is what sends next.
+  useEffect(() => {
+    const list = listRef.current
+    const previous = previousTailRef.current
+    previousTailRef.current = { id: tailId, count: visibleCount }
+    if (list && previous && tailId !== previous.id && visibleCount > previous.count) {
+      list.scrollTop = list.scrollHeight
+    }
+  }, [tailId, visibleCount])
 
   if (!visibleQueue?.length) {
     return null
@@ -282,7 +314,15 @@ export const QueuedMessagesBar = memo(function QueuedMessagesBar({ sessionId }: 
           </Button>
         </Flex>
       </Flex>
-      <Flex direction="column" gap={3} mt={6}>
+      <Flex
+        ref={listRef}
+        direction="column"
+        gap={3}
+        mt={6}
+        // A full queue is 20 rows tall — cap it so the bar never crowds out the
+        // conversation, and cut the last visible row to hint at the overflow.
+        className="max-h-[min(30vh,180px)] overflow-y-auto"
+      >
         {visibleQueue.map((item, index) => (
           <QueuedItemRow
             key={item.id}
