@@ -32,6 +32,12 @@ describe('automation test ID contract', () => {
         TestId.message.forkPrevious,
         TestId.message.forkCounter,
         TestId.message.forkNext,
+        TestId.settings.providerList,
+        TestId.settings.providerItem,
+        TestId.settings.addProvider,
+        TestId.settings.providerApiKey,
+        TestId.settings.providerApiHost,
+        TestId.settings.providerModelFetch,
       ])
     )
   })

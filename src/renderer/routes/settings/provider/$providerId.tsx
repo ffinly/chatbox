@@ -12,6 +12,7 @@ import {
   TextInput,
   Title,
 } from '@mantine/core'
+import { TestId } from '@shared/automation/testids'
 import { SystemProviders } from '@shared/defaults'
 import { type OAuthProviderInfo, toOAuthProviderId, toOAuthSettingsProviderId } from '@shared/oauth'
 import { getProviderDefinition } from '@shared/providers'
@@ -508,6 +509,7 @@ function ProviderSettings({ providerId }: { providerId: string }) {
             }}
           >
             <Button
+              data-testid={TestId.settings.providerDelete}
               variant="transparent"
               size="compact-xs"
               leftSection={<ScalableIcon icon={IconTrash} size={24} />}
@@ -536,6 +538,7 @@ function ProviderSettings({ providerId }: { providerId: string }) {
                 {t('Name')}
               </Text>
               <TextInput
+                data-testid={TestId.settings.providerName}
                 flex={1}
                 value={baseInfo.name}
                 onChange={(e) => {
@@ -553,6 +556,7 @@ function ProviderSettings({ providerId }: { providerId: string }) {
                 {t('API Mode')}
               </Text>
               <AdaptiveSelect
+                data-testid={TestId.settings.providerApiMode}
                 value={baseInfo.type}
                 onChange={(value) => {
                   setSettings({
@@ -678,6 +682,7 @@ function ProviderSettings({ providerId }: { providerId: string }) {
               </Flex>
               <Flex gap="xs" align="center">
                 <PasswordInput
+                  data-testid={TestId.settings.providerApiKey}
                   flex={1}
                   value={providerSettings?.apiKey || ''}
                   onChange={handleApiKeyChange}
@@ -695,6 +700,7 @@ function ProviderSettings({ providerId }: { providerId: string }) {
                   }
                 >
                   <Button
+                    data-testid={TestId.settings.providerCheck}
                     size="sm"
                     disabled={isOAuthActive || !providerSettings?.apiKey || displayModels.length === 0}
                     loading={modelTestResult?.testing || false}
@@ -720,6 +726,7 @@ function ProviderSettings({ providerId }: { providerId: string }) {
             </Flex>
             <Flex gap="xs" align="center">
               <TextInput
+                data-testid={TestId.settings.providerApiHost}
                 flex={1}
                 value={providerSettings?.apiHost || baseInfo.defaultSettings?.apiHost || ''}
                 onChange={handleApiHostChange}
@@ -748,6 +755,7 @@ function ProviderSettings({ providerId }: { providerId: string }) {
                   </Flex>
                   <Flex gap="xs" align="center">
                     <TextInput
+                      data-testid={TestId.settings.providerApiHost}
                       flex={1}
                       value={providerSettings?.apiHost}
                       placeholder={baseInfo.defaultSettings?.apiHost}
@@ -768,6 +776,7 @@ function ProviderSettings({ providerId }: { providerId: string }) {
                   </Flex>
                   <Flex gap="xs" align="center">
                     <TextInput
+                      data-testid={TestId.settings.providerApiPath}
                       flex={1}
                       value={providerSettings?.apiPath}
                       onChange={handleApiPathChange}
@@ -825,6 +834,7 @@ function ProviderSettings({ providerId }: { providerId: string }) {
               </Text>
               <Flex gap="xs" align="center">
                 <TextInput
+                  data-testid={TestId.settings.providerAzureEndpoint}
                   flex={1}
                   value={providerSettings?.endpoint}
                   placeholder="https://<resource_name>.openai.azure.com/"
@@ -851,6 +861,7 @@ function ProviderSettings({ providerId }: { providerId: string }) {
               </Text>
               <Flex gap="xs" align="center">
                 <TextInput
+                  data-testid={TestId.settings.providerAzureApiVersion}
                   flex={1}
                   value={providerSettings?.apiVersion}
                   placeholder="v1"
@@ -929,6 +940,7 @@ function ProviderSettings({ providerId }: { providerId: string }) {
                 }
               >
                 <Button
+                  data-testid={TestId.settings.providerCheck}
                   size="sm"
                   disabled={!providerSettings?.accessKey || !providerSettings?.secretKey || displayModels.length === 0}
                   loading={modelTestResult?.testing || false}
@@ -949,6 +961,7 @@ function ProviderSettings({ providerId }: { providerId: string }) {
             </Text>
             <Flex gap="sm" align="center" justify="flex-end">
               <Button
+                data-testid={TestId.settings.providerModelNew}
                 variant="light"
                 size="compact-xs"
                 px="sm"
@@ -959,6 +972,7 @@ function ProviderSettings({ providerId }: { providerId: string }) {
               </Button>
 
               <Button
+                data-testid={TestId.settings.providerModelReset}
                 variant="light"
                 color="chatbox-gray"
                 c="chatbox-secondary"
@@ -971,6 +985,7 @@ function ProviderSettings({ providerId }: { providerId: string }) {
               </Button>
 
               <Button
+                data-testid={TestId.settings.providerModelFetch}
                 loading={fetchingModels}
                 variant="light"
                 color="chatbox-gray"

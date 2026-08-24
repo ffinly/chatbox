@@ -2,13 +2,20 @@
  * Stable automation surface for Chatbox UI.
  *
  * IDs describe user-facing semantics rather than component libraries, copy, or layout.
- * Dynamic domain identity belongs in adjacent data-* attributes (for example modelId),
- * never in a generated test ID.
+ * Dynamic domain identity belongs in adjacent data-* attributes (see
+ * AutomationAdjacentAttr), never in a generated test ID.
  */
 
 export const AUTOMATION_CONTRACT_ID = 'chatbox-ui'
-export const AUTOMATION_CONTRACT_VERSION = '1.4.0'
+export const AUTOMATION_CONTRACT_VERSION = '1.5.0'
 export const AUTOMATION_CONTRACT_VERSION_ATTRIBUTE = 'data-automation-contract-version'
+
+/** Adjacent identity attributes hosted on TestId elements. */
+export const AutomationAdjacentAttr = {
+  sessionId: 'data-session-id',
+  modelId: 'data-model-id',
+  providerId: 'data-provider-id',
+} as const
 
 export type AutomationReasoningLevel = 'default' | 'off' | 'low' | 'medium' | 'high'
 
@@ -106,6 +113,30 @@ export const TestId = {
   settings: {
     pauseOnToolCallLimitSwitch: 'settings-pause-on-tool-call-limit',
     sessionPauseOnToolCallLimitSwitch: 'session-settings-pause-on-tool-call-limit',
+    providerList: 'settings-provider-list',
+    /** Hosts AutomationAdjacentAttr.providerId. */
+    providerItem: 'settings-provider-item',
+    addProvider: 'settings-add-provider',
+    addProviderName: 'settings-add-provider-name',
+    addProviderApiMode: 'settings-add-provider-api-mode',
+    addProviderSubmit: 'settings-add-provider-submit',
+    providerName: 'settings-provider-name',
+    providerApiMode: 'settings-provider-api-mode',
+    providerApiKey: 'settings-provider-api-key',
+    providerApiHost: 'settings-provider-api-host',
+    providerApiPath: 'settings-provider-api-path',
+    providerAzureEndpoint: 'settings-provider-azure-endpoint',
+    providerAzureApiVersion: 'settings-provider-azure-api-version',
+    providerCheck: 'settings-provider-check',
+    providerDelete: 'settings-provider-delete',
+    providerModelNew: 'settings-provider-model-new',
+    providerModelReset: 'settings-provider-model-reset',
+    providerModelFetch: 'settings-provider-model-fetch',
+    providerModelList: 'settings-provider-model-list',
+    /** Hosts AutomationAdjacentAttr.modelId. */
+    providerModelItem: 'settings-provider-model-item',
+    providerModelEdit: 'settings-provider-model-edit',
+    providerModelDelete: 'settings-provider-model-delete',
   },
 } as const
 
