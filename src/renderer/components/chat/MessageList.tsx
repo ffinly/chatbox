@@ -1,5 +1,5 @@
 import { getSessionActionGate } from '@chatbox/core/session/action-gates'
-import { resolveSessionMode } from '@chatbox/core/session/mode-policy'
+import { isActionAvailableInMode, resolveSessionMode } from '@chatbox/core/session/mode-policy'
 import NiceModal from '@ebay/nice-modal-react'
 import { Button, Flex, Stack, Transition } from '@mantine/core'
 import { useThrottledCallback } from '@mantine/hooks'
@@ -434,10 +434,15 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
 
   const platformType = useAtomValue(platformTypeAtom)
 
+  // Work Mode drops the conversation's system prompt when building the request —
+  // identity comes from the frozen Soul — so showing it would misrepresent what the
+  // model receives, whatever the display setting says.
+  const hideSystemPrompt = hideSystemPromptMessage || !isActionAvailableInMode('session-system-prompt', sessionMode)
+
   const renderMessageBlock = useCallback(
     (msg: SessionMessage, options: { isFirstItem: boolean; isLastItem: boolean }) => {
       // Keep system messages in renderItems so thread anchors and Virtuoso indices stay stable.
-      const shouldHideSystemPrompt = hideSystemPromptMessage && msg.role === 'system'
+      const shouldHideSystemPrompt = hideSystemPrompt && msg.role === 'system'
       const thread = currentThreadHash[msg.id]
       // Saved alternatives stay inside the pivot block (newest-first in ForkGroup), so the active
       // branch appears last. Forks can pivot on a system message ("Reply Again Below", first-reply
@@ -525,7 +530,7 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
         </Stack>
       )
     },
-    [currentSession, currentThreadHash, hideSystemPromptMessage, sessionLocks, sessionMode, latestSummaryMessageId, t]
+    [currentSession, currentThreadHash, hideSystemPrompt, sessionLocks, sessionMode, latestSummaryMessageId, t]
   )
 
   useImperativeHandle(ref, () => ({

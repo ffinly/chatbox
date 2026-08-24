@@ -1,3 +1,4 @@
+import { isActionAvailableInMode, resolveSessionMode } from '@chatbox/core/session/mode-policy'
 import { Dialog, DialogContent, useTheme } from '@mui/material'
 import type { Session } from '@shared/types'
 import { useAtomValue } from 'jotai'
@@ -11,6 +12,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { cn } from '@/lib/utils'
 import { currentSessionIdAtom } from '@/stores/atoms'
+import { getSessionAgentModeFromSession } from '@/stores/session/agent-mode'
 import { searchSessions } from '@/stores/sessionHelpers'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
@@ -21,13 +23,30 @@ type Props = {}
 
 // Hidden system prompts render as an invisible 1px placeholder in the chat, so a search hit
 // pointing at one would jump to nothing; keep those hits out of the result list instead.
+// Work Mode hides the prompt on its own, so its sessions are filtered whatever the setting says.
 export function filterHiddenSystemPromptHits(results: Session[], hideSystemPromptMessage?: boolean): Session[] {
-  if (!hideSystemPromptMessage) {
-    return results
+  const visible: Session[] = []
+  let changed = false
+  for (const session of results) {
+    const hidesSystemPrompt =
+      hideSystemPromptMessage ||
+      !isActionAvailableInMode(
+        'session-system-prompt',
+        resolveSessionMode(getSessionAgentModeFromSession(session)?.value)
+      )
+    const messages = hidesSystemPrompt
+      ? session.messages.filter((message) => message.role !== 'system')
+      : session.messages
+    if (messages.length === session.messages.length) {
+      visible.push(session)
+      continue
+    }
+    changed = true
+    if (messages.length > 0) {
+      visible.push({ ...session, messages })
+    }
   }
-  return results
-    .map((session) => ({ ...session, messages: session.messages.filter((message) => message.role !== 'system') }))
-    .filter((session) => session.messages.length > 0)
+  return changed ? visible : results
 }
 
 export default function SearchDialog(props: Props) {

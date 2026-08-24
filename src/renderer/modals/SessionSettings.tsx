@@ -1,3 +1,4 @@
+import { isActionAvailableInMode, resolveSessionMode } from '@chatbox/core/session/mode-policy'
 import NiceModal, { useModal } from '@ebay/nice-modal-react'
 import { ActionIcon, Box, Button, FileButton, Flex, Input, Stack, Switch, Text, Textarea } from '@mantine/core'
 import { TestId } from '@shared/automation/testids'
@@ -22,6 +23,7 @@ import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { trackingEvent } from '@/packages/event'
 import storage from '@/storage'
 import { StorageKeyGenerator } from '@/storage/StoreStorage'
+import { getSessionAgentModeEntry } from '@/stores/session/agent-mode'
 import { getSessionMeta } from '@/stores/sessionHelpers'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { add as addToast } from '@/stores/toastActions'
@@ -129,6 +131,14 @@ const SessionSettingsModal = NiceModal.create(
       return null
     }
 
+    // Work Mode ignores the conversation's system prompt at request time — its
+    // identity comes from the global Soul — so the field is not offered. The
+    // stored prompt is left untouched.
+    const showSystemPrompt = isActionAvailableInMode(
+      'session-system-prompt',
+      resolveSessionMode(getSessionAgentModeEntry(session.id, session).value)
+    )
+
     return (
       <AdaptiveModal
         opened={modal.visible}
@@ -206,21 +216,23 @@ const SessionSettingsModal = NiceModal.create(
 
             {isChatSession(session) && (
               <>
-                <Textarea
-                  label={t('Instruction (System Prompt)')}
-                  placeholder={t('Copilot Prompt Demo') || ''}
-                  autosize
-                  minRows={2}
-                  maxRows={12}
-                  value={systemPrompt}
-                  onChange={(event) => setSystemPrompt(event.target.value)}
-                  classNames={{
-                    input: '!text-chatbox-tint-primary',
-                  }}
-                  styles={{
-                    input: { touchAction: 'manipulation' },
-                  }}
-                />
+                {showSystemPrompt && (
+                  <Textarea
+                    label={t('Instruction (System Prompt)')}
+                    placeholder={t('Copilot Prompt Demo') || ''}
+                    autosize
+                    minRows={2}
+                    maxRows={12}
+                    value={systemPrompt}
+                    onChange={(event) => setSystemPrompt(event.target.value)}
+                    classNames={{
+                      input: '!text-chatbox-tint-primary',
+                    }}
+                    styles={{
+                      input: { touchAction: 'manipulation' },
+                    }}
+                  />
+                )}
 
                 <Stack gap="xs">
                   <Flex align="center" justify="space-between">

@@ -31,6 +31,7 @@
 | 编辑助手消息 | 允许 | 禁止 |
 | 删除消息 | 允许 | 禁止 |
 | 编辑用户消息 | 允许（可只存不发） | 仅 Save & Resend，无"仅保存"，禁改角色 |
+| 会话系统提示词 | 消息列表展示，会话设置可编辑（受"隐藏系统提示词"开关控制） | 两处入口都隐藏（身份由 Soul 表达，请求构建时本就丢弃） |
 | 消息队列（message queue） | **禁用**（生成中阻断发送） | 保留 |
 | Steering（立即发送插队） | **禁用** | 保留 |
 | 全局停止 | 停止一切可达的生成（含 fork 分支内） | 同左（现状） |
@@ -46,7 +47,7 @@
 
 ## 模式策略模块（mode-policy）
 
-静态能力限制收敛在 `packages/chatbox-core/src/session/mode-policy.ts`：`isActionAvailableInMode(action, mode)`，动作词表包括 `reply-below`、`edit-assistant-message`、`delete-message`、`delete-fork`、`save-message-edit`（仅保存不重发）、`queue-message`、`steer-queued-message`。
+静态能力限制收敛在 `packages/chatbox-core/src/session/mode-policy.ts`：`isActionAvailableInMode(action, mode)`，动作词表包括 `reply-below`、`edit-assistant-message`、`delete-message`、`delete-fork`、`save-message-edit`（仅保存不重发）、`session-system-prompt`（会话自带的系统提示词）、`queue-message`、`steer-queued-message`。
 
 与 `action-gates.ts` 的分工刻意区分两种语义：
 

@@ -23,7 +23,7 @@ Agent mode 的 system prompt 由 harness 自行组装(不再走 `injectModelSyst
 5. ## Runtime                            Current model + Session context captured(快照日期,非当天日期)
 ```
 
-会话级 system prompt(含 copilot 人设)在 agent mode 下**直接丢弃**,身份统一由 Soul 表达;Chat mode 路径完全不变。
+会话级 system prompt(含 copilot 人设)在 agent mode 下**直接丢弃**,身份统一由 Soul 表达;Chat mode 路径完全不变。既然请求里不带,界面也不再展示:消息列表与会话设置的系统提示词入口由 mode-policy 的 `session-system-prompt` 统一隐藏(存储不动,见[聊天/工作模式分化](./chat-work-mode-split.md))。
 
 ### 冻结快照(SessionPromptContextSnapshot)
 

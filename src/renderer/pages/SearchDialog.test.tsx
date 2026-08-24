@@ -109,4 +109,16 @@ describe('filterHiddenSystemPromptHits', () => {
     expect(filtered.map((s) => s.id)).toEqual(['mixed'])
     expect(filtered[0].messages.map((m) => m.id)).toEqual(['u1'])
   })
+
+  test('drops system-prompt hits from work mode sessions while the setting is off', () => {
+    const workSession: Session = {
+      ...session('work', [message('s3', MessageRoleEnum.System), message('u2', MessageRoleEnum.User)]),
+      settings: { agentMode: { value: 'on', locked: false, lockReason: null } },
+    }
+
+    const filtered = filterHiddenSystemPromptHits([...results, workSession], false)
+    expect(filtered.map((s) => s.id)).toEqual(['only-system', 'mixed', 'work'])
+    expect(filtered[0].messages.map((m) => m.id)).toEqual(['s1'])
+    expect(filtered[2].messages.map((m) => m.id)).toEqual(['u2'])
+  })
 })

@@ -12,13 +12,14 @@ describe('resolveSessionMode', () => {
 })
 
 describe('isActionAvailableInMode', () => {
-  it('removes structural surgery from work mode', () => {
+  it('removes structural surgery and the session system prompt from work mode', () => {
     for (const action of [
       'reply-below',
       'edit-assistant-message',
       'delete-message',
       'delete-fork',
       'save-message-edit',
+      'session-system-prompt',
     ] as const) {
       expect(isActionAvailableInMode(action, 'work')).toBe(false)
       expect(isActionAvailableInMode(action, 'chat')).toBe(true)

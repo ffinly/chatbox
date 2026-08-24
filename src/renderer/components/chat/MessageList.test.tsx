@@ -318,6 +318,29 @@ describe('MessageList new message layout', () => {
     expect(container.querySelector('[aria-hidden="true"].h-px')).not.toBeNull()
   })
 
+  test('hides system prompt messages in work mode regardless of the display setting', () => {
+    settingsState.hideSystemPromptMessage = false
+    const session: Session = {
+      id: 'session-1',
+      type: 'chat',
+      name: 'Session',
+      settings: { agentMode: { value: 'on', locked: false, lockReason: null } },
+      messages: [
+        message('system-message', MessageRoleEnum.System, 'system prompt'),
+        message('user-message', MessageRoleEnum.User, 'question'),
+      ],
+    }
+
+    render(
+      <MantineProvider>
+        <MessageList currentSession={session} />
+      </MantineProvider>
+    )
+
+    expect(messageRenderLog).not.toContainEqual(expect.objectContaining({ id: 'system-message' }))
+    expect(messageRenderLog).toContainEqual({ id: 'user-message', readOnly: false })
+  })
+
   test('preserves thread labels and Virtuoso indices when system prompts are hidden', () => {
     settingsState.hideSystemPromptMessage = true
     const session: Session = {

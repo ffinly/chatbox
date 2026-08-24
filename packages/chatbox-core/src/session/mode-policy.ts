@@ -29,6 +29,8 @@ export type ModePolicyAction =
   | 'delete-fork'
   /** The editor's plain Save — editing without resending. */
   | 'save-message-edit'
+  /** The conversation's own system prompt: shown in the transcript, edited in conversation settings. */
+  | 'session-system-prompt'
   /** Queue a message while a reply streams. */
   | 'queue-message'
   /** Jump the queue and steer an item into the running generation. */
@@ -53,6 +55,7 @@ const WORK_MODE_UNAVAILABLE: ReadonlySet<ModePolicyAction> = new Set([
   'delete-message',
   'delete-fork',
   'save-message-edit',
+  'session-system-prompt',
 ])
 
 const CHAT_MODE_UNAVAILABLE: ReadonlySet<ModePolicyAction> = new Set(['queue-message', 'steer-queued-message'])
