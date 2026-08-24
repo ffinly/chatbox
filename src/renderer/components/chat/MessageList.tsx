@@ -40,7 +40,7 @@ import { getSessionAgentModeEntry } from '@/stores/session/agent-mode'
 import { removeMessage } from '@/stores/session/messages'
 import { moveThreadToConversations, removeThread, switchThread } from '@/stores/session/threads'
 import { getAllMessageList, getCurrentThreadHistoryHash } from '@/stores/sessionHelpers'
-import { settingsStore } from '@/stores/settingsStore'
+import { settingsStore, useSettingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
 import { notifySessionLockBlocked } from '@/utils/session-lock-copy'
 import ActionMenu from '../ActionMenu'
@@ -101,6 +101,7 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
   const { t } = useTranslation()
   const isSmallScreen = useIsSmallScreen()
   const widthFull = useUIStore((s) => s.widthFull)
+  const hideSystemPromptMessage = useSettingsStore((s) => s.hideSystemPromptMessage)
 
   const { currentSession } = props
 
@@ -435,11 +436,47 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
 
   const renderMessageBlock = useCallback(
     (msg: SessionMessage, options: { isFirstItem: boolean; isLastItem: boolean }) => {
+      // Keep system messages in renderItems so thread anchors and Virtuoso indices stay stable.
+      const shouldHideSystemPrompt = hideSystemPromptMessage && msg.role === 'system'
+      const thread = currentThreadHash[msg.id]
+      // Saved alternatives stay inside the pivot block (newest-first in ForkGroup), so the active
+      // branch appears last. Forks can pivot on a system message ("Reply Again Below", first-reply
+      // retries), so the switcher must stay reachable even while the system prompt is hidden.
+      const forkGroup = currentSession.messageForksHash?.[msg.id] &&
+        currentSession.messageForksHash[msg.id].lists.length > 1 && (
+          <ForkGroup
+            sessionId={currentSession.id}
+            sessionType={currentSession.type || 'chat'}
+            msgId={msg.id}
+            forks={currentSession.messageForksHash[msg.id]}
+            sessionLocks={sessionLocks}
+            sessionMode={sessionMode}
+            assistantAvatarKey={currentSession.assistantAvatarKey}
+            sessionPicUrl={currentSession.picUrl}
+          />
+        )
+
+      if (shouldHideSystemPrompt) {
+        return (
+          <Stack key={msg.id} gap={0}>
+            {thread && <ThreadLabel thread={thread} sessionId={currentSession.id} />}
+            {/* Virtuoso items must keep a measurable height so their canonical message indices
+                remain stable; the placeholder also carries the first/last paddings the hidden
+                message would have contributed, keeping the visible transcript's spacing. */}
+            {!thread && (
+              <div
+                aria-hidden="true"
+                className={cn('h-px', options.isFirstItem && 'pt-4', options.isLastItem && 'pb-4')}
+              />
+            )}
+            {forkGroup}
+          </Stack>
+        )
+      }
+
       return (
         <Stack key={msg.id} gap={0} pt={msg.role === 'user' ? 4 : 0}>
-          {currentThreadHash[msg.id] && (
-            <ThreadLabel thread={currentThreadHash[msg.id]} sessionId={currentSession.id} />
-          )}
+          {thread && <ThreadLabel thread={thread} sessionId={currentSession.id} />}
           <ErrorBoundary name={`message-item`}>
             {msg.isForkMarker ? (
               <ForkMarkerMessage
@@ -484,23 +521,11 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
               />
             )}
           </ErrorBoundary>
-          {/* Saved alternatives stay inside the pivot block (newest-first in ForkGroup), so the active branch appears last. */}
-          {currentSession.messageForksHash?.[msg.id] && currentSession.messageForksHash[msg.id].lists.length > 1 && (
-            <ForkGroup
-              sessionId={currentSession.id}
-              sessionType={currentSession.type || 'chat'}
-              msgId={msg.id}
-              forks={currentSession.messageForksHash[msg.id]}
-              sessionLocks={sessionLocks}
-              sessionMode={sessionMode}
-              assistantAvatarKey={currentSession.assistantAvatarKey}
-              sessionPicUrl={currentSession.picUrl}
-            />
-          )}
+          {forkGroup}
         </Stack>
       )
     },
-    [currentSession, currentThreadHash, sessionLocks, sessionMode, latestSummaryMessageId, t]
+    [currentSession, currentThreadHash, hideSystemPromptMessage, sessionLocks, sessionMode, latestSummaryMessageId, t]
   )
 
   useImperativeHandle(ref, () => ({

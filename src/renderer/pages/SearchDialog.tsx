@@ -12,11 +12,23 @@ import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { cn } from '@/lib/utils'
 import { currentSessionIdAtom } from '@/stores/atoms'
 import { searchSessions } from '@/stores/sessionHelpers'
+import { useSettingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
 import * as scrollActions from '../stores/scrollActions'
 import { switchCurrentSession } from '../stores/session/crud'
 
 type Props = {}
+
+// Hidden system prompts render as an invisible 1px placeholder in the chat, so a search hit
+// pointing at one would jump to nothing; keep those hits out of the result list instead.
+export function filterHiddenSystemPromptHits(results: Session[], hideSystemPromptMessage?: boolean): Session[] {
+  if (!hideSystemPromptMessage) {
+    return results
+  }
+  return results
+    .map((session) => ({ ...session, messages: session.messages.filter((message) => message.role !== 'system') }))
+    .filter((session) => session.messages.length > 0)
+}
 
 export default function SearchDialog(props: Props) {
   const isSmallScreen = useIsSmallScreen()
@@ -33,6 +45,8 @@ export default function SearchDialog(props: Props) {
   const ref = useRef<HTMLInputElement>(null)
 
   const currentSessionId = useAtomValue(currentSessionIdAtom)
+  const hideSystemPromptMessage = useSettingsStore((s) => s.hideSystemPromptMessage)
+  const visibleSearchResult = filterHiddenSystemPromptHits(searchResult, hideSystemPromptMessage)
 
   useEffect(() => {
     if (open) {
@@ -159,7 +173,7 @@ export default function SearchDialog(props: Props) {
               <Mark marks={[searchInput]}>
                 <CommandList>
                   <CommandEmpty>{t('No results found')}</CommandEmpty>
-                  {searchResult.map((result, i) => (
+                  {visibleSearchResult.map((result, i) => (
                     <CommandGroup
                       key={i}
                       heading={`${t('Chat')} "${result.name}":`}

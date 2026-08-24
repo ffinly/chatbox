@@ -91,6 +91,10 @@ vi.mock('./ForkMarkerMessage', () => ({
   default: () => null,
 }))
 
+vi.mock('./ForkGroup', () => ({
+  default: ({ msgId }: { msgId: string }) => <div data-testid={`fork-group-${msgId}`} />,
+}))
+
 vi.mock('../ActionMenu', () => ({
   default: ({ children }: { children: ReactNode }) => <>{children}</>,
 }))
@@ -152,10 +156,15 @@ vi.mock('@/stores/atoms', () => ({
   showThreadHistoryDrawerAtom: {},
 }))
 
+const settingsState = vi.hoisted(() => ({
+  autoCollapseCodeBlock: false,
+  hideSystemPromptMessage: false,
+}))
 vi.mock('@/stores/settingsStore', () => ({
   settingsStore: {
-    getState: () => ({ autoCollapseCodeBlock: false }),
+    getState: () => settingsState,
   },
+  useSettingsStore: (selector: (state: typeof settingsState) => unknown) => selector(settingsState),
 }))
 
 vi.mock('@/stores/uiStore', () => ({
@@ -239,6 +248,7 @@ function message(id: string, role: Message['role'], content: string): Message {
 
 describe('MessageList new message layout', () => {
   beforeEach(() => {
+    settingsState.hideSystemPromptMessage = false
     messageRenderLog.length = 0
     messageButtonGroupLog.length = 0
     Object.defineProperty(window, 'matchMedia', {
@@ -283,6 +293,105 @@ describe('MessageList new message layout', () => {
     )
 
     expect(messageRenderLog).toContainEqual({ id: 'picture-message', readOnly: true })
+  })
+
+  test('hides system prompt messages when the display setting is enabled', () => {
+    settingsState.hideSystemPromptMessage = true
+    const session: Session = {
+      id: 'session-1',
+      type: 'chat',
+      name: 'Session',
+      messages: [
+        message('system-message', MessageRoleEnum.System, 'system prompt'),
+        message('user-message', MessageRoleEnum.User, 'question'),
+      ],
+    }
+
+    const { container } = render(
+      <MantineProvider>
+        <MessageList currentSession={session} />
+      </MantineProvider>
+    )
+
+    expect(messageRenderLog).not.toContainEqual(expect.objectContaining({ id: 'system-message' }))
+    expect(messageRenderLog).toContainEqual({ id: 'user-message', readOnly: false })
+    expect(container.querySelector('[aria-hidden="true"].h-px')).not.toBeNull()
+  })
+
+  test('preserves thread labels and Virtuoso indices when system prompts are hidden', () => {
+    settingsState.hideSystemPromptMessage = true
+    const session: Session = {
+      id: 'session-1',
+      type: 'chat',
+      name: 'Session',
+      threadName: 'Current Thread',
+      threads: [
+        {
+          id: 'archived-thread',
+          name: 'Archived Thread',
+          createdAt: 1,
+          messages: [
+            message('archived-system', MessageRoleEnum.System, 'archived system prompt'),
+            message('archived-user', MessageRoleEnum.User, 'archived question'),
+            message('archived-assistant', MessageRoleEnum.Assistant, 'archived answer'),
+          ],
+        },
+      ],
+      messages: [
+        message('current-system', MessageRoleEnum.System, 'current system prompt'),
+        message('current-user', MessageRoleEnum.User, 'current question'),
+        message('current-assistant', MessageRoleEnum.Assistant, 'current answer'),
+      ],
+    }
+
+    const { container } = render(
+      <MantineProvider>
+        <MessageList currentSession={session} />
+      </MantineProvider>
+    )
+
+    expect(container.textContent).toContain('Archived Thread')
+    expect(container.textContent).toContain('Current Thread')
+    expect(container.querySelector('[data-testid="message-archived-system"]')).toBeNull()
+    expect(container.querySelector('[data-testid="message-current-system"]')).toBeNull()
+    expect(
+      container
+        .querySelector('[data-testid="message-archived-assistant"]')
+        ?.closest('[data-index]')
+        ?.getAttribute('data-index')
+    ).toBe('2')
+  })
+
+  test('keeps fork switchers reachable when their system-message pivot is hidden', () => {
+    settingsState.hideSystemPromptMessage = true
+    const session: Session = {
+      id: 'session-1',
+      type: 'chat',
+      name: 'Session',
+      messages: [
+        message('system-message', MessageRoleEnum.System, 'system prompt'),
+        message('assistant-message', MessageRoleEnum.Assistant, 'answer'),
+      ],
+      messageForksHash: {
+        'system-message': {
+          position: 0,
+          createdAt: 1,
+          lists: [
+            { id: 'fork-a', messages: [] },
+            { id: 'fork-b', messages: [] },
+          ],
+        },
+      },
+    }
+
+    const { container } = render(
+      <MantineProvider>
+        <MessageList currentSession={session} />
+      </MantineProvider>
+    )
+
+    expect(messageRenderLog).not.toContainEqual(expect.objectContaining({ id: 'system-message' }))
+    expect(container.querySelector('[data-testid="fork-group-system-message"]')).not.toBeNull()
   })
 
   test('does not stretch an archived thread turn when the current new thread is appended after it', () => {

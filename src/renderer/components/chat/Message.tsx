@@ -83,6 +83,7 @@ import MessageStatuses, { PreparingToolCallStatus } from './MessageLoading'
 import { getMessageActionVisibilityClass, type MessageButtonGroup } from './message-action-state'
 import { isMessageReminderPresentation, resolveMessageErrorPresentation } from './message-error-presentation'
 import { shouldRightAlignMessage } from './message-layout'
+import { getMessagePreviewText } from './message-navigation-utils'
 import { getMessageRoleClass } from './message-role-class'
 import { createMessageTimelineLayout } from './message-timeline'
 import { getMessageTokenDisplay } from './message-token-display'
@@ -90,6 +91,10 @@ import { PictureGallery } from './PictureGallery'
 
 const useIsGenerationRuntimeActive = (sessionId: string, messageId: string) =>
   rendererApplication.generationHooks.useIsActive(sessionId, messageId)
+
+// Collapsed messages render as a single `truncate` line; this bound only keeps
+// huge prompts out of that line's layout — the CSS ellipsis marks the cut.
+const COLLAPSED_PREVIEW_MAX_LENGTH = 600
 
 // Reset an assistant message back to a clean generating state, reusing the same
 // message slot (e.g. when acting on an agent-mode suggestion callout).
@@ -611,11 +616,14 @@ const _Message: FC<Props> = (props) => {
     ]
   )
 
-  const CollapseButton = (
+  const renderCollapseButton = (className?: string) => (
     <span
-      className="cursor-pointer inline-block text-xs font-medium text-chatbox-tint-brand
-                 hover:text-chatbox-tint-brand-hover px-1.5 py-0.5 rounded
-                 hover:bg-chatbox-background-brand-secondary transition-colors"
+      className={cn(
+        'cursor-pointer text-xs font-medium text-chatbox-tint-brand',
+        'hover:text-chatbox-tint-brand-hover px-1.5 py-0.5 rounded',
+        'hover:bg-chatbox-background-brand-secondary transition-colors',
+        className
+      )}
       onClick={() => setIsCollapsed(!isCollapsed)}
     >
       {isCollapsed ? t('Expand') : t('Collapse')}
@@ -806,171 +814,177 @@ const _Message: FC<Props> = (props) => {
             <ReasoningContentUI message={msg} onCopyReasoningContent={onCopyReasoningContent} />
           )}
           {getMessageText(msg, true, true).trim() === '' && <p></p>}
-          {displayGroups.length > 0 && (
-            <div>
-              {displayGroups.map((item, index) =>
-                item.type === 'reasoning' ? (
-                  <div key={`reasoning-${msg.id}-${index}`}>
-                    <ReasoningContentUI message={msg} part={item} onCopyReasoningContent={onCopyReasoningContent} />
-                  </div>
-                ) : item.type === 'text' ? (
-                  <div key={`text-${msg.id}-${index}`}>
-                    {enableMarkdownRendering && !isCollapsed ? (
-                      <Markdown
-                        uniqueId={`${msg.id}-${index}`}
-                        sessionId={sessionId}
-                        enableLaTeXRendering={enableLaTeXRendering}
-                        enableMermaidRendering={enableMermaidRendering}
-                        generating={msg.generating}
-                        onCodeCopy={onCodeCopy}
-                        onPreviewWebpage={onPreviewWebpage}
-                      >
-                        {item.text || ''}
-                      </Markdown>
-                    ) : (
-                      <StreamingTextFade
-                        text={needCollapse && isCollapsed ? `${item.text.slice(0, collapseThreshold)}...` : item.text}
-                        streamKey={`${msg.id}-${index}`}
-                        generating={msg.role === 'assistant' && msg.generating === true}
-                        className="break-words [overflow-wrap:anywhere] whitespace-pre-line"
-                      >
-                        {needCollapse && isCollapsed && CollapseButton}
-                      </StreamingTextFade>
-                    )}
-                  </div>
-                ) : item.type === 'info' ? (
-                  <Flex key={`info-${item.text}`} className="mb-2 ">
-                    <Flex
-                      className="bg-chatbox-background-brand-secondary border-0 border-l-2 border-solid border-chatbox-tint-brand rounded-r-md"
-                      align="center"
-                      gap="xxs"
-                      px="xs"
-                    >
-                      <ScalableIcon icon={IconInfoCircle} size={16} className="flex-none text-chatbox-tint-brand" />
-                      <Text size="xs" c="chatbox-brand">
-                        {item.text}
-                      </Text>
-                    </Flex>
-                  </Flex>
-                ) : item.type === 'agent-mode-suggestion' ? (
-                  <Flex key={`agent-mode-suggestion-${msg.id}-${index}`} className="mb-2 w-full">
-                    <Flex
-                      className="w-full max-w-[760px] bg-chatbox-background-secondary border border-solid border-chatbox-border-primary rounded-lg shadow-sm overflow-hidden"
-                      align="stretch"
-                    >
-                      <div className="w-1 bg-chatbox-tint-brand" />
+          {displayGroups.length > 0 &&
+            (needCollapse && isCollapsed ? (
+              <div className="flex min-w-0 items-center gap-2 py-2">
+                <span className="min-w-0 flex-1 truncate">
+                  {getMessagePreviewText(msg, COLLAPSED_PREVIEW_MAX_LENGTH)}
+                </span>
+                {renderCollapseButton('shrink-0')}
+              </div>
+            ) : (
+              <div>
+                {displayGroups.map((item, index) =>
+                  item.type === 'reasoning' ? (
+                    <div key={`reasoning-${msg.id}-${index}`}>
+                      <ReasoningContentUI message={msg} part={item} onCopyReasoningContent={onCopyReasoningContent} />
+                    </div>
+                  ) : item.type === 'text' ? (
+                    <div key={`text-${msg.id}-${index}`}>
+                      {enableMarkdownRendering ? (
+                        <Markdown
+                          uniqueId={`${msg.id}-${index}`}
+                          sessionId={sessionId}
+                          enableLaTeXRendering={enableLaTeXRendering}
+                          enableMermaidRendering={enableMermaidRendering}
+                          generating={msg.generating}
+                          onCodeCopy={onCodeCopy}
+                          onPreviewWebpage={onPreviewWebpage}
+                        >
+                          {item.text || ''}
+                        </Markdown>
+                      ) : (
+                        <StreamingTextFade
+                          text={item.text}
+                          streamKey={`${msg.id}-${index}`}
+                          generating={msg.role === 'assistant' && msg.generating === true}
+                          className="break-words [overflow-wrap:anywhere] whitespace-pre-line"
+                        />
+                      )}
+                    </div>
+                  ) : item.type === 'info' ? (
+                    <Flex key={`info-${item.text}`} className="mb-2 ">
                       <Flex
+                        className="bg-chatbox-background-brand-secondary border-0 border-l-2 border-solid border-chatbox-tint-brand rounded-r-md"
                         align="center"
-                        gap="sm"
-                        px="sm"
-                        py="sm"
-                        className="min-w-0 flex-1"
-                        wrap={{ base: 'wrap', sm: 'nowrap' }}
+                        gap="xxs"
+                        px="xs"
                       >
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-chatbox-background-brand-secondary text-chatbox-tint-brand">
-                          <ScalableIcon icon={IconRobot} size={18} />
-                        </div>
-                        <Stack gap={2} className="min-w-0 flex-1">
-                          <Text size="sm" fw={600} c="chatbox-primary">
-                            {t('Work Mode suggested')}
-                          </Text>
-                          {item.reason && (
-                            <Text size="xs" c="chatbox-secondary" className="break-words [overflow-wrap:anywhere]">
-                              {item.reason}
+                        <ScalableIcon icon={IconInfoCircle} size={16} className="flex-none text-chatbox-tint-brand" />
+                        <Text size="xs" c="chatbox-brand">
+                          {item.text}
+                        </Text>
+                      </Flex>
+                    </Flex>
+                  ) : item.type === 'agent-mode-suggestion' ? (
+                    <Flex key={`agent-mode-suggestion-${msg.id}-${index}`} className="mb-2 w-full">
+                      <Flex
+                        className="w-full max-w-[760px] bg-chatbox-background-secondary border border-solid border-chatbox-border-primary rounded-lg shadow-sm overflow-hidden"
+                        align="stretch"
+                      >
+                        <div className="w-1 bg-chatbox-tint-brand" />
+                        <Flex
+                          align="center"
+                          gap="sm"
+                          px="sm"
+                          py="sm"
+                          className="min-w-0 flex-1"
+                          wrap={{ base: 'wrap', sm: 'nowrap' }}
+                        >
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-chatbox-background-brand-secondary text-chatbox-tint-brand">
+                            <ScalableIcon icon={IconRobot} size={18} />
+                          </div>
+                          <Stack gap={2} className="min-w-0 flex-1">
+                            <Text size="sm" fw={600} c="chatbox-primary">
+                              {t('Work Mode suggested')}
                             </Text>
-                          )}
-                        </Stack>
-                        <Flex gap="xs" className="shrink-0" wrap="nowrap">
-                          <Button
-                            size="xs"
-                            variant="subtle"
-                            color="gray"
-                            className="shrink-0"
-                            onClick={handleContinueNormalResponse}
-                          >
-                            {t('Continue in Chat Mode')}
-                          </Button>
-                          <Button
-                            size="xs"
-                            variant="light"
-                            color="chatbox-brand"
-                            className="shrink-0"
-                            leftSection={<IconRobot size={14} />}
-                            onClick={handleStartAgentModeResponse}
-                          >
-                            {t('Use Work Mode')}
-                          </Button>
+                            {item.reason && (
+                              <Text size="xs" c="chatbox-secondary" className="break-words [overflow-wrap:anywhere]">
+                                {item.reason}
+                              </Text>
+                            )}
+                          </Stack>
+                          <Flex gap="xs" className="shrink-0" wrap="nowrap">
+                            <Button
+                              size="xs"
+                              variant="subtle"
+                              color="gray"
+                              className="shrink-0"
+                              onClick={handleContinueNormalResponse}
+                            >
+                              {t('Continue in Chat Mode')}
+                            </Button>
+                            <Button
+                              size="xs"
+                              variant="light"
+                              color="chatbox-brand"
+                              className="shrink-0"
+                              leftSection={<IconRobot size={14} />}
+                              onClick={handleStartAgentModeResponse}
+                            >
+                              {t('Use Work Mode')}
+                            </Button>
+                          </Flex>
                         </Flex>
                       </Flex>
                     </Flex>
-                  </Flex>
-                ) : item.type === 'image' ? (
-                  props.sessionType !== 'picture' && (
-                    <div key={`image-${item.storageKey}`} className="my-2">
-                      <PictureGallery
-                        key={`image-${item.storageKey}`}
-                        pictures={[item]}
-                        compact={msg.role === 'user'}
-                      />
-                      {item.ocrResult && (
-                        <div
-                          className="my-2 p-2 rounded-lg cursor-pointer transition-colors"
-                          onClick={async (e) => {
-                            e.stopPropagation()
-                            await NiceModal.show('content-viewer', {
-                              title: t('OCR Text Content'),
-                              content: item.ocrResult,
-                            })
-                          }}
-                        >
-                          {isUserBubble ? (
-                            <>
-                              <span className="block mb-1 text-xs text-white/80">
-                                {t('OCR Text')} ({item.ocrResult.length} {t('characters')})
-                              </span>
-                              <span className="block text-sm text-white line-clamp-2" title={item.ocrResult}>
-                                {item.ocrResult}
-                              </span>
-                              <span className="block mt-1 text-xs text-white/60">{t('Click to view full text')}</span>
-                            </>
-                          ) : (
-                            <>
-                              <Text size="xs" className="block mb-1" c="chatbox-tertiary">
-                                {t('OCR Text')} ({item.ocrResult.length} {t('characters')})
-                              </Text>
-                              <Text size="sm" className="line-clamp-2" c="chatbox-secondary" title={item.ocrResult}>
-                                {item.ocrResult}
-                              </Text>
-                              <Text size="xs" className="mt-1 inline-block" c="blue">
-                                {t('Click to view full text')}
-                              </Text>
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )
-                ) : 'parts' in item && item.type === 'step_group' ? (
-                  <StepTimelineUI
-                    key={`step-group-${msg.id}-${index}`}
-                    parts={item.parts}
-                    message={msg}
-                    sessionId={sessionId}
-                    messageId={msg.id}
-                    onCopyReasoningContent={onCopyReasoningContent}
-                    renderText={renderTimelineText}
-                  />
-                ) : item.type === 'tool-call' ? (
-                  <ToolCallPartUI
-                    key={item.toolCallId}
-                    part={item as MessageToolCallPart}
-                    sessionId={sessionId}
-                    messageId={msg.id}
-                  />
-                ) : null
-              )}
-            </div>
-          )}
+                  ) : item.type === 'image' ? (
+                    props.sessionType !== 'picture' && (
+                      <div key={`image-${item.storageKey}`} className="my-2">
+                        <PictureGallery
+                          key={`image-${item.storageKey}`}
+                          pictures={[item]}
+                          compact={msg.role === 'user'}
+                        />
+                        {item.ocrResult && (
+                          <div
+                            className="my-2 p-2 rounded-lg cursor-pointer transition-colors"
+                            onClick={async (e) => {
+                              e.stopPropagation()
+                              await NiceModal.show('content-viewer', {
+                                title: t('OCR Text Content'),
+                                content: item.ocrResult,
+                              })
+                            }}
+                          >
+                            {isUserBubble ? (
+                              <>
+                                <span className="block mb-1 text-xs text-white/80">
+                                  {t('OCR Text')} ({item.ocrResult.length} {t('characters')})
+                                </span>
+                                <span className="block text-sm text-white line-clamp-2" title={item.ocrResult}>
+                                  {item.ocrResult}
+                                </span>
+                                <span className="block mt-1 text-xs text-white/60">{t('Click to view full text')}</span>
+                              </>
+                            ) : (
+                              <>
+                                <Text size="xs" className="block mb-1" c="chatbox-tertiary">
+                                  {t('OCR Text')} ({item.ocrResult.length} {t('characters')})
+                                </Text>
+                                <Text size="sm" className="line-clamp-2" c="chatbox-secondary" title={item.ocrResult}>
+                                  {item.ocrResult}
+                                </Text>
+                                <Text size="xs" className="mt-1 inline-block" c="blue">
+                                  {t('Click to view full text')}
+                                </Text>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  ) : 'parts' in item && item.type === 'step_group' ? (
+                    <StepTimelineUI
+                      key={`step-group-${msg.id}-${index}`}
+                      parts={item.parts}
+                      message={msg}
+                      sessionId={sessionId}
+                      messageId={msg.id}
+                      onCopyReasoningContent={onCopyReasoningContent}
+                      renderText={renderTimelineText}
+                    />
+                  ) : item.type === 'tool-call' ? (
+                    <ToolCallPartUI
+                      key={item.toolCallId}
+                      part={item as MessageToolCallPart}
+                      sessionId={sessionId}
+                      messageId={msg.id}
+                    />
+                  ) : null
+                )}
+              </div>
+            ))}
           {!msg.generating && (
             <DownloadArtifactsUI parts={downloadArtifactParts} sessionId={sessionId} messageId={msg.id} />
           )}
@@ -1000,7 +1014,7 @@ const _Message: FC<Props> = (props) => {
             </Button>
           </Stack>
         </Modal>
-        {needCollapse && !isCollapsed && CollapseButton}
+        {needCollapse && !isCollapsed && renderCollapseButton('block w-fit ml-auto mb-2')}
         {msg.generating && contentParts.length === 0 && (
           <div
             className={cn(

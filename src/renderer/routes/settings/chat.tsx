@@ -303,6 +303,16 @@ export function RouteComponent() {
           />
 
           <Switch
+            label={t('Hide system prompt')}
+            checked={settings.hideSystemPromptMessage}
+            onChange={() =>
+              setSettings({
+                hideSystemPromptMessage: !settings.hideSystemPromptMessage,
+              })
+            }
+          />
+
+          <Switch
             label={t('Auto-scroll new messages to top')}
             checked={settings.autoScrollNewMessagesToTop}
             onChange={() =>

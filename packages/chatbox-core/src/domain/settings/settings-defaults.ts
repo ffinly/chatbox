@@ -25,6 +25,7 @@ export function createDefaultSettings(): Settings {
     showMessageTimestamp: false,
     showFirstTokenLatency: false,
     showAvatar: true,
+    hideSystemPromptMessage: false,
     messageLayout: 'bubble',
     autoScrollNewMessagesToTop: false,
     userAvatarKey: '',

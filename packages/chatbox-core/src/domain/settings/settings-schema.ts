@@ -509,6 +509,7 @@ export const SettingsSchema = GlobalSessionSettingsSchema.extend({
   showFirstTokenLatency: z.boolean().optional().catch(undefined),
 
   showAvatar: z.boolean().optional().catch(undefined),
+  hideSystemPromptMessage: z.boolean().optional().catch(undefined),
   messageLayout: z.enum(['left', 'bubble']).optional().catch(undefined),
   autoScrollNewMessagesToTop: z.boolean().default(false),
 

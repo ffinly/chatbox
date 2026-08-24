@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 
+import type { Message, Session } from '@shared/types'
+import { MessageRoleEnum } from '@shared/types'
 import type React from 'react'
 import { describe, expect, test, vi } from 'vitest'
 import { render } from '@/test-utils'
@@ -37,6 +39,11 @@ vi.mock('@/stores/sessionHelpers', () => ({
   searchSessions: vi.fn(),
 }))
 
+vi.mock('@/stores/settingsStore', () => ({
+  useSettingsStore: (selector: (state: { hideSystemPromptMessage: boolean }) => unknown) =>
+    selector({ hideSystemPromptMessage: false }),
+}))
+
 vi.mock('../stores/scrollActions', () => ({
   scrollToMessage: vi.fn(),
 }))
@@ -57,7 +64,20 @@ vi.mock('@/components/common/Mark', () => ({
   default: ({ children }: { children: React.ReactNode }) => children,
 }))
 
-import SearchDialog from './SearchDialog'
+import SearchDialog, { filterHiddenSystemPromptHits } from './SearchDialog'
+
+function message(id: string, role: Message['role']): Message {
+  return {
+    id,
+    role,
+    contentParts: [{ type: 'text', text: `${id} text` }],
+    timestamp: 1,
+  }
+}
+
+function session(id: string, messages: Message[]): Session {
+  return { id, type: 'chat', name: id, messages }
+}
 
 describe('SearchDialog', () => {
   test('does not hide the application from assistive technology while closed', () => {
@@ -70,5 +90,23 @@ describe('SearchDialog', () => {
 
     unmount()
     appRoot.remove()
+  })
+})
+
+describe('filterHiddenSystemPromptHits', () => {
+  const results = [
+    session('only-system', [message('s1', MessageRoleEnum.System)]),
+    session('mixed', [message('s2', MessageRoleEnum.System), message('u1', MessageRoleEnum.User)]),
+  ]
+
+  test('returns results untouched while the setting is off', () => {
+    expect(filterHiddenSystemPromptHits(results, false)).toBe(results)
+    expect(filterHiddenSystemPromptHits(results, undefined)).toBe(results)
+  })
+
+  test('drops system-prompt hits and sessions whose only hit was the system prompt', () => {
+    const filtered = filterHiddenSystemPromptHits(results, true)
+    expect(filtered.map((s) => s.id)).toEqual(['mixed'])
+    expect(filtered[0].messages.map((m) => m.id)).toEqual(['u1'])
   })
 })
