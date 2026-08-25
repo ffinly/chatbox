@@ -1377,5 +1377,9 @@
   "Automatically approve safe commands and ask when uncertain.": "Automatically approve safe commands and ask when uncertain.",
   "Smart Approval": "Smart Approval",
   "New chats will keep this choice": "New chats will keep this choice",
-  "Same as last time": "Same as last time"
+  "Same as last time": "Same as last time",
+  "Protocol": "Protocol",
+  "Auto (recommended)": "Auto (recommended)",
+  "Legacy": "Legacy",
+  "If you're unsure, keep Auto. Choose Legacy only if you know the server does not support stateless MCP.": "If you're unsure, keep Auto. Choose Legacy only if you know the server does not support stateless MCP."
 }

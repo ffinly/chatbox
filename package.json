@@ -137,6 +137,7 @@
     "@mantine/hooks": "^7.17.7",
     "@mantine/modals": "^7.17.7",
     "@mantine/spotlight": "^7.17.7",
+    "@modelcontextprotocol/client": "2.0.0",
     "@mui/icons-material": "^5.11.11",
     "@mui/material": "^5.11.11",
     "@openrouter/ai-sdk-provider": "^2.0.0",

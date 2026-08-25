@@ -47,7 +47,7 @@ describe('createSettingsStore', () => {
       language: 'ja',
       showWordCount: true,
       theme: 1,
-      __version: 5,
+      __version: 6,
     })
 
     store.getState().destroy()

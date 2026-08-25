@@ -1377,5 +1377,9 @@
   "Automatically approve safe commands and ask when uncertain.": "安全なコマンドは自動承認し、判断できない場合は確認します。",
   "Smart Approval": "スマート承認",
   "New chats will keep this choice": "新規チャットにもこの選択が引き継がれます",
-  "Same as last time": "前回と同じ"
+  "Same as last time": "前回と同じ",
+  "Protocol": "プロトコル",
+  "Auto (recommended)": "自動（推奨）",
+  "Legacy": "レガシー",
+  "If you're unsure, keep Auto. Choose Legacy only if you know the server does not support stateless MCP.": "選択に迷う場合は「自動」のままにしてください。サーバーがステートレス MCP に対応していないことが明確な場合のみ、「レガシー」を選択してください。"
 }

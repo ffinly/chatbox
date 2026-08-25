@@ -1377,5 +1377,9 @@
   "Automatically approve safe commands and ask when uncertain.": "Автоматически одобрять безопасные команды и спрашивать при сомнениях.",
   "Smart Approval": "Умное одобрение",
   "New chats will keep this choice": "Новые чаты сохранят этот выбор",
-  "Same as last time": "Как в прошлый раз"
+  "Same as last time": "Как в прошлый раз",
+  "Protocol": "Протокол",
+  "Auto (recommended)": "Автоматически (рекомендуется)",
+  "Legacy": "Устаревший",
+  "If you're unsure, keep Auto. Choose Legacy only if you know the server does not support stateless MCP.": "Если вы не уверены, оставьте «Автоматически». Выбирайте «Устаревший» только если точно знаете, что сервер не поддерживает MCP без сохранения состояния."
 }

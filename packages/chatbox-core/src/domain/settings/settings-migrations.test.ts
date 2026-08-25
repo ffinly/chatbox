@@ -75,7 +75,40 @@ describe('settings migrations', () => {
     expect(migrated.extension.documentParser).toEqual({ type: 'local' })
   })
 
-  test.each([0, 1, 2, 3, 4, 5])('keeps the complete version %i snapshot compatible', (version) => {
+  test('filters unavailable built-in state without changing custom servers', () => {
+    const defaults = createDefaultSettings()
+    const migrated = migrateSettings(
+      {
+        ...defaults,
+        mcp: {
+          enabledBuiltinServers: ['fetch', 'sequentialthinking', 'context7'],
+          servers: [
+            {
+              id: 'sequentialthinking',
+              name: 'Custom Sequential Thinking',
+              enabled: true,
+              transport: {
+                type: 'http',
+                url: 'https://example.com/sequentialthinking',
+              },
+            },
+          ],
+        },
+      },
+      5,
+      { isDesktopLike: true }
+    )
+
+    expect(migrated.mcp.enabledBuiltinServers).toEqual(['fetch', 'context7'])
+    expect(migrated.mcp.servers).toEqual([
+      expect.objectContaining({
+        id: 'sequentialthinking',
+        name: 'Custom Sequential Thinking',
+      }),
+    ])
+  })
+
+  test.each([0, 1, 2, 3, 4, 5, 6])('keeps the complete version %i snapshot compatible', (version) => {
     const defaults = createDefaultSettings()
     const persisted = {
       ...defaults,
@@ -129,7 +162,7 @@ describe('settings migrations', () => {
       },
       extension: {
         ...defaults.extension,
-        documentParser: version < SETTINGS_PERSIST_VERSION ? { type: 'chatbox-ai' } : { type: 'none' },
+        documentParser: version <= 4 ? { type: 'chatbox-ai' } : { type: 'none' },
       },
     }
 

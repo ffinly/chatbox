@@ -379,6 +379,7 @@ const MCPServerConfigSchema = z.object({
   id: z.string(),
   name: z.string(),
   enabled: z.boolean(),
+  protocolMode: z.enum(['auto', 'legacy']).optional().catch(undefined),
   transport: MCPTransportConfigSchema,
 })
 

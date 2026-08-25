@@ -2,7 +2,7 @@ import deepmerge from 'deepmerge'
 import { createDefaultSettings, getDefaultDocumentParser, type SettingsHostDefaults } from './settings-defaults'
 import { type Settings, SettingsSchema } from './settings-schema'
 
-export const SETTINGS_PERSIST_VERSION = 5
+export const SETTINGS_PERSIST_VERSION = 6
 
 export interface PersistedSettingsEnvelope {
   settings: unknown
@@ -63,6 +63,13 @@ export function migrateSettings(persisted: unknown, version: number, host: Setti
     const extension = settings.extension as { documentParser?: { type?: string } } | undefined
     if (!host.isDesktopLike && extension?.documentParser?.type === 'none') {
       extension.documentParser.type = 'chatbox-ai'
+    }
+  }
+
+  if (shouldRunMigration(5)) {
+    const mcp = settings.mcp as { enabledBuiltinServers?: unknown } | undefined
+    if (Array.isArray(mcp?.enabledBuiltinServers)) {
+      mcp.enabledBuiltinServers = mcp.enabledBuiltinServers.filter((id) => id !== 'sequentialthinking')
     }
   }
 

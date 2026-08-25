@@ -1377,5 +1377,9 @@
   "Automatically approve safe commands and ask when uncertain.": "Godkänn säkra kommandon automatiskt och fråga vid osäkerhet.",
   "Smart Approval": "Smart godkännande",
   "New chats will keep this choice": "Nya chattar behåller det här valet",
-  "Same as last time": "Samma som förra gången"
+  "Same as last time": "Samma som förra gången",
+  "Protocol": "Protokoll",
+  "Auto (recommended)": "Automatiskt (rekommenderas)",
+  "Legacy": "Äldre",
+  "If you're unsure, keep Auto. Choose Legacy only if you know the server does not support stateless MCP.": "Om du är osäker, behåll ”Automatiskt”. Välj ”Äldre” endast om du vet att servern inte stöder tillståndslös MCP."
 }

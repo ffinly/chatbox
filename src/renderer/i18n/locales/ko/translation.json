@@ -1377,5 +1377,9 @@
   "Automatically approve safe commands and ask when uncertain.": "안전한 명령은 자동 승인하고 확실하지 않을 때 묻습니다.",
   "Smart Approval": "스마트 승인",
   "New chats will keep this choice": "새 채팅에도 이 선택이 유지됩니다",
-  "Same as last time": "지난번 선택 그대로"
+  "Same as last time": "지난번 선택 그대로",
+  "Protocol": "프로토콜",
+  "Auto (recommended)": "자동 (권장)",
+  "Legacy": "레거시",
+  "If you're unsure, keep Auto. Choose Legacy only if you know the server does not support stateless MCP.": "잘 모르겠다면 ‘자동’을 유지하세요. 서버가 상태 비저장 MCP를 지원하지 않는다는 것을 확실히 아는 경우에만 ‘레거시’를 선택하세요."
 }

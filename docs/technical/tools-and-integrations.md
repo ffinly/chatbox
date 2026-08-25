@@ -1,6 +1,6 @@
 # 工具与集成系统
 
-> Last updated: 2026-07
+> Last updated: 2026-08
 
 本文档描述 Chatbox Pro 的工具（Tool）与外部集成系统的产品设计。关于整体架构和进程模型，请参阅 [`./architecture.md`](./architecture.md)。
 
@@ -32,7 +32,15 @@ MCP 支持两种传输方式，分别解决不同部署场景：
 
 **Stdio 传输**：通过 Main 进程管理子进程。由于浏览器环境无法直接启动子进程，采用 IPC 代理模式——Renderer 侧的 `IPCStdioTransport`（`src/renderer/packages/mcp/ipc-stdio-transport.ts`）通过 Electron IPC 调用 Main 进程中的 `StdioClientTransport`（`src/main/mcp/ipc-stdio-transport.ts`），Main 进程负责子进程的生命周期管理、stderr 日志采集和编码检测。
 
-**HTTP 传输**：直接从 Renderer 发起 HTTP 请求。优先尝试 Streamable HTTP 协议，失败后自动降级为 SSE（Server-Sent Events）。此模式不依赖 Main 进程，因此在 Web 端和移动端同样可用。
+**HTTP 传输**：直接从 Renderer 发起 HTTP 请求并优先使用 Streamable HTTP。Legacy 模式保留现有 SSE（Server-Sent Events）降级；Auto 模式仅在端点明确返回 404 / 405 时尝试 SSE，认证错误、服务端错误和网络故障不会被误判为协议不兼容。此模式不依赖 Main 进程，因此在 Web 端和移动端同样可用。
+
+### MCP 协议版本策略
+
+- 内置 MCP 固定使用 legacy 初始化流程，保持现有云端服务行为不变。
+- 新建、推荐列表安装和 JSON 导入的自定义 MCP 默认使用 **Auto**：先通过 `server/discover` 协商 2026-07-28 协议；服务端不支持时回退到 legacy `initialize`。
+- 升级前已保存且没有 `protocolMode` 的自定义 MCP 按 **Legacy** 处理。用户可以在编辑服务器时手动切换 Auto / Legacy，切换后运行时会重连。
+- 2026-07-28 路径当前覆盖工具发现与工具调用主链路。`input_required` 交互、现代订阅以及浏览器环境下的 `x-mcp-header` 参数头镜像暂未接入。
+- 少数 stdio 服务收到未知的 `server/discover` 后会直接退出，无法在同一子进程上回退；此类服务应显式选择 Legacy。
 
 ### 服务器管理
 
@@ -48,7 +56,6 @@ MCP 支持两种传输方式，分别解决不同部署场景：
 Chatbox Pro 预置了一组云端 MCP 服务器（`src/renderer/packages/mcp/builtin.ts`），通过 HTTP 传输连接到 `mcp.chatboxai.app`：
 
 - **Fetch**：网页内容抓取与 HTML 转 Markdown
-- **Sequential Thinking**：结构化思维推理辅助
 - **EdgeOne Pages**：HTML 内容部署与公开 URL 获取
 - **arXiv**：学术论文检索
 - **Context7**：编程库文档与代码示例检索

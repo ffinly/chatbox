@@ -98,7 +98,7 @@ await sleep(3000) // 额外等待 React hydration 完成
 `--user-data-dir` 下的 `config.json` 是应用的持久化存储。关键注意：
 
 - **必须使用正确的 configVersion**: 当前为 `14`，错误版本会导致 migration 异常
-- **zustand persist version**: settings 中的 `__version` 字段对应 zustand persist 版本，当前为 `4`
+- **zustand persist version**: settings 中的 `__version` 字段对应 zustand persist 版本，当前为 `6`
 - **最佳实践**: 先用默认目录启动一次，复制生成的 config.json 作为基础模板
 
 ```bash
@@ -154,14 +154,14 @@ settings['licenseInstances'] = { 'xxx': 'instant-id-xxx' }
 ```
 
 Premium 状态影响的功能：
-- MCP 内置云端服务器（Fetch, Sequential Thinking, EdgeOne Pages, arXiv, Context7）
+- MCP 内置云端服务器（Fetch, EdgeOne Pages, arXiv, Context7）
 - 部分高级 Skills
 
 ### MCP 内置服务器配置
 
 ```python
 settings['mcp'] = {
-    'enabledBuiltinServers': ['fetch', 'sequentialthinking', 'edgeone-pages', 'arxiv', 'context7'],
+    'enabledBuiltinServers': ['fetch', 'edgeone-pages', 'arxiv', 'context7'],
     'servers': []
 }
 ```

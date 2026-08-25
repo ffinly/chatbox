@@ -34,6 +34,67 @@ describe('SettingsSchema RAG default models', () => {
   })
 })
 
+describe('SettingsSchema MCP protocol mode', () => {
+  test.each(['auto', 'legacy'] as const)('parses %s protocol mode', (protocolMode) => {
+    const parsed = SettingsSchema.parse({
+      ...defaultSettings(),
+      mcp: {
+        enabledBuiltinServers: [],
+        servers: [
+          {
+            id: 'custom-mcp',
+            name: 'Custom MCP',
+            enabled: true,
+            protocolMode,
+            transport: { type: 'http', url: 'https://example.com/mcp' },
+          },
+        ],
+      },
+    })
+
+    expect(parsed.mcp.servers[0].protocolMode).toBe(protocolMode)
+  })
+
+  test('keeps the protocol mode absent for existing custom servers', () => {
+    const parsed = SettingsSchema.parse({
+      ...defaultSettings(),
+      mcp: {
+        enabledBuiltinServers: [],
+        servers: [
+          {
+            id: 'legacy-mcp',
+            name: 'Legacy MCP',
+            enabled: true,
+            transport: { type: 'http', url: 'https://example.com/mcp' },
+          },
+        ],
+      },
+    })
+
+    expect(parsed.mcp.servers[0].protocolMode).toBeUndefined()
+  })
+
+  test('treats an unknown protocol mode as legacy-compatible configuration', () => {
+    const parsed = SettingsSchema.parse({
+      ...defaultSettings(),
+      mcp: {
+        enabledBuiltinServers: [],
+        servers: [
+          {
+            id: 'unknown-protocol-mcp',
+            name: 'Unknown protocol MCP',
+            enabled: true,
+            protocolMode: 'unknown',
+            transport: { type: 'http', url: 'https://example.com/mcp' },
+          },
+        ],
+      },
+    })
+
+    expect(parsed.mcp.servers[0].protocolMode).toBeUndefined()
+  })
+})
+
 describe('SettingsSchema background image opacity', () => {
   test('uses the original opacity for existing settings', () => {
     const legacySettings: Record<string, unknown> = { ...defaultSettings() }

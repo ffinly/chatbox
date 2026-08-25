@@ -1377,5 +1377,9 @@
   "Automatically approve safe commands and ask when uncertain.": "وافق تلقائيًا على الأوامر الآمنة واسأل عند عدم اليقين.",
   "Smart Approval": "موافقة ذكية",
   "New chats will keep this choice": "ستحتفظ الدردشات الجديدة بهذا الاختيار",
-  "Same as last time": "كما في المرة السابقة"
+  "Same as last time": "كما في المرة السابقة",
+  "Protocol": "البروتوكول",
+  "Auto (recommended)": "تلقائي (موصى به)",
+  "Legacy": "قديم",
+  "If you're unsure, keep Auto. Choose Legacy only if you know the server does not support stateless MCP.": "إذا لم تكن متأكدًا، فاترك الخيار على «تلقائي». اختر «قديم» فقط إذا كنت تعرف أن الخادم لا يدعم MCP عديم الحالة."
 }

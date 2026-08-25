@@ -1377,5 +1377,9 @@
   "Automatically approve safe commands and ask when uncertain.": "自動批准安全命令，無法確定時再詢問。",
   "Smart Approval": "智慧批准",
   "New chats will keep this choice": "新對話將沿用這個選擇",
-  "Same as last time": "沿用上次的選擇"
+  "Same as last time": "沿用上次的選擇",
+  "Protocol": "協定",
+  "Auto (recommended)": "自動（建議）",
+  "Legacy": "舊版",
+  "If you're unsure, keep Auto. Choose Legacy only if you know the server does not support stateless MCP.": "如果不確定，請保持「自動」。僅當你明確知道該伺服器不支援無狀態 MCP 時，才選擇「舊版」。"
 }

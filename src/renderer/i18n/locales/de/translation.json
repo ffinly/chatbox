@@ -1377,5 +1377,9 @@
   "Automatically approve safe commands and ask when uncertain.": "Sichere Befehle automatisch genehmigen und bei Unsicherheit nachfragen.",
   "Smart Approval": "Intelligente Genehmigung",
   "New chats will keep this choice": "Neue Chats übernehmen diese Auswahl",
-  "Same as last time": "Wie beim letzten Mal"
+  "Same as last time": "Wie beim letzten Mal",
+  "Protocol": "Protokoll",
+  "Auto (recommended)": "Automatisch (empfohlen)",
+  "Legacy": "Legacy",
+  "If you're unsure, keep Auto. Choose Legacy only if you know the server does not support stateless MCP.": "Wenn Sie unsicher sind, behalten Sie „Automatisch“ bei. Wählen Sie „Legacy“ nur, wenn Sie wissen, dass der Server zustandsloses MCP nicht unterstützt."
 }
