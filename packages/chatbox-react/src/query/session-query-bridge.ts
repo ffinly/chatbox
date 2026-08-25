@@ -58,6 +58,7 @@ export class SessionQueryBridge {
   private readonly unsubscribe: () => void
   private visibleListRefreshGeneration = 0
   private visibleListRefreshTail: Promise<void> = Promise.resolve()
+  private visibleListRefreshPending = false
 
   constructor(
     private readonly queryClient: QueryClient,
@@ -145,7 +146,7 @@ export class SessionQueryBridge {
     // React Query fetch, so cancelQueries cannot abort it. Queue refreshes and
     // drop superseded results so an older page cannot overwrite a newer one.
     const generation = ++this.visibleListRefreshGeneration
-    this.visibleListRefreshTail = this.visibleListRefreshTail
+    const refresh = this.visibleListRefreshTail
       .catch(() => undefined)
       .then(async () => {
         if (generation !== this.visibleListRefreshGeneration) {
@@ -161,7 +162,13 @@ export class SessionQueryBridge {
         }
         this.resetSessionList(page)
       })
-    return this.visibleListRefreshTail
+    this.visibleListRefreshTail = refresh
+    this.visibleListRefreshPending = true
+    return refresh.finally(() => {
+      if (this.visibleListRefreshTail === refresh) {
+        this.visibleListRefreshPending = false
+      }
+    })
   }
 
   private async readVisibleSessionListPage(generation: number): Promise<SessionMetaPage | null> {
@@ -188,11 +195,25 @@ export class SessionQueryBridge {
 
   private async project(event: SessionApplicationEvent): Promise<void> {
     switch (event.type) {
-      case 'session-created':
+      case 'session-created': {
+        const refreshPending = this.visibleListRefreshPending
         this.invalidateVisibleListRefresh()
         this.queryClient.setQueryData(QueryKeys.ChatSession(event.session.id), event.session)
         this.updateSessionListData((items) => sortSessionRecords([...items, event.record]))
+        // A record that sorts to the tail of a still-paginated window may truly
+        // belong on a page that is not loaded yet (a copy of a session outside
+        // the window), which would shift every later offset. The cache alone
+        // cannot tell, so reload the first page from the repository.
+        const data = this.queryClient.getQueryData<InfiniteSessionData>(QueryKeys.ChatSessionsList)
+        const lastPage = data?.pages[data.pages.length - 1]
+        if (
+          refreshPending ||
+          (lastPage && lastPage.nextCursor !== null && lastPage.items.at(-1)?.id === event.record.id)
+        ) {
+          await this.refreshVisibleSessionList()
+        }
         break
+      }
       case 'session-updated':
         if (event.preserveCachedGeneratingMessages) {
           this.queryClient.setQueryData(QueryKeys.ChatSession(event.session.id), (cached: Session | null | undefined) =>
@@ -202,21 +223,25 @@ export class SessionQueryBridge {
           this.queryClient.setQueryData(QueryKeys.ChatSession(event.session.id), event.session)
         }
         if (event.meta) {
+          const refreshPending = this.visibleListRefreshPending
           const cached = this.getCachedSessionsMeta().find((item) => item.id === event.session.id)
           // Pin state changes the global starred/unstarred window. Patching the
           // already-loaded pages leaves a stale prefix, so the next page overlaps
           // and the same chat repeats until the app restarts.
           const starredChanged = cached !== undefined && Boolean(cached.starred) !== Boolean(event.session.starred)
-          this.invalidateVisibleListRefresh()
+          if (starredChanged || refreshPending) {
+            this.invalidateVisibleListRefresh()
+          }
           this.updateSessionListData((items) =>
             sortSessionRecords(items.map((item) => (item.id === event.session.id ? { ...item, ...event.meta } : item)))
           )
-          if (starredChanged) {
+          if (starredChanged || refreshPending) {
             await this.refreshVisibleSessionList()
           }
         }
         break
       case 'session-deleted': {
+        const refreshPending = this.visibleListRefreshPending
         const ids = new Set(event.ids)
         this.invalidateVisibleListRefresh()
         for (const sessionId of ids) {
@@ -224,6 +249,9 @@ export class SessionQueryBridge {
         }
         this.updateSessionListData((items) => items.filter((item) => !ids.has(item.id)))
         this.updateArchivedSessionListData((items) => items.filter((item) => !ids.has(item.id)))
+        if (refreshPending) {
+          await this.refreshVisibleSessionList()
+        }
         break
       }
       case 'session-list-reset':

@@ -29,7 +29,6 @@ export interface SessionServiceOptions {
     chat?: Partial<SessionSettings>
     picture?: Partial<SessionSettings>
   }
-  getVisibleSessionMetas?: () => SessionMetaRecord[]
   repairSessionOnRead?: (session: Session) => { session: Session; changed: boolean }
 }
 
@@ -61,7 +60,6 @@ async function runInChunks<T>(items: T[], chunkSize: number, worker: (item: T) =
 export class SessionService {
   private readonly now: () => number
   private readonly getLastUsedModels: NonNullable<SessionServiceOptions['getLastUsedModels']>
-  private readonly getVisibleSessionMetas: NonNullable<SessionServiceOptions['getVisibleSessionMetas']>
   private initialization: Promise<void> | null = null
 
   constructor(
@@ -72,7 +70,6 @@ export class SessionService {
   ) {
     this.now = options.now ?? (() => Date.now())
     this.getLastUsedModels = options.getLastUsedModels ?? (() => ({}))
-    this.getVisibleSessionMetas = options.getVisibleSessionMetas ?? (() => [])
   }
 
   initialize(): Promise<void> {
@@ -188,13 +185,18 @@ export class SessionService {
 
     let sortOrder = this.now()
     if (previousId) {
-      const currentList = this.getVisibleSessionMetas()
-      const previousIndex = currentList.findIndex((item) => item.id === previousId)
-      if (previousIndex >= 0) {
-        const previousSortOrder = currentList[previousIndex].sortOrder
-        const nextSortOrder =
-          previousIndex + 1 < currentList.length ? currentList[previousIndex + 1].sortOrder : previousSortOrder - 2000
-        sortOrder = (previousSortOrder + nextSortOrder) / 2
+      // The numeric lower bound comes from the full repository rather than a
+      // partially loaded list window. It includes hidden records and both pin
+      // groups so the new sortOrder stays unique if either record later moves
+      // between groups or becomes visible again.
+      const records = [...(await this.repository.meta.getAllIncludingHidden())].sort(
+        (a, b) => b.sortOrder - a.sortOrder
+      )
+      const previous = records.find((item) => item.id === previousId && !item.hidden)
+      if (previous) {
+        const lowerNeighbor = records.find((item) => item.sortOrder < previous.sortOrder)
+        sortOrder =
+          lowerNeighbor !== undefined ? (previous.sortOrder + lowerNeighbor.sortOrder) / 2 : previous.sortOrder - 2000
       }
     }
 

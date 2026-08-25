@@ -130,6 +130,125 @@ describe('SessionService', () => {
     expect(harness.published.at(-1)).toMatchObject({ type: 'session-created', session: created })
   })
 
+  test('places a created session between its predecessor and the repository successor', async () => {
+    const harness = createHarness()
+    for (const sortOrder of [6000, 5000, 4000]) {
+      const session = createTestSession(`session-${sortOrder}`)
+      harness.repository.sessions.set(session.id, session)
+      harness.repository.records.set(session.id, createTestRecord(session, sortOrder))
+    }
+
+    const created = await harness.service.createSession({ name: 'Copy', type: 'chat', messages: [] }, 'session-5000')
+
+    expect(harness.repository.records.get(created.id)?.sortOrder).toBe(4500)
+    expect((await harness.repository.meta.getAll()).map(({ id }) => id)).toEqual([
+      'session-6000',
+      'session-5000',
+      created.id,
+      'session-4000',
+    ])
+  })
+
+  test('keeps a copy of the last pinned session inside the pinned group', async () => {
+    const harness = createHarness()
+    for (const [id, sortOrder, starred] of [
+      ['pinned-a', 3000, true],
+      ['pinned-b', 2000, true],
+      ['chat-recent', 10000, false],
+    ] as const) {
+      const session = { ...createTestSession(id), ...(starred ? { starred } : {}) }
+      harness.repository.sessions.set(session.id, session)
+      harness.repository.records.set(session.id, {
+        ...createTestRecord(session, sortOrder),
+        ...(starred ? { starred } : {}),
+      })
+    }
+
+    const created = await harness.service.createSession(
+      { name: 'Copy', type: 'chat', messages: [], starred: true },
+      'pinned-b'
+    )
+
+    expect(harness.repository.records.get(created.id)?.sortOrder).toBe(0)
+    expect((await harness.repository.meta.getAll()).map(({ id }) => id)).toEqual([
+      'pinned-a',
+      'pinned-b',
+      created.id,
+      'chat-recent',
+    ])
+  })
+
+  test('uses the opposite pin group as a numeric lower bound', async () => {
+    const harness = createHarness()
+    const pinned = { ...createTestSession('pinned'), starred: true }
+    harness.repository.sessions.set(pinned.id, pinned)
+    harness.repository.records.set(pinned.id, { ...createTestRecord(pinned, 5000), starred: true })
+    const regular = createTestSession('regular')
+    harness.repository.sessions.set(regular.id, regular)
+    harness.repository.records.set(regular.id, createTestRecord(regular, 3000))
+
+    const created = await harness.service.createSession(
+      { name: 'Copy', type: 'chat', messages: [], starred: true },
+      pinned.id
+    )
+
+    expect(harness.repository.records.get(created.id)?.sortOrder).toBe(4000)
+    expect((await harness.repository.meta.getAll()).map(({ id }) => id)).toEqual([pinned.id, created.id, regular.id])
+  })
+
+  test('midpoints against a hidden record below a predecessor with no visible successor', async () => {
+    const harness = createHarness()
+    const visible = createTestSession('visible')
+    harness.repository.sessions.set(visible.id, visible)
+    harness.repository.records.set(visible.id, createTestRecord(visible, 5000))
+    const archived = createTestSession('archived')
+    harness.repository.sessions.set(archived.id, { ...archived, hidden: true, archivedAt: 1 })
+    harness.repository.records.set(archived.id, { ...createTestRecord(archived, 3000), hidden: true, archivedAt: 1 })
+
+    const created = await harness.service.createSession({ name: 'Copy', type: 'chat', messages: [] }, 'visible')
+
+    expect(harness.repository.records.get(created.id)?.sortOrder).toBe(4000)
+  })
+
+  test('midpoints against a hidden record between the predecessor and its visible successor', async () => {
+    const harness = createHarness()
+    for (const [id, sortOrder, hidden] of [
+      ['top', 5000, false],
+      ['archived', 4000, true],
+      ['bottom', 3000, false],
+    ] as const) {
+      const session = { ...createTestSession(id), ...(hidden ? { hidden, archivedAt: 1 } : {}) }
+      harness.repository.sessions.set(session.id, session)
+      harness.repository.records.set(session.id, {
+        ...createTestRecord(session, sortOrder),
+        ...(hidden ? { hidden, archivedAt: 1 } : {}),
+      })
+    }
+
+    const created = await harness.service.createSession({ name: 'Copy', type: 'chat', messages: [] }, 'top')
+
+    expect(harness.repository.records.get(created.id)?.sortOrder).toBe(4500)
+  })
+
+  test('places a created session below a predecessor with no successor', async () => {
+    const harness = createHarness()
+    const only = createTestSession('only')
+    harness.repository.sessions.set(only.id, only)
+    harness.repository.records.set(only.id, createTestRecord(only, 5000))
+
+    const created = await harness.service.createSession({ name: 'Copy', type: 'chat', messages: [] }, 'only')
+
+    expect(harness.repository.records.get(created.id)?.sortOrder).toBe(3000)
+  })
+
+  test('falls back to the top of the list when the predecessor is not visible', async () => {
+    const harness = createHarness()
+
+    const created = await harness.service.createSession({ name: 'Copy', type: 'chat', messages: [] }, 'missing')
+
+    expect(harness.repository.records.get(created.id)?.sortOrder).toBe(100)
+  })
+
   test('keeps an explicit thread title on create instead of marking the session pending', async () => {
     const harness = createHarness()
 

@@ -23,7 +23,7 @@ export interface CreateChatApplicationOptions extends Omit<ChatboxReactApplicati
   queryClient?: QueryClient
   sessionRepository: SessionRepositoryPort
   settingsStorage: SettingsStoragePort
-  session: Omit<SessionServiceOptions, 'getLastUsedModels' | 'getVisibleSessionMetas'> & {
+  session: Omit<SessionServiceOptions, 'getLastUsedModels'> & {
     getLastUsedModels?: SessionServiceOptions['getLastUsedModels']
   }
   settings: SettingsServiceOptions
@@ -87,7 +87,6 @@ export function createChatApplication(options: CreateChatApplicationOptions): Ch
         const state = options.lastUsedModelStore?.getState()
         return { chat: state?.chat, picture: state?.picture }
       }),
-    getVisibleSessionMetas: () => sessionQueryBridgeReference?.getCachedSessionsMeta() ?? [],
   })
   const sessionQueryBridge = new SessionQueryBridge(queryClient, sessions, sessionEvents)
   sessionQueryBridgeReference = sessionQueryBridge

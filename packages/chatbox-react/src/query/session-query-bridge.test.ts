@@ -421,12 +421,13 @@ describe('SessionQueryBridge', () => {
 
     const unpin = service.updateSession(pinned.id, { starred: false })
     await firstReadHasStarted
-    await service.deleteSession('session-60')
+    const deletion = service.deleteSession('session-60')
+    await vi.waitFor(() => expect(repository.records.has('session-60')).toBe(false))
     releaseFirstRead()
-    await unpin
+    await Promise.all([unpin, deletion])
 
     const cached = queryClient.getQueryData<InfiniteSessionData>(QueryKeys.ChatSessionsList)
-    expect(cached?.pages[0].items.map(({ id }) => id)).toEqual(['pinned-old'])
+    expect(cached?.pages[0].items.map(({ id }) => id)).toEqual(['session-50', 'pinned-old'])
     expect(cached?.pages[0].items.some((item) => item.id === 'session-60')).toBe(false)
   })
 
@@ -497,6 +498,215 @@ describe('SessionQueryBridge', () => {
     const refetched = await queryClient.fetchInfiniteQuery(bridge.definitions.sessions)
     expect(refetched.pages[0].items.map(({ id }) => id)).toEqual(['session-60', 'pinned-old'])
     expect(new Set(refetched.pages[0].items.map(({ id }) => id)).size).toBe(refetched.pages[0].items.length)
+  })
+
+  test('a session created after a loaded neighbor is inserted in place without a list reset', async () => {
+    const repository = new InMemorySessionRepository()
+    for (const sortOrder of [6000, 5000, 4000, 3000]) {
+      const session = createTestSession(`session-${sortOrder}`)
+      repository.sessions.set(session.id, session)
+      repository.records.set(session.id, createTestRecord(session, sortOrder))
+    }
+    const events = new SessionEventBus()
+    const service = createService(repository, events)
+    const queryClient = new QueryClient()
+    const bridge = new SessionQueryBridge(queryClient, service, events)
+
+    await queryClient.fetchInfiniteQuery(bridge.definitions.sessions)
+    const listReads = vi.spyOn(service, 'listSessionsMetaPage')
+
+    const created = await service.createSession({ name: 'Copy', type: 'chat', messages: [] }, 'session-6000')
+
+    const cached = queryClient.getQueryData<InfiniteSessionData>(QueryKeys.ChatSessionsList)
+    expect(cached?.pages[0].items.map(({ id }) => id)).toEqual(['session-6000', created.id, 'session-5000'])
+    expect(cached?.pages[0].nextCursor).toBe(3)
+    expect(listReads).not.toHaveBeenCalled()
+
+    const nextPage = await service.listSessionsMetaPage(cached?.pages[0].nextCursor ?? 0)
+    const mergedIds = [...(cached?.pages[0].items ?? []), ...nextPage.items].map(({ id }) => id)
+    expect(mergedIds).toEqual(['session-6000', created.id, 'session-5000', 'session-4000', 'session-3000'])
+  })
+
+  test('a session created after an unloaded predecessor reloads the first page', async () => {
+    const repository = new InMemorySessionRepository()
+    for (const sortOrder of [6000, 5000, 4000, 3000]) {
+      const session = createTestSession(`session-${sortOrder}`)
+      repository.sessions.set(session.id, session)
+      repository.records.set(session.id, createTestRecord(session, sortOrder))
+    }
+    const events = new SessionEventBus()
+    const service = createService(repository, events)
+    const queryClient = new QueryClient()
+    const bridge = new SessionQueryBridge(queryClient, service, events)
+
+    await queryClient.fetchInfiniteQuery(bridge.definitions.sessions)
+
+    const created = await service.createSession({ name: 'Copy', type: 'chat', messages: [] }, 'session-4000')
+
+    // The copy lives beyond the loaded window, so the cache must stay a clean
+    // first-page prefix instead of carrying the copy at the wrong offset.
+    const cached = queryClient.getQueryData<InfiniteSessionData>(QueryKeys.ChatSessionsList)
+    expect(cached?.pages).toHaveLength(1)
+    expect(cached?.pages[0].items.map(({ id }) => id)).toEqual(['session-6000', 'session-5000'])
+    expect(cached?.pages[0].nextCursor).toBe(2)
+
+    const secondPage = await service.listSessionsMetaPage(2)
+    const thirdPage = await service.listSessionsMetaPage(4)
+    const mergedIds = [...(cached?.pages[0].items ?? []), ...secondPage.items, ...thirdPage.items].map(({ id }) => id)
+    expect(mergedIds).toEqual(['session-6000', 'session-5000', 'session-4000', created.id, 'session-3000'])
+  })
+
+  test('a metadata update reschedules a pending created-session list refresh', async () => {
+    const repository = new InMemorySessionRepository()
+    for (const sortOrder of [6000, 5000, 4000, 3000]) {
+      const session = createTestSession(`session-${sortOrder}`)
+      repository.sessions.set(session.id, session)
+      repository.records.set(session.id, createTestRecord(session, sortOrder))
+    }
+    const events = new SessionEventBus()
+    const service = createService(repository, events)
+    const queryClient = new QueryClient()
+    const bridge = new SessionQueryBridge(queryClient, service, events)
+
+    await queryClient.fetchInfiniteQuery(bridge.definitions.sessions)
+
+    let releaseRefresh = () => {}
+    const refreshHeld = new Promise<void>((resolve) => {
+      releaseRefresh = resolve
+    })
+    let markRefreshStarted = () => {}
+    const refreshStarted = new Promise<void>((resolve) => {
+      markRefreshStarted = resolve
+    })
+    const originalListSessionsMetaPage = service.listSessionsMetaPage.bind(service)
+    let refreshReads = 0
+    vi.spyOn(service, 'listSessionsMetaPage').mockImplementation(async (cursor, limit) => {
+      refreshReads += 1
+      if (refreshReads === 1) {
+        const page = await originalListSessionsMetaPage(cursor, limit)
+        markRefreshStarted()
+        await refreshHeld
+        return page
+      }
+      return await originalListSessionsMetaPage(cursor, limit)
+    })
+
+    const create = service.createSession({ name: 'Copy', type: 'chat', messages: [] }, 'session-4000')
+    await refreshStarted
+    const rename = service.updateSession('session-6000', { name: 'Renamed' })
+    await vi.waitFor(() => expect(repository.records.get('session-6000')?.name).toBe('Renamed'))
+    releaseRefresh()
+    await Promise.all([create, rename])
+
+    const cached = queryClient.getQueryData<InfiniteSessionData>(QueryKeys.ChatSessionsList)
+    expect(cached?.pages[0].items.map(({ id }) => id)).toEqual(['session-6000', 'session-5000'])
+    expect(cached?.pages[0].items[0].name).toBe('Renamed')
+    expect(cached?.pages[0].nextCursor).toBe(2)
+  })
+
+  test('a new session reschedules a pending created-session list refresh', async () => {
+    const repository = new InMemorySessionRepository()
+    for (const sortOrder of [60, 50, 40, 30]) {
+      const session = createTestSession(`session-${sortOrder}`)
+      repository.sessions.set(session.id, session)
+      repository.records.set(session.id, createTestRecord(session, sortOrder))
+    }
+    const events = new SessionEventBus()
+    let nextId = 0
+    const service = new SessionService(repository, new SessionWriteCoordinator(repository), events, {
+      createId: () => `created-${++nextId}`,
+      now: () => 100,
+    })
+    const queryClient = new QueryClient()
+    const bridge = new SessionQueryBridge(queryClient, service, events)
+
+    await queryClient.fetchInfiniteQuery(bridge.definitions.sessions)
+
+    let releaseFirstRefresh = () => {}
+    const firstRefreshHeld = new Promise<void>((resolve) => {
+      releaseFirstRefresh = resolve
+    })
+    let markFirstRefreshStarted = () => {}
+    const firstRefreshStarted = new Promise<void>((resolve) => {
+      markFirstRefreshStarted = resolve
+    })
+    const originalListSessionsMetaPage = service.listSessionsMetaPage.bind(service)
+    let refreshReads = 0
+    vi.spyOn(service, 'listSessionsMetaPage').mockImplementation(async (cursor, limit) => {
+      refreshReads += 1
+      if (refreshReads === 1) {
+        markFirstRefreshStarted()
+        await firstRefreshHeld
+      }
+      return await originalListSessionsMetaPage(cursor, limit)
+    })
+
+    const copy = service.createSession({ name: 'Copy', type: 'chat', messages: [] }, 'session-40')
+    await firstRefreshStarted
+    const createAtTop = service.createSession({ name: 'New', type: 'chat', messages: [] })
+    await vi.waitFor(() => expect(repository.records.has('created-2')).toBe(true))
+    releaseFirstRefresh()
+    await Promise.all([copy, createAtTop])
+
+    const cached = queryClient.getQueryData<InfiniteSessionData>(QueryKeys.ChatSessionsList)
+    expect(cached?.pages[0].items.map(({ id }) => id)).toEqual(['created-2', 'session-60'])
+    expect(cached?.pages[0].nextCursor).toBe(2)
+
+    const secondPage = await service.listSessionsMetaPage(2)
+    const thirdPage = await service.listSessionsMetaPage(4)
+    const mergedIds = [...(cached?.pages[0].items ?? []), ...secondPage.items, ...thirdPage.items].map(({ id }) => id)
+    expect(mergedIds).toEqual(['created-2', 'session-60', 'session-50', 'session-40', 'created-1', 'session-30'])
+    expect(new Set(mergedIds).size).toBe(mergedIds.length)
+  })
+
+  test('a deletion reschedules a pending created-session list refresh', async () => {
+    const repository = new InMemorySessionRepository()
+    for (const sortOrder of [60, 50, 40, 30]) {
+      const session = createTestSession(`session-${sortOrder}`)
+      repository.sessions.set(session.id, session)
+      repository.records.set(session.id, createTestRecord(session, sortOrder))
+    }
+    const events = new SessionEventBus()
+    const service = createService(repository, events)
+    const queryClient = new QueryClient()
+    const bridge = new SessionQueryBridge(queryClient, service, events)
+
+    await queryClient.fetchInfiniteQuery(bridge.definitions.sessions)
+
+    let releaseFirstRefresh = () => {}
+    const firstRefreshHeld = new Promise<void>((resolve) => {
+      releaseFirstRefresh = resolve
+    })
+    let markFirstRefreshStarted = () => {}
+    const firstRefreshStarted = new Promise<void>((resolve) => {
+      markFirstRefreshStarted = resolve
+    })
+    const originalListSessionsMetaPage = service.listSessionsMetaPage.bind(service)
+    let refreshReads = 0
+    vi.spyOn(service, 'listSessionsMetaPage').mockImplementation(async (cursor, limit) => {
+      refreshReads += 1
+      if (refreshReads === 1) {
+        markFirstRefreshStarted()
+        await firstRefreshHeld
+      }
+      return await originalListSessionsMetaPage(cursor, limit)
+    })
+
+    const copy = service.createSession({ name: 'Copy', type: 'chat', messages: [] }, 'session-40')
+    await firstRefreshStarted
+    const deletion = service.deleteSession('session-60')
+    await vi.waitFor(() => expect(repository.records.has('session-60')).toBe(false))
+    releaseFirstRefresh()
+    await Promise.all([copy, deletion])
+
+    const cached = queryClient.getQueryData<InfiniteSessionData>(QueryKeys.ChatSessionsList)
+    expect(cached?.pages[0].items.map(({ id }) => id)).toEqual(['session-50', 'session-40'])
+    expect(cached?.pages[0].nextCursor).toBe(2)
+
+    const secondPage = await service.listSessionsMetaPage(2)
+    const mergedIds = [...(cached?.pages[0].items ?? []), ...secondPage.items].map(({ id }) => id)
+    expect(mergedIds).toEqual(['session-50', 'session-40', 'created', 'session-30'])
+    expect(new Set(mergedIds).size).toBe(mergedIds.length)
   })
 })
 
