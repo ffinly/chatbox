@@ -109,9 +109,11 @@ describe('getComposerPlaceholder', () => {
       kind: 'locked',
       reason: 'compaction',
     })
-    expect(getComposerPlaceholder({ ...placeholderBase, blockReason: 'awaiting-approval', generating: true })).toEqual({
+    expect(
+      getComposerPlaceholder({ ...placeholderBase, blockReason: 'awaiting-pause-decision', generating: true })
+    ).toEqual({
       kind: 'locked',
-      reason: 'awaiting-approval',
+      reason: 'awaiting-pause-decision',
     })
   })
 

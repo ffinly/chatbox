@@ -67,6 +67,23 @@ export type PendingPauseInteraction =
 const pendingInteractionsCache = new WeakMap<object, PendingPauseInteraction[]>()
 
 /**
+ * Whether any tool call is paused on a decision the user can actually act on.
+ * A paused part whose `pauseReason` this build does not recognize (imported
+ * data, or data written by a different app version) surfaces no approval card
+ * and no continue action, so it must not count as pending.
+ */
+export function hasPendingPauseInteraction(messages: ApprovalScanMessage[]): boolean {
+  return messages.some((message) =>
+    message.contentParts.some(
+      (part) =>
+        part.type === 'tool-call' &&
+        part.state === 'paused' &&
+        (isApprovalPauseReason(part.pauseReason) || part.pauseReason?.type === 'tool_call_limit')
+    )
+  )
+}
+
+/**
  * All paused tool calls that wait on a user decision. Approval pauses map 1:1 to
  * interactions. A tool-call-limit pause freezes the message's whole in-flight
  * batch and the service resumes or stops every limit-paused part together

@@ -2,16 +2,14 @@ import { Box, Text } from '@mantine/core'
 import type { Message, MessageToolCallPart, Session } from '@shared/types'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { pulsePendingActionBar } from '@/stores/approvalAttentionStore'
 import PendingActionBar from '../InputBox/PendingActionBar'
 import { StepTimelineUI } from '../message-parts/ToolCallPartUI'
 
 const storyQueryClient = new QueryClient()
 
 // Simulates the session layout: paused steps stay collapsed in the message list
-// while all decisions render in the unified pending-action bar. Approvals lock
-// the input, so the bar takes over its slot; the step-limit pause leaves the
-// input usable and stacks above it.
+// while all decisions render in the unified pending-action bar. Every pause locks
+// the input, so the bar takes over its slot.
 
 const commandApprovalPart: MessageToolCallPart = {
   type: 'tool-call',
@@ -119,7 +117,7 @@ const meta: Meta<typeof PendingActionBar> = {
 
 export default meta
 
-function SessionLayout({ parts, takeover }: { parts: MessageToolCallPart[]; takeover: boolean }) {
+function SessionLayout({ parts }: { parts: MessageToolCallPart[] }) {
   const { session, message } = makeSession(parts)
   return (
     <Box style={{ height: 560, maxWidth: 720, display: 'flex', flexDirection: 'column', margin: '0 auto' }}>
@@ -135,50 +133,34 @@ function SessionLayout({ parts, takeover }: { parts: MessageToolCallPart[]; take
           onCopyReasoningContent={() => () => {}}
         />
       </Box>
-      <Box style={{ padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <PendingActionBar session={session} takeover={takeover} />
-        {!takeover && (
-          <Box
-            onClick={() => pulsePendingActionBar()}
-            style={{
-              minHeight: 92,
-              borderRadius: 8,
-              border: '0.5px solid var(--chatbox-border-primary)',
-              backgroundColor: 'var(--chatbox-background-secondary)',
-              padding: '8px 12px',
-              color: 'var(--chatbox-tint-placeholder)',
-              fontSize: 14,
-            }}
-          >
-            输入框仍可用（步数上限暂停不锁输入）；点击这里模拟脉冲提醒
-          </Box>
-        )}
+      <Box style={{ padding: '0 16px 16px' }}>
+        <PendingActionBar session={session} />
       </Box>
     </Box>
   )
 }
 
 export const MultipleApprovals: StoryObj = {
-  name: 'Multiple approvals (takeover, 1/N progress)',
-  render: () => <SessionLayout takeover parts={[commandApprovalPart, fileApprovalPart]} />,
+  name: 'Multiple approvals (1/N progress)',
+  render: () => <SessionLayout parts={[commandApprovalPart, fileApprovalPart]} />,
 }
 
 export const CommandEscalation: StoryObj = {
-  name: 'Command escalation (takeover)',
-  render: () => <SessionLayout takeover parts={[escalationApprovalPart]} />,
+  name: 'Command escalation',
+  render: () => <SessionLayout parts={[escalationApprovalPart]} />,
 }
 
 export const FileMutation: StoryObj = {
-  name: 'File mutation (takeover, tinted preview)',
-  render: () => <SessionLayout takeover parts={[fileApprovalPart]} />,
+  name: 'File mutation (tinted preview)',
+  render: () => <SessionLayout parts={[fileApprovalPart]} />,
 }
 
 export const ImageGeneration: StoryObj = {
-  name: 'Image generation (takeover)',
-  render: () => <SessionLayout takeover parts={[imageApprovalPart]} />,
+  name: 'Image generation',
+  render: () => <SessionLayout parts={[imageApprovalPart]} />,
 }
 
 export const ToolCallLimitPause: StoryObj = {
-  name: 'Tool-call limit pause (above the input)',
-  render: () => <SessionLayout takeover={false} parts={[limitPausePart]} />,
+  name: 'Tool-call limit pause',
+  render: () => <SessionLayout parts={[limitPausePart]} />,
 }

@@ -189,6 +189,7 @@ export {
 } from './generation'
 export {
   type ApprovalPauseReason,
+  hasPendingPauseInteraction,
   isApprovalPauseReason,
   listPendingApprovalToolCalls,
   listPendingPauseInteractions,

@@ -326,10 +326,8 @@ describe('PendingActionBar', () => {
     expect(screen.queryByText(/secret/)).toBeNull()
   })
 
-  it('pulses when a takeover click misses the buttons, since the input it replaced is gone', () => {
-    render(<PendingActionBar session={makeSession([commandApproval])} takeover />, {
-      wrapper: ({ children }) => <MantineProvider>{children}</MantineProvider>,
-    })
+  it('pulses when a click misses the buttons, since the input it replaced is gone', () => {
+    renderBar(makeSession([commandApproval]))
 
     fireEvent.click(screen.getByText('rm -rf build'))
     expect(pulsePendingActionBar).toHaveBeenCalledTimes(1)
@@ -340,11 +338,11 @@ describe('PendingActionBar', () => {
     expect(pulsePendingActionBar).toHaveBeenCalledTimes(1)
   })
 
-  it('does not pulse missed clicks when the input box is still available', () => {
+  it('pulses missed clicks for a tool-call-limit pause, which takes over the input too', () => {
     renderBar(makeSession([limitPause]))
 
     fireEvent.click(screen.getByTestId(TestId.toolCall.actionBar))
-    expect(pulsePendingActionBar).not.toHaveBeenCalled()
+    expect(pulsePendingActionBar).toHaveBeenCalledTimes(1)
   })
 
   it('shows Continue/Stop for a tool-call-limit pause', () => {

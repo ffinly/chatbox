@@ -26,7 +26,7 @@ function locks(overrides: Partial<SessionLockState>): SessionLockState {
 }
 
 describe('deriveSessionLockState', () => {
-  it('derives generating counts, the placeholder window, and approval state from the session', () => {
+  it('derives generating counts, the placeholder window, and pause state from the session', () => {
     const session: Session = {
       id: 'session-1',
       name: 'Session',
@@ -57,8 +57,64 @@ describe('deriveSessionLockState', () => {
     expect(state.generatingReplyCount).toBe(1)
     expect(state.anyReplyGenerating).toBe(true)
     expect(state.compactionRunning).toBe(true)
-    expect(state.awaitingToolApproval).toBe(true)
+    expect(state.awaitingPauseDecision).toBe(true)
     expect(isGenerationLocked(state)).toBe(true)
+  })
+
+  it('locks the composer on a tool-call-limit pause, not just on approvals', () => {
+    const session: Session = {
+      id: 'session-limit',
+      name: 'Session',
+      messages: [
+        message({
+          id: 'paused',
+          // A limit pause is persisted with generating: false, so this lock is the
+          // only thing keeping a send from starting a competing generation.
+          generating: false,
+          contentParts: [
+            {
+              type: 'tool-call',
+              toolCallId: 'call-1',
+              toolName: 'sandbox_bash',
+              state: 'paused',
+              pauseReason: { type: 'tool_call_limit', maxToolCalls: 25 },
+            },
+          ],
+        }),
+      ],
+    }
+
+    const state = deriveSessionLockState(session)
+
+    expect(state.awaitingPauseDecision).toBe(true)
+    expect(state.anyReplyGenerating).toBe(false)
+    expect(getSessionActionGate('submit-message', state)).toEqual({
+      allowed: false,
+      reason: 'awaiting-pause-decision',
+    })
+  })
+
+  it('ignores a paused tool call this build offers no action for', () => {
+    const session: Session = {
+      id: 'session-unknown-pause',
+      name: 'Session',
+      messages: [
+        message({
+          id: 'paused',
+          contentParts: [
+            {
+              type: 'tool-call',
+              toolCallId: 'call-1',
+              toolName: 'future_tool',
+              state: 'paused',
+              pauseReason: undefined,
+            },
+          ],
+        }),
+      ],
+    }
+
+    expect(deriveSessionLockState(session).awaitingPauseDecision).toBe(false)
   })
 
   it('reports an idle session as fully unlocked', () => {
@@ -138,7 +194,7 @@ describe('getSessionActionGate', () => {
     })
   })
 
-  it('blocks submission during the placeholder window, compaction, and pending approval', () => {
+  it('blocks submission during the placeholder window, compaction, and a pending pause decision', () => {
     expect(getSessionActionGate('submit-message', locks({ anyReplyGenerating: true }))).toEqual({
       allowed: false,
       reason: 'generating',
@@ -147,9 +203,9 @@ describe('getSessionActionGate', () => {
       allowed: false,
       reason: 'compaction',
     })
-    expect(getSessionActionGate('submit-message', locks({ awaitingToolApproval: true }))).toEqual({
+    expect(getSessionActionGate('submit-message', locks({ awaitingPauseDecision: true }))).toEqual({
       allowed: false,
-      reason: 'awaiting-approval',
+      reason: 'awaiting-pause-decision',
     })
     expect(getSessionActionGate('submit-message', IDLE_SESSION_LOCK_STATE)).toEqual({ allowed: true })
   })
@@ -184,17 +240,17 @@ describe('getSubmitAvailability', () => {
       control: 'send',
       blockReason: 'compaction',
     })
-    expect(getSubmitAvailability(locks({ awaitingToolApproval: true }))).toEqual({
+    expect(getSubmitAvailability(locks({ awaitingPauseDecision: true }))).toEqual({
       control: 'send',
-      blockReason: 'awaiting-approval',
+      blockReason: 'awaiting-pause-decision',
     })
-    // A pending approval must keep its cue even while a reply streams.
-    expect(getSubmitAvailability(locks({ anyReplyGenerating: true, awaitingToolApproval: true }))).toEqual({
+    // A pending pause decision must keep its cue even while a reply streams.
+    expect(getSubmitAvailability(locks({ anyReplyGenerating: true, awaitingPauseDecision: true }))).toEqual({
       control: 'stop',
-      blockReason: 'awaiting-approval',
+      blockReason: 'awaiting-pause-decision',
     })
-    // Compaction outranks approval on the block axis, matching the gate order.
-    expect(getSubmitAvailability(locks({ compactionRunning: true, awaitingToolApproval: true }))).toEqual({
+    // Compaction outranks the pause decision on the block axis, matching the gate order.
+    expect(getSubmitAvailability(locks({ compactionRunning: true, awaitingPauseDecision: true }))).toEqual({
       control: 'send',
       blockReason: 'compaction',
     })
@@ -203,12 +259,12 @@ describe('getSubmitAvailability', () => {
   it('agrees with the submit-message gate on every lock combination', () => {
     for (const anyReplyGenerating of [false, true]) {
       for (const compactionRunning of [false, true]) {
-        for (const awaitingToolApproval of [false, true]) {
+        for (const awaitingPauseDecision of [false, true]) {
           const state = locks({
             anyReplyGenerating,
             generatingReplyCount: anyReplyGenerating ? 1 : 0,
             compactionRunning,
-            awaitingToolApproval,
+            awaitingPauseDecision,
           })
           const availability = getSubmitAvailability(state)
           const gate = getSessionActionGate('submit-message', state)

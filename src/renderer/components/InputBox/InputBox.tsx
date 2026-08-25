@@ -416,19 +416,19 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
     const submitAvailability = getSubmitAvailability(sessionLocks)
     // While replies stream, an empty draft shows Stop; entering content turns
     // the same control back into Send so it can be queued. The hard block
-    // (compaction/approval) remains an independent axis.
+    // (compaction/pause decision) remains an independent axis.
     const generating = submitAvailability.control === 'stop'
     const generatingCount = sessionLocks.generatingReplyCount
-    const isAwaitingToolApproval = sessionLocks.awaitingToolApproval
-    // An approval holds the input read-only, so the pending-action bar takes over
-    // its slot instead of stacking above a dead text field. The step-limit pause
-    // leaves the input usable (messages can still be queued), so it stays stacked.
-    const approvalTakeover = useMemo(() => {
-      if (isNewSession || !currentSession || !isAwaitingToolApproval) return false
+    const isAwaitingPauseDecision = sessionLocks.awaitingPauseDecision
+    // Every pause holds the input read-only, so the pending-action bar takes over
+    // its slot instead of stacking above a dead text field. Same predicate the bar
+    // renders on, so the slot never ends up empty.
+    const pauseTakeover = useMemo(() => {
+      if (isNewSession || !currentSession) return false
       return listPendingPauseInteractions(currentSession.messages).length > 0
-    }, [isNewSession, currentSession, isAwaitingToolApproval])
+    }, [isNewSession, currentSession])
 
-    const skillMenuOpen = skillCommandQuery !== null && matchingInputSkills.length > 0 && !isAwaitingToolApproval
+    const skillMenuOpen = skillCommandQuery !== null && matchingInputSkills.length > 0 && !isAwaitingPauseDecision
 
     // Floating UI autoUpdate：跟随 anchor（含纯 position 变化的响应式过渡），替代手写 RO/rAF 状态机
     useLayoutEffect(() => {
@@ -1470,7 +1470,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
           {currentSessionId && !isNewSession && <QueuedMessagesBar sessionId={currentSessionId} />}
           {currentSession && !isNewSession && (
             <ErrorBoundary name="pending-action-bar">
-              <PendingActionBar session={currentSession} takeover={approvalTakeover} />
+              <PendingActionBar session={currentSession} />
             </ErrorBoundary>
           )}
           <Box
@@ -1479,9 +1479,9 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
               // min-h + justify-between 必须同层，桌面空输入时工具栏贴底
               INPUT_SURFACE_CLASS_NAME,
               !isSmallScreen && INPUT_SURFACE_MIN_HEIGHT_CLASS_NAME,
-              // Kept mounted while an approval takes over the slot so the draft,
+              // Kept mounted while a pause takes over the slot so the draft,
               // attachments and autosized height survive the swap.
-              approvalTakeover && 'hidden'
+              pauseTakeover && 'hidden'
             )}
             style={INPUT_SURFACE_STYLE}
           >

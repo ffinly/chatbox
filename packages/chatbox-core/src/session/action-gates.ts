@@ -1,11 +1,11 @@
-import { listPendingApprovalToolCalls } from '../message-approval'
+import { hasPendingPauseInteraction } from '../message-approval'
 import type { Session, SessionType } from '../types'
 import { countCancellableGeneratingAssistantMessages, getGenerationControlMessages } from './generation-state'
 import type { SessionMode } from './mode-policy'
 
 /**
  * Pure lock/gate decisions for session actions while replies stream, a
- * compaction summary runs, or a tool call waits for user approval.
+ * compaction summary runs, or a paused tool call waits for a user decision.
  *
  * This module is the single source of truth for "is this action allowed right
  * now, and if not, why". Hosts (web renderer, mobile-native, a future CLI)
@@ -26,15 +26,22 @@ export type SessionLockState = {
   anyReplyGenerating: boolean
   /** A compaction summary is streaming for this session. */
   compactionRunning: boolean
-  /** A tool call in the current message list waits for user approval. */
-  awaitingToolApproval: boolean
+  /**
+   * A tool call in the current message list is paused on a user decision —
+   * an approval request or a tool-call-limit pause. Both hand the composer
+   * slot to the pending-action bar, so neither may accept a new submission:
+   * a paused reply is persisted with `generating: false`, so without this
+   * lock a send would start a competing generation whose context silently
+   * drops the paused batch.
+   */
+  awaitingPauseDecision: boolean
 }
 
 export const IDLE_SESSION_LOCK_STATE: SessionLockState = {
   generatingReplyCount: 0,
   anyReplyGenerating: false,
   compactionRunning: false,
-  awaitingToolApproval: false,
+  awaitingPauseDecision: false,
 }
 
 export type SessionActionBlockReason =
@@ -42,8 +49,8 @@ export type SessionActionBlockReason =
   | 'generating'
   /** A compaction summary is streaming. */
   | 'compaction'
-  /** A tool call waits for user approval. */
-  | 'awaiting-approval'
+  /** A paused tool call waits for a user decision. */
+  | 'awaiting-pause-decision'
   /** The target message itself is still streaming. */
   | 'message-streaming'
   /** The persisted session is retained for viewing but no longer accepts mutations. */
@@ -110,7 +117,7 @@ export function deriveSessionLockState(
     generatingReplyCount: countCancellableGeneratingAssistantMessages(controlMessages, activeGenerationMessageIds),
     anyReplyGenerating: controlMessages.some((message) => message.generating === true),
     compactionRunning: runtime.compactionRunning ?? false,
-    awaitingToolApproval: listPendingApprovalToolCalls(session.messages).length > 0,
+    awaitingPauseDecision: hasPendingPauseInteraction(session.messages),
   }
 }
 
@@ -181,7 +188,7 @@ export function getSessionActionGate(
       if (locks.compactionRunning) {
         return blocked('compaction')
       }
-      return locks.awaitingToolApproval ? blocked('awaiting-approval') : ALLOWED
+      return locks.awaitingPauseDecision ? blocked('awaiting-pause-decision') : ALLOWED
   }
 }
 
@@ -214,10 +221,10 @@ export function assertSessionActionAllowed(
 /**
  * The submit affordance has two independent axes, not one ordered state:
  * streaming replies swap the Send control for Stop (the control stays
- * active), while compaction and pending approval hard-block the composer
- * (disabled send, read-only input) regardless of whether something is also
- * streaming — an approval can be pending while an alternative reply streams,
- * and its cue must not be shadowed.
+ * active), while compaction and a pending pause decision hard-block the
+ * composer (disabled send, read-only input) regardless of whether something
+ * is also streaming — a pause can be pending while an alternative reply
+ * streams, and its cue must not be shadowed.
  *
  * Invariant (pinned by tests): the submit-message gate allows exactly when
  * `control === 'send'` and `blockReason` is unset.
@@ -226,14 +233,14 @@ export type SubmitAvailability = {
   /** Which control the send slot shows. */
   control: 'send' | 'stop'
   /** Why the composer is hard-blocked, independent of streaming. */
-  blockReason?: Extract<SessionActionBlockReason, 'compaction' | 'awaiting-approval'>
+  blockReason?: Extract<SessionActionBlockReason, 'compaction' | 'awaiting-pause-decision'>
 }
 
 export function getSubmitAvailability(locks: SessionLockState): SubmitAvailability {
   const blockReason = locks.compactionRunning
     ? ('compaction' as const)
-    : locks.awaitingToolApproval
-      ? ('awaiting-approval' as const)
+    : locks.awaitingPauseDecision
+      ? ('awaiting-pause-decision' as const)
       : undefined
   return { control: locks.anyReplyGenerating ? 'stop' : 'send', blockReason }
 }

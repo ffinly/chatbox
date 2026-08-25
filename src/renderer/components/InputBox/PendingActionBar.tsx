@@ -324,9 +324,9 @@ const PendingHeading: FC<{
   )
 }
 
-type PendingActionBarProps = { session: Session; takeover?: boolean }
+type PendingActionBarProps = { session: Session }
 
-const PendingActionBarContent: FC<PendingActionBarProps> = ({ session, takeover = false }) => {
+const PendingActionBarContent: FC<PendingActionBarProps> = ({ session }) => {
   const { t } = useTranslation()
   const isSmallScreen = useIsSmallScreen()
   const interactions = useMemo(() => listPendingPauseInteractions(session.messages), [session.messages])
@@ -446,7 +446,6 @@ const PendingActionBarContent: FC<PendingActionBarProps> = ({ session, takeover 
   // Clicks that miss the buttons are the user reaching for the input that this
   // bar replaced; pulse instead of silently swallowing them.
   const handleSurfaceClick = (event: MouseEvent<HTMLDivElement>) => {
-    if (!takeover) return
     if ((event.target as HTMLElement).closest('button, a, [role="menuitem"]')) return
     pulsePendingActionBar()
   }
@@ -461,7 +460,7 @@ const PendingActionBarContent: FC<PendingActionBarProps> = ({ session, takeover 
       onClickCapture={handleSurfaceClick}
       className={clsx(
         INPUT_SURFACE_CLASS_NAME,
-        takeover && !isSmallScreen && INPUT_SURFACE_MIN_HEIGHT_CLASS_NAME,
+        !isSmallScreen && INPUT_SURFACE_MIN_HEIGHT_CLASS_NAME,
         showPulse && (pulseToken % 2 === 1 ? 'chatbox-action-bar-pulse' : 'chatbox-action-bar-pulse-alt')
       )}
       style={INPUT_SURFACE_STYLE}
