@@ -204,6 +204,7 @@ const SessionSettingsModal = NiceModal.create(
             <Stack gap="xs">
               <Text fw={700}>{t('Name')}</Text>
               <Input
+                data-testid={TestId.settings.sessionName}
                 placeholder={t('Name')}
                 autoFocus={!isSmallScreen}
                 value={editingData.name}
@@ -218,6 +219,7 @@ const SessionSettingsModal = NiceModal.create(
               <>
                 {showSystemPrompt && (
                   <Textarea
+                    data-testid={TestId.settings.sessionPrompt}
                     label={t('Instruction (System Prompt)')}
                     placeholder={t('Copilot Prompt Demo') || ''}
                     autosize
@@ -352,7 +354,9 @@ const SessionSettingsModal = NiceModal.create(
 
         <AdaptiveModal.Actions>
           <AdaptiveModal.CloseButton onClick={onCancel} />
-          <Button onClick={onSave}>{t('Save')}</Button>
+          <Button data-testid={TestId.settings.sessionSave} onClick={onSave}>
+            {t('Save')}
+          </Button>
         </AdaptiveModal.Actions>
       </AdaptiveModal>
     )
@@ -375,6 +379,7 @@ export function ChatConfig({
   return (
     <Stack gap="md">
       <MaxContextMessageCountSlider
+        inputTestId={TestId.settings.sessionMaxContext}
         value={settings?.maxContextMessageCount ?? chatSessionSettings().maxContextMessageCount!}
         onChange={(v) => onSettingsChange({ maxContextMessageCount: v })}
       />
@@ -398,7 +403,12 @@ export function ChatConfig({
           </Tooltip>
         </Flex>
 
-        <SliderWithInput value={settings?.temperature} onChange={(v) => onSettingsChange({ temperature: v })} max={2} />
+        <SliderWithInput
+          inputTestId={TestId.settings.sessionTemperature}
+          value={settings?.temperature}
+          onChange={(v) => onSettingsChange({ temperature: v })}
+          max={2}
+        />
       </Stack>
 
       <Stack gap="xs">
@@ -420,7 +430,12 @@ export function ChatConfig({
           </Tooltip>
         </Flex>
 
-        <SliderWithInput value={settings?.topP} onChange={(v) => onSettingsChange({ topP: v })} max={1} />
+        <SliderWithInput
+          inputTestId={TestId.settings.sessionTopP}
+          value={settings?.topP}
+          onChange={(v) => onSettingsChange({ topP: v })}
+          max={1}
+        />
       </Stack>
 
       <Flex justify="space-between" align="center">
@@ -443,6 +458,7 @@ export function ChatConfig({
         </Flex>
 
         <LazyNumberInput
+          inputTestId={TestId.settings.sessionMaxTokens}
           width={96}
           value={settings?.maxTokens}
           onChange={(v) => onSettingsChange({ maxTokens: typeof v === 'number' ? v : undefined })}

@@ -1,5 +1,6 @@
 import NiceModal from '@ebay/nice-modal-react'
 import { ActionIcon, Badge, Flex, ScrollArea, Text } from '@mantine/core'
+import { TestId } from '@shared/automation/testids'
 import SwipeableDrawer from '@mui/material/SwipeableDrawer'
 import type { Session, SessionThreadBrief } from '@shared/types'
 import { IconDots, IconEdit, IconSwitch, IconTrash, IconX } from '@tabler/icons-react'
@@ -69,7 +70,9 @@ export default function ThreadHistoryDrawer({ session }: { session: Session }) {
       }}
       SlideProps={language === 'ar' ? { direction: 'right' } : undefined}
       PaperProps={
-        language === 'ar' ? { sx: { direction: 'rtl', overflowY: 'initial' } } : { sx: { overflowY: 'initial' } }
+        language === 'ar'
+          ? { sx: { direction: 'rtl', overflowY: 'initial' }, 'data-testid': TestId.session.threadHistoryDrawer }
+          : { sx: { overflowY: 'initial' }, 'data-testid': TestId.session.threadHistoryDrawer }
       }
       disableSwipeToOpen={CHATBOX_BUILD_PLATFORM !== 'ios'} // 只在iOS设备上启用SwipeToOpen
       disableEnforceFocus={true} // 关闭 focus trap，避免在侧边栏打开时弹出的 modal 中 input 无法点击

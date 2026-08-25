@@ -1,4 +1,5 @@
 import { ActionIcon, Box, Flex, Indicator, Stack, Text } from '@mantine/core'
+import { TestId } from '@shared/automation/testids'
 import {
   IconAdjustmentsHorizontal,
   IconArchive,
@@ -178,6 +179,15 @@ export function SettingsRoot() {
               key={item.key}
               to={`/settings/${item.key}` as any}
               className={'block no-underline w-full'}
+              data-testid={
+                item.key === 'chat'
+                  ? TestId.settings.navChat
+                  : item.key === 'general'
+                    ? TestId.settings.navGeneral
+                    : item.key === 'default-models'
+                      ? TestId.settings.navDefaultModels
+                      : undefined
+              }
             >
               <Flex
                 component="span"

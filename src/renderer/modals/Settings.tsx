@@ -1,4 +1,5 @@
 import { Box, Button, Flex, Text, Title } from '@mantine/core'
+import { TestId } from '@shared/automation/testids'
 import { IconX } from '@tabler/icons-react'
 import {
   createMemoryHistory,
@@ -234,6 +235,8 @@ export const SettingsModal: FC<SettingsModalProps> = (props) => {
             w={36}
             p={0}
             radius="lg"
+            data-testid={TestId.settings.close}
+            aria-label={t('Close') || undefined}
             onClick={onClose}
             autoFocus={false}
           >

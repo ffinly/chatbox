@@ -132,6 +132,7 @@ export function RouteComponent() {
         <Stack gap="xxs">
           <Text fw="500">{t('Prompt')}</Text>
           <Textarea
+            data-testid={TestId.settings.defaultPrompt}
             value={settings.defaultPrompt || ''}
             autosize
             minRows={1}
@@ -160,6 +161,7 @@ export function RouteComponent() {
 
         {/* Max Context Message Count */}
         <MaxContextMessageCountSlider
+          inputTestId={TestId.settings.maxContext}
           wrapperProps={{ gap: 'xxs' }}
           labelProps={{ fw: undefined }}
           value={
@@ -186,7 +188,12 @@ export function RouteComponent() {
             </Tooltip>
           </Flex>
 
-          <SliderWithInput value={settings?.temperature} onChange={(v) => setSettings({ temperature: v })} max={2} />
+          <SliderWithInput
+            inputTestId={TestId.settings.temperature}
+            value={settings?.temperature}
+            onChange={(v) => setSettings({ temperature: v })}
+            max={2}
+          />
         </Stack>
 
         {/* Top P */}
@@ -207,7 +214,12 @@ export function RouteComponent() {
             </Tooltip>
           </Flex>
 
-          <SliderWithInput value={settings?.topP} onChange={(v) => setSettings({ topP: v })} max={1} />
+          <SliderWithInput
+            inputTestId={TestId.settings.topP}
+            value={settings?.topP}
+            onChange={(v) => setSettings({ topP: v })}
+            max={1}
+          />
         </Stack>
 
         {/* Background Image */}

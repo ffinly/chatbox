@@ -1898,6 +1898,8 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                 {!isSmallScreen && (
                   <Tooltip label={t('Conversation Settings')} position="top" withArrow>
                     <UnstyledButton
+                      data-testid={TestId.chat.sessionSettings}
+                      aria-label={t('Conversation Settings') || undefined}
                       onClick={onClickSessionSettings}
                       disabled={!onClickSessionSettings}
                       className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors disabled:opacity-50"
@@ -1941,6 +1943,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                         {t('New Thread')}
                       </Menu.Item>
                       <Menu.Item
+                        data-testid={TestId.chat.sessionSettings}
                         leftSection={<ScalableIcon icon={IconAdjustmentsHorizontal} size={16} />}
                         onClick={onClickSessionSettings}
                       >

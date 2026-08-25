@@ -21,10 +21,18 @@ export interface Props {
   className?: string
   wrapperProps?: StackProps
   labelProps?: TextProps
+  inputTestId?: string
 }
 
 const MESSAGE_COUNT_OPTIONS = [0, 2, 4, 6, 8, 10, 20, 50, 100, 200, 500, Number.MAX_SAFE_INTEGER]
-export default function MaxContextMessageCountSlider({ value, onChange, className, wrapperProps, labelProps }: Props) {
+export default function MaxContextMessageCountSlider({
+  value,
+  onChange,
+  className,
+  wrapperProps,
+  labelProps,
+  inputTestId,
+}: Props) {
   const { t } = useTranslation()
   const settingLabel = t('Max Message Count in Context')
   const tooltipLabel = t(
@@ -122,6 +130,7 @@ export default function MaxContextMessageCountSlider({ value, onChange, classNam
           onChangeEnd={handleSliderChangeEnd}
         />
         <TextInput
+          data-testid={inputTestId}
           w={64}
           size="sm"
           value={inputValue}

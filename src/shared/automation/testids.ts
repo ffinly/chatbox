@@ -7,7 +7,7 @@
  */
 
 export const AUTOMATION_CONTRACT_ID = 'chatbox-ui'
-export const AUTOMATION_CONTRACT_VERSION = '1.5.0'
+export const AUTOMATION_CONTRACT_VERSION = '1.6.0'
 export const AUTOMATION_CONTRACT_VERSION_ATTRIBUTE = 'data-automation-contract-version'
 
 /** Adjacent identity attributes hosted on TestId elements. */
@@ -40,6 +40,7 @@ export const TestId = {
     queuedMessageClear: 'queued-message-clear',
     newThread: 'new-thread-button',
     rollbackThread: 'rollback-thread-button',
+    sessionSettings: 'session-settings-trigger',
   },
   model: {
     selectorTrigger: 'model-selector-trigger',
@@ -72,6 +73,24 @@ export const TestId = {
     sessionTitle: 'session-title',
     sessionPin: 'session-pin',
     sessionArchive: 'session-archive',
+    collapse: 'sidebar-collapse',
+  },
+  session: {
+    searchTrigger: 'session-search-trigger',
+    searchInput: 'session-search-input',
+    searchCurrent: 'session-search-current',
+    searchAll: 'session-search-all',
+    headerMenu: 'session-header-menu',
+    headerMenuTrigger: 'session-header-menu-trigger',
+    threadHistory: 'session-thread-history',
+    threadHistoryDrawer: 'session-thread-history-drawer',
+    export: 'session-export',
+    duplicate: 'session-duplicate',
+    widthToggle: 'session-width-toggle',
+    clearMessages: 'session-clear-messages',
+    clearMessagesConfirm: 'session-clear-messages-confirm',
+    delete: 'session-delete',
+    deleteConfirm: 'session-delete-confirm',
   },
   message: {
     item: 'message-item',
@@ -98,6 +117,8 @@ export const TestId = {
     forkPrevious: 'message-fork-previous',
     forkCounter: 'message-fork-counter',
     forkNext: 'message-fork-next',
+    forkDelete: 'message-fork-delete',
+    forkDeleteConfirm: 'message-fork-delete-confirm',
   },
   toolCall: {
     approve: 'tool-call-approve',
@@ -137,6 +158,24 @@ export const TestId = {
     providerModelItem: 'settings-provider-model-item',
     providerModelEdit: 'settings-provider-model-edit',
     providerModelDelete: 'settings-provider-model-delete',
+    close: 'settings-close',
+    navChat: 'settings-nav-chat',
+    navGeneral: 'settings-nav-general',
+    navDefaultModels: 'settings-nav-default-models',
+    defaultPrompt: 'settings-default-prompt',
+    temperature: 'settings-temperature',
+    topP: 'settings-top-p',
+    maxContext: 'settings-max-context',
+    defaultChatModel: 'settings-default-chat-model',
+    sessionName: 'session-settings-name',
+    sessionPrompt: 'session-settings-prompt',
+    sessionTemperature: 'session-settings-temperature',
+    sessionTopP: 'session-settings-top-p',
+    sessionMaxTokens: 'session-settings-max-tokens',
+    sessionMaxContext: 'session-settings-max-context',
+    sessionSave: 'session-settings-save',
+    clearSessionListKeep: 'clear-session-list-keep-count',
+    clearSessionListConfirm: 'clear-session-list-confirm',
   },
 } as const
 

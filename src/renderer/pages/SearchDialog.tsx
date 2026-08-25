@@ -1,5 +1,6 @@
 import { isActionAvailableInMode, resolveSessionMode } from '@chatbox/core/session/mode-policy'
 import { Dialog, DialogContent, useTheme } from '@mui/material'
+import { TestId } from '@shared/automation/testids'
 import type { Session } from '@shared/types'
 import { useAtomValue } from 'jotai'
 import { Loader2, ScanSearch } from 'lucide-react'
@@ -118,6 +119,7 @@ export default function SearchDialog(props: Props) {
             value={searchInput}
             onInput={onSearchInput}
             onKeyDown={onKeyDown}
+            data-testid={TestId.session.searchInput}
             className={cn('border-none', 'shadow-none', theme.palette.mode === 'dark' ? 'text-white' : 'text-black')}
             placeholder={globalOnly ? t('Search conversations') + '...' : t('Type a command or search') + '...'}
           />
@@ -127,6 +129,7 @@ export default function SearchDialog(props: Props) {
               <CommandGroup heading={t('Search')}>
                 <CommandItem
                   value="search-current-session"
+                  data-testid={TestId.session.searchCurrent}
                   className={cn(
                     theme.palette.mode === 'dark' ? 'aria-selected:bg-slate-500' : 'aria-selected:bg-slate-100'
                   )}
@@ -140,6 +143,7 @@ export default function SearchDialog(props: Props) {
                 </CommandItem>
                 <CommandItem
                   value="search-global"
+                  data-testid={TestId.session.searchAll}
                   className={cn(
                     theme.palette.mode === 'dark' ? 'aria-selected:bg-slate-500' : 'aria-selected:bg-slate-100'
                   )}

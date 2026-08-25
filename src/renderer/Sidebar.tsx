@@ -220,6 +220,8 @@ export default function Sidebar() {
             </Tooltip>
             <Tooltip label={t('Collapse')} openDelay={1000} withArrow>
               <ActionIcon
+                data-testid={TestId.sidebar.collapse}
+                aria-label={t('Collapse') || undefined}
                 variant="subtle"
                 color="chatbox-tertiary"
                 size={26}

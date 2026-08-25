@@ -1,5 +1,6 @@
 import NiceModal from '@ebay/nice-modal-react'
 import { ActionIcon, Button, Flex } from '@mantine/core'
+import { TestId } from '@shared/automation/testids'
 import {
   IconClearAll,
   IconCode,
@@ -90,6 +91,7 @@ export default function Toolbar({ sessionId }: { sessionId: string }) {
           radius="lg"
           variant="outline"
           color="chatbox-tertiary"
+          data-testid={TestId.session.searchTrigger}
           leftSection={<ScalableIcon icon={IconSearch} size={16} strokeWidth={1.8} />}
           className="border-chatbox-border-primary"
           classNames={{
@@ -100,19 +102,27 @@ export default function Toolbar({ sessionId }: { sessionId: string }) {
           {t('Search')}...
         </Button>
       ) : (
-        <ActionIcon variant="subtle" size={28} color="chatbox-secondary" onClick={() => setOpenSearchDialog(true)}>
+        <ActionIcon
+          variant="subtle"
+          size={28}
+          color="chatbox-secondary"
+          data-testid={TestId.session.searchTrigger}
+          onClick={() => setOpenSearchDialog(true)}
+        >
           <IconSearch strokeWidth={1.8} />
         </ActionIcon>
       )}
 
       <ActionMenu
         position="bottom-end"
+        contentTestId={TestId.session.headerMenu}
         items={[
           ...(isLargeScreen
             ? [
                 {
                   text: widthFull ? t('Standard Width') : t('Full Width'),
                   icon: widthFull ? LayoutExpand : LayoutShrink,
+                  testId: TestId.session.widthToggle,
                   onClick: () => setWidthFull(!widthFull),
                 },
               ]
@@ -120,6 +130,7 @@ export default function Toolbar({ sessionId }: { sessionId: string }) {
           {
             text: t('Thread History'),
             icon: IconHistory,
+            testId: TestId.session.threadHistory,
             onClick: () => setThreadHistoryDrawerOpen(true),
           },
           {
@@ -128,6 +139,7 @@ export default function Toolbar({ sessionId }: { sessionId: string }) {
           {
             text: t('Duplicate Conversation'),
             icon: IconCopy,
+            testId: TestId.session.duplicate,
             onClick: handleCopySession,
           },
           {
@@ -138,6 +150,7 @@ export default function Toolbar({ sessionId }: { sessionId: string }) {
           {
             text: t('Export Chat'),
             icon: IconDeviceFloppy,
+            testId: TestId.session.export,
             onClick: handleExportAndSave,
           },
           ...(process.env.NODE_ENV === 'development'
@@ -159,6 +172,8 @@ export default function Toolbar({ sessionId }: { sessionId: string }) {
             text: t('Clear All Messages'),
             icon: Broom,
             color: 'chatbox-primary',
+            testId: TestId.session.clearMessages,
+            confirmTestId: TestId.session.clearMessagesConfirm,
             onClick: handleSessionClean,
           },
           {
@@ -168,31 +183,42 @@ export default function Toolbar({ sessionId }: { sessionId: string }) {
             text: t('Delete Current Session'),
             icon: IconTrash,
             color: 'chatbox-primary',
+            testId: TestId.session.delete,
+            confirmTestId: TestId.session.deleteConfirm,
             onClick: handleSessionDelete,
           },
         ]}
       >
-        <ActionIcon variant="subtle" size={28} color="chatbox-secondary">
+        <ActionIcon variant="subtle" size={28} color="chatbox-secondary" data-testid={TestId.session.headerMenuTrigger}>
           <IconDots strokeWidth={1.8} />
         </ActionIcon>
       </ActionMenu>
     </Flex>
   ) : (
     <Flex align="center" gap="xs">
-      <ActionIcon variant="subtle" size={24} color="chatbox-secondary" onClick={() => setOpenSearchDialog(true)}>
+      <ActionIcon
+        variant="subtle"
+        size={24}
+        color="chatbox-secondary"
+        data-testid={TestId.session.searchTrigger}
+        onClick={() => setOpenSearchDialog(true)}
+      >
         <IconSearch strokeWidth={1.8} />
       </ActionIcon>
       <ActionMenu
         position="bottom-end"
+        contentTestId={TestId.session.headerMenu}
         items={[
           {
             text: t('Thread History'),
             icon: IconHistory,
+            testId: TestId.session.threadHistory,
             onClick: () => setThreadHistoryDrawerOpen(true),
           },
           {
             text: t('Duplicate Conversation'),
             icon: IconCopy,
+            testId: TestId.session.duplicate,
             onClick: handleCopySession,
           },
           {
@@ -203,6 +229,7 @@ export default function Toolbar({ sessionId }: { sessionId: string }) {
           {
             text: t('Export Chat'),
             icon: IconDeviceFloppy,
+            testId: TestId.session.export,
             onClick: handleExportAndSave,
           },
           ...(process.env.NODE_ENV === 'development'
@@ -224,6 +251,8 @@ export default function Toolbar({ sessionId }: { sessionId: string }) {
             text: t('Clear All Messages'),
             icon: IconClearAll,
             color: 'chatbox-primary',
+            testId: TestId.session.clearMessages,
+            confirmTestId: TestId.session.clearMessagesConfirm,
             onClick: handleSessionClean,
           },
           {
@@ -233,11 +262,13 @@ export default function Toolbar({ sessionId }: { sessionId: string }) {
             text: t('Delete Current Session'),
             icon: IconTrash,
             color: 'chatbox-primary',
+            testId: TestId.session.delete,
+            confirmTestId: TestId.session.deleteConfirm,
             onClick: handleSessionDelete,
           },
         ]}
       >
-        <ActionIcon variant="subtle" size={24} color="chatbox-secondary">
+        <ActionIcon variant="subtle" size={24} color="chatbox-secondary" data-testid={TestId.session.headerMenuTrigger}>
           <IconDots strokeWidth={1.8} />
         </ActionIcon>
       </ActionMenu>

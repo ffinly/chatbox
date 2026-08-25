@@ -272,6 +272,8 @@ export default function ForkGroup(props: ForkGroupProps) {
                   text: t('delete'),
                   icon: IconTrash,
                   disabled: deleteLocked && !isSmallScreen,
+                  testId: TestId.message.forkDelete,
+                  confirmTestId: TestId.message.forkDeleteConfirm,
                   onClick: handleDelete,
                 },
               ] satisfies ActionMenuItemProps[])
