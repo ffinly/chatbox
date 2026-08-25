@@ -438,12 +438,13 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
   // identity comes from the frozen Soul — so showing it would misrepresent what the
   // model receives, whatever the display setting says.
   const hideSystemPrompt = hideSystemPromptMessage || !isActionAvailableInMode('session-system-prompt', sessionMode)
+  const showThreadHistory = isActionAvailableInMode('thread-history', sessionMode)
 
   const renderMessageBlock = useCallback(
     (msg: SessionMessage, options: { isFirstItem: boolean; isLastItem: boolean }) => {
       // Keep system messages in renderItems so thread anchors and Virtuoso indices stay stable.
       const shouldHideSystemPrompt = hideSystemPrompt && msg.role === 'system'
-      const thread = currentThreadHash[msg.id]
+      const thread = showThreadHistory ? currentThreadHash[msg.id] : undefined
       // Saved alternatives stay inside the pivot block (newest-first in ForkGroup), so the active
       // branch appears last. Forks can pivot on a system message ("Reply Again Below", first-reply
       // retries), so the switcher must stay reachable even while the system prompt is hidden.
@@ -530,7 +531,16 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
         </Stack>
       )
     },
-    [currentSession, currentThreadHash, hideSystemPrompt, sessionLocks, sessionMode, latestSummaryMessageId, t]
+    [
+      currentSession,
+      currentThreadHash,
+      hideSystemPrompt,
+      sessionLocks,
+      sessionMode,
+      showThreadHistory,
+      latestSummaryMessageId,
+      t,
+    ]
   )
 
   useImperativeHandle(ref, () => ({

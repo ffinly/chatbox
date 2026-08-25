@@ -35,6 +35,10 @@ export type ModePolicyAction =
   | 'queue-message'
   /** Jump the queue and steer an item into the running generation. */
   | 'steer-queued-message'
+  /** Archive the current conversation and start a new thread. */
+  | 'create-thread'
+  /** Open or navigate Thread History (toolbar, drawer, in-transcript labels). */
+  | 'thread-history'
 
 /**
  * `'on'` is Work Mode; `'off'`, `'auto'` and unset are Chat Mode ('auto' only
@@ -56,6 +60,8 @@ const WORK_MODE_UNAVAILABLE: ReadonlySet<ModePolicyAction> = new Set([
   'delete-fork',
   'save-message-edit',
   'session-system-prompt',
+  'create-thread',
+  'thread-history',
 ])
 
 const CHAT_MODE_UNAVAILABLE: ReadonlySet<ModePolicyAction> = new Set(['queue-message', 'steer-queued-message'])

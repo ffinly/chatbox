@@ -416,6 +416,44 @@ describe('MessageList new message layout', () => {
     ).toBe('2')
   })
 
+  test('hides thread labels in work mode', () => {
+    const session: Session = {
+      id: 'session-1',
+      type: 'chat',
+      name: 'Session',
+      threadName: 'Current Thread',
+      settings: { agentMode: { value: 'on', locked: true, lockReason: null } },
+      threads: [
+        {
+          id: 'archived-thread',
+          name: 'Archived Thread',
+          createdAt: 1,
+          messages: [
+            message('archived-system', MessageRoleEnum.System, 'archived system prompt'),
+            message('archived-user', MessageRoleEnum.User, 'archived question'),
+            message('archived-assistant', MessageRoleEnum.Assistant, 'archived answer'),
+          ],
+        },
+      ],
+      messages: [
+        message('current-system', MessageRoleEnum.System, 'current system prompt'),
+        message('current-user', MessageRoleEnum.User, 'current question'),
+        message('current-assistant', MessageRoleEnum.Assistant, 'current answer'),
+      ],
+    }
+
+    const { container } = render(
+      <MantineProvider>
+        <MessageList currentSession={session} />
+      </MantineProvider>
+    )
+
+    expect(container.textContent).not.toContain('Archived Thread')
+    expect(container.textContent).not.toContain('Current Thread')
+    expect(container.querySelector('[data-testid="message-archived-user"]')).not.toBeNull()
+    expect(container.querySelector('[data-testid="message-current-user"]')).not.toBeNull()
+  })
+
   test('keeps fork switchers reachable when their system-message pivot is hidden', () => {
     settingsState.hideSystemPromptMessage = true
     const session: Session = {

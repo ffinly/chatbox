@@ -20,6 +20,8 @@ describe('isActionAvailableInMode', () => {
       'delete-fork',
       'save-message-edit',
       'session-system-prompt',
+      'create-thread',
+      'thread-history',
     ] as const) {
       expect(isActionAvailableInMode(action, 'work')).toBe(false)
       expect(isActionAvailableInMode(action, 'chat')).toBe(true)

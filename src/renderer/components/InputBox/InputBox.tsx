@@ -1,5 +1,6 @@
 import { listPendingPauseInteractions } from '@chatbox/core/message-approval'
 import { getSubmitAvailability } from '@chatbox/core/session/action-gates'
+import { isActionAvailableInMode, resolveSessionMode } from '@chatbox/core/session/mode-policy'
 import NiceModal from '@ebay/nice-modal-react'
 import { autoUpdate, computePosition, flip, offset, shift, size } from '@floating-ui/dom'
 import { ActionIcon, Box, Button, Flex, Loader, Menu, Stack, Text, Textarea, UnstyledButton } from '@mantine/core'
@@ -82,7 +83,6 @@ import platform from '@/platform'
 import { StorageKeyGenerator } from '@/storage/StoreStorage'
 import * as atoms from '@/stores/atoms'
 import { resolveWebBrowsingMode } from '@/stores/session'
-import { isActionAvailableInMode, resolveSessionMode } from '@chatbox/core/session/mode-policy'
 import { useSessionAgentMode } from '@/stores/session/agent-mode'
 import { useSessionSettings } from '@/stores/session/session-settings'
 import { settingsStore, useSettingsStore } from '@/stores/settingsStore'
@@ -510,10 +510,12 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
 
     // Agent mode value for conditional toolbar rendering
     const agentModeEntry = useSessionAgentMode(currentSessionId || 'new')
+    const sessionMode = resolveSessionMode(agentModeEntry.value)
     // Chat mode has no message queue (mode policy): streaming keeps the Stop
     // control and submits are blocked with the standard generating notice.
     // Items already queued before the mode split still drain in order.
-    const queueEnabled = isActionAvailableInMode('queue-message', resolveSessionMode(agentModeEntry.value))
+    const queueEnabled = isActionAvailableInMode('queue-message', sessionMode)
+    const canCreateThread = isActionAvailableInMode('create-thread', sessionMode)
 
     const [showCompressionModal, setShowCompressionModal] = useState(false)
 
@@ -1862,6 +1864,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                 )}
 
                 {!isSmallScreen &&
+                  canCreateThread &&
                   (showRollbackThreadButton ? (
                     <Tooltip label={t('Rollback Thread')} position="top" withArrow>
                       <UnstyledButton
@@ -1935,13 +1938,15 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                       </UnstyledButton>
                     </Menu.Target>
                     <Menu.Dropdown>
-                      <Menu.Item
-                        data-testid={TestId.chat.newThread}
-                        leftSection={<ScalableIcon icon={IconPlus} size={16} />}
-                        onClick={startNewThread}
-                      >
-                        {t('New Thread')}
-                      </Menu.Item>
+                      {canCreateThread && (
+                        <Menu.Item
+                          data-testid={TestId.chat.newThread}
+                          leftSection={<ScalableIcon icon={IconPlus} size={16} />}
+                          onClick={startNewThread}
+                        >
+                          {t('New Thread')}
+                        </Menu.Item>
+                      )}
                       <Menu.Item
                         data-testid={TestId.chat.sessionSettings}
                         leftSection={<ScalableIcon icon={IconAdjustmentsHorizontal} size={16} />}

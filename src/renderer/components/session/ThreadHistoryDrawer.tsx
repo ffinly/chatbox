@@ -1,7 +1,8 @@
+import { isActionAvailableInMode, resolveSessionMode } from '@chatbox/core/session/mode-policy'
 import NiceModal from '@ebay/nice-modal-react'
 import { ActionIcon, Badge, Flex, ScrollArea, Text } from '@mantine/core'
-import { TestId } from '@shared/automation/testids'
 import SwipeableDrawer from '@mui/material/SwipeableDrawer'
+import { TestId } from '@shared/automation/testids'
 import type { Session, SessionThreadBrief } from '@shared/types'
 import { IconDots, IconEdit, IconSwitch, IconTrash, IconX } from '@tabler/icons-react'
 import { useAtom, useAtomValue } from 'jotai'
@@ -10,6 +11,7 @@ import { useTranslation } from 'react-i18next'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { currentSessionIdAtom, showThreadHistoryDrawerAtom } from '@/stores/atoms'
 import { scrollToIndex } from '@/stores/scrollActions'
+import { useSessionAgentMode } from '@/stores/session/agent-mode'
 import { removeCurrentThread, removeThread, switchThread as switchThreadAction } from '@/stores/session/threads'
 import { getAllMessageList, getCurrentThreadHistoryHash } from '@/stores/sessionHelpers'
 import { useLanguage } from '@/stores/settingsStore'
@@ -21,6 +23,8 @@ export default function ThreadHistoryDrawer({ session }: { session: Session }) {
   const { t } = useTranslation()
   const language = useLanguage()
   const [showDrawer, setShowDrawer] = useAtom(showThreadHistoryDrawerAtom)
+  const agentModeEntry = useSessionAgentMode(session.id)
+  const showThreadHistory = isActionAvailableInMode('thread-history', resolveSessionMode(agentModeEntry.value))
 
   const currentMessageList = useMemo(() => getAllMessageList(session), [session])
 
@@ -52,6 +56,12 @@ export default function ThreadHistoryDrawer({ session }: { session: Session }) {
     },
     [session.id, setShowDrawer]
   )
+
+  // Work mode has no Thread History; not rendering the drawer also removes
+  // entry paths that bypass the hidden menu items (iOS swipe-to-open).
+  if (!showThreadHistory) {
+    return null
+  }
 
   return (
     <SwipeableDrawer

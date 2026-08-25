@@ -1,17 +1,20 @@
 import { ThreadService } from '@chatbox/core/application/session'
+import { isActionAvailableInMode, resolveSessionMode } from '@chatbox/core/session/mode-policy'
 import * as defaults from '@shared/defaults'
 import type { SessionThread } from '@shared/types'
 import { v4 as uuidv4 } from 'uuid'
 import { rendererApplication } from '@/app/renderer-application'
 import * as dom from '@/hooks/dom'
 import * as scrollActions from '../scrollActions'
+import { getSessionAgentModeEntry } from './agent-mode'
 import { _copySession as copySession, switchCurrentSession } from './crud'
 
 const threadService = new ThreadService({
   sessions: {
     getSession: (sessionId) => rendererApplication.sessionQueryBridge.getSession(sessionId),
     updateSession: (sessionId, updater) => rendererApplication.sessions.updateSession(sessionId, updater),
-    updateSessionWithMessages: (sessionId, updater) => rendererApplication.sessions.updateSessionWithMessages(sessionId, updater),
+    updateSessionWithMessages: (sessionId, updater) =>
+      rendererApplication.sessions.updateSessionWithMessages(sessionId, updater),
   },
   createId: uuidv4,
   now: Date.now,
@@ -40,12 +43,21 @@ export async function switchThread(sessionId: string, threadId: string) {
   }
 }
 
-export function refreshContextAndCreateNewThread(sessionId: string) {
+export async function refreshContextAndCreateNewThread(sessionId: string) {
+  const session = await rendererApplication.sessionQueryBridge.getSession(sessionId)
+  if (!session) return false
+  // Mode-policy backstop: work mode is a single linear conversation and has
+  // no New Thread. Compaction still archives via compressAndCreate.
+  if (
+    !isActionAvailableInMode('create-thread', resolveSessionMode(getSessionAgentModeEntry(sessionId, session).value))
+  ) {
+    return false
+  }
   return threadService.refreshContextAndCreateNew(sessionId)
 }
 
 export async function startNewThread(sessionId: string) {
-  await threadService.refreshContextAndCreateNew(sessionId)
+  if (!(await refreshContextAndCreateNewThread(sessionId))) return
   setTimeout(() => {
     scrollActions.scrollToBottom()
     dom.focusMessageInput()

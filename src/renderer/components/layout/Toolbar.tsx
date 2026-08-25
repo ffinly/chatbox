@@ -1,3 +1,4 @@
+import { isActionAvailableInMode, resolveSessionMode } from '@chatbox/core/session/mode-policy'
 import NiceModal from '@ebay/nice-modal-react'
 import { ActionIcon, Button, Flex } from '@mantine/core'
 import { TestId } from '@shared/automation/testids'
@@ -15,14 +16,14 @@ import {
 import { useSetAtom } from 'jotai'
 import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import { rendererApplication } from '@/app/renderer-application'
 import { useIsLargeScreen, useIsSmallScreen } from '@/hooks/useScreenChange'
 import { copyToClipboard } from '@/packages/navigator'
 import { confirmSessionDeletion } from '@/presentation/session/session-deletion-confirmation'
 import { router } from '@/router'
 import * as atoms from '@/stores/atoms'
-import { rendererApplication } from '@/app/renderer-application'
-import { deleteSession } from '@/stores/session/crud'
-import { clear as clearSession, copyAndSwitchSession } from '@/stores/session/crud'
+import { useSessionAgentMode } from '@/stores/session/agent-mode'
+import { clear as clearSession, copyAndSwitchSession, deleteSession } from '@/stores/session/crud'
 import * as toastActions from '@/stores/toastActions'
 import { useUIStore } from '@/stores/uiStore'
 import ActionMenu from '../ActionMenu'
@@ -44,6 +45,8 @@ export default function Toolbar({ sessionId }: { sessionId: string }) {
   const setThreadHistoryDrawerOpen = useSetAtom(atoms.showThreadHistoryDrawerAtom)
   const widthFull = useUIStore((s) => s.widthFull)
   const setWidthFull = useUIStore((s) => s.setWidthFull)
+  const agentModeEntry = useSessionAgentMode(sessionId)
+  const showThreadHistory = isActionAvailableInMode('thread-history', resolveSessionMode(agentModeEntry.value))
 
   const handleExportAndSave = () => {
     NiceModal.show('export-chat')
@@ -127,15 +130,23 @@ export default function Toolbar({ sessionId }: { sessionId: string }) {
                 },
               ]
             : []),
-          {
-            text: t('Thread History'),
-            icon: IconHistory,
-            testId: TestId.session.threadHistory,
-            onClick: () => setThreadHistoryDrawerOpen(true),
-          },
-          {
-            divider: true,
-          },
+          ...(showThreadHistory
+            ? [
+                {
+                  text: t('Thread History'),
+                  icon: IconHistory,
+                  testId: TestId.session.threadHistory,
+                  onClick: () => setThreadHistoryDrawerOpen(true),
+                },
+              ]
+            : []),
+          ...(isLargeScreen || showThreadHistory
+            ? [
+                {
+                  divider: true as const,
+                },
+              ]
+            : []),
           {
             text: t('Duplicate Conversation'),
             icon: IconCopy,
@@ -209,12 +220,16 @@ export default function Toolbar({ sessionId }: { sessionId: string }) {
         position="bottom-end"
         contentTestId={TestId.session.headerMenu}
         items={[
-          {
-            text: t('Thread History'),
-            icon: IconHistory,
-            testId: TestId.session.threadHistory,
-            onClick: () => setThreadHistoryDrawerOpen(true),
-          },
+          ...(showThreadHistory
+            ? [
+                {
+                  text: t('Thread History'),
+                  icon: IconHistory,
+                  testId: TestId.session.threadHistory,
+                  onClick: () => setThreadHistoryDrawerOpen(true),
+                },
+              ]
+            : []),
           {
             text: t('Duplicate Conversation'),
             icon: IconCopy,

@@ -1,10 +1,23 @@
 import { buildSessionExportThreads } from '@chatbox/core/utils/chat-export'
-import type { CompactionPoint, Message, Session } from '@shared/types'
+import type { AgentModeEntry, CompactionPoint, Message, Session } from '@shared/types'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { getSessionMock, updateSessionWithMessagesMock } = vi.hoisted(() => ({
+const { getSessionMock, updateSessionWithMessagesMock, uiStoreState } = vi.hoisted(() => ({
   getSessionMock: vi.fn(),
   updateSessionWithMessagesMock: vi.fn(),
+  uiStoreState: {
+    sessionAgentModeMap: {} as Record<string, AgentModeEntry>,
+    agentModeSmartSwitchingDefault: false,
+    agentModeLastSelected: 'off',
+  },
+}))
+
+// The create-thread backstop resolves the session's agent mode, whose module
+// pulls uiStore → platform → the real i18n init; stub the store like
+// agent-mode.test.ts does to keep this suite off that graph.
+vi.mock('../uiStore', () => ({
+  uiStore: { getState: () => uiStoreState, setState: vi.fn() },
+  useUIStore: vi.fn(),
 }))
 
 vi.mock('@/app/renderer-application', async () => {
@@ -74,6 +87,7 @@ function updatedSession(): Session {
 describe('thread flows carry compaction points with their messages', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    uiStoreState.sessionAgentModeMap = {}
     generationRuntimeStore.abort('session-1')
     getSessionMock.mockResolvedValue(testSession())
     updateSessionWithMessagesMock.mockResolvedValue(undefined)
@@ -123,6 +137,27 @@ describe('thread flows carry compaction points with their messages', () => {
     expect(updateSessionWithMessagesMock).toHaveBeenCalledTimes(1)
     const updater = updateSessionWithMessagesMock.mock.calls[0][1] as (s: Session) => Session
     expect(updater({ ...testSession(), threads: [] }).compactionPoints).toBeUndefined()
+  })
+
+  it('does not create a thread in work mode', async () => {
+    getSessionMock.mockResolvedValue({
+      ...testSession(),
+      settings: { agentMode: { value: 'on', locked: true, lockReason: null } },
+    })
+
+    await refreshContextAndCreateNewThread('session-1')
+
+    expect(updateSessionWithMessagesMock).not.toHaveBeenCalled()
+  })
+
+  it('does not create a thread when work mode lives in the legacy uiStore map', async () => {
+    // Upgraded sessions may carry no settings.agentMode; the mode then comes
+    // from uiStore.sessionAgentModeMap, and the backstop must honor it too.
+    uiStoreState.sessionAgentModeMap['session-1'] = { value: 'on', locked: true, lockReason: null }
+
+    await refreshContextAndCreateNewThread('session-1')
+
+    expect(updateSessionWithMessagesMock).not.toHaveBeenCalled()
   })
 
   it('archives a compaction that committed after the snapshot was taken', async () => {
