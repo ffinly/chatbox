@@ -159,7 +159,7 @@ function createModelDependencies(): ModelDependencies {
   }
 }
 
-function createSession(): Session {
+function createSession(copilotId?: string): Session {
   return {
     id: 'session-1',
     name: 'Session',
@@ -167,6 +167,7 @@ function createSession(): Session {
     messages: [],
     threads: [],
     messageForksHash: {},
+    ...(copilotId ? { copilotId } : {}),
   } as unknown as Session
 }
 
@@ -1404,9 +1405,9 @@ describe('session prompt context snapshot', () => {
     }
   }
 
-  function prepareWith(settings: SessionSettings, messages: Message[], sideEffects = {}) {
+  function prepareWith(settings: SessionSettings, messages: Message[], sideEffects = {}, copilotId?: string) {
     return prepareAgentGenerationHarness({
-      session: createSession(),
+      session: createSession(copilotId),
       settings,
       globalSettings: {} as Settings,
       configs: { uuid: 'config-1' } as Config,
@@ -1444,11 +1445,88 @@ describe('session prompt context snapshot', () => {
     // Untouched template falls back to the default persona.
     expect(serialized).toContain('Be genuinely helpful, not performatively helpful')
     expect(serialized).toContain('Session context captured:')
-    // The legacy session system prompt is discarded in agent mode.
+    // A session system prompt without a Copilot stays out of the agent request.
     expect(serialized).not.toContain('You are a pirate copilot.')
     // Memory tools are part of the agent tool set.
     expect(prepared.tools.save_memory).toBeDefined()
     expect(prepared.tools.delete_memory).toBeDefined()
+  })
+
+  test('splices a Copilot prompt into the frozen Soul section', async () => {
+    const persistSessionPromptContextSnapshot = vi.fn()
+    const prepared = await prepareWith(
+      { provider: ModelProviderEnum.ChatboxAI, modelId: 'test-model' } as SessionSettings,
+      [createSystemMessage('You are a pirate copilot.'), createUserMessage()],
+      { persistSessionPromptContextSnapshot },
+      'copilot-pirate'
+    )
+
+    expect(persistSessionPromptContextSnapshot).toHaveBeenCalledTimes(1)
+    expect(persistSessionPromptContextSnapshot.mock.calls[0][0].copilotPersona).toBe('You are a pirate copilot.')
+
+    const serialized = JSON.stringify(prepared.coreMessages)
+    const soulIx = serialized.indexOf('## Soul')
+    const overlayIx = serialized.indexOf('You are a pirate copilot.')
+    expect(serialized).toContain('You are Chatbox agent')
+    expect(soulIx).toBeGreaterThanOrEqual(0)
+    expect(overlayIx).toBeGreaterThan(soulIx)
+    expect(overlayIx).toBeLessThan(serialized.indexOf('## Runtime'))
+    expect(serialized).toContain('This session is using a Copilot.')
+    // The Copilot is inside Soul, not a leftover session system message.
+    expect(prepared.promptMsgs.some((message) => message.role === 'system')).toBe(false)
+  })
+
+  test('reuses a snapshot Copilot overlay without reading the live system prompt', async () => {
+    const persistSessionPromptContextSnapshot = vi.fn()
+    const prepared = await prepareWith(
+      {
+        provider: ModelProviderEnum.ChatboxAI,
+        modelId: 'test-model',
+        sessionPromptContextSnapshot: {
+          version: 1,
+          soul: 'My frozen custom persona content.',
+          copilotPersona: 'Frozen pirate overlay.',
+          memories: [],
+          workspaceInstructions: '',
+          workspaceDirectories: [],
+          capturedAt: 1700000000000,
+          scope: 'agent',
+        },
+      } as SessionSettings,
+      [createSystemMessage('Live pirate that must not appear.'), createUserMessage()],
+      { persistSessionPromptContextSnapshot },
+      'copilot-pirate'
+    )
+
+    expect(persistSessionPromptContextSnapshot).not.toHaveBeenCalled()
+    const serialized = JSON.stringify(prepared.coreMessages)
+    expect(serialized).toContain('Frozen pirate overlay.')
+    expect(serialized).not.toContain('Live pirate that must not appear.')
+  })
+
+  test('does not backfill a Copilot onto an already-frozen snapshot', async () => {
+    const prepared = await prepareWith(
+      {
+        provider: ModelProviderEnum.ChatboxAI,
+        modelId: 'test-model',
+        sessionPromptContextSnapshot: {
+          version: 1,
+          soul: 'My frozen custom persona content.',
+          memories: [],
+          workspaceInstructions: '',
+          workspaceDirectories: [],
+          capturedAt: 1700000000000,
+          scope: 'agent',
+        },
+      } as SessionSettings,
+      [createSystemMessage('You are a pirate copilot.'), createUserMessage()],
+      {},
+      'copilot-pirate'
+    )
+
+    const serialized = JSON.stringify(prepared.coreMessages)
+    expect(serialized).toContain('My frozen custom persona content.')
+    expect(serialized).not.toContain('You are a pirate copilot.')
   })
 
   test('reuses an existing snapshot verbatim without re-capturing', async () => {

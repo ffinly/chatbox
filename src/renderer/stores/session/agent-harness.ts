@@ -250,6 +250,7 @@ export async function prepareAgentGenerationHarness(
     messages,
     targetMsgIx,
     persist: sideEffects?.persistSessionPromptContextSnapshot,
+    copilotId: session.copilotId,
   })
 
   const sandboxProvider = effectiveAgentMode !== 'off' ? sandboxProviderFactory() : null
@@ -309,9 +310,9 @@ export async function prepareAgentGenerationHarness(
     sandboxMode: canExecuteCode,
   })
 
-  // Agent mode owns its identity: session-level system prompts (legacy custom
-  // prompts, copilot personas) are dropped — the user expresses persona through
-  // the global Soul instead.
+  // Agent mode owns its identity header: session-level system messages are
+  // dropped from the transcript. A Copilot's prompt is frozen into the snapshot
+  // and spliced into the Soul section instead.
   if (effectiveAgentMode === 'on') {
     promptMsgs = promptMsgs.filter((message) => message.role !== 'system')
   }
@@ -418,6 +419,7 @@ export async function prepareAgentGenerationHarness(
     // system prompt never drifts mid-session.
     const personaPrompt = buildAgentPersonaPrompt({
       soul: promptContextSnapshot.soul,
+      copilotPersona: promptContextSnapshot.copilotPersona,
       memories: memoryEnabled ? promptContextSnapshot.memories : [],
       platformType: platform.type,
       os: getOS(),

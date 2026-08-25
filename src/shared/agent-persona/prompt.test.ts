@@ -1,6 +1,12 @@
-import { MEMORY_PROMPT_MAX_CHARS, SOUL_MAX_CHARS, SOUL_VIRTUAL_PATH } from '@shared/types/agent-persona'
+import {
+  COPILOT_PROMPT_MAX_CHARS,
+  MEMORY_PROMPT_MAX_CHARS,
+  SOUL_MAX_CHARS,
+  SOUL_VIRTUAL_PATH,
+} from '@shared/types/agent-persona'
 import { describe, expect, test } from 'vitest'
 import {
+  boundCopilotPersona,
   buildAgentIdentityPrompt,
   buildAgentPersonaPrompt,
   buildMemoriesSection,
@@ -70,6 +76,61 @@ describe('buildSoulSection', () => {
     expect(section).toContain('[Soul truncated for context safety]')
     expect(section.length).toBeLessThan(SOUL_MAX_CHARS + 500)
   })
+
+  test('splices a Copilot overlay after the global Soul inside the same section', () => {
+    const section = buildSoulSection('Be dry and terse.', 'You are a pirate copilot. Always say arr.')
+    const soulIx = section.indexOf('Be dry and terse.')
+    const overlayIx = section.indexOf('You are a pirate copilot. Always say arr.')
+    expect(soulIx).toBeGreaterThan(section.indexOf('<soul>'))
+    expect(overlayIx).toBeGreaterThan(soulIx)
+    expect(section).toContain('This session is using a Copilot.')
+    expect(section).toContain(SOUL_VIRTUAL_PATH)
+    expect(section.indexOf('</soul>')).toBeGreaterThan(overlayIx)
+  })
+
+  test('keeps the default persona when only a Copilot overlay is present', () => {
+    const section = buildSoulSection('', 'You are a pirate copilot.')
+    expect(section).toContain(DEFAULT_SOUL_PERSONA)
+    expect(section).toContain('You are a pirate copilot.')
+  })
+
+  test('ignores blank Copilot overlays', () => {
+    const section = buildSoulSection('Be dry and terse.', '   ')
+    expect(section).toContain('Be dry and terse.')
+    expect(section).not.toContain('This session is using a Copilot.')
+  })
+
+  test('keeps a Copilot overlay within the editor budget intact', () => {
+    const overlay = `pirate ${'x'.repeat(COPILOT_PROMPT_MAX_CHARS - 20)}`
+    const section = buildSoulSection('Be dry and terse.', overlay)
+    expect(section).toContain(overlay)
+    expect(section).not.toContain('[Copilot truncated for context safety]')
+  })
+
+  test('caps an oversized Copilot overlay once, including the truncation marker', () => {
+    const overlay = `pirate ${'x'.repeat(COPILOT_PROMPT_MAX_CHARS + 200)}`
+    const section = buildSoulSection('Be dry and terse.', overlay)
+    expect(section).toContain('[Copilot truncated for context safety]')
+    expect(section).not.toContain(overlay)
+    expect(section.match(/\[Copilot truncated for context safety\]/g)).toHaveLength(1)
+  })
+})
+
+describe('boundCopilotPersona', () => {
+  test('returns undefined for blank input', () => {
+    expect(boundCopilotPersona(undefined)).toBeUndefined()
+    expect(boundCopilotPersona('   ')).toBeUndefined()
+  })
+
+  test('caps overlay text to the Copilot budget and stays idempotent', () => {
+    const overlay = `pirate ${'x'.repeat(COPILOT_PROMPT_MAX_CHARS + 200)}`
+    const bounded = boundCopilotPersona(overlay)
+    expect(bounded).toBeDefined()
+    expect(bounded).toContain('[Copilot truncated for context safety]')
+    expect(bounded?.startsWith('pirate ')).toBe(true)
+    expect(bounded?.length).toBeLessThan(overlay.length)
+    expect(boundCopilotPersona(bounded)).toBe(bounded)
+  })
 })
 
 describe('buildMemoriesSection', () => {
@@ -112,5 +173,18 @@ describe('buildAgentPersonaPrompt', () => {
     expect(identityIx).toBeGreaterThanOrEqual(0)
     expect(soulIx).toBeGreaterThan(identityIx)
     expect(memoriesIx).toBeGreaterThan(soulIx)
+  })
+
+  test('places Copilot overlay inside Soul and before Memories', () => {
+    const prompt = buildAgentPersonaPrompt({
+      platformType: 'desktop',
+      os: 'Windows',
+      soul: 'Persona body text.',
+      copilotPersona: 'You are a pirate copilot.',
+      memories: [{ id: 'm1', content: 'A fact', createdAt: 1 }],
+    })
+    const overlayIx = prompt.indexOf('You are a pirate copilot.')
+    expect(overlayIx).toBeGreaterThan(prompt.indexOf('Persona body text.'))
+    expect(overlayIx).toBeLessThan(prompt.indexOf('## Memories'))
   })
 })

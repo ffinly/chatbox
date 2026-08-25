@@ -1,6 +1,6 @@
 import NiceModal, { useModal } from '@ebay/nice-modal-react'
 import { Avatar, Button, FileButton, Flex, Stack, Text, Textarea, TextInput } from '@mantine/core'
-import type { CopilotDetail } from '@shared/types'
+import { COPILOT_PROMPT_MAX_CHARS, type CopilotDetail } from '@shared/types'
 import { IconMessageCircle2Filled, IconPhoto, IconUpload } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -98,6 +98,8 @@ const CopilotSettingsModal = NiceModal.create(
       }
       if (!formData.prompt?.trim()) {
         newErrors.prompt = t('cannot be empty')
+      } else if (formData.prompt.trim().length > COPILOT_PROMPT_MAX_CHARS) {
+        newErrors.prompt = t('Prompt cannot exceed {{max}} characters', { max: COPILOT_PROMPT_MAX_CHARS })
       }
 
       setErrors(newErrors)
@@ -298,6 +300,11 @@ const CopilotSettingsModal = NiceModal.create(
             value={formData.prompt || ''}
             onChange={(e) => updateField('prompt', e.currentTarget.value)}
             error={errors.prompt}
+            description={t('{{count}} / {{max}} characters', {
+              count: (formData.prompt || '').length,
+              max: COPILOT_PROMPT_MAX_CHARS,
+            })}
+            maxLength={COPILOT_PROMPT_MAX_CHARS}
             minRows={5}
             maxRows={10}
             autosize

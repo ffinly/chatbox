@@ -1,5 +1,11 @@
 import type { PlatformType } from '../platform'
-import { MEMORY_PROMPT_MAX_CHARS, type MemoryEntry, SOUL_MAX_CHARS, SOUL_VIRTUAL_PATH } from '../types/agent-persona'
+import {
+  COPILOT_PROMPT_MAX_CHARS,
+  MEMORY_PROMPT_MAX_CHARS,
+  type MemoryEntry,
+  SOUL_MAX_CHARS,
+  SOUL_VIRTUAL_PATH,
+} from '../types/agent-persona'
 
 /**
  * Agent-mode system prompt assembly.
@@ -59,13 +65,29 @@ export function extractSoulContent(raw: string): string {
 }
 
 function truncateWithMarker(text: string, maxChars: number, label: string): string {
+  const marker = `\n[${label} truncated for context safety]`
+  if (text.endsWith(marker)) {
+    const body = text.slice(0, -marker.length)
+    return body.length <= maxChars ? text : `${body.slice(0, maxChars)}${marker}`
+  }
   if (text.length <= maxChars) return text
-  return `${text.slice(0, maxChars)}\n[${label} truncated for context safety]`
+  return `${text.slice(0, maxChars)}${marker}`
 }
 
-export function buildSoulSection(soulRaw: string): string {
+const COPILOT_OVERLAY_GUIDANCE = `This session is using a Copilot. Follow its instructions for this conversation. They are session-specific and must not be written into ${SOUL_VIRTUAL_PATH}.`
+
+/** Trim and cap Copilot overlay text to the Copilot editor budget. */
+export function boundCopilotPersona(text: string | undefined): string | undefined {
+  const overlay = text?.trim() ?? ''
+  if (!overlay) return undefined
+  return truncateWithMarker(overlay, COPILOT_PROMPT_MAX_CHARS, 'Copilot')
+}
+
+export function buildSoulSection(soulRaw: string, copilotPersona?: string): string {
   const soul = extractSoulContent(soulRaw)
-  const body = soul ? truncateWithMarker(soul, SOUL_MAX_CHARS, 'Soul') : DEFAULT_SOUL_PERSONA
+  const soulBody = soul ? truncateWithMarker(soul, SOUL_MAX_CHARS, 'Soul') : DEFAULT_SOUL_PERSONA
+  const overlay = boundCopilotPersona(copilotPersona)
+  const body = overlay ? `${soulBody}\n\n${COPILOT_OVERLAY_GUIDANCE}\n\n${overlay}` : soulBody
   return `
 ## Soul
 Your persona, tone, and boundaries. The user can edit this in Settings; when asked to update it, use the file tools (read_file / write_file / edit_file) on the virtual path ${SOUL_VIRTUAL_PATH}. Changes take effect in future sessions.
@@ -119,10 +141,12 @@ ${lines.join('\n')}${omittedNote}
 export interface AgentPersonaPromptOptions extends AgentIdentityOptions {
   soul: string
   memories: MemoryEntry[]
+  /** Frozen Copilot prompt for this conversation; omitted when the session has none. */
+  copilotPersona?: string
 }
 
 /** Identity + Soul + Memories — the stable head of the agent-mode system prompt. */
 export function buildAgentPersonaPrompt(options: AgentPersonaPromptOptions): string {
   return `${buildAgentIdentityPrompt(options)}
-${buildSoulSection(options.soul)}${buildMemoriesSection(options.memories)}`
+${buildSoulSection(options.soul, options.copilotPersona)}${buildMemoriesSection(options.memories)}`
 }

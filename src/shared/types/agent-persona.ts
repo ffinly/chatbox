@@ -2,6 +2,8 @@ import { z } from 'zod'
 
 /** Max characters of Soul content injected into the system prompt (truncated with a marker beyond this). */
 export const SOUL_MAX_CHARS = 16_000
+/** Max characters of a Copilot prompt in the editor, snapshot, and Soul overlay. */
+export const COPILOT_PROMPT_MAX_CHARS = 10_000
 /** Max number of stored memory entries. */
 export const MEMORY_MAX_ENTRIES = 100
 /** Max characters for a single memory entry. */
@@ -52,6 +54,11 @@ export const SessionPromptContextSnapshotSchema = z.object({
     .union([z.literal(1), z.literal(2)])
     .optional()
     .catch(undefined),
+  // Copilot prompt captured for this conversation, capped at
+  // COPILOT_PROMPT_MAX_CHARS. Missing means no Copilot (or a snapshot from
+  // before this field existed). Chat-scoped snapshots never set it — chat mode
+  // already sends the session system prompt as its own message.
+  copilotPersona: z.string().optional().catch(undefined),
 })
 
 export type SessionPromptContextSnapshot = z.infer<typeof SessionPromptContextSnapshotSchema>

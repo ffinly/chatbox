@@ -1,4 +1,6 @@
 import type { Message, SessionPromptContextSnapshot, SessionSettings } from '@shared/types'
+import { boundCopilotPersona } from '@shared/agent-persona/prompt'
+import { getMessageText } from '@shared/utils/message'
 import {
   captureSessionPromptContextSnapshot,
   listMemories,
@@ -13,12 +15,20 @@ export interface ResolveSessionPromptContextSnapshotOptions {
   messages: Message[]
   targetMsgIx: number
   persist?: (snapshot: SessionPromptContextSnapshot) => void
+  /** When set, the session system prompt is frozen into Soul as a Copilot overlay. */
+  copilotId?: string
+}
+
+export function extractCopilotPersona(messages: Message[], targetMsgIx: number): string | undefined {
+  const systemMessage = messages.slice(0, targetMsgIx).find((message) => message.role === 'system')
+  const text = systemMessage ? getMessageText(systemMessage, false, false) : ''
+  return boundCopilotPersona(text)
 }
 
 /**
- * Resolve the frozen prompt-context snapshot (Soul + memories + workspace AGENTS.md)
- * for one generation. Captured once and reused verbatim afterwards so the
- * system prompt prefix stays byte-stable for provider caches.
+ * Resolve the frozen prompt-context snapshot (Soul + Copilot overlay + memories +
+ * workspace AGENTS.md) for one generation. Captured once and reused verbatim
+ * afterwards so the system prompt prefix stays byte-stable for provider caches.
  *
  * Agent mode: only trusts 'agent'-scoped snapshots — a chat-scoped one was
  * captured before the session's first agent generation, and Soul edits made in
@@ -36,7 +46,7 @@ export interface ResolveSessionPromptContextSnapshotOptions {
 export async function resolveSessionPromptContextSnapshot(
   options: ResolveSessionPromptContextSnapshotOptions
 ): Promise<SessionPromptContextSnapshot | undefined> {
-  const { effectiveAgentMode, memoryEnabled, settings, messages, targetMsgIx, persist } = options
+  const { effectiveAgentMode, memoryEnabled, settings, messages, targetMsgIx, persist, copilotId } = options
   const existing = settings.sessionPromptContextSnapshot
 
   if (effectiveAgentMode === 'on') {
@@ -55,11 +65,13 @@ export async function resolveSessionPromptContextSnapshot(
         )
       )
     const captured = await captureSessionPromptContextSnapshot(settings.workingDirectories, 'agent')
+    const copilotPersona = copilotId ? extractCopilotPersona(messages, targetMsgIx) : undefined
     const snapshot = {
       ...captured,
       agentToolContractVersion:
         existing?.agentToolContractVersion ??
         (hasLegacyCommandHistory ? (1 as const) : (captured.agentToolContractVersion ?? (1 as const))),
+      ...(copilotPersona ? { copilotPersona } : {}),
     }
     persist?.(snapshot)
     return snapshot
