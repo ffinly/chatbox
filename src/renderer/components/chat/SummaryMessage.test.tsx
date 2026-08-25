@@ -92,4 +92,10 @@ describe('SummaryMessage mode policy', () => {
     expect(screen.getByLabelText('Edit')).toBeTruthy()
     expect(screen.queryByLabelText('Delete')).toBeNull()
   })
+
+  test('reveals the summary when navigation highlights it', () => {
+    renderSummary({ highlighted: true })
+
+    expect(screen.getByText('compacted history')).toBeTruthy()
+  })
 })

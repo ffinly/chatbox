@@ -209,6 +209,10 @@ function RouteComponent() {
     return true
   }, [currentSession])
 
+  const onViewCompactionSummary = useCallback((summaryMessageId: string) => {
+    messageListRef.current?.scrollToMessage(summaryMessageId)
+  }, [])
+
   const model = useMemo(() => {
     if (!currentSessionWithDefaultModel?.settings?.modelId || !currentSessionWithDefaultModel?.settings?.provider) {
       return undefined
@@ -259,6 +263,7 @@ function RouteComponent() {
             onClickSessionSettings={onClickSessionSettings}
             onSubmit={onSubmit}
             onStopGenerating={onStopGenerating}
+            onViewCompactionSummary={onViewCompactionSummary}
           />
         </ErrorBoundary>
       </Box>

@@ -89,6 +89,7 @@ export function clearScrollPositionCache(sessionId: string) {
 export interface MessageListRef {
   scrollToTop: (behavior?: ScrollBehavior) => void
   scrollToBottom: (behavior?: ScrollBehavior) => void
+  scrollToMessage: (messageId: string, behavior?: 'auto' | 'smooth') => boolean
   setIsNewMessage: (flag: boolean) => void
 }
 
@@ -226,6 +227,8 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
   const messageListRef = useRef<HTMLDivElement>(null)
   const [messageViewportHeight, setMessageViewportHeight] = useState(0)
   const [isNewMessage, setIsNewMessage] = useState(false)
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null)
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const setMessageListElement = useUIStore((s) => s.setMessageListElement)
   const setMessageScrolling = useUIStore((s) => s.setMessageScrolling)
@@ -338,6 +341,9 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
     return () => {
       if (timerRef.current) {
         clearTimeout(timerRef.current)
+      }
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current)
       }
     }
   }, [])
@@ -508,6 +514,7 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
                 }
                 sessionId={currentSession.id}
                 sessionMode={sessionMode}
+                highlighted={msg.id === highlightedMessageId}
               />
             ) : (
               <Message
@@ -539,6 +546,7 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
       sessionMode,
       showThreadHistory,
       latestSummaryMessageId,
+      highlightedMessageId,
       t,
     ]
   )
@@ -551,6 +559,19 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
     scrollToBottom: (behavior = 'auto') => {
       smoothFollowOutput.resume()
       virtuoso.current?.scrollTo({ top: Infinity, behavior })
+    },
+    scrollToMessage: (messageId, behavior = 'smooth') => {
+      const itemIndex = renderItems.findIndex((item) => item.messages.some((message) => message.id === messageId))
+      if (itemIndex < 0) return false
+
+      smoothFollowOutput.pause()
+      setHighlightedMessageId(messageId)
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current)
+      }
+      highlightTimerRef.current = setTimeout(() => setHighlightedMessageId(null), 2500)
+      virtuoso.current?.scrollToIndex({ index: itemIndex, align: 'center', behavior })
+      return true
     },
     setIsNewMessage: (value: boolean) => setIsNewMessage(value),
   }))

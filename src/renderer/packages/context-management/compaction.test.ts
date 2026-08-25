@@ -81,6 +81,9 @@ describe('runCompactionWithUIState', () => {
     const result = await first
 
     expect(result).toMatchObject({ success: true, compacted: true })
-    expect(getCompactionUIState('session-1').status).toBe('idle')
+    expect(getCompactionUIState('session-1')).toMatchObject({
+      status: 'completed',
+      summaryMessageId: expect.any(String),
+    })
   })
 })

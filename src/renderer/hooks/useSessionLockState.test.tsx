@@ -33,14 +33,14 @@ describe('useSessionLockState', () => {
 
   test('reports compaction only for the session it runs in', () => {
     getDefaultStore().set(compactionUIStateMapAtom, {
-      'other-session': { status: 'running', error: null, streamingText: '' },
+      'other-session': { status: 'running', error: null, streamingText: '', summaryMessageId: null },
     })
 
     const { result } = renderHook(() => useSessionLockState(session()))
     expect(result.current.compactionRunning).toBe(false)
 
     getDefaultStore().set(compactionUIStateMapAtom, {
-      'session-1': { status: 'running', error: null, streamingText: '' },
+      'session-1': { status: 'running', error: null, streamingText: '', summaryMessageId: null },
     })
     const { result: lockedResult } = renderHook(() => useSessionLockState(session()))
     expect(lockedResult.current.compactionRunning).toBe(true)

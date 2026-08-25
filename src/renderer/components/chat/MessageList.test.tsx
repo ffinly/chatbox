@@ -8,6 +8,8 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { act, render } from '@/test-utils'
 import MessageList, { type MessageListRef } from './MessageList'
 
+const virtuosoScrollToIndexMock = vi.hoisted(() => vi.fn())
+
 vi.mock('react-i18next', () => ({
   initReactI18next: {
     type: '3rdParty',
@@ -33,7 +35,7 @@ vi.mock('react-virtuoso', async () => {
       ) => {
         React.useImperativeHandle(ref, () => ({
           scrollTo: vi.fn(),
-          scrollToIndex: vi.fn(),
+          scrollToIndex: virtuosoScrollToIndexMock,
           getState: vi.fn(),
         }))
         React.useEffect(() => {
@@ -253,6 +255,7 @@ describe('MessageList new message layout', () => {
     isSmallScreenMock.value = false
     messageRenderLog.length = 0
     messageButtonGroupLog.length = 0
+    virtuosoScrollToIndexMock.mockClear()
     Object.defineProperty(window, 'matchMedia', {
       configurable: true,
       value: vi.fn().mockImplementation((query: string) => ({
@@ -541,6 +544,41 @@ describe('MessageList new message layout', () => {
     })
 
     expect(container.querySelector<HTMLElement>('[style*="min-height"]')?.style.minHeight).toBe('510px')
+  })
+
+  test('scrolls to a summary through its rendered item index', () => {
+    const summary = { ...message('summary-1', MessageRoleEnum.Assistant, 'summary'), isSummary: true }
+    const session: Session = {
+      id: 'session-1',
+      type: 'chat',
+      name: 'Session',
+      messages: [
+        message('user-1', MessageRoleEnum.User, 'first question'),
+        message('assistant-1', MessageRoleEnum.Assistant, 'first answer'),
+        summary,
+        message('user-2', MessageRoleEnum.User, 'second question'),
+        message('assistant-2', MessageRoleEnum.Assistant, 'second answer'),
+      ],
+    }
+    const ref = createRef<MessageListRef>()
+
+    render(
+      <MantineProvider>
+        <MessageList ref={ref} currentSession={session} />
+      </MantineProvider>
+    )
+
+    let found = false
+    act(() => {
+      found = ref.current?.scrollToMessage('summary-1') ?? false
+    })
+
+    expect(found).toBe(true)
+    expect(virtuosoScrollToIndexMock).toHaveBeenCalledWith({
+      index: 2,
+      align: 'center',
+      behavior: 'smooth',
+    })
   })
 
   test('renders a steered run in stored order: segment, steered user, continuation', () => {

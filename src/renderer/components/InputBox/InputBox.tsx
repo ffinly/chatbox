@@ -161,6 +161,7 @@ export type InputBoxProps = {
   onStartNewThread?(): boolean
   onRollbackThread?(): boolean
   onClickSessionSettings?(): boolean | Promise<boolean>
+  onViewCompactionSummary?(summaryMessageId: string): void
 }
 
 function mergeSessionAttachmentStatesIntoFiles(
@@ -246,6 +247,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
       onStartNewThread,
       onRollbackThread,
       onClickSessionSettings,
+      onViewCompactionSummary,
     },
     ref
   ) => {
@@ -1468,7 +1470,9 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
       >
         <input className="hidden" {...getInputProps()} />
         <Stack className={cn('overflow-visible', widthFull ? 'w-full' : 'max-w-4xl mx-auto')} gap="xs">
-          {currentSessionId && <CompactionStatus sessionId={currentSessionId} />}
+          {currentSessionId && (
+            <CompactionStatus sessionId={currentSessionId} onViewSummary={onViewCompactionSummary} />
+          )}
           {currentSessionId && !isNewSession && <QueuedMessagesBar sessionId={currentSessionId} />}
           {currentSession && !isNewSession && (
             <ErrorBoundary name="pending-action-bar">

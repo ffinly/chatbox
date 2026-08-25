@@ -153,7 +153,12 @@ export async function runCompactionWithUIState(
     return { success: true, compacted: false }
   }
 
-  setCompactionUIState(sessionId, { status: 'running', error: null, streamingText: '' })
+  setCompactionUIState(sessionId, {
+    status: 'running',
+    error: null,
+    streamingText: '',
+    summaryMessageId: null,
+  })
   // The pre-check above is only a cheap fast-path for UI state; pass the
   // caller's real `force` through so the auto path is re-validated inside
   // run() (behind its ongoing-set), closing the window where the session
@@ -169,13 +174,26 @@ export async function runCompactionWithUIState(
     return result
   }
 
-  if (result.success) {
-    setCompactionUIState(sessionId, { status: 'idle', error: null, streamingText: '' })
+  if (result.success && result.compacted && result.summaryMessageId) {
+    setCompactionUIState(sessionId, {
+      status: 'completed',
+      error: null,
+      streamingText: '',
+      summaryMessageId: result.summaryMessageId,
+    })
+  } else if (result.success) {
+    setCompactionUIState(sessionId, {
+      status: 'idle',
+      error: null,
+      streamingText: '',
+      summaryMessageId: null,
+    })
   } else {
     setCompactionUIState(sessionId, {
       status: 'failed',
       error: result.error?.message ?? 'Compaction failed',
       streamingText: '',
+      summaryMessageId: null,
     })
   }
   return result

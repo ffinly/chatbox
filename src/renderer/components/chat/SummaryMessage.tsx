@@ -1,10 +1,10 @@
-import NiceModal from '@ebay/nice-modal-react'
 import { isActionAvailableInMode, type SessionMode } from '@chatbox/core/session/mode-policy'
+import NiceModal from '@ebay/nice-modal-react'
 import { ActionIcon, Button, Collapse, Flex, Group, Stack, Text } from '@mantine/core'
 import type { Message } from '@shared/types'
 import { getMessageText } from '@shared/utils/message'
 import { IconChevronDown, IconChevronUp, IconPencil, IconTrash } from '@tabler/icons-react'
-import { type FC, memo, useCallback, useState } from 'react'
+import { type FC, memo, useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Markdown from '@/components/Markdown'
 import { AppTooltip as Tooltip } from '@/components/ui/tooltip'
@@ -19,6 +19,7 @@ interface SummaryMessageProps {
   isLatestSummary?: boolean
   onDelete?: () => void
   sessionId: string
+  highlighted?: boolean
   /** Resolved by the list container; work mode hides summary edit/delete (mode-policy). */
   sessionMode?: SessionMode
 }
@@ -29,6 +30,7 @@ const SummaryMessage: FC<SummaryMessageProps> = ({
   isLatestSummary,
   onDelete,
   sessionId,
+  highlighted = false,
   sessionMode = 'chat',
 }) => {
   const { t } = useTranslation()
@@ -55,6 +57,12 @@ const SummaryMessage: FC<SummaryMessageProps> = ({
     void NiceModal.show('message-edit', { sessionId, msg, hideSaveAndResend: true })
   }, [sessionId, msg])
 
+  useEffect(() => {
+    if (highlighted) {
+      setExpanded(true)
+    }
+  }, [highlighted])
+
   const summaryBadge = (
     <Flex
       align="center"
@@ -72,7 +80,13 @@ const SummaryMessage: FC<SummaryMessageProps> = ({
   )
 
   return (
-    <div className={cn('w-full py-4 group/summary', className)}>
+    <div
+      className={cn(
+        'w-full py-4 group/summary rounded-xl transition-colors duration-500',
+        highlighted && 'bg-chatbox-background-brand-secondary',
+        className
+      )}
+    >
       <Flex align="center" gap="xs" className="w-full">
         <div className="flex-1 h-px bg-chatbox-border-primary" />
         {summaryBadge}
