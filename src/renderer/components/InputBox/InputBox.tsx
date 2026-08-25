@@ -128,7 +128,7 @@ import { cleanupFile, markFileProcessing, onFileProcessed, storeFilePromise } fr
 import { QueuedMessagesBar } from './QueuedMessagesBar'
 import ReasoningControlButton from './ReasoningControlButton'
 import { getTrailingSkillCommand, insertSkillCommandText } from './skillCommand'
-import { getSubmitAction, getSubmitControl } from './submitAction'
+import { getComposerPlaceholder, getSubmitAction, getSubmitControl } from './submitAction'
 import TokenCountMenu from './TokenCountMenu'
 import { useModelToolCapabilities } from './useModelToolCapabilities'
 import { useReasoningControlState } from './useReasoningControlState'
@@ -746,6 +746,11 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
       hasModel: Boolean(model),
     })
     const showingStopControl = submitControl === 'stop'
+    const composerPlaceholder = getComposerPlaceholder({
+      blockReason: submitAvailability.blockReason,
+      generating,
+      queueEnabled,
+    })
 
     const autoCompactionEnabled = useMemo(() => {
       if (!currentSession) return globalAutoCompaction ?? true
@@ -1544,9 +1549,9 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                 viewportHeight={viewportHeight}
                 isReadOnly={submitAvailability.blockReason !== undefined}
                 placeholder={
-                  submitAvailability.blockReason !== undefined
-                    ? getSessionLockNotice(submitAvailability.blockReason, t)
-                    : generating
+                  composerPlaceholder.kind === 'locked'
+                    ? getSessionLockNotice(composerPlaceholder.reason, t)
+                    : composerPlaceholder.kind === 'queue'
                       ? t('Type a message, press Enter to queue it') || ''
                       : t('Type your question here...') || ''
                 }

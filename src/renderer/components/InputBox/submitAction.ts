@@ -1,3 +1,4 @@
+import type { SessionActionBlockReason } from '@chatbox/core/session/action-gates'
 import type { SessionType } from '@shared/types'
 
 export type SubmitAction =
@@ -56,4 +57,28 @@ export function getSubmitAction(params: {
   }
   if (needGenerating && queueLength > 0) return 'queue-resume'
   return 'send'
+}
+
+/** What the composer placeholder should say, before copy lookup. */
+export type ComposerPlaceholder =
+  /** Show the session lock notice for this reason. */
+  | { kind: 'locked'; reason: SessionActionBlockReason }
+  /** A reply streams and the draft can be queued behind it. */
+  | { kind: 'queue' }
+  /** The normal idle prompt. */
+  | { kind: 'idle' }
+
+export function getComposerPlaceholder(params: {
+  /** Hard block (compaction / pending approval), independent of streaming. */
+  blockReason: SessionActionBlockReason | undefined
+  generating: boolean
+  /** Mode policy: chat mode has no queue. */
+  queueEnabled: boolean
+}): ComposerPlaceholder {
+  if (params.blockReason !== undefined) return { kind: 'locked', reason: params.blockReason }
+  if (!params.generating) return { kind: 'idle' }
+  // Chat mode keeps the composer typable while replies stream but rejects the
+  // send, so the placeholder shows the same notice as the rejection toast
+  // instead of promising a queue the mode does not offer.
+  return params.queueEnabled ? { kind: 'queue' } : { kind: 'locked', reason: 'generating' }
 }

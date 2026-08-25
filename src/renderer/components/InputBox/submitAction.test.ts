@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getSubmitAction, getSubmitControl } from './submitAction'
+import { getComposerPlaceholder, getSubmitAction, getSubmitControl } from './submitAction'
 
 const base = {
   generating: false,
@@ -90,5 +90,41 @@ describe('getSubmitControl', () => {
 
   it('keeps stop while generating when the queue is disabled (chat mode)', () => {
     expect(getSubmitControl({ ...controlBase, queueEnabled: false })).toBe('stop')
+  })
+})
+
+describe('getComposerPlaceholder', () => {
+  const placeholderBase = {
+    blockReason: undefined,
+    generating: false,
+    queueEnabled: true,
+  }
+
+  it('prompts normally while idle', () => {
+    expect(getComposerPlaceholder(placeholderBase)).toEqual({ kind: 'idle' })
+  })
+
+  it('shows the hard block reason regardless of streaming', () => {
+    expect(getComposerPlaceholder({ ...placeholderBase, blockReason: 'compaction' })).toEqual({
+      kind: 'locked',
+      reason: 'compaction',
+    })
+    expect(getComposerPlaceholder({ ...placeholderBase, blockReason: 'awaiting-approval', generating: true })).toEqual({
+      kind: 'locked',
+      reason: 'awaiting-approval',
+    })
+  })
+
+  it('offers the queue hint while generating in work mode', () => {
+    expect(getComposerPlaceholder({ ...placeholderBase, generating: true })).toEqual({ kind: 'queue' })
+  })
+
+  it('shows the generating lock notice instead of the queue hint in chat mode', () => {
+    // The placeholder must match what pressing Enter actually does: chat mode
+    // rejects the send with the generating notice rather than queueing it.
+    expect(getComposerPlaceholder({ ...placeholderBase, generating: true, queueEnabled: false })).toEqual({
+      kind: 'locked',
+      reason: 'generating',
+    })
   })
 })
