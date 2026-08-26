@@ -554,7 +554,7 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
         >
           {/* Virtuoso smooths appended items but snaps same-item height growth; the controller below owns both cases. */}
           <Virtuoso
-            style={{ scrollbarGutter: 'stable' }}
+            style={{ scrollbarGutter: isSmallScreen ? 'auto' : 'stable' }}
             className={platformType === 'win32' ? 'scrollbar-custom' : ''}
             data={renderItems}
             // MessageRenderItem already carries a stable key (message id / group ids).
@@ -577,12 +577,13 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
             increaseViewportBy={{ top: 2000, bottom: 2000 }}
             itemContent={(index, item) => {
               const itemClassName = widthFull ? 'w-full' : 'max-w-4xl mx-auto'
+              const itemStyle = isSmallScreen ? { paddingInlineEnd: 16 } : undefined
               const isFirstItem = index === 0
               const isLastItem = index === renderItems.length - 1
 
               if (item.type === 'group') {
                 return (
-                  <div className={itemClassName}>
+                  <div className={itemClassName} style={itemStyle}>
                     <div
                       className="flex flex-col pt-5"
                       style={
@@ -604,7 +605,9 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
               }
 
               return (
-                <div className={itemClassName}>{renderMessageBlock(item.messages[0], { isFirstItem, isLastItem })}</div>
+                <div className={itemClassName} style={itemStyle}>
+                  {renderMessageBlock(item.messages[0], { isFirstItem, isLastItem })}
+                </div>
               )
             }}
             atTopStateChange={setAtTop}

@@ -3,7 +3,7 @@
 import { MantineProvider } from '@mantine/core'
 import type { Message, Session } from '@shared/types'
 import { MessageRoleEnum } from '@shared/types'
-import { createRef, type ReactNode, type UIEventHandler } from 'react'
+import { type CSSProperties, createRef, type ReactNode, type UIEventHandler } from 'react'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { act, render } from '@/test-utils'
 import MessageList, { type MessageListRef } from './MessageList'
@@ -27,6 +27,7 @@ vi.mock('react-virtuoso', async () => {
           atTopStateChange?: (value: boolean) => void
           atBottomStateChange?: (value: boolean) => void
           onScroll?: UIEventHandler<HTMLDivElement>
+          style?: CSSProperties
         },
         ref
       ) => {
@@ -40,7 +41,7 @@ vi.mock('react-virtuoso', async () => {
           props.atBottomStateChange?.(true)
         }, [props])
         return (
-          <div data-testid="virtuoso" onScroll={props.onScroll}>
+          <div data-testid="virtuoso" onScroll={props.onScroll} style={props.style}>
             {props.data.map((item, index) => {
               const itemKey =
                 item && typeof item === 'object' && 'key' in item && typeof item.key === 'string'
@@ -249,6 +250,7 @@ function message(id: string, role: Message['role'], content: string): Message {
 describe('MessageList new message layout', () => {
   beforeEach(() => {
     settingsState.hideSystemPromptMessage = false
+    isSmallScreenMock.value = false
     messageRenderLog.length = 0
     messageButtonGroupLog.length = 0
     Object.defineProperty(window, 'matchMedia', {
@@ -276,6 +278,35 @@ describe('MessageList new message layout', () => {
     }
 
     vi.stubGlobal('ResizeObserver', ResizeObserverMock)
+  })
+
+  test('uses an explicit mobile end inset while preserving the desktop scrollbar gutter', () => {
+    isSmallScreenMock.value = true
+    const session: Session = {
+      id: 'mobile-session',
+      type: 'chat',
+      name: 'Mobile session',
+      messages: [message('assistant-message', MessageRoleEnum.Assistant, 'answer')],
+    }
+
+    const { container, getByTestId, rerender } = render(
+      <MantineProvider>
+        <MessageList currentSession={session} />
+      </MantineProvider>
+    )
+
+    expect(getByTestId('virtuoso').style.scrollbarGutter).toBe('auto')
+    expect(container.querySelector<HTMLElement>('[data-index="0"] > div')?.style.paddingInlineEnd).toBe('16px')
+
+    isSmallScreenMock.value = false
+    rerender(
+      <MantineProvider>
+        <MessageList currentSession={{ ...session }} />
+      </MantineProvider>
+    )
+
+    expect(getByTestId('virtuoso').style.scrollbarGutter).toBe('stable')
+    expect(container.querySelector<HTMLElement>('[data-index="0"] > div')?.style.paddingInlineEnd).toBe('')
   })
 
   test('renders legacy picture session messages as read-only', () => {
