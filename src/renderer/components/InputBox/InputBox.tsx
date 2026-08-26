@@ -270,7 +270,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
     const setSessionWebBrowsing = useUIStore((s) => s.setSessionWebBrowsing)
     const updateCurrentWebBrowsingDisplay = useUIStore((s) => s.updateCurrentWebBrowsingDisplay)
     // Existing sessions keep their own value. New chats additionally inherit
-    // the user's last explicit new-chat choice before falling back to provider defaults.
+    // the user's last explicit choice before falling back to provider defaults.
     const webBrowsingMode = useMemo(() => {
       return resolveWebBrowsingMode(
         currentSessionId || 'new',

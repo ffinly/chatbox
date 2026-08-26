@@ -55,12 +55,30 @@ describe('new-chat Web Search preference', () => {
     ).toBe(true)
   })
 
-  test('does not replace the new-chat default when changing an existing session', () => {
-    uiStore.setState({ newSessionWebBrowsingDefault: true })
+  test('uses changes made in existing sessions as the default for new chats', () => {
+    uiStore.setState({ sessionWebBrowsingMap: { new: false } })
+
+    uiStore.getState().setSessionWebBrowsing('session-1', true)
+
+    let state = uiStore.getState()
+    expect(state.sessionWebBrowsingMap.new).toBeUndefined()
+    expect(state.newSessionWebBrowsingDefault).toBe(true)
+    expect(
+      resolveWebBrowsingMode('new', 'openai', state.sessionWebBrowsingMap, state.newSessionWebBrowsingDefault)
+    ).toBe(true)
 
     uiStore.getState().setSessionWebBrowsing('session-1', false)
 
-    expect(uiStore.getState().newSessionWebBrowsingDefault).toBe(true)
+    state = uiStore.getState()
+    expect(state.newSessionWebBrowsingDefault).toBe(false)
+    expect(
+      resolveWebBrowsingMode(
+        'new',
+        ModelProviderEnum.ChatboxAI,
+        state.sessionWebBrowsingMap,
+        state.newSessionWebBrowsingDefault
+      )
+    ).toBe(false)
   })
 
   test('remembers keyboard shortcut changes made in a new chat', () => {
@@ -68,6 +86,18 @@ describe('new-chat Web Search preference', () => {
 
     uiStore.getState().toggleSessionWebBrowsing('new')
 
+    expect(uiStore.getState().newSessionWebBrowsingDefault).toBe(true)
+  })
+
+  test('remembers keyboard shortcut changes made in an existing chat', () => {
+    uiStore.setState({
+      sessionWebBrowsingMap: { new: false },
+      currentWebBrowsingDisplay: { sessionId: 'session-1', value: false },
+    })
+
+    uiStore.getState().toggleSessionWebBrowsing('session-1')
+
+    expect(uiStore.getState().sessionWebBrowsingMap.new).toBeUndefined()
     expect(uiStore.getState().newSessionWebBrowsingDefault).toBe(true)
   })
 })

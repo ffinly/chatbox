@@ -22,6 +22,18 @@ const isSmallScreenViewport = () => {
   )
 }
 
+function updateSessionWebBrowsingMap(
+  current: Record<string, boolean | undefined>,
+  sessionId: string,
+  enabled: boolean
+) {
+  const next = { ...current, [sessionId]: enabled }
+  if (sessionId !== 'new') {
+    delete next.new
+  }
+  return next
+}
+
 // UI store for managing UI-related state
 // 不能使用immer middleware，会导致RefObject出问题
 export const uiStore = createStore(
@@ -160,11 +172,8 @@ export const uiStore = createStore(
 
         setSessionWebBrowsing: (sessionId: string, enabled: boolean) => {
           set((state) => ({
-            sessionWebBrowsingMap: {
-              ...state.sessionWebBrowsingMap,
-              [sessionId]: enabled,
-            },
-            ...(sessionId === 'new' ? { newSessionWebBrowsingDefault: enabled } : {}),
+            sessionWebBrowsingMap: updateSessionWebBrowsingMap(state.sessionWebBrowsingMap, sessionId, enabled),
+            newSessionWebBrowsingDefault: enabled,
             // Update cache if it's for the current session (avoid race condition with kbd shortcut)
             currentWebBrowsingDisplay:
               state.currentWebBrowsingDisplay.sessionId === sessionId
@@ -204,11 +213,8 @@ export const uiStore = createStore(
               : (get().sessionWebBrowsingMap[sessionId] ?? false)
           const newValue = !currentValue
           set((state) => ({
-            sessionWebBrowsingMap: {
-              ...state.sessionWebBrowsingMap,
-              [sessionId]: newValue,
-            },
-            ...(sessionId === 'new' ? { newSessionWebBrowsingDefault: newValue } : {}),
+            sessionWebBrowsingMap: updateSessionWebBrowsingMap(state.sessionWebBrowsingMap, sessionId, newValue),
+            newSessionWebBrowsingDefault: newValue,
             // Update cache to keep it in sync
             currentWebBrowsingDisplay: { sessionId, value: newValue },
           }))
