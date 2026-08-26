@@ -151,6 +151,9 @@ export type InputBoxRef = {
 export type InputBoxProps = {
   sessionId?: string
   sessionType?: SessionType
+  /** Copilot picked on the new-chat page, where the draft session is not persisted yet. */
+  draftCopilotId?: string
+  draftCopilotName?: string
   model?: {
     provider: string
     modelId: string
@@ -195,6 +198,8 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
     {
       sessionId,
       sessionType = 'chat',
+      draftCopilotId,
+      draftCopilotName,
       model,
       fullWidth = false,
       onSelectModel,
@@ -1874,6 +1879,8 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                     currentKnowledgeBaseId={knowledgeBase?.id}
                     onKnowledgeBaseSelect={handleKnowledgeBaseSelect}
                     onSkillSelect={insertSkillCommand}
+                    draftCopilotId={draftCopilotId}
+                    draftCopilotName={draftCopilotName}
                   />
                 )}
 

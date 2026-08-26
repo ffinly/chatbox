@@ -318,6 +318,33 @@ describe('buildToolsForSession', () => {
     }
   })
 
+  test('memory tools follow the copilot scope even when the global switch is off', async () => {
+    const model = createMockModel()
+    const globalSettings = { memoryEnabled: false, language: 'en' } as Parameters<
+      typeof buildToolsForSession
+    >[1]['globalSettings']
+
+    const withoutScope = await buildToolsForSession(model, {
+      webBrowsing: false,
+      messages: [],
+      agentMode: 'off',
+      globalSettings,
+    })
+    expect(withoutScope.tools.save_memory).toBeUndefined()
+    expect(withoutScope.tools.delete_memory).toBeUndefined()
+
+    const withCopilotScope = await buildToolsForSession(model, {
+      webBrowsing: false,
+      messages: [],
+      agentMode: 'off',
+      globalSettings,
+      memoryScope: { type: 'copilot', copilotId: 'cp1', epoch: 0 },
+    })
+    expect(withCopilotScope.tools.save_memory).toBeDefined()
+    expect(withCopilotScope.tools.delete_memory).toBeDefined()
+    expect(withCopilotScope.instructions).toContain('## Persistent Memory')
+  })
+
   test('agentMode="off" exposes selected Knowledge Base without Work Mode tools', async () => {
     const model = createMockModel()
     const result = await buildToolsForSession(model, {

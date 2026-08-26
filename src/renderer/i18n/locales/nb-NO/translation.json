@@ -1146,6 +1146,7 @@
   "Wait": "Vent",
   "Waiting for approval": "Venter på godkjenning",
   "Waiting for authorization...": "Venter på autorisasjon...",
+  "Waiting for you...": "Venter på deg...",
   "We're waiting for you to finish on chatboxai.app...": "Vi venter på at du skal bli ferdig på chatboxai.app...",
   "We've been chatting for a while now. To conserve resources, please complete the setup before continuing our conversation.": "Vi har chattet en stund nå. For å spare ressurser, vennligst fullfør oppsettet før vi fortsetter samtalen vår.",
   "Web Search": "Nettsøk",
@@ -1357,6 +1358,11 @@
   "Manage memories": "Administrer minner",
   "{{count}} saved": "{{count}} lagret",
   "No memories saved yet.": "Ingen minner lagret ennå.",
+  "Copilot Memory": "Copilot-minne",
+  "Chats with this copilot read and write the copilot's own memories. Global memory stays out of these conversations.": "Chatter med denne Copiloten leser og skriver Copilotens egne minner. Globalt minne brukes ikke i disse samtalene.",
+  "Off. This copilot keeps no memories of its own; the global memory setting applies instead.": "Av. Denne Copiloten har ingen egne minner; innstillingen for globalt minne gjelder i stedet.",
+  "When on, chats with this copilot read and write the copilot's own memories instead of global memory.": "Når det er på, leser og skriver chatter med denne Copiloten Copilotens egne minner i stedet for globalt minne.",
+  "No memories yet. Chats with this copilot save durable facts here.": "Ingen minner ennå. Chatter med denne Copiloten lagrer varige fakta her.",
   "Save facts from conversations and recall them in new chats. Works in both Chat and Work Mode.": "Lagrer fakta fra samtaler og henter dem frem i nye chatter. Fungerer i både chatmodus og arbeidsmodus.",
   "Import memories": "Importer minner",
   "Import memory files from Claude, ChatGPT, Codex, or other tools. Supports Markdown, text, and JSON; chat history is not imported automatically.": "Importer minnefiler fra Claude, ChatGPT, Codex eller andre verktøy. Støtter Markdown, tekst og JSON; chatloggen importeres ikke automatisk.",
@@ -1384,5 +1390,9 @@
   "Protocol": "Protokoll",
   "Auto (recommended)": "Automatisk (anbefalt)",
   "Legacy": "Eldre",
-  "If you're unsure, keep Auto. Choose Legacy only if you know the server does not support stateless MCP.": "Hvis du er usikker, behold «Automatisk». Velg «Eldre» bare hvis du vet at serveren ikke støtter tilstandsløs MCP."
+  "If you're unsure, keep Auto. Choose Legacy only if you know the server does not support stateless MCP.": "Hvis du er usikker, behold «Automatisk». Velg «Eldre» bare hvis du vet at serveren ikke støtter tilstandsløs MCP.",
+  "Copilot Memories": "Copilot-minner",
+  "Memories saved by chats with a specific copilot. Each copilot has its own list, and global memories stay out of those chats.": "Minner som er lagret av chatter med en bestemt Copilot. Hver Copilot har sin egen liste, og globale minner holdes utenfor disse chattene.",
+  "Unnamed copilot": "Copilot uten navn",
+  "Clear all": "Tøm alt"
 }

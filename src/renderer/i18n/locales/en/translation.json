@@ -1357,6 +1357,11 @@
   "Manage memories": "Manage memories",
   "{{count}} saved": "{{count}} saved",
   "No memories saved yet.": "No memories saved yet.",
+  "Copilot Memory": "Copilot Memory",
+  "Chats with this copilot read and write the copilot's own memories. Global memory stays out of these conversations.": "Chats with this copilot read and write the copilot's own memories. Global memory stays out of these conversations.",
+  "Off. This copilot keeps no memories of its own; the global memory setting applies instead.": "Off. This copilot keeps no memories of its own; the global memory setting applies instead.",
+  "When on, chats with this copilot read and write the copilot's own memories instead of global memory.": "When on, chats with this copilot read and write the copilot's own memories instead of global memory.",
+  "No memories yet. Chats with this copilot save durable facts here.": "No memories yet. Chats with this copilot save durable facts here.",
   "Save facts from conversations and recall them in new chats. Works in both Chat and Work Mode.": "Save facts from conversations and recall them in new chats. Works in both Chat and Work Mode.",
   "Import memories": "Import memories",
   "Import memory files from Claude, ChatGPT, Codex, or other tools. Supports Markdown, text, and JSON; chat history is not imported automatically.": "Import memory files from Claude, ChatGPT, Codex, or other tools. Supports Markdown, text, and JSON; chat history is not imported automatically.",
@@ -1384,5 +1389,9 @@
   "Protocol": "Protocol",
   "Auto (recommended)": "Auto (recommended)",
   "Legacy": "Legacy",
-  "If you're unsure, keep Auto. Choose Legacy only if you know the server does not support stateless MCP.": "If you're unsure, keep Auto. Choose Legacy only if you know the server does not support stateless MCP."
+  "If you're unsure, keep Auto. Choose Legacy only if you know the server does not support stateless MCP.": "If you're unsure, keep Auto. Choose Legacy only if you know the server does not support stateless MCP.",
+  "Copilot Memories": "Copilot Memories",
+  "Memories saved by chats with a specific copilot. Each copilot has its own list, and global memories stay out of those chats.": "Memories saved by chats with a specific copilot. Each copilot has its own list, and global memories stay out of those chats.",
+  "Unnamed copilot": "Unnamed copilot",
+  "Clear all": "Clear all"
 }

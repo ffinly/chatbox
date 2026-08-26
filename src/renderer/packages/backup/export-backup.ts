@@ -16,7 +16,12 @@ import {
   prepareSessionForBackup,
   type ResourceReference,
 } from './resources'
-import { AGENT_PERSONA_BACKUP_KEYS, BackupStorageKey, backupSessionStorageKey } from './storage-keys'
+import {
+  AGENT_PERSONA_BACKUP_KEYS,
+  BackupStorageKey,
+  backupSessionStorageKey,
+  COPILOT_BACKUP_KEYS,
+} from './storage-keys'
 import {
   BACKUP_FORMAT,
   BACKUP_FORMAT_VERSION,
@@ -240,6 +245,9 @@ export async function exportBackupArchive(options: BackupExportOptions): Promise
     }
     if (options.exportItems.includes('setting')) {
       await collectKeyValueEntries(AGENT_PERSONA_BACKUP_KEYS)
+    }
+    if (options.exportItems.includes('copilot')) {
+      await collectKeyValueEntries(COPILOT_BACKUP_KEYS)
     }
     if (Object.keys(keyValueEntries).length > 0) {
       const { archive, descriptor } = await jsonEntry(BACKUP_SESSION_SETTINGS_PATH, keyValueEntries)

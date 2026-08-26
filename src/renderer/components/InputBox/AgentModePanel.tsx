@@ -1,4 +1,5 @@
 import { hasConversationStarted, resolveSessionMode } from '@chatbox/core/session/mode-policy'
+import NiceModal from '@ebay/nice-modal-react'
 import { ActionIcon, Badge, Button, Divider, Flex, Group, Loader, Stack, Switch, Text } from '@mantine/core'
 import { TestId } from '@shared/automation/testids'
 import type { AgentModeValue, KnowledgeBase } from '@shared/types'
@@ -29,11 +30,12 @@ import { rendererApplication } from '@/app/renderer-application'
 import { AppTooltip as Tooltip } from '@/components/ui/tooltip'
 import { useKnowledgeBases } from '@/hooks/knowledge-base'
 import { useMCPServerStatus, useToggleMCPServer } from '@/hooks/mcp'
+import { useCopilotMemory, useMyCopilots } from '@/hooks/useCopilots'
 import { navigateToSettings } from '@/modals/settings-navigation'
 import { BUILTIN_MCP_SERVERS } from '@/packages/mcp/builtin'
 import { skillsController, subscribeSkillsChanged } from '@/packages/skills/controller'
 import { WEB_SEARCH_PROVIDERS, type WebSearchProviderValue } from '@/packages/web-search/constants'
-import { listMemories } from '@/stores/agentPersonaStore'
+import { listCopilotMemories, listMemories } from '@/stores/agentPersonaStore'
 import { useAutoValidate } from '@/stores/premiumActions'
 import { setSessionAgentMode, useSessionAgentMode } from '@/stores/session/agent-mode'
 import { useMcpSettings, useSettingsStore } from '@/stores/settingsStore'
@@ -72,6 +74,9 @@ export interface AgentModePanelProps {
   onKnowledgeBaseSelect: (kb: KnowledgeBase | null) => void
   onSkillSelect: (skillName: string) => void
   onClose: () => void
+  /** Copilot picked on the new-chat page, where the draft session is not persisted yet. */
+  draftCopilotId?: string
+  draftCopilotName?: string
 }
 
 // --- Sub-components ---
@@ -121,6 +126,8 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
   onKnowledgeBaseSelect,
   onSkillSelect,
   onClose,
+  draftCopilotId,
+  draftCopilotName,
 }) => {
   const { t } = useTranslation()
   const [page, setPage] = useState<PanelPage>('main')
@@ -154,13 +161,40 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
   const webSearchProviderLabel =
     WEB_SEARCH_PROVIDERS.find((p) => p.value === webSearchProvider)?.label ?? webSearchProvider
 
-  // Memory is a global preference (all chats), not a per-session capability.
-  const memoryEnabled = useSettingsStore((s) => s.memoryEnabled !== false)
+  // Memory is a global preference (all chats) unless the chat comes from a copilot:
+  // then the switch here is that copilot's own — shared by every chat with it — and
+  // turning it on replaces global memory for those chats. Ownership is tracked by
+  // copilot id, so a copilot used straight from the store qualifies too.
+  const globalMemoryEnabled = useSettingsStore((s) => s.memoryEnabled !== false)
+  const { copilots: myCopilots, addOrUpdate: updateCopilot } = useMyCopilots()
+  const {
+    owners: copilotMemoryOwners,
+    isEnabled: isCopilotMemoryEnabled,
+    setEnabled: setCopilotMemory,
+  } = useCopilotMemory()
+  const sessionCopilotId = isNewSession ? draftCopilotId : currentSession?.copilotId
+  const savedCopilot = useMemo(
+    () => (sessionCopilotId ? myCopilots.find((copilot) => copilot.id === sessionCopilotId) : undefined),
+    [myCopilots, sessionCopilotId]
+  )
+  /** Label for the copilot behind this chat, whether or not it was ever saved. */
+  const sessionCopilotName = useMemo(() => {
+    if (!sessionCopilotId) return undefined
+    const owned = copilotMemoryOwners.find((owner) => owner.id === sessionCopilotId)
+    return savedCopilot?.name ?? owned?.name ?? currentSession?.name ?? draftCopilotName
+  }, [copilotMemoryOwners, currentSession?.name, draftCopilotName, savedCopilot, sessionCopilotId])
+  const memoryEnabled = sessionCopilotId ? isCopilotMemoryEnabled(sessionCopilotId) : globalMemoryEnabled
+  // Which store the conversation actually reads and writes — mirrors
+  // getCopilotMemoryScope, so a copilot whose own memory is off leaves its chats on
+  // the global list and the counts and shortcuts below point there.
+  const memoryScopeCopilotId = sessionCopilotId && memoryEnabled ? sessionCopilotId : undefined
   const [memoryCount, setMemoryCount] = useState<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    void listMemories()
+    setMemoryCount(null)
+    const load = memoryScopeCopilotId ? listCopilotMemories(memoryScopeCopilotId) : listMemories()
+    void load
       .then((entries) => {
         if (!cancelled) setMemoryCount(entries.length)
       })
@@ -170,7 +204,7 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [memoryScopeCopilotId])
 
   const isProviderAvailable = useCallback(
     (provider: WebSearchProviderValue) => {
@@ -535,10 +569,33 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
         },
         enabled
       )
-      setSettings({ memoryEnabled: enabled })
+      if (sessionCopilotId) {
+        setCopilotMemory({ id: sessionCopilotId, name: sessionCopilotName ?? sessionCopilotId }, enabled)
+      } else {
+        setSettings({ memoryEnabled: enabled })
+      }
     },
-    [agentModeUIState.isActive, modelId, providerId, sessionId, setSettings]
+    [
+      agentModeUIState.isActive,
+      modelId,
+      providerId,
+      sessionCopilotId,
+      sessionCopilotName,
+      sessionId,
+      setCopilotMemory,
+      setSettings,
+    ]
   )
+
+  const openCopilotSettings = useCallback(() => {
+    if (!savedCopilot) return
+    onClose()
+    void NiceModal.show('copilot-settings', {
+      copilot: savedCopilot,
+      mode: 'edit',
+      onSave: updateCopilot,
+    })
+  }, [onClose, savedCopilot, updateCopilot])
 
   // --- Sub-panel content ---
   const renderSubPanel = () => {
@@ -590,14 +647,29 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
     }
 
     if (page === 'memory') {
+      const memoryDescription = sessionCopilotId
+        ? memoryEnabled
+          ? t(
+              "Chats with this copilot read and write the copilot's own memories. Global memory stays out of these conversations."
+            )
+          : t('Off. This copilot keeps no memories of its own; the global memory setting applies instead.')
+        : memoryEnabled
+          ? t('Applies to every chat. This conversation can read and write new long-term memories.')
+          : t('Off for every chat. Nothing new is saved, and existing memories are not used.')
       return (
         <>
-          <SubPanelHeader title={t('Global Memory')} settingsPath="/agent" />
+          <SubPanelHeader
+            title={sessionCopilotId ? t('Copilot Memory') : t('Global Memory')}
+            settingsPath={savedCopilot && memoryScopeCopilotId ? undefined : '/agent'}
+          />
           <Divider my={4} />
+          {sessionCopilotName && (
+            <Text size="xs" fw={500} c="chatbox-primary" px="sm" pt={6} className="leading-snug">
+              {sessionCopilotName}
+            </Text>
+          )}
           <Text size="xs" c="chatbox-secondary" px="sm" py={6} className="leading-snug">
-            {memoryEnabled
-              ? t('Applies to every chat. This conversation can read and write new long-term memories.')
-              : t('Off for every chat. Nothing new is saved, and existing memories are not used.')}
+            {memoryDescription}
           </Text>
           <Divider my={4} />
           {memoryCount === null ? (
@@ -613,6 +685,10 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
                 size="xs"
                 variant="light"
                 onClick={() => {
+                  if (savedCopilot && memoryScopeCopilotId) {
+                    openCopilotSettings()
+                    return
+                  }
                   onClose()
                   navigateToSettings('/agent')
                 }}
@@ -916,7 +992,7 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
 
           <ExtensionRow
             icon={<IconNotes size={16} className="text-[var(--chatbox-tint-secondary)]" />}
-            label={t('Global Memory')}
+            label={sessionCopilotId ? t('Copilot Memory') : t('Global Memory')}
             badge={memoryCount && memoryCount > 0 ? memoryCount : undefined}
             active={page === 'memory'}
             page="memory"

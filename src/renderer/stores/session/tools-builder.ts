@@ -3,6 +3,7 @@ import type { SandboxSeedAttachment } from '@shared/sandbox/attachment-path'
 import type { SandboxProvider } from '@shared/sandbox-provider'
 import { supportsToolResultImages } from '@shared/tools/view-image'
 import type { KnowledgeBase, Message, SessionSettings, Settings } from '@shared/types'
+import type { MemoryScope } from '@shared/types/agent-persona'
 import { resolveCommandApprovalMode } from '@shared/types/command-execution'
 import type { UserExecApprovalSource } from '@shared/types/user-exec'
 import { getMessageText } from '@shared/utils/message'
@@ -89,6 +90,12 @@ export interface BuildToolsOptions {
    * from disk, keeping the system prompt prefix stable for provider caches.
    */
   workspaceInstructionsOverride?: string
+  /**
+   * Memory store the save/delete tools target. Copilot scope means the session's
+   * copilot has its own memory enabled, which also supersedes the global memory
+   * switch for tool registration. Defaults to the global store.
+   */
+  memoryScope?: MemoryScope
 }
 
 export interface BuildToolsResult {
@@ -578,12 +585,19 @@ When you create a Git commit that includes code changes, append this exact trail
   }
 
   // Persistent memory: independent of agent mode (chat mode can save/recall too),
-  // gated on the global memory switch. Writes persist immediately but the running
-  // session keeps its frozen persona snapshot, so they only affect future sessions.
-  // The 'agent' tool-use scope keeps weak function-calling models tool-free.
+  // gated on the memory switch that applies to this session — the copilot's own
+  // switch when its memory scope is active, the global switch otherwise. Writes
+  // persist immediately but the running session keeps its frozen persona
+  // snapshot, so they only affect future sessions. The 'agent' tool-use scope
+  // keeps weak function-calling models tool-free.
   const globalSettingsForTools = options.globalSettings ?? settingsStore.getState().getSettings()
-  if (globalSettingsForTools.memoryEnabled !== false && modelSupportsAgentTools) {
-    const memoryToolSet = buildAgentMemoryTools({ languageName: languageNameMap[globalSettingsForTools.language] })
+  const memoryScope = options.memoryScope ?? { type: 'global' as const }
+  const memoryToolsEnabled = memoryScope.type === 'copilot' || globalSettingsForTools.memoryEnabled !== false
+  if (memoryToolsEnabled && modelSupportsAgentTools) {
+    const memoryToolSet = buildAgentMemoryTools({
+      languageName: languageNameMap[globalSettingsForTools.language],
+      scope: memoryScope,
+    })
     instructions += memoryToolSet.description
     tools = { ...tools, ...memoryToolSet.tools }
   }

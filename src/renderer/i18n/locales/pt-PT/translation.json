@@ -1146,6 +1146,7 @@
   "Wait": "Aguarde",
   "Waiting for approval": "À espera de aprovação",
   "Waiting for authorization...": "A aguardar autorização...",
+  "Waiting for you...": "A aguardar a tua ação...",
   "We're waiting for you to finish on chatboxai.app...": "Estamos à espera que termine em chatboxai.app...",
   "We've been chatting for a while now. To conserve resources, please complete the setup before continuing our conversation.": "Já estamos a conversar há algum tempo. Para poupar recursos, por favor conclua a configuração antes de continuar a nossa conversa.",
   "Web Search": "Pesquisa Web",
@@ -1357,6 +1358,11 @@
   "Manage memories": "Gerir memórias",
   "{{count}} saved": "{{count}} guardadas",
   "No memories saved yet.": "Ainda não há memórias guardadas.",
+  "Copilot Memory": "Memória do Copilot",
+  "Chats with this copilot read and write the copilot's own memories. Global memory stays out of these conversations.": "Os chats com este Copilot leem e guardam as memórias próprias do Copilot. A memória global não é usada nestas conversas.",
+  "Off. This copilot keeps no memories of its own; the global memory setting applies instead.": "Desativada. Este Copilot não tem memórias próprias; aplica-se a definição de memória global.",
+  "When on, chats with this copilot read and write the copilot's own memories instead of global memory.": "Quando ativada, os chats com este Copilot leem e guardam as memórias próprias do Copilot em vez da memória global.",
+  "No memories yet. Chats with this copilot save durable facts here.": "Ainda não há memórias. Os chats com este Copilot guardam aqui os factos duradouros.",
   "Save facts from conversations and recall them in new chats. Works in both Chat and Work Mode.": "Guarda factos das conversas e recorda-os em novos chats. Funciona no modo de chat e no modo de trabalho.",
   "Import memories": "Importar memórias",
   "Import memory files from Claude, ChatGPT, Codex, or other tools. Supports Markdown, text, and JSON; chat history is not imported automatically.": "Importe ficheiros de memória do Claude, ChatGPT, Codex ou de outras ferramentas. Suporta Markdown, texto e JSON; o histórico de chat não é importado automaticamente.",
@@ -1384,5 +1390,9 @@
   "Protocol": "Protocolo",
   "Auto (recommended)": "Automático (recomendado)",
   "Legacy": "Legado",
-  "If you're unsure, keep Auto. Choose Legacy only if you know the server does not support stateless MCP.": "Se não tiver a certeza, mantenha «Automático». Escolha «Legado» apenas se souber que o servidor não suporta MCP sem estado."
+  "If you're unsure, keep Auto. Choose Legacy only if you know the server does not support stateless MCP.": "Se não tiver a certeza, mantenha «Automático». Escolha «Legado» apenas se souber que o servidor não suporta MCP sem estado.",
+  "Copilot Memories": "Memórias do Copilot",
+  "Memories saved by chats with a specific copilot. Each copilot has its own list, and global memories stay out of those chats.": "Memórias guardadas pelos chats com um Copilot específico. Cada Copilot tem a sua própria lista e as memórias globais ficam de fora desses chats.",
+  "Unnamed copilot": "Copilot sem nome",
+  "Clear all": "Limpar tudo"
 }

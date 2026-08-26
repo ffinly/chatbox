@@ -61,12 +61,26 @@ const mocks = vi.hoisted(() => {
   const trackMemoryClickMock = vi.fn()
   const setSessionAgentModeMock = vi.fn()
   const listMemoriesMock = vi.fn(() => new Promise<Array<{ id: string; content: string; createdAt: number }>>(() => {}))
+  const listCopilotMemoriesMock = vi.fn(
+    (_copilotId: string) => new Promise<Array<{ id: string; content: string; createdAt: number }>>(() => {})
+  )
+  const myCopilots: Array<{ id: string; name: string; prompt: string }> = []
+  const copilotMemoryOwners: Array<{ id: string; name: string }> = []
+  const setCopilotMemoryMock = vi.fn()
+  const addOrUpdateCopilotMock = vi.fn()
+  const niceModalShowMock = vi.fn()
 
   return {
+    addOrUpdateCopilotMock,
     agentModeEntry,
+    copilotMemoryOwners,
     knowledgeBases,
+    listCopilotMemoriesMock,
     listMemoriesMock,
+    myCopilots,
+    niceModalShowMock,
     openDirectoryDialogMock,
+    setCopilotMemoryMock,
     setSessionAgentModeMock,
     settingsState,
     trackMemoryClickMock,
@@ -74,6 +88,21 @@ const mocks = vi.hoisted(() => {
     uiState,
   }
 })
+
+vi.mock('@ebay/nice-modal-react', () => ({
+  __esModule: true,
+  default: { show: mocks.niceModalShowMock, create: (component: unknown) => component, register: vi.fn() },
+  useModal: () => ({ visible: false, hide: vi.fn(), resolve: vi.fn() }),
+}))
+
+vi.mock('@/hooks/useCopilots', () => ({
+  useMyCopilots: () => ({ copilots: mocks.myCopilots, addOrUpdate: mocks.addOrUpdateCopilotMock, remove: vi.fn() }),
+  useCopilotMemory: () => ({
+    owners: mocks.copilotMemoryOwners,
+    isEnabled: (copilotId: string) => mocks.copilotMemoryOwners.some((owner) => owner.id === copilotId),
+    setEnabled: mocks.setCopilotMemoryMock,
+  }),
+}))
 
 vi.mock('react-i18next', () => ({
   initReactI18next: { type: '3rdParty', init: vi.fn() },
@@ -140,6 +169,7 @@ vi.mock('@/stores/session/agent-mode', () => ({
 
 vi.mock('@/stores/agentPersonaStore', () => ({
   listMemories: mocks.listMemoriesMock,
+  listCopilotMemories: mocks.listCopilotMemoriesMock,
 }))
 
 vi.mock('@/stores/settingsStore', () => ({
@@ -178,6 +208,9 @@ beforeEach(() => {
   mocks.knowledgeBases.splice(0)
   mocks.settingsState.memoryEnabled = true
   mocks.listMemoriesMock.mockImplementation(() => new Promise(() => {}))
+  mocks.listCopilotMemoriesMock.mockImplementation(() => new Promise(() => {}))
+  mocks.myCopilots.splice(0)
+  mocks.copilotMemoryOwners.splice(0)
   mocks.uiState.newSessionState = {}
   mocks.uiState.newSessionCommandApprovalModeDefault = undefined
   mocks.uiState.newSessionWorkingDirectoriesDefault = undefined
@@ -432,6 +465,103 @@ describe('AgentModePanel memory', () => {
     ).toBeTruthy()
     expect(screen.queryByText('All chats')).toBeNull()
     expect(screen.queryByText('This chat keeps memories already loaded until you start a new chat.')).toBeNull()
+  })
+
+  test('binds the Memory switch to the copilot behind the chat', () => {
+    mocks.myCopilots.push({ id: 'cp1', name: 'Tutor', prompt: 'persona' })
+    renderPanel({ draftCopilotId: 'cp1' })
+
+    const memoryRow = screen.getByRole('button', { name: /^Copilot Memory/ })
+    const memorySwitch = memoryRow.querySelector('input[type="checkbox"]')
+    expect(memorySwitch).not.toBeNull()
+    expect((memorySwitch as HTMLInputElement).checked).toBe(false)
+
+    fireEvent.click(memorySwitch as HTMLInputElement)
+
+    expect(mocks.setCopilotMemoryMock).toHaveBeenCalledWith({ id: 'cp1', name: 'Tutor' }, true)
+    expect(mocks.settingsState.setSettings).not.toHaveBeenCalled()
+  })
+
+  test('shows the copilot memory description and manages memories through copilot settings', async () => {
+    mocks.myCopilots.push({ id: 'cp1', name: 'Tutor', prompt: 'persona' })
+    mocks.copilotMemoryOwners.push({ id: 'cp1', name: 'Tutor' })
+    mocks.listCopilotMemoriesMock.mockResolvedValue([{ id: 'm1', content: 'Learner level is B1', createdAt: 1 }])
+    const onClose = vi.fn()
+    renderPanel({ draftCopilotId: 'cp1', onClose })
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: /^Copilot Memory/ }))
+
+    expect(
+      screen.getByText(
+        "Chats with this copilot read and write the copilot's own memories. Global memory stays out of these conversations."
+      )
+    ).toBeTruthy()
+    await vi.waitFor(() => {
+      expect(screen.getByText('1 saved')).toBeTruthy()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Manage memories' }))
+    expect(onClose).toHaveBeenCalled()
+    expect(mocks.niceModalShowMock).toHaveBeenCalledWith(
+      'copilot-settings',
+      expect.objectContaining({ mode: 'edit', copilot: expect.objectContaining({ id: 'cp1' }) })
+    )
+  })
+
+  test('keeps a copilot without its own memory on the global list for counts and management', async () => {
+    mocks.myCopilots.push({ id: 'cp1', name: 'Tutor', prompt: 'persona' })
+    mocks.listMemoriesMock.mockResolvedValue([{ id: 'gm1', content: 'Global fact', createdAt: 1 }])
+    const { navigateToSettings } = await import('@/modals/settings-navigation')
+    const onClose = vi.fn()
+    renderPanel({ draftCopilotId: 'cp1', onClose })
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: /^Copilot Memory/ }))
+
+    expect(
+      screen.getByText('Off. This copilot keeps no memories of its own; the global memory setting applies instead.')
+    ).toBeTruthy()
+    await vi.waitFor(() => {
+      expect(screen.getByText('1 saved')).toBeTruthy()
+    })
+    expect(mocks.listCopilotMemoriesMock).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Manage memories' }))
+    expect(onClose).toHaveBeenCalled()
+    expect(navigateToSettings).toHaveBeenCalledWith('/agent')
+    expect(mocks.niceModalShowMock).not.toHaveBeenCalled()
+  })
+
+  test('gives a copilot that was never saved its own memory, managed from Settings', async () => {
+    mocks.copilotMemoryOwners.push({ id: 'chatbox-featured:24', name: 'Translator' })
+    mocks.listCopilotMemoriesMock.mockResolvedValue([{ id: 'm1', content: 'Prefers a formal register', createdAt: 1 }])
+    const { navigateToSettings } = await import('@/modals/settings-navigation')
+    const onClose = vi.fn()
+    renderPanel({ draftCopilotId: 'chatbox-featured:24', onClose })
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: /^Copilot Memory/ }))
+
+    expect(screen.getByText('Translator')).toBeTruthy()
+    await vi.waitFor(() => {
+      expect(screen.getByText('1 saved')).toBeTruthy()
+    })
+    expect(mocks.listCopilotMemoriesMock).toHaveBeenCalledWith('chatbox-featured:24')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Manage memories' }))
+    expect(onClose).toHaveBeenCalled()
+    expect(navigateToSettings).toHaveBeenCalledWith('/agent')
+    expect(mocks.niceModalShowMock).not.toHaveBeenCalled()
+  })
+
+  test('keys memory for an unsaved copilot by its copilot id', () => {
+    renderPanel({ draftCopilotId: 'ghost', draftCopilotName: 'Ghost Writer' })
+
+    const memoryRow = screen.getByRole('button', { name: /^Copilot Memory/ })
+    const memorySwitch = memoryRow.querySelector('input[type="checkbox"]') as HTMLInputElement
+    expect(memorySwitch.checked).toBe(false)
+
+    fireEvent.click(memorySwitch)
+
+    expect(mocks.setCopilotMemoryMock).toHaveBeenCalledWith({ id: 'ghost', name: 'Ghost Writer' }, true)
   })
 })
 

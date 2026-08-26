@@ -527,6 +527,8 @@ function Index() {
             <InputBox
               sessionType="chat"
               sessionId="new"
+              draftCopilotId={session.copilotId}
+              draftCopilotName={session.copilotId ? session.name : undefined}
               model={selectedModel}
               // fullWidth
               onSelectModel={onSelectModel}

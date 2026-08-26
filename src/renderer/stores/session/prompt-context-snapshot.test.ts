@@ -1,19 +1,25 @@
-import type { Message, SessionPromptContextSnapshot } from '@shared/types'
+import type { Message, SessionPromptContextSnapshot, SessionSettings } from '@shared/types'
 import { COPILOT_PROMPT_MAX_CHARS } from '@shared/types/agent-persona'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
-const captureSnapshot = vi.hoisted(() => vi.fn())
-const matchesDirectories = vi.hoisted(() => vi.fn().mockReturnValue(false))
+const { captureSnapshot, listMemoriesForScope, matchesDirectories } = vi.hoisted(() => ({
+  captureSnapshot: vi.fn(),
+  listMemoriesForScope: vi.fn(),
+  matchesDirectories: vi.fn(),
+}))
 
 vi.mock('@/stores/agentPersonaStore', () => ({
   captureSessionPromptContextSnapshot: captureSnapshot,
-  listMemories: vi.fn().mockResolvedValue([]),
+  listMemoriesForScope,
   sessionPromptContextSnapshotMatchesDirectories: matchesDirectories,
 }))
 
 import { extractCopilotPersona, resolveSessionPromptContextSnapshot } from './prompt-context-snapshot'
 
-function snapshot(agentToolContractVersion: 1 | 2): SessionPromptContextSnapshot {
+function snapshot(
+  agentToolContractVersion: 1 | 2,
+  extra: Partial<SessionPromptContextSnapshot> = {}
+): SessionPromptContextSnapshot {
   return {
     version: 1,
     soul: '',
@@ -23,6 +29,7 @@ function snapshot(agentToolContractVersion: 1 | 2): SessionPromptContextSnapshot
     capturedAt: 1,
     scope: 'agent',
     agentToolContractVersion,
+    ...extra,
   }
 }
 
@@ -51,9 +58,18 @@ describe('extractCopilotPersona', () => {
   })
 })
 
+const assistantMessage = {
+  id: 'assistant-1',
+  role: 'assistant',
+  timestamp: 1,
+  contentParts: [{ type: 'text', text: 'done' }],
+} as Message
+
 describe('resolveSessionPromptContextSnapshot', () => {
   beforeEach(() => {
     captureSnapshot.mockReset()
+    listMemoriesForScope.mockReset()
+    listMemoriesForScope.mockResolvedValue([])
     matchesDirectories.mockReset()
     matchesDirectories.mockReturnValue(false)
   })
@@ -139,5 +155,140 @@ describe('resolveSessionPromptContextSnapshot', () => {
 
     expect(captureSnapshot).not.toHaveBeenCalled()
     expect(result?.copilotPersona).toBe('Frozen pirate overlay.')
+  })
+
+  test('agent mode reuses a snapshot whose memory scope still matches', async () => {
+    matchesDirectories.mockReturnValue(true)
+    const existing = snapshot(2, { memoryCopilotId: 'cp1' })
+
+    const result = await resolveSessionPromptContextSnapshot({
+      effectiveAgentMode: 'on',
+      memoryEnabled: true,
+      memoryScope: { type: 'copilot', copilotId: 'cp1', epoch: 0 },
+      settings: { sessionPromptContextSnapshot: existing } as SessionSettings,
+      messages: [],
+      targetMsgIx: 0,
+    })
+
+    expect(result).toBe(existing)
+    expect(captureSnapshot).not.toHaveBeenCalled()
+  })
+
+  test('agent mode re-captures when the memory scope changed', async () => {
+    matchesDirectories.mockReturnValue(true)
+    captureSnapshot.mockResolvedValue(snapshot(2, { memoryCopilotId: 'cp1' }))
+    const persist = vi.fn()
+
+    const result = await resolveSessionPromptContextSnapshot({
+      effectiveAgentMode: 'on',
+      memoryEnabled: true,
+      memoryScope: { type: 'copilot', copilotId: 'cp1', epoch: 0 },
+      settings: { sessionPromptContextSnapshot: snapshot(2) } as SessionSettings,
+      messages: [],
+      targetMsgIx: 0,
+      persist,
+    })
+
+    expect(captureSnapshot).toHaveBeenCalledWith(undefined, 'agent', { type: 'copilot', copilotId: 'cp1', epoch: 0 })
+    expect(result?.memoryCopilotId).toBe('cp1')
+    expect(persist).toHaveBeenCalledTimes(1)
+  })
+
+  test('chat mode reuses a snapshot only when the memory scope matches', async () => {
+    const existing = snapshot(2, { scope: 'chat', memoryCopilotId: 'cp1' })
+    const settings = { sessionPromptContextSnapshot: existing } as SessionSettings
+
+    await expect(
+      resolveSessionPromptContextSnapshot({
+        effectiveAgentMode: 'off',
+        memoryEnabled: true,
+        memoryScope: { type: 'copilot', copilotId: 'cp1', epoch: 0 },
+        settings,
+        messages: [assistantMessage],
+        targetMsgIx: 1,
+      })
+    ).resolves.toBe(existing)
+
+    // Mid-conversation scope change: the other store's memories stop being
+    // injected, the rest of the frozen snapshot still anchors the prompt prefix,
+    // and nothing new is captured until the next conversation start.
+    const persist = vi.fn()
+    const { memoryCopilotId: _dropped, ...withoutCopilot } = existing
+    await expect(
+      resolveSessionPromptContextSnapshot({
+        effectiveAgentMode: 'off',
+        memoryEnabled: true,
+        memoryScope: { type: 'global' },
+        settings,
+        messages: [assistantMessage],
+        targetMsgIx: 1,
+        persist,
+      })
+    ).resolves.toEqual({ ...withoutCopilot, memories: [] })
+    expect(captureSnapshot).not.toHaveBeenCalled()
+    // The store this generation's tools were built for is recorded, so a tool call
+    // it pauses is continued against that store rather than the outgoing one.
+    expect(persist).toHaveBeenCalledWith({ ...withoutCopilot, memories: [] })
+  })
+
+  test('chat mode records the copilot store a mid-conversation switch moves to', async () => {
+    const existing = snapshot(2, { scope: 'chat' })
+    const persist = vi.fn()
+
+    await expect(
+      resolveSessionPromptContextSnapshot({
+        effectiveAgentMode: 'off',
+        memoryEnabled: true,
+        memoryScope: { type: 'copilot', copilotId: 'cp1', epoch: 0 },
+        settings: { sessionPromptContextSnapshot: existing } as SessionSettings,
+        messages: [assistantMessage],
+        targetMsgIx: 1,
+        persist,
+      })
+    ).resolves.toEqual({ ...existing, memories: [], memoryCopilotId: 'cp1' })
+    expect(persist).toHaveBeenCalledWith({ ...existing, memories: [], memoryCopilotId: 'cp1' })
+  })
+
+  test('chat mode re-captures at the next conversation start after a scope change', async () => {
+    listMemoriesForScope.mockResolvedValue([{ id: 'gm1', content: 'global fact', createdAt: 1 }])
+    captureSnapshot.mockResolvedValue(snapshot(2, { scope: 'chat' }))
+    const persist = vi.fn()
+
+    const result = await resolveSessionPromptContextSnapshot({
+      effectiveAgentMode: 'off',
+      memoryEnabled: true,
+      memoryScope: { type: 'global' },
+      settings: {
+        sessionPromptContextSnapshot: snapshot(2, { scope: 'chat', memoryCopilotId: 'cp1' }),
+      } as SessionSettings,
+      messages: [],
+      targetMsgIx: 0,
+      persist,
+    })
+
+    expect(captureSnapshot).toHaveBeenCalledWith(undefined, 'chat', { type: 'global' })
+    expect(result?.memoryCopilotId).toBeUndefined()
+    expect(persist).toHaveBeenCalledTimes(1)
+  })
+
+  test('chat mode captures from the copilot store at conversation start', async () => {
+    listMemoriesForScope.mockResolvedValue([{ id: 'cm1', content: 'copilot fact', createdAt: 1 }])
+    captureSnapshot.mockResolvedValue(snapshot(2, { scope: 'chat', memoryCopilotId: 'cp1' }))
+    const persist = vi.fn()
+
+    const result = await resolveSessionPromptContextSnapshot({
+      effectiveAgentMode: 'off',
+      memoryEnabled: true,
+      memoryScope: { type: 'copilot', copilotId: 'cp1', epoch: 0 },
+      settings: {} as SessionSettings,
+      messages: [],
+      targetMsgIx: 0,
+      persist,
+    })
+
+    expect(listMemoriesForScope).toHaveBeenCalledWith({ type: 'copilot', copilotId: 'cp1', epoch: 0 })
+    expect(captureSnapshot).toHaveBeenCalledWith(undefined, 'chat', { type: 'copilot', copilotId: 'cp1', epoch: 0 })
+    expect(result?.memoryCopilotId).toBe('cp1')
+    expect(persist).toHaveBeenCalledTimes(1)
   })
 })

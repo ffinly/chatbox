@@ -15,7 +15,12 @@ import {
   restoreSessionResourceKeys,
   restoreSettingsResourceKeys,
 } from './resources'
-import { AGENT_PERSONA_BACKUP_KEYS, BackupStorageKey, backupSessionStorageKey } from './storage-keys'
+import {
+  AGENT_PERSONA_BACKUP_KEYS,
+  BackupStorageKey,
+  backupSessionStorageKey,
+  COPILOT_BACKUP_KEYS,
+} from './storage-keys'
 import {
   type BackupManifest,
   BackupManifestSchema,
@@ -270,7 +275,12 @@ export async function importBackupArchive(file: File, options: BackupImportOptio
       ...(manifest.data.settings ? [BackupStorageKey.Settings] : []),
       ...(manifest.data.copilots ? [BackupStorageKey.MyCopilots] : []),
       ...(manifest.data.sessionSettings
-        ? [BackupStorageKey.ChatSessionSettings, BackupStorageKey.PictureSessionSettings, ...AGENT_PERSONA_BACKUP_KEYS]
+        ? [
+            BackupStorageKey.ChatSessionSettings,
+            BackupStorageKey.PictureSessionSettings,
+            ...AGENT_PERSONA_BACKUP_KEYS,
+            ...COPILOT_BACKUP_KEYS,
+          ]
         : []),
     ]
     for (const key of new Set(changedKeys)) {
@@ -361,6 +371,7 @@ export async function importBackupArchive(file: File, options: BackupImportOptio
         BackupStorageKey.ChatSessionSettings,
         BackupStorageKey.PictureSessionSettings,
         ...AGENT_PERSONA_BACKUP_KEYS,
+        ...COPILOT_BACKUP_KEYS,
       ]) {
         if (key in sessionSettings) await options.storage.setItemNow(key, sessionSettings[key])
       }

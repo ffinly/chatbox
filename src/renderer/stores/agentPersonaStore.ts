@@ -3,6 +3,7 @@ import {
   MEMORY_MAX_ENTRIES,
   type MemoryEntry,
   MemoryEntrySchema,
+  type MemoryScope,
   SESSION_PROMPT_CONTEXT_SNAPSHOT_VERSION,
   type SessionPromptContextSnapshot,
   SOUL_MAX_CHARS,
@@ -14,14 +15,18 @@ import platform from '@/platform'
 import storage from '@/storage'
 
 /**
- * Global agent persona storage: the user's Soul document and agent-written memories.
- * Both are global (not per-session); running sessions read them only through the
- * frozen SessionPromptContextSnapshot in session settings, so writes here never disturb an
- * in-flight conversation or its provider prompt cache.
+ * Agent persona storage: the user's Soul document and agent-written memories.
+ * The Soul and the default memory list are global; copilots with memory enabled
+ * keep their own per-copilot memory lists. None of it is per-session: running
+ * sessions read these only through the frozen SessionPromptContextSnapshot in
+ * session settings, so writes here never disturb an in-flight conversation or
+ * its provider prompt cache.
  */
 
 export const AGENT_SOUL_STORAGE_KEY = 'agent-soul'
 export const AGENT_MEMORIES_STORAGE_KEY = 'agent-memories'
+/** Per-copilot memory lists, stored as one { [copilotId]: MemoryEntry[] } record. */
+export const COPILOT_MEMORIES_STORAGE_KEY = 'copilot-memories'
 // Local device state (not part of AGENT_PERSONA_BACKUP_KEYS): whether the one-time
 // automatic local-memory scan has already run on this device.
 export const AGENT_MEMORIES_AUTO_SCAN_DONE_KEY = 'agent-memories-auto-scan-done'
@@ -87,6 +92,7 @@ function createMutationLock() {
 
 const withSoulLock = createMutationLock()
 const withMemoriesLock = createMutationLock()
+const withCopilotMemoriesLock = createMutationLock()
 
 async function writeSoulRecord(content: string): Promise<SoulRecord> {
   const record: SoulRecord = {
@@ -148,28 +154,33 @@ export interface ImportMemoriesResult {
   skippedLimit: number
 }
 
+/** Validate one addition against an existing list and mint the entry (shared by global and copilot stores). */
+function buildMemoryAddition(memories: MemoryEntry[], content: string): { entry: MemoryEntry } | { error: string } {
+  const trimmed = content.trim()
+  if (!trimmed) {
+    return { error: 'Memory content is empty.' }
+  }
+  if (trimmed.length > MEMORY_ENTRY_MAX_CHARS) {
+    return { error: `Memory content exceeds ${MEMORY_ENTRY_MAX_CHARS} characters. Save a shorter fact.` }
+  }
+  if (memories.some((entry) => entry.content === trimmed)) {
+    return { error: 'An identical memory already exists.' }
+  }
+  if (memories.length >= MEMORY_MAX_ENTRIES) {
+    return {
+      error: `Memory limit of ${MEMORY_MAX_ENTRIES} entries reached. Delete stale entries with delete_memory first.`,
+    }
+  }
+  return { entry: { id: generateMemoryId(), content: trimmed, createdAt: Date.now() } }
+}
+
 export function addMemory(content: string): Promise<AddMemoryResult> {
   return withMemoriesLock(async () => {
-    const trimmed = content.trim()
-    if (!trimmed) {
-      return { ok: false, error: 'Memory content is empty.' }
-    }
-    if (trimmed.length > MEMORY_ENTRY_MAX_CHARS) {
-      return { ok: false, error: `Memory content exceeds ${MEMORY_ENTRY_MAX_CHARS} characters. Save a shorter fact.` }
-    }
     const memories = await listMemories()
-    if (memories.some((entry) => entry.content === trimmed)) {
-      return { ok: false, error: 'An identical memory already exists.' }
-    }
-    if (memories.length >= MEMORY_MAX_ENTRIES) {
-      return {
-        ok: false,
-        error: `Memory limit of ${MEMORY_MAX_ENTRIES} entries reached. Delete stale entries with delete_memory first.`,
-      }
-    }
-    const entry: MemoryEntry = { id: generateMemoryId(), content: trimmed, createdAt: Date.now() }
-    await storage.setItemNow(AGENT_MEMORIES_STORAGE_KEY, [...memories, entry])
-    return { ok: true, entry }
+    const result = buildMemoryAddition(memories, content)
+    if ('error' in result) return { ok: false, error: result.error }
+    await storage.setItemNow(AGENT_MEMORIES_STORAGE_KEY, [...memories, result.entry])
+    return { ok: true, entry: result.entry }
   })
 }
 
@@ -226,6 +237,105 @@ export function importMemories(contents: string[]): Promise<ImportMemoriesResult
   })
 }
 
+const CopilotMemoriesRecordSchema = z.record(z.string(), z.array(MemoryEntrySchema).catch([])).catch({})
+
+/**
+ * How many times each copilot id has been deleted in this app run. A memory scope
+ * pins the count it was resolved against; a write carrying an older one belongs to
+ * an earlier incarnation of the id, so it may neither resurrect the list
+ * `retireCopilotMemories` dropped nor land in the list of whichever copilot next
+ * takes the id.
+ */
+const copilotMemoryEpochs = new Map<string, number>()
+
+export function copilotMemoryEpoch(copilotId: string): number {
+  return copilotMemoryEpochs.get(copilotId) ?? 0
+}
+
+async function readCopilotMemoriesRecord(): Promise<Record<string, MemoryEntry[]>> {
+  const raw = await storage.getItem<Record<string, MemoryEntry[]>>(COPILOT_MEMORIES_STORAGE_KEY, {})
+  return CopilotMemoriesRecordSchema.parse(raw)
+}
+
+/** Every copilot that has saved memories, keyed by copilot id (for Settings). */
+export function listAllCopilotMemories(): Promise<Record<string, MemoryEntry[]>> {
+  return readCopilotMemoriesRecord()
+}
+
+export async function listCopilotMemories(copilotId: string): Promise<MemoryEntry[]> {
+  const record = await readCopilotMemoriesRecord()
+  return record[copilotId] ?? []
+}
+
+export function addCopilotMemory(
+  copilotId: string,
+  content: string,
+  epoch: number = copilotMemoryEpoch(copilotId)
+): Promise<AddMemoryResult> {
+  return withCopilotMemoriesLock(async () => {
+    if (epoch !== copilotMemoryEpoch(copilotId)) {
+      return { ok: false, error: 'This copilot has been deleted, so its memory is no longer available.' }
+    }
+    const record = await readCopilotMemoriesRecord()
+    const memories = record[copilotId] ?? []
+    const result = buildMemoryAddition(memories, content)
+    if ('error' in result) return { ok: false, error: result.error }
+    await storage.setItemNow(COPILOT_MEMORIES_STORAGE_KEY, { ...record, [copilotId]: [...memories, result.entry] })
+    return { ok: true, entry: result.entry }
+  })
+}
+
+export function deleteCopilotMemory(copilotId: string, id: string): Promise<boolean> {
+  return withCopilotMemoriesLock(async () => {
+    const record = await readCopilotMemoriesRecord()
+    const memories = record[copilotId] ?? []
+    const next = memories.filter((entry) => entry.id !== id)
+    if (next.length === memories.length) return false
+    const nextRecord = { ...record, [copilotId]: next }
+    if (next.length === 0) delete nextRecord[copilotId]
+    await storage.setItemNow(COPILOT_MEMORIES_STORAGE_KEY, nextRecord)
+    return true
+  })
+}
+
+async function dropCopilotMemories(copilotId: string): Promise<void> {
+  const record = await readCopilotMemoriesRecord()
+  if (!(copilotId in record)) return
+  const next = { ...record }
+  delete next[copilotId]
+  await storage.setItemNow(COPILOT_MEMORIES_STORAGE_KEY, next)
+}
+
+/** Empty a copilot's memory list; the copilot keeps recording what it learns next. */
+export function clearCopilotMemories(copilotId: string): Promise<void> {
+  return withCopilotMemoriesLock(() => dropCopilotMemories(copilotId))
+}
+
+/**
+ * Drop the memories of a copilot being deleted, and retire the id along with them:
+ * writes from a generation that resolved its scope against the old copilot are
+ * refused, so they can neither bring this list back nor land in the list of
+ * whichever copilot takes the id next.
+ */
+export function retireCopilotMemories(copilotId: string): Promise<void> {
+  return withCopilotMemoriesLock(async () => {
+    copilotMemoryEpochs.set(copilotId, copilotMemoryEpoch(copilotId) + 1)
+    await dropCopilotMemories(copilotId)
+  })
+}
+
+export function listMemoriesForScope(scope: MemoryScope): Promise<MemoryEntry[]> {
+  return scope.type === 'copilot' ? listCopilotMemories(scope.copilotId) : listMemories()
+}
+
+export function addMemoryForScope(scope: MemoryScope, content: string): Promise<AddMemoryResult> {
+  return scope.type === 'copilot' ? addCopilotMemory(scope.copilotId, content, scope.epoch) : addMemory(content)
+}
+
+export function deleteMemoryForScope(scope: MemoryScope, id: string): Promise<boolean> {
+  return scope.type === 'copilot' ? deleteCopilotMemory(scope.copilotId, id) : deleteMemory(id)
+}
+
 function normalizedDirectories(workingDirectories: string[] | undefined): string[] {
   return [
     ...new Set((workingDirectories ?? []).map(normalizeWorkspaceDirectory).filter((directory) => directory.length > 0)),
@@ -235,12 +345,13 @@ function normalizedDirectories(workingDirectories: string[] | undefined): string
 /** Capture a fresh frozen snapshot of the persona prompt inputs for a session. */
 export async function captureSessionPromptContextSnapshot(
   workingDirectories: string[] | undefined,
-  scope: 'chat' | 'agent'
+  scope: 'chat' | 'agent',
+  memoryScope: MemoryScope = { type: 'global' }
 ): Promise<SessionPromptContextSnapshot> {
   const directories = normalizedDirectories(workingDirectories)
   const [soul, memories, workspaceInstructions, commandPlatform] = await Promise.all([
     readSoul(),
-    listMemories(),
+    listMemoriesForScope(memoryScope),
     buildWorkspaceInstructions(workingDirectories),
     scope === 'agent' ? platform.getPlatform().catch(() => undefined) : Promise.resolve(undefined),
   ])
@@ -250,6 +361,7 @@ export async function captureSessionPromptContextSnapshot(
     version: SESSION_PROMPT_CONTEXT_SNAPSHOT_VERSION,
     soul: soul.content,
     memories,
+    ...(memoryScope.type === 'copilot' ? { memoryCopilotId: memoryScope.copilotId } : {}),
     workspaceInstructions,
     workspaceDirectories: directories,
     capturedAt: Date.now(),
@@ -261,7 +373,7 @@ export async function captureSessionPromptContextSnapshot(
 
 /** Serialize backup import (or similar bulk writes) against agent persona mutations. */
 export function withAgentPersonaLocks<T>(operation: () => Promise<T>): Promise<T> {
-  return withSoulLock(() => withMemoriesLock(operation))
+  return withSoulLock(() => withMemoriesLock(() => withCopilotMemoriesLock(operation)))
 }
 
 /**

@@ -1146,6 +1146,7 @@
   "Wait": "Vänta",
   "Waiting for approval": "Väntar på godkännande",
   "Waiting for authorization...": "Väntar på auktorisering...",
+  "Waiting for you...": "Väntar på dig...",
   "We're waiting for you to finish on chatboxai.app...": "Vi väntar på att du ska slutföra på chatboxai.app...",
   "We've been chatting for a while now. To conserve resources, please complete the setup before continuing our conversation.": "Vi har chattat ett tag nu. För att spara resurser, vänligen slutför konfigurationen innan vi fortsätter vår konversation.",
   "Web Search": "Webbsökning",
@@ -1357,6 +1358,11 @@
   "Manage memories": "Hantera minnen",
   "{{count}} saved": "{{count}} sparade",
   "No memories saved yet.": "Inga minnen sparade ännu.",
+  "Copilot Memory": "Copilot-minne",
+  "Chats with this copilot read and write the copilot's own memories. Global memory stays out of these conversations.": "Chattar med den här Copiloten läser och skriver Copilotens egna minnen. Globalt minne används inte i de här konversationerna.",
+  "Off. This copilot keeps no memories of its own; the global memory setting applies instead.": "Av. Den här Copiloten har inga egna minnen; inställningen för globalt minne gäller i stället.",
+  "When on, chats with this copilot read and write the copilot's own memories instead of global memory.": "När det är på läser och skriver chattar med den här Copiloten Copilotens egna minnen i stället för globalt minne.",
+  "No memories yet. Chats with this copilot save durable facts here.": "Inga minnen ännu. Chattar med den här Copiloten sparar varaktiga fakta här.",
   "Save facts from conversations and recall them in new chats. Works in both Chat and Work Mode.": "Sparar fakta från konversationer och återkallar dem i nya chattar. Fungerar i både chattläge och arbetsläge.",
   "Import memories": "Importera minnen",
   "Import memory files from Claude, ChatGPT, Codex, or other tools. Supports Markdown, text, and JSON; chat history is not imported automatically.": "Importera minnesfiler från Claude, ChatGPT, Codex eller andra verktyg. Stöder Markdown, text och JSON; chatthistoriken importeras inte automatiskt.",
@@ -1384,5 +1390,9 @@
   "Protocol": "Protokoll",
   "Auto (recommended)": "Automatiskt (rekommenderas)",
   "Legacy": "Äldre",
-  "If you're unsure, keep Auto. Choose Legacy only if you know the server does not support stateless MCP.": "Om du är osäker, behåll ”Automatiskt”. Välj ”Äldre” endast om du vet att servern inte stöder tillståndslös MCP."
+  "If you're unsure, keep Auto. Choose Legacy only if you know the server does not support stateless MCP.": "Om du är osäker, behåll ”Automatiskt”. Välj ”Äldre” endast om du vet att servern inte stöder tillståndslös MCP.",
+  "Copilot Memories": "Copilot-minnen",
+  "Memories saved by chats with a specific copilot. Each copilot has its own list, and global memories stay out of those chats.": "Minnen som sparats av chattar med en viss Copilot. Varje Copilot har sin egen lista, och globala minnen används inte i de chattarna.",
+  "Unnamed copilot": "Copilot utan namn",
+  "Clear all": "Rensa allt"
 }

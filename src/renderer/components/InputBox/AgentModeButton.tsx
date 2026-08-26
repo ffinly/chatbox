@@ -24,6 +24,9 @@ interface AgentModeButtonProps {
   currentKnowledgeBaseId?: number
   onKnowledgeBaseSelect: (kb: KnowledgeBase | null) => void
   onSkillSelect: (skillName: string) => void
+  /** Copilot picked on the new-chat page, where the draft session is not persisted yet. */
+  draftCopilotId?: string
+  draftCopilotName?: string
 }
 
 const MODE_COLORS: Record<AgentModeValue, string> = {
@@ -56,6 +59,8 @@ const AgentModeButton: FC<AgentModeButtonProps> = ({
   currentKnowledgeBaseId,
   onKnowledgeBaseSelect,
   onSkillSelect,
+  draftCopilotId,
+  draftCopilotName,
 }) => {
   const { t } = useTranslation()
   const location = useLocation()
@@ -228,6 +233,8 @@ const AgentModeButton: FC<AgentModeButtonProps> = ({
             onKnowledgeBaseSelect={onKnowledgeBaseSelect}
             onSkillSelect={onSkillSelect}
             onClose={handleClose}
+            draftCopilotId={draftCopilotId}
+            draftCopilotName={draftCopilotName}
           />
         ) : null}
       </Popover.Dropdown>

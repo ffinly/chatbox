@@ -1,7 +1,7 @@
 import { Box, Divider, Flex, Stack, Switch, Text, Title } from '@mantine/core'
 import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { MemoriesSection, SoulEditor } from '@/components/settings/agent-persona'
+import { CopilotMemoriesSection, MemoriesSection, SoulEditor } from '@/components/settings/agent-persona'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
 
@@ -68,6 +68,8 @@ export function RouteComponent() {
       <Divider my="lg" />
 
       <MemoriesSection />
+
+      <CopilotMemoriesSection />
     </Box>
   )
 }

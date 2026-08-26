@@ -20,6 +20,18 @@ export const MemoryEntrySchema = z.object({
 export type MemoryEntry = z.infer<typeof MemoryEntrySchema>
 
 /**
+ * Which memory store a session reads and writes: the global list, or the own
+ * list of the copilot the session was created from (a copilot with memory
+ * enabled replaces global memory for its sessions).
+ *
+ * `epoch` pins which incarnation of the copilot id the scope was resolved
+ * against, so a write issued later in the generation cannot land in the list of
+ * whichever copilot holds the id by then — a remote copilot keeps its id across
+ * remove and re-add.
+ */
+export type MemoryScope = { type: 'global' } | { type: 'copilot'; copilotId: string; epoch: number }
+
+/**
  * Frozen per-conversation snapshot of the reusable prompt-context inputs. It is
  * captured when the conversation first needs Soul, memories, or workspace
  * instructions. Mid-conversation edits update their source storage but never mutate
@@ -30,6 +42,11 @@ export const SessionPromptContextSnapshotSchema = z.object({
   version: z.number(),
   soul: z.string(),
   memories: z.array(MemoryEntrySchema),
+  // Copilot whose memory list the memories above were captured from. Missing
+  // means they came from the global list. A session whose memory scope no longer
+  // matches its snapshot (copilot memory toggled) stops trusting the snapshot's
+  // memories and re-captures per mode rules.
+  memoryCopilotId: z.string().optional().catch(undefined),
   workspaceInstructions: z.string(),
   // The working directories the workspace instructions were captured for. When the
   // session's directories change, the workspace part is re-captured (user-explicit

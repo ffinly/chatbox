@@ -1146,6 +1146,7 @@
   "Wait": "Подождите",
   "Waiting for approval": "Ожидание одобрения",
   "Waiting for authorization...": "Ожидание авторизации...",
+  "Waiting for you...": "Ожидает вашего действия...",
   "We're waiting for you to finish on chatboxai.app...": "Мы ждем, пока вы закончите на chatboxai.app...",
   "We've been chatting for a while now. To conserve resources, please complete the setup before continuing our conversation.": "Мы общаемся уже некоторое время. Чтобы сэкономить ресурсы, пожалуйста, завершите настройку перед продолжением нашего разговора.",
   "Web Search": "Поиск в интернете",
@@ -1357,6 +1358,11 @@
   "Manage memories": "Управлять воспоминаниями",
   "{{count}} saved": "Сохранено: {{count}}",
   "No memories saved yet.": "Пока нет сохранённых воспоминаний.",
+  "Copilot Memory": "Память Copilot",
+  "Chats with this copilot read and write the copilot's own memories. Global memory stays out of these conversations.": "Чаты с этим Copilot читают и записывают его собственные воспоминания. Глобальная память в этих разговорах не используется.",
+  "Off. This copilot keeps no memories of its own; the global memory setting applies instead.": "Выключена. У этого Copilot нет собственных воспоминаний; вместо этого действует настройка глобальной памяти.",
+  "When on, chats with this copilot read and write the copilot's own memories instead of global memory.": "Если включено, чаты с этим Copilot читают и записывают его собственные воспоминания вместо глобальной памяти.",
+  "No memories yet. Chats with this copilot save durable facts here.": "Воспоминаний пока нет. В чатах с этим Copilot здесь будут сохраняться важные факты.",
   "Save facts from conversations and recall them in new chats. Works in both Chat and Work Mode.": "Сохраняет факты из разговоров и использует их в новых чатах. Работает в режиме чата и рабочем режиме.",
   "Import memories": "Импортировать воспоминания",
   "Import memory files from Claude, ChatGPT, Codex, or other tools. Supports Markdown, text, and JSON; chat history is not imported automatically.": "Импортируйте файлы воспоминаний из Claude, ChatGPT, Codex или других инструментов. Поддерживаются Markdown, текст и JSON; история чатов автоматически не импортируется.",
@@ -1384,5 +1390,9 @@
   "Protocol": "Протокол",
   "Auto (recommended)": "Автоматически (рекомендуется)",
   "Legacy": "Устаревший",
-  "If you're unsure, keep Auto. Choose Legacy only if you know the server does not support stateless MCP.": "Если вы не уверены, оставьте «Автоматически». Выбирайте «Устаревший» только если точно знаете, что сервер не поддерживает MCP без сохранения состояния."
+  "If you're unsure, keep Auto. Choose Legacy only if you know the server does not support stateless MCP.": "Если вы не уверены, оставьте «Автоматически». Выбирайте «Устаревший» только если точно знаете, что сервер не поддерживает MCP без сохранения состояния.",
+  "Copilot Memories": "Воспоминания Copilot",
+  "Memories saved by chats with a specific copilot. Each copilot has its own list, and global memories stay out of those chats.": "Воспоминания, сохранённые в чатах с конкретным Copilot. У каждого Copilot свой список, а глобальные воспоминания в такие чаты не попадают.",
+  "Unnamed copilot": "Copilot без имени",
+  "Clear all": "Очистить все"
 }

@@ -1146,6 +1146,7 @@
   "Wait": "انتظر",
   "Waiting for approval": "بانتظار الموافقة",
   "Waiting for authorization...": "بانتظار التفويض...",
+  "Waiting for you...": "في انتظارك...",
   "We're waiting for you to finish on chatboxai.app...": "نحن ننتظرك لتنتهي من chatboxai.app...",
   "We've been chatting for a while now. To conserve resources, please complete the setup before continuing our conversation.": "لقد كنا نتحدث منذ فترة. للحفاظ على الموارد، يرجى إكمال الإعداد قبل متابعة محادثتنا.",
   "Web Search": "بحث الويب",
@@ -1357,6 +1358,11 @@
   "Manage memories": "إدارة الذكريات",
   "{{count}} saved": "تم حفظ {{count}}",
   "No memories saved yet.": "لا توجد ذكريات محفوظة بعد.",
+  "Copilot Memory": "ذاكرة Copilot",
+  "Chats with this copilot read and write the copilot's own memories. Global memory stays out of these conversations.": "الدردشات مع هذا الـ Copilot تقرأ ذكرياته الخاصة وتكتبها، ولا تُستخدم الذاكرة العامة في هذه المحادثات.",
+  "Off. This copilot keeps no memories of its own; the global memory setting applies instead.": "متوقفة. لا يملك هذا الـ Copilot ذكريات خاصة به؛ ويُطبَّق إعداد الذاكرة العامة بدلاً من ذلك.",
+  "When on, chats with this copilot read and write the copilot's own memories instead of global memory.": "عند التفعيل، تقرأ الدردشات مع هذا الـ Copilot ذكرياته الخاصة وتكتبها بدلاً من الذاكرة العامة.",
+  "No memories yet. Chats with this copilot save durable facts here.": "لا توجد ذكريات بعد. تحفظ الدردشات مع هذا الـ Copilot الحقائق المفيدة على المدى الطويل هنا.",
   "Save facts from conversations and recall them in new chats. Works in both Chat and Work Mode.": "يحفظ الحقائق من المحادثات ويستدعيها في الدردشات الجديدة. يعمل في وضع الدردشة ووضع العمل.",
   "Import memories": "استيراد الذكريات",
   "Import memory files from Claude, ChatGPT, Codex, or other tools. Supports Markdown, text, and JSON; chat history is not imported automatically.": "استورد ملفات الذاكرة من Claude أو ChatGPT أو Codex أو أدوات أخرى. يدعم Markdown والنص وJSON؛ لا يتم استيراد سجل الدردشة تلقائيًا.",
@@ -1384,5 +1390,9 @@
   "Protocol": "البروتوكول",
   "Auto (recommended)": "تلقائي (موصى به)",
   "Legacy": "قديم",
-  "If you're unsure, keep Auto. Choose Legacy only if you know the server does not support stateless MCP.": "إذا لم تكن متأكدًا، فاترك الخيار على «تلقائي». اختر «قديم» فقط إذا كنت تعرف أن الخادم لا يدعم MCP عديم الحالة."
+  "If you're unsure, keep Auto. Choose Legacy only if you know the server does not support stateless MCP.": "إذا لم تكن متأكدًا، فاترك الخيار على «تلقائي». اختر «قديم» فقط إذا كنت تعرف أن الخادم لا يدعم MCP عديم الحالة.",
+  "Copilot Memories": "ذكريات Copilot",
+  "Memories saved by chats with a specific copilot. Each copilot has its own list, and global memories stay out of those chats.": "ذكريات محفوظة من الدردشات مع Copilot معيّن. لكل Copilot قائمته الخاصة، وتبقى الذكريات العامة خارج تلك الدردشات.",
+  "Unnamed copilot": "Copilot بلا اسم",
+  "Clear all": "مسح الكل"
 }

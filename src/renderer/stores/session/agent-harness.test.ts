@@ -61,6 +61,7 @@ vi.mock('@/storage', () => {
         return Promise.resolve()
       }),
     },
+    StorageKey: { MyCopilots: 'myCopilots' },
   }
 })
 
@@ -125,6 +126,7 @@ import { getMessageText } from '@shared/utils/message'
 import { formatTimestampWithZone, TIME_REMINDER_MIN_GAP_MS } from '@shared/utils/system-reminder'
 import type { ModelMessage } from 'ai'
 import { convertToLanguageModelPrompt, standardizePrompt } from 'ai/internal'
+import { addOrUpdateMyCopilot, disableCopilotMemory, enableCopilotMemory, removeMyCopilot } from '@/stores/copilotStore'
 import { computeEffectiveAgentMode, prepareAgentGenerationHarness } from './agent-harness'
 
 function createMockModel(overrides?: Partial<ModelInterface>): ModelInterface {
@@ -1630,9 +1632,9 @@ describe('session prompt context snapshot', () => {
 })
 
 describe('chat mode memories', () => {
-  function chatPrepare(settings: SessionSettings, messages: Message[], sideEffects = {}) {
+  function chatPrepare(settings: SessionSettings, messages: Message[], sideEffects = {}, session = createSession()) {
     return prepareAgentGenerationHarness({
-      session: createSession(),
+      session,
       settings,
       globalSettings: {} as Settings,
       configs: { uuid: 'config-1' } as Config,
@@ -1784,5 +1786,71 @@ describe('chat mode memories', () => {
     )
     expect(persistSessionPromptContextSnapshot).not.toHaveBeenCalled()
     expect(JSON.stringify(prepared.coreMessages)).not.toContain('## Memories')
+  })
+
+  test('copilot memory replaces the global store even when the global switch is off', async () => {
+    const storage = (await import('@/storage')).default
+    await enableCopilotMemory({ id: 'cp1', name: 'Tutor' })
+    await storage.setItemNow('copilot-memories', {
+      cp1: [{ id: 'cm1', content: 'Copilot-only fact', createdAt: 1700000000000 }],
+    })
+    await storage.setItemNow('agent-memories', [{ id: 'gm1', content: 'Global-only fact', createdAt: 1700000000000 }])
+    getSettingsMock.mockReturnValue({ skills: { enabledSkillNames: [] }, memoryEnabled: false })
+    const persistSessionPromptContextSnapshot = vi.fn()
+    const prepared = await prepareAgentGenerationHarness({
+      session: { ...createSession(), copilotId: 'cp1' },
+      settings: { provider: ModelProviderEnum.ChatboxAI, modelId: 'test-model' } as SessionSettings,
+      globalSettings: { memoryEnabled: false } as Settings,
+      configs: { uuid: 'config-1' } as Config,
+      messages: [userMessage],
+      targetMsgIx: 1,
+      model: createMockModel(),
+      dependencies: createModelDependencies(),
+      webBrowsing: false,
+      agentModeValue: 'off',
+      agentModeLocked: false,
+      agentModeSupported: true,
+      signal: new AbortController().signal,
+      sandboxProviderFactory: () => sandboxProviderMock as unknown as SandboxProvider,
+      isPro: () => true,
+      sideEffects: { persistSessionPromptContextSnapshot },
+    })
+
+    expect(persistSessionPromptContextSnapshot).toHaveBeenCalledTimes(1)
+    expect(persistSessionPromptContextSnapshot.mock.calls[0][0].memoryCopilotId).toBe('cp1')
+    const serialized = JSON.stringify(prepared.coreMessages)
+    expect(serialized).toContain('[cm1] Copilot-only fact')
+    expect(serialized).not.toContain('Global-only fact')
+    expect(prepared.tools.save_memory).toBeDefined()
+
+    await disableCopilotMemory('cp1')
+    await storage.setItemNow('copilot-memories', {})
+    await storage.setItemNow('agent-memories', [])
+  })
+
+  test('a copilot without its own memory keeps the session on the global store', async () => {
+    const storage = (await import('@/storage')).default
+    await addOrUpdateMyCopilot({ id: 'cp1', name: 'Tutor', prompt: 'persona' })
+    await storage.setItemNow('copilot-memories', {
+      cp1: [{ id: 'cm1', content: 'Copilot-only fact', createdAt: 1700000000000 }],
+    })
+    await storage.setItemNow('agent-memories', [{ id: 'gm1', content: 'Global-only fact', createdAt: 1700000000000 }])
+    const persistSessionPromptContextSnapshot = vi.fn()
+    const prepared = await chatPrepare(
+      { provider: ModelProviderEnum.ChatboxAI, modelId: 'test-model' } as SessionSettings,
+      [userMessage],
+      { persistSessionPromptContextSnapshot },
+      { ...createSession(), copilotId: 'cp1' }
+    )
+
+    expect(persistSessionPromptContextSnapshot).toHaveBeenCalledTimes(1)
+    expect(persistSessionPromptContextSnapshot.mock.calls[0][0].memoryCopilotId).toBeUndefined()
+    const serialized = JSON.stringify(prepared.coreMessages)
+    expect(serialized).toContain('[gm1] Global-only fact')
+    expect(serialized).not.toContain('Copilot-only fact')
+
+    await removeMyCopilot('cp1')
+    await storage.setItemNow('copilot-memories', {})
+    await storage.setItemNow('agent-memories', [])
   })
 })

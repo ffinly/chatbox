@@ -1357,6 +1357,11 @@
   "Manage memories": "管理記憶",
   "{{count}} saved": "已儲存 {{count}} 條",
   "No memories saved yet.": "尚未儲存任何記憶。",
+  "Copilot Memory": "Copilot 記憶",
+  "Chats with this copilot read and write the copilot's own memories. Global memory stays out of these conversations.": "與此 Copilot 的對話會讀取並寫入 Copilot 自己的記憶。這些對話不再使用全域記憶。",
+  "Off. This copilot keeps no memories of its own; the global memory setting applies instead.": "已關閉。此 Copilot 沒有自己的記憶；目前對話依全域記憶設定生效。",
+  "When on, chats with this copilot read and write the copilot's own memories instead of global memory.": "開啟後，與此 Copilot 的對話會讀取並寫入 Copilot 自己的記憶，而不使用全域記憶。",
+  "No memories yet. Chats with this copilot save durable facts here.": "還沒有記憶。與此 Copilot 的對話會把長期有用的事實儲存在這裡。",
   "Save facts from conversations and recall them in new chats. Works in both Chat and Work Mode.": "從對話中儲存事實,並在新對話中調用。在聊天模式和工作模式下均可用。",
   "Import memories": "匯入記憶",
   "Import memory files from Claude, ChatGPT, Codex, or other tools. Supports Markdown, text, and JSON; chat history is not imported automatically.": "從 Claude、ChatGPT、Codex 或其他工具匯入記憶檔案。支援 Markdown、文字和 JSON；不會自動匯入聊天記錄。",
@@ -1384,5 +1389,9 @@
   "Protocol": "協定",
   "Auto (recommended)": "自動（建議）",
   "Legacy": "舊版",
-  "If you're unsure, keep Auto. Choose Legacy only if you know the server does not support stateless MCP.": "如果不確定，請保持「自動」。僅當你明確知道該伺服器不支援無狀態 MCP 時，才選擇「舊版」。"
+  "If you're unsure, keep Auto. Choose Legacy only if you know the server does not support stateless MCP.": "如果不確定，請保持「自動」。僅當你明確知道該伺服器不支援無狀態 MCP 時，才選擇「舊版」。",
+  "Copilot Memories": "Copilot 記憶",
+  "Memories saved by chats with a specific copilot. Each copilot has its own list, and global memories stay out of those chats.": "與某個 Copilot 的對話所儲存的記憶。每個 Copilot 都有自己的一份清單，全域記憶不會進入這些對話。",
+  "Unnamed copilot": "未命名的 Copilot",
+  "Clear all": "全部清除"
 }

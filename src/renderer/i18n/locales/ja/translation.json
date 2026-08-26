@@ -1146,6 +1146,7 @@
   "Wait": "待機",
   "Waiting for approval": "承認待ち",
   "Waiting for authorization...": "承認を待機中...",
+  "Waiting for you...": "あなたの操作を待っています...",
   "We're waiting for you to finish on chatboxai.app...": "chatboxai.app での操作が完了するのを待っています...",
   "We've been chatting for a while now. To conserve resources, please complete the setup before continuing our conversation.": "しばらくチャットを続けていますね。リソースを節約するため、会話を続ける前にセットアップを完了してください。",
   "Web Search": "Web検索",
@@ -1357,6 +1358,11 @@
   "Manage memories": "メモリーを管理",
   "{{count}} saved": "{{count}} 件保存済み",
   "No memories saved yet.": "まだメモリーはありません。",
+  "Copilot Memory": "Copilotメモリー",
+  "Chats with this copilot read and write the copilot's own memories. Global memory stays out of these conversations.": "このCopilotとのチャットでは、Copilot自身のメモリーを読み書きします。これらの会話ではグローバルメモリーは使われません。",
+  "Off. This copilot keeps no memories of its own; the global memory setting applies instead.": "オフです。このCopilot自身のメモリーはなく、グローバルメモリーの設定が適用されます。",
+  "When on, chats with this copilot read and write the copilot's own memories instead of global memory.": "オンにすると、このCopilotとのチャットではグローバルメモリーの代わりにCopilot自身のメモリーを読み書きします。",
+  "No memories yet. Chats with this copilot save durable facts here.": "まだメモリーはありません。このCopilotとのチャットで、長く役立つ事実がここに保存されます。",
   "Save facts from conversations and recall them in new chats. Works in both Chat and Work Mode.": "会話から事実を保存し、新しいチャットで呼び出します。チャットモードと作業モードの両方で利用できます。",
   "Import memories": "メモリーをインポート",
   "Import memory files from Claude, ChatGPT, Codex, or other tools. Supports Markdown, text, and JSON; chat history is not imported automatically.": "Claude、ChatGPT、Codex、その他のツールからメモリーファイルをインポートします。Markdown、テキスト、JSON に対応しています。チャット履歴は自動的にはインポートされません。",
@@ -1384,5 +1390,9 @@
   "Protocol": "プロトコル",
   "Auto (recommended)": "自動（推奨）",
   "Legacy": "レガシー",
-  "If you're unsure, keep Auto. Choose Legacy only if you know the server does not support stateless MCP.": "選択に迷う場合は「自動」のままにしてください。サーバーがステートレス MCP に対応していないことが明確な場合のみ、「レガシー」を選択してください。"
+  "If you're unsure, keep Auto. Choose Legacy only if you know the server does not support stateless MCP.": "選択に迷う場合は「自動」のままにしてください。サーバーがステートレス MCP に対応していないことが明確な場合のみ、「レガシー」を選択してください。",
+  "Copilot Memories": "Copilotメモリー",
+  "Memories saved by chats with a specific copilot. Each copilot has its own list, and global memories stay out of those chats.": "特定のCopilotとのチャットで保存されたメモリーです。Copilotごとに専用のリストがあり、グローバルメモリーはそれらのチャットには読み込まれません。",
+  "Unnamed copilot": "名前のないCopilot",
+  "Clear all": "すべて削除"
 }

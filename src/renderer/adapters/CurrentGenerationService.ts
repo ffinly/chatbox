@@ -24,6 +24,7 @@ import platform from '@/platform'
 import { createSandboxProvider } from '@/sandbox'
 import { settingsService } from '@/settings-runtime'
 import { StorageKeyGenerator } from '@/storage/StoreStorage'
+import { getPausedCallMemoryScope } from '@/stores/copilotStore'
 import { markFirstSuccessfulChatCompleted } from '@/stores/firstSuccessfulChat'
 import { prepareAgentGenerationHarness, refreshSessionAttachmentStatuses } from '@/stores/session/agent-harness'
 import {
@@ -166,6 +167,7 @@ async function buildToolsForPausedToolCall(session: Session, settings: SessionSe
     onAgentModeActivated: () => {
       void lockSessionAgentMode(session.id, 'load_skill')
     },
+    memoryScope: await getPausedCallMemoryScope(settings.sessionPromptContextSnapshot, session.copilotId),
   })
   return tools
 }

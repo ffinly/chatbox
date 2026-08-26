@@ -46,6 +46,7 @@ import {
 import { getOS } from '@/packages/navigator'
 import platform from '@/platform'
 import { createSandboxProvider } from '@/sandbox'
+import { getCopilotMemoryScope } from '@/stores/copilotStore'
 
 import { SESSION_ATTACHMENT_RAG_LOG_PREFIX } from '../../../shared/session-attachment-rag/logging'
 import { createAttachmentResolver } from './attachment-resolver'
@@ -240,12 +241,17 @@ export async function prepareAgentGenerationHarness(
 
   const effectiveAgentMode = computeEffectiveAgentMode(agentModeValue, agentModeSupported)
 
-  // Global memory switch: when off, stored memories are neither injected nor
-  // maintained in either mode (Soul/identity are unaffected).
-  const memoryEnabled = globalSettings.memoryEnabled !== false
+  // Memory scope: a session created from a copilot with its own memory enabled
+  // reads and writes that copilot's list, and global memories stay out of the
+  // session entirely; otherwise the global switch decides. When the effective
+  // switch is off, stored memories are neither injected nor maintained in
+  // either mode (Soul/identity are unaffected).
+  const memoryScope = await getCopilotMemoryScope(session.copilotId)
+  const memoryEnabled = memoryScope.type === 'copilot' || globalSettings.memoryEnabled !== false
   const promptContextSnapshot = await resolveSessionPromptContextSnapshot({
     effectiveAgentMode,
     memoryEnabled,
+    memoryScope,
     settings,
     messages,
     targetMsgIx,
@@ -380,6 +386,7 @@ export async function prepareAgentGenerationHarness(
     },
     workspaceInstructionsOverride: promptContextSnapshot?.workspaceInstructions,
     globalSettings,
+    memoryScope,
   })
   const hasTools = Object.keys(tools).length > 0
   // A request that declares no tools must not carry tool wire blocks: providers
