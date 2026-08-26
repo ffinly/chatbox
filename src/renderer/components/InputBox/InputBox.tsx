@@ -127,6 +127,7 @@ import PendingActionBar from './PendingActionBar'
 import { cleanupFile, markFileProcessing, onFileProcessed, storeFilePromise } from './preprocessState'
 import { QueuedMessagesBar } from './QueuedMessagesBar'
 import ReasoningControlButton from './ReasoningControlButton'
+import { mergeSessionAttachmentStatesIntoFiles, shouldRefetchSessionAttachmentStates } from './sessionAttachmentState'
 import { getTrailingSkillCommand, insertSkillCommandText } from './skillCommand'
 import { getComposerPlaceholder, getSubmitAction, getSubmitControl } from './submitAction'
 import TokenCountMenu from './TokenCountMenu'
@@ -162,51 +163,6 @@ export type InputBoxProps = {
   onRollbackThread?(): boolean
   onClickSessionSettings?(): boolean | Promise<boolean>
   onViewCompactionSummary?(summaryMessageId: string): void
-}
-
-function mergeSessionAttachmentStatesIntoFiles(
-  files: PreprocessedFile[],
-  attachments: SessionAttachment[]
-): { files: PreprocessedFile[]; changed: boolean } {
-  if (files.length === 0 || attachments.length === 0) {
-    return { files, changed: false }
-  }
-
-  const attachmentStateMap = new Map(attachments.map((attachment) => [attachment.id, attachment]))
-  let changed = false
-  const nextFiles = files.map((file) => {
-    if (!file.sessionAttachmentId) {
-      return file
-    }
-    const attachment = attachmentStateMap.get(file.sessionAttachmentId)
-    if (!attachment) {
-      return file
-    }
-    const nextFile = {
-      ...file,
-      sessionAttachmentAvailability: attachment.availability ?? file.sessionAttachmentAvailability,
-      sessionAttachmentIndexStatus: attachment.indexStatus ?? file.sessionAttachmentIndexStatus,
-      sessionAttachmentChunkCount: attachment.chunkCount ?? file.sessionAttachmentChunkCount,
-      sessionAttachmentTotalChunks: attachment.totalChunks ?? file.sessionAttachmentTotalChunks,
-      sessionAttachmentEmbeddedChunks: attachment.embeddedChunks ?? file.sessionAttachmentEmbeddedChunks,
-      sessionAttachmentIndexingStage: attachment.indexingStage ?? file.sessionAttachmentIndexingStage,
-      error: attachment.error ?? file.error,
-    }
-    const fileChanged =
-      nextFile.sessionAttachmentAvailability !== file.sessionAttachmentAvailability ||
-      nextFile.sessionAttachmentIndexStatus !== file.sessionAttachmentIndexStatus ||
-      nextFile.sessionAttachmentChunkCount !== file.sessionAttachmentChunkCount ||
-      nextFile.sessionAttachmentTotalChunks !== file.sessionAttachmentTotalChunks ||
-      nextFile.sessionAttachmentEmbeddedChunks !== file.sessionAttachmentEmbeddedChunks ||
-      nextFile.sessionAttachmentIndexingStage !== file.sessionAttachmentIndexingStage ||
-      nextFile.error !== file.error
-    if (fileChanged) {
-      changed = true
-    }
-    return fileChanged ? nextFile : file
-  })
-
-  return { files: nextFiles, changed }
 }
 
 function getSessionAttachmentProgressValue(embeddedChunks?: number, totalChunks?: number): number | undefined {
@@ -623,10 +579,14 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
         ),
       [preConstructedMessage.preprocessedFiles]
     )
-    const { data: preprocessedAttachmentStates = [] } = useQuery<SessionAttachment[]>({
+    const [recoveringPreprocessedAttachmentIds, setRecoveringPreprocessedAttachmentIds] = useState<number[]>([])
+    const recoveringPreprocessedAttachmentIdsRef = useRef(new Set<number>())
+    const { data: preprocessedAttachmentStates = [], refetch: refetchPreprocessedAttachmentStates } = useQuery<
+      SessionAttachment[]
+    >({
       queryKey: [
         'input-box-session-attachment-rag-attachments',
-        ...preprocessedSessionAttachmentIds.sort((a, b) => a - b),
+        ...[...preprocessedSessionAttachmentIds].sort((a, b) => a - b),
       ],
       queryFn: () => {
         if (platform.type !== 'desktop' || preprocessedSessionAttachmentIds.length === 0) {
@@ -637,12 +597,12 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
       enabled: platform.type === 'desktop' && preprocessedSessionAttachmentIds.length > 0,
       refetchInterval: (query): number | false => {
         const attachments = (query.state.data as SessionAttachment[] | undefined) ?? []
-        return attachments.some(
-          (attachment) => attachment.indexStatus === 'pending' || attachment.indexStatus === 'indexing'
-        )
-          ? 1500
-          : false
+        return shouldRefetchSessionAttachmentStates(attachments, preprocessedSessionAttachmentIds.length) ? 1500 : false
       },
+      // This query reads local IPC state, so browser offline/focus state must not pause progress updates.
+      networkMode: 'always',
+      refetchIntervalInBackground: true,
+      refetchOnWindowFocus: 'always',
     })
     const preprocessedAttachmentIndexStatusMap = useMemo(
       () => new Map(preprocessedAttachmentStates.map((attachment) => [attachment.id, attachment.indexStatus])),
@@ -650,6 +610,10 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
     )
     const preprocessedAttachmentErrorMap = useMemo(
       () => new Map(preprocessedAttachmentStates.map((attachment) => [attachment.id, attachment.error])),
+      [preprocessedAttachmentStates]
+    )
+    const preprocessedAttachmentResumableMap = useMemo(
+      () => new Map(preprocessedAttachmentStates.map((attachment) => [attachment.id, attachment.resumable])),
       [preprocessedAttachmentStates]
     )
     const preprocessedAttachmentProgressMap = useMemo(
@@ -666,6 +630,26 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
           ])
         ),
       [preprocessedAttachmentStates]
+    )
+    const recoverPreprocessedAttachment = useCallback(
+      async (attachmentId: number) => {
+        if (!platform.isDesktopLike || recoveringPreprocessedAttachmentIdsRef.current.has(attachmentId)) {
+          return
+        }
+        recoveringPreprocessedAttachmentIdsRef.current.add(attachmentId)
+        setRecoveringPreprocessedAttachmentIds((prev) => [...prev, attachmentId])
+        try {
+          await platform.getSessionAttachmentRagController().retryAttachment(attachmentId)
+          toastActions.add(t('Queued'))
+          await refetchPreprocessedAttachmentStates()
+        } catch (error) {
+          toastActions.add(`${t('Failed')}: ${error instanceof Error ? error.message : String(error)}`)
+        } finally {
+          recoveringPreprocessedAttachmentIdsRef.current.delete(attachmentId)
+          setRecoveringPreprocessedAttachmentIds((prev) => prev.filter((id) => id !== attachmentId))
+        }
+      },
+      [refetchPreprocessedAttachmentStates, t]
     )
     useEffect(() => {
       if (preprocessedAttachmentStates.length === 0) {
@@ -1696,9 +1680,20 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                       preprocessedFile.sessionAttachmentIndexStatus)
                     : preprocessedFile?.sessionAttachmentIndexStatus
                   const effectiveAttachmentError = preprocessedFile?.sessionAttachmentId
-                    ? (preprocessedAttachmentErrorMap.get(preprocessedFile.sessionAttachmentId) ??
-                      preprocessedFile?.error)
+                    ? preprocessedAttachmentErrorMap.has(preprocessedFile.sessionAttachmentId)
+                      ? preprocessedAttachmentErrorMap.get(preprocessedFile.sessionAttachmentId)
+                      : preprocessedFile?.error
                     : preprocessedFile?.error
+                  const attachmentResumable = preprocessedFile?.sessionAttachmentId
+                    ? (preprocessedAttachmentResumableMap.get(preprocessedFile.sessionAttachmentId) ??
+                      preprocessedFile.sessionAttachmentResumable)
+                    : preprocessedFile?.sessionAttachmentResumable
+                  const recoveryAction =
+                    effectiveIndexStatus === 'failed' && attachmentResumable !== undefined
+                      ? attachmentResumable
+                        ? 'continue'
+                        : 'retry'
+                      : undefined
                   const attachmentProgress = preprocessedFile?.sessionAttachmentId
                     ? preprocessedAttachmentProgressMap.get(preprocessedFile.sessionAttachmentId)
                     : undefined
@@ -1714,22 +1709,26 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                     effectiveIndexStatus !== 'ready' &&
                     Date.now() - attachmentProgress.processingStartedAt > 30000
                   const statusText =
-                    preprocessedFile?.ragMode === 'session-retrieval' && effectiveIndexStatus !== 'ready'
-                      ? progressValue !== undefined
-                        ? `${isSessionAttachmentTakingLong ? t('Still indexing') : getSessionAttachmentStageLabel(indexingStage, t)} · ${progressValue}%`
-                        : isSessionAttachmentTakingLong
-                          ? t('Still indexing')
-                          : getSessionAttachmentStageLabel(indexingStage, t)
-                      : status === 'processing'
-                        ? t('Preparing')
-                        : undefined
+                    preprocessedFile?.ragMode === 'session-retrieval' && effectiveIndexStatus === 'failed'
+                      ? totalChunks > 0
+                        ? `${t('Indexing failed')} · ${embeddedChunks}/${totalChunks} ${t('chunks')}`
+                        : t('Indexing failed')
+                      : preprocessedFile?.ragMode === 'session-retrieval' && effectiveIndexStatus !== 'ready'
+                        ? progressValue !== undefined
+                          ? `${isSessionAttachmentTakingLong ? t('Still indexing') : getSessionAttachmentStageLabel(indexingStage, t)} · ${progressValue}%`
+                          : isSessionAttachmentTakingLong
+                            ? t('Still indexing')
+                            : getSessionAttachmentStageLabel(indexingStage, t)
+                        : status === 'processing'
+                          ? t('Preparing')
+                          : undefined
                   return (
                     <FileMiniCard
                       key={fileKey}
                       name={file.name}
                       fileType={file.type}
                       status={
-                        effectiveAttachmentError
+                        effectiveIndexStatus === 'failed' || effectiveAttachmentError
                           ? 'error'
                           : preprocessedFile?.ragMode === 'session-retrieval'
                             ? effectiveIndexStatus === 'ready'
@@ -1742,6 +1741,17 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                       progressValue={progressValue}
                       isTakingLong={isSessionAttachmentTakingLong}
                       errorMessage={effectiveAttachmentError}
+                      recoveryAction={recoveryAction}
+                      onRecover={
+                        preprocessedFile?.sessionAttachmentId && recoveryAction
+                          ? () => recoverPreprocessedAttachment(preprocessedFile.sessionAttachmentId as number)
+                          : undefined
+                      }
+                      recovering={
+                        preprocessedFile?.sessionAttachmentId
+                          ? recoveringPreprocessedAttachmentIds.includes(preprocessedFile.sessionAttachmentId)
+                          : false
+                      }
                       onErrorClick={() => {
                         const errorCode = effectiveAttachmentError
                         if (errorCode) {

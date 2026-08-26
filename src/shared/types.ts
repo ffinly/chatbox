@@ -428,6 +428,9 @@ export interface SessionAttachment {
   chunkCount?: number
   totalChunks?: number
   embeddedChunks?: number
+  embeddingModel?: string
+  embeddingDimension?: number
+  resumable?: boolean
   indexingStage?: SessionAttachmentIndexingStage
   parserType?: string
   availability: SessionAttachmentAvailability

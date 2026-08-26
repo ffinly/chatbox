@@ -227,7 +227,8 @@ export const MessageAttachmentStates: StoryObj = {
             ragMode="session-retrieval"
             sessionAttachmentIndexStatus="failed"
             sessionAttachmentError="Large file indexing failed."
-            onRetry={() => undefined}
+            recoveryAction="continue"
+            onRecover={() => undefined}
           />
         </Stack>
       </Paper>

@@ -69,13 +69,7 @@ const FileParseError = NiceModal.create(({ errorCode, fileName }: FileParseError
       )
     }
     if (isSessionAttachmentRagIndexingError(errorCode)) {
-      return (
-        <Text>
-          {t(
-            'Large file indexing failed. The file was parsed, but Chatbox could not save the local search index. Remove this file and try uploading it again. If the problem continues, use a smaller file or Knowledge Base.'
-          )}
-        </Text>
-      )
+      return <Text>{`${t('Indexing failed')}. ${t('Continue')}`}</Text>
     }
     if (errorCode === SESSION_ATTACHMENT_RAG_REQUIRES_KNOWLEDGE_BASE_ERROR) {
       return (

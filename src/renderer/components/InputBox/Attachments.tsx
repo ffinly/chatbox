@@ -2,6 +2,7 @@ import NiceModal from '@ebay/nice-modal-react'
 import { Typography } from '@mui/material'
 import { ChatboxAIAPIError } from '@shared/models/errors'
 import type { SessionAttachmentIndexingStage } from '@shared/types'
+import { IconPlayerPlay } from '@tabler/icons-react'
 import { AlertCircle, CheckCircle, Eye, Link2, Loader2, RotateCw, Trash2 } from 'lucide-react'
 import type { MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -17,16 +18,22 @@ import MiniButton from '../common/MiniButton'
 import FileIcon from '../FileIcon'
 import { ImageInStorage } from '../Image'
 
+export type AttachmentRecoveryAction = 'continue' | 'retry'
+
 // 根据错误码获取翻译后的错误消息
-function getTranslatedErrorMessage(errorCode: string | undefined, t: (key: string) => string): string | undefined {
+function getTranslatedErrorMessage(
+  errorCode: string | undefined,
+  t: (key: string) => string,
+  recoveryAction?: AttachmentRecoveryAction
+): string | undefined {
   if (!errorCode) return undefined
   if (isSessionAttachmentRagAuthError(errorCode)) {
     return t('This large file needs Chatbox AI to finish indexing. Sign in to Chatbox AI, then retry this file.')
   }
   if (isSessionAttachmentRagIndexingError(errorCode)) {
-    return t(
-      'Large file indexing failed. Remove this file and try uploading it again. If the problem continues, use a smaller file or Knowledge Base.'
-    )
+    return recoveryAction
+      ? `${t('Indexing failed')}. ${t(recoveryAction === 'continue' ? 'Continue' : 'Retry')}`
+      : t('Indexing failed')
   }
   if (errorCode === SESSION_ATTACHMENT_RAG_REQUIRES_KNOWLEDGE_BASE_ERROR) {
     return t('This attachment is too large for chat attachments. Please upload it through Knowledge Base instead.')
@@ -107,6 +114,9 @@ export function FileMiniCard(props: {
   errorMessage?: string
   onErrorClick?: () => void
   onPreviewClick?: () => void
+  recoveryAction?: AttachmentRecoveryAction
+  onRecover?: () => void
+  recovering?: boolean
 }) {
   const {
     name,
@@ -119,8 +129,13 @@ export function FileMiniCard(props: {
     errorMessage,
     onErrorClick,
     onPreviewClick,
+    recoveryAction,
+    onRecover,
+    recovering,
   } = props
   const { t } = useTranslation()
+  const recoveryTranslationKey = recoveryAction === 'continue' ? 'Continue' : 'Retry'
+  const recoveryLabel = recoveryAction ? (t(recoveryTranslationKey) ?? recoveryTranslationKey) : undefined
 
   const handleClick = (e: MouseEvent<HTMLDivElement>) => {
     e.stopPropagation()
@@ -134,14 +149,14 @@ export function FileMiniCard(props: {
   }
 
   // 获取翻译后的错误消息
-  const translatedError = getTranslatedErrorMessage(errorMessage, t)
+  const translatedError = getTranslatedErrorMessage(errorMessage, t, recoveryAction)
   // 解析完成后展示解析结果和点数消耗提示；处理中/错误时优先展示状态文案
   const miniCardParserLabel = getParserDisplayName(parserType, t)
   const parserCostLabel = getParserCostLabel(parserType, t)
   const parserLabel = [miniCardParserLabel, parserCostLabel].filter(Boolean).join('\n')
   const displayedStatusText =
     status === 'error'
-      ? getErrorStatusLabel(errorMessage, t)
+      ? (statusText ?? getErrorStatusLabel(errorMessage, t))
       : (statusText ?? (status === 'completed' ? parserLabel : undefined))
   const clampedProgressValue =
     typeof progressValue === 'number' ? Math.max(0, Math.min(100, Math.round(progressValue))) : undefined
@@ -191,6 +206,25 @@ export function FileMiniCard(props: {
               >
                 {displayedStatusText}
               </Typography>
+              {status === 'error' && recoveryAction && onRecover && (
+                <MiniButton
+                  className="flex-none !w-5 !h-5 !p-0.5 text-blue-600 hover:text-blue-700"
+                  disabled={recovering}
+                  tooltipTitle={recoveryLabel}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onRecover()
+                  }}
+                >
+                  {recovering ? (
+                    <Loader2 aria-label={recoveryLabel} className="w-3.5 h-3.5 animate-spin" />
+                  ) : recoveryAction === 'continue' ? (
+                    <IconPlayerPlay aria-label={recoveryLabel} className="w-3.5 h-3.5" />
+                  ) : (
+                    <RotateCw aria-label={recoveryLabel} className="w-3.5 h-3.5" />
+                  )}
+                </MiniButton>
+              )}
             </div>
           )}
         </div>
@@ -324,8 +358,9 @@ export function MessageAttachment(props: {
   sessionAttachmentIndexingStage?: SessionAttachmentIndexingStage
   sessionAttachmentProcessingStartedAt?: number
   sessionAttachmentError?: string
-  onRetry?: () => void
-  retrying?: boolean
+  recoveryAction?: AttachmentRecoveryAction
+  onRecover?: () => void
+  recovering?: boolean
 }) {
   const {
     label,
@@ -346,10 +381,13 @@ export function MessageAttachment(props: {
     sessionAttachmentIndexingStage,
     sessionAttachmentProcessingStartedAt,
     sessionAttachmentError,
-    onRetry,
-    retrying,
+    recoveryAction,
+    onRecover,
+    recovering,
   } = props
   const { t } = useTranslation()
+  const recoveryTranslationKey = recoveryAction === 'continue' ? 'Continue' : 'Retry'
+  const recoveryLabel = recoveryAction ? (t(recoveryTranslationKey) ?? recoveryTranslationKey) : undefined
 
   const handleClick = async () => {
     if (storageKey) {
@@ -402,7 +440,9 @@ export function MessageAttachment(props: {
             ? t('Indexed · {{count}} chunks', { count: sessionAttachmentChunkCount })
             : t('Indexed')
           : effectiveIndexStatus === 'failed'
-            ? t('Indexing failed')
+            ? progressValue !== undefined && (sessionAttachmentEmbeddedChunks ?? 0) > 0
+              ? `${t('Indexing failed')} · ${sessionAttachmentEmbeddedChunks}/${sessionAttachmentTotalChunks} ${t('chunks')}`
+              : t('Indexing failed')
             : activeProgressLabel
       : ''
   const showStatus = ragMode === 'session-retrieval'
@@ -468,21 +508,29 @@ export function MessageAttachment(props: {
         {showStatus && effectiveAvailability !== 'blocked' && effectiveIndexStatus === 'failed' && (
           <AlertCircle className="flex-none w-3.5 h-3.5 text-amber-500" strokeWidth={1.5} />
         )}
-        {showStatus && effectiveAvailability !== 'blocked' && effectiveIndexStatus === 'failed' && onRetry && (
-          <MiniButton
-            className="flex-none p-0.5 rounded text-chatbox-tertiary hover:text-chatbox-secondary"
-            onClick={(e) => {
-              e.stopPropagation()
-              onRetry()
-            }}
-          >
-            {retrying ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.5} />
-            ) : (
-              <RotateCw className="w-3.5 h-3.5" strokeWidth={1.5} />
-            )}
-          </MiniButton>
-        )}
+        {showStatus &&
+          effectiveAvailability !== 'blocked' &&
+          effectiveIndexStatus === 'failed' &&
+          recoveryAction &&
+          onRecover && (
+            <MiniButton
+              className="flex-none p-0.5 rounded text-chatbox-tertiary hover:text-chatbox-secondary"
+              disabled={recovering}
+              tooltipTitle={recoveryLabel}
+              onClick={(e) => {
+                e.stopPropagation()
+                onRecover()
+              }}
+            >
+              {recovering ? (
+                <Loader2 aria-label={recoveryLabel} className="w-3.5 h-3.5 animate-spin" strokeWidth={1.5} />
+              ) : recoveryAction === 'continue' ? (
+                <IconPlayerPlay aria-label={recoveryLabel} className="w-3.5 h-3.5" stroke={1.5} />
+              ) : (
+                <RotateCw aria-label={recoveryLabel} className="w-3.5 h-3.5" strokeWidth={1.5} />
+              )}
+            </MiniButton>
+          )}
         {isClickable && (
           <Eye
             className="flex-none w-3.5 h-3.5 text-chatbox-tertiary opacity-0 group-hover/attachment:opacity-100 transition-opacity"

@@ -814,6 +814,12 @@ describe('preprocessFile local parser fallback', () => {
   })
 
   it('recognizes raw session RAG indexing failures from existing failed attachments', () => {
+    expect(isSessionAttachmentRagIndexingError('ai_provider_error')).toBe(true)
+    expect(
+      isSessionAttachmentRagIndexingError(
+        'API Error: Status Code 400, {"error":{"code":"ai_provider_error","detail":"temporarily unavailable"}}'
+      )
+    ).toBe(true)
     expect(
       isSessionAttachmentRagIndexingError(
         'ConnectionFailed("Unable to open connection to local database /Users/me/databases/chatbox_session_rag_vectors.db: 14")'
