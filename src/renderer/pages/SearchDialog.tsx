@@ -13,7 +13,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { cn } from '@/lib/utils'
 import { currentSessionIdAtom } from '@/stores/atoms'
-import { getSessionAgentModeFromSession } from '@/stores/session/agent-mode'
+import { getSessionAgentModeEntry } from '@/stores/session/agent-mode'
 import { searchSessions } from '@/stores/sessionHelpers'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
@@ -21,6 +21,10 @@ import * as scrollActions from '../stores/scrollActions'
 import { switchCurrentSession } from '../stores/session/crud'
 
 type Props = {}
+
+function resolveSearchResultSessionMode(session: Session) {
+  return resolveSessionMode(getSessionAgentModeEntry(session.id, session).value)
+}
 
 // Hidden system prompts render as an invisible 1px placeholder in the chat, so a search hit
 // pointing at one would jump to nothing; keep those hits out of the result list instead.
@@ -31,10 +35,7 @@ export function filterHiddenSystemPromptHits(results: Session[], hideSystemPromp
   for (const session of results) {
     const hidesSystemPrompt =
       hideSystemPromptMessage ||
-      !isActionAvailableInMode(
-        'session-system-prompt',
-        resolveSessionMode(getSessionAgentModeFromSession(session)?.value)
-      )
+      !isActionAvailableInMode('session-system-prompt', resolveSearchResultSessionMode(session))
     const messages = hidesSystemPrompt
       ? session.messages.filter((message) => message.role !== 'system')
       : session.messages
@@ -253,6 +254,7 @@ export default function SearchDialog(props: Props) {
                             msg={message}
                             className="w-full"
                             buttonGroup="none"
+                            sessionMode={resolveSearchResultSessionMode(result)}
                             small
                             assistantAvatarKey={result.assistantAvatarKey}
                             sessionPicUrl={result.picUrl}

@@ -88,6 +88,7 @@ import { getMessageRoleClass } from './message-role-class'
 import { createMessageTimelineLayout } from './message-timeline'
 import { getMessageTokenDisplay } from './message-token-display'
 import { PictureGallery } from './PictureGallery'
+import { useProcessTimelineCollapse } from './useProcessTimelineCollapse'
 
 const useIsGenerationRuntimeActive = (sessionId: string, messageId: string) =>
   rendererApplication.generationHooks.useIsActive(sessionId, messageId)
@@ -567,7 +568,7 @@ const _Message: FC<Props> = (props) => {
     workDurationMs >= 1000
       ? t('Worked for {{time}}', { time: formatElapsedTime(workDurationMs) })
       : t('{{count}} steps', { count: workStepCount })
-  const [processCollapsed, setProcessCollapsed] = useState(false)
+  const [processCollapsed, setProcessCollapsed] = useProcessTimelineCollapse(props.sessionMode, msg.generating)
 
   // When collapsed, hide the process and show the final answer. The answer can
   // span multiple parts after the last step (e.g. text + image), so show the

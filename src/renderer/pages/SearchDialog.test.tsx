@@ -1,10 +1,20 @@
 // @vitest-environment jsdom
 
-import type { Message, Session } from '@shared/types'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { TestId } from '@shared/automation/testids'
+import type { AgentModeEntry, Message, Session } from '@shared/types'
 import { MessageRoleEnum } from '@shared/types'
 import type React from 'react'
-import { describe, expect, test, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from '@/test-utils'
+
+const searchDialogMocks = vi.hoisted(() => ({
+  open: false,
+  globalOnly: false,
+  sessionAgentModeMap: {} as Record<string, AgentModeEntry>,
+  searchSessions: vi.fn(),
+  renderedMessage: vi.fn(),
+}))
 
 globalThis.ResizeObserver = class ResizeObserver {
   observe() {}
@@ -27,16 +37,23 @@ vi.mock('@/hooks/useScreenChange', () => ({
 }))
 
 vi.mock('@/stores/uiStore', () => ({
+  uiStore: {
+    getState: () => ({
+      sessionAgentModeMap: searchDialogMocks.sessionAgentModeMap,
+      agentModeSmartSwitchingDefault: true,
+      agentModeLastSelected: 'off',
+    }),
+  },
   useUIStore: (selector: (state: Record<string, unknown>) => unknown) =>
     selector({
-      openSearchDialog: false,
-      searchDialogGlobalOnly: false,
+      openSearchDialog: searchDialogMocks.open,
+      searchDialogGlobalOnly: searchDialogMocks.globalOnly,
       setOpenSearchDialog: vi.fn(),
     }),
 }))
 
 vi.mock('@/stores/sessionHelpers', () => ({
-  searchSessions: vi.fn(),
+  searchSessions: searchDialogMocks.searchSessions,
 }))
 
 vi.mock('@/stores/settingsStore', () => ({
@@ -53,7 +70,10 @@ vi.mock('../stores/session/crud', () => ({
 }))
 
 vi.mock('@/components/chat/Message', () => ({
-  default: () => null,
+  default: (props: { sessionId: string; sessionMode?: 'chat' | 'work' }) => {
+    searchDialogMocks.renderedMessage(props)
+    return null
+  },
 }))
 
 vi.mock('@/components/Markdown', () => ({
@@ -79,6 +99,14 @@ function session(id: string, messages: Message[]): Session {
   return { id, type: 'chat', name: id, messages }
 }
 
+beforeEach(() => {
+  searchDialogMocks.open = false
+  searchDialogMocks.globalOnly = false
+  searchDialogMocks.sessionAgentModeMap = {}
+  searchDialogMocks.searchSessions.mockReset()
+  searchDialogMocks.renderedMessage.mockReset()
+})
+
 describe('SearchDialog', () => {
   test('does not hide the application from assistive technology while closed', () => {
     const appRoot = document.createElement('div')
@@ -90,6 +118,29 @@ describe('SearchDialog', () => {
 
     unmount()
     appRoot.remove()
+  })
+
+  test('passes legacy Work Mode to messages rendered in global search results', async () => {
+    const workSession = session('work', [message('assistant', MessageRoleEnum.Assistant)])
+    searchDialogMocks.open = true
+    searchDialogMocks.globalOnly = true
+    searchDialogMocks.sessionAgentModeMap[workSession.id] = { value: 'on', locked: false, lockReason: null }
+    searchDialogMocks.searchSessions.mockImplementation(
+      (_query: string, _sessionId: string | undefined, onBatch: (sessions: Session[]) => void) => {
+        onBatch([workSession])
+      }
+    )
+
+    render(<SearchDialog />)
+    const input = screen.getByTestId(TestId.session.searchInput)
+    fireEvent.input(input, { target: { value: 'assistant' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    await waitFor(() => expect(searchDialogMocks.renderedMessage).toHaveBeenCalled())
+    expect(searchDialogMocks.renderedMessage.mock.calls.at(-1)?.[0]).toMatchObject({
+      sessionId: 'work',
+      sessionMode: 'work',
+    })
   })
 })
 
