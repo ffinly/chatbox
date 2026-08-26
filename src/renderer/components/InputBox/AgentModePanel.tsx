@@ -890,6 +890,7 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
             rightContent={
               <Flex gap="xs" align="center" className="shrink-0">
                 <Switch
+                  data-testid={TestId.chat.webSearchToggle}
                   checked={webBrowsingMode}
                   size="xs"
                   onChange={(e) => {
