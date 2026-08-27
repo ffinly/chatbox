@@ -18,7 +18,7 @@ import {
 } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 import { PlusIcon } from 'lucide-react'
-import { type FC, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type FC, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   trackAgentModeSelect,
@@ -62,6 +62,25 @@ type PanelPage =
   | 'mcp'
   | 'knowledge-base'
   | 'working-directory'
+
+// Sub-panel geometry. The panel lives in a portal with `overflow: visible`, so an
+// unconstrained sub-panel would spill past the window and add document scrollbars.
+const SUB_PANEL_WIDTH = 240
+// Below this the options stop being readable, so a narrow window covers the main
+// panel with the sub-panel instead of squeezing it into the leftover strip.
+const SUB_PANEL_MIN_WIDTH = 200
+const SUB_PANEL_MAX_HEIGHT = 360
+const VIEWPORT_MARGIN = 8
+
+type SubPanelPosition = {
+  page: PanelPage
+  placement: 'left' | 'right' | 'overlay'
+  top: number
+  /** Offset from the main panel's left edge; overlay placement only. */
+  left: number
+  width: number
+  maxHeight: number
+}
 
 export interface AgentModePanelProps {
   sessionId: string
@@ -137,6 +156,8 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
   const subPanelRef = useRef<HTMLDivElement>(null)
   const [subPanelAlign, setSubPanelAlign] = useState<'top' | 'bottom'>('bottom')
   const [subPanelTop, setSubPanelTop] = useState<number>(0)
+  const [subPanelPosition, setSubPanelPosition] = useState<SubPanelPosition | null>(null)
+  const settleFrameRef = useRef<number>()
   const isNewSession = sessionId === 'new'
   const { session: currentSession } = useSession(isNewSession ? null : sessionId)
 
@@ -346,9 +367,9 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
       let nextSubPanelTop = 0
       if (align === 'top' && e && panelRef.current) {
         const row = e.currentTarget as HTMLElement
-        const panelRect = panelRef.current.getBoundingClientRect()
-        const rowRect = row.getBoundingClientRect()
-        nextSubPanelTop = rowRect.top - panelRect.top
+        // Offsets, not rects: the panel is the row's offset parent, so this stays in
+        // the panel's own pixels even while the popover plays its open transition.
+        nextSubPanelTop = row.offsetTop
       }
 
       const openTarget = () => {
@@ -398,6 +419,100 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
   useEffect(() => {
     subPanelRef.current?.scrollTo({ top: 0 })
   }, [page])
+
+  // Keep the sub-panel inside the window: flip it to whichever side has room and
+  // clamp its vertical span, so it never pushes the document past the viewport.
+  const updateSubPanelPosition = useCallback(() => {
+    const panel = panelRef.current
+    const subPanel = subPanelRef.current
+    if (!panel || !subPanel) return
+
+    const panelRect = panel.getBoundingClientRect()
+    // The popover scales up while it opens, so its rect can be smaller than its layout
+    // box. Offsets and the values we write are in the panel's own pixels, so convert
+    // every viewport measurement into that space, and re-run once the scale settles.
+    const scale = panel.offsetWidth > 0 ? panelRect.width / panel.offsetWidth : 1
+    const toPanelPx = (viewportPx: number) => viewportPx / scale
+    if (Math.abs(scale - 1) > 0.01) {
+      cancelAnimationFrame(settleFrameRef.current ?? 0)
+      settleFrameRef.current = requestAnimationFrame(() => {
+        settleFrameRef.current = undefined
+        updateSubPanelPosition()
+      })
+    }
+
+    const spaceRight = toPanelPx(window.innerWidth - panelRect.right - VIEWPORT_MARGIN)
+    const spaceLeft = toPanelPx(panelRect.left - VIEWPORT_MARGIN)
+    const preferredSide = spaceRight >= SUB_PANEL_WIDTH || spaceRight >= spaceLeft ? 'right' : 'left'
+    const sideSpace = preferredSide === 'right' ? spaceRight : spaceLeft
+    const fitsBeside = sideSpace >= SUB_PANEL_MIN_WIDTH
+
+    const placement = fitsBeside ? preferredSide : 'overlay'
+    const width = fitsBeside
+      ? Math.min(SUB_PANEL_WIDTH, sideSpace)
+      : Math.min(SUB_PANEL_WIDTH, toPanelPx(window.innerWidth - VIEWPORT_MARGIN * 2))
+    const left = fitsBeside
+      ? 0
+      : toPanelPx(
+          Math.min(Math.max(panelRect.left, VIEWPORT_MARGIN), window.innerWidth - VIEWPORT_MARGIN - width * scale) -
+            panelRect.left
+        )
+    const maxHeight = Math.min(SUB_PANEL_MAX_HEIGHT, toPanelPx(window.innerHeight - VIEWPORT_MARGIN * 2))
+
+    // Apply the final box before measuring so wrapping at the clamped width is
+    // reflected in the height we position against.
+    subPanel.style.width = `${width}px`
+    subPanel.style.maxHeight = `${maxHeight}px`
+    const height = subPanel.offsetHeight
+    const desiredTop = subPanelAlign === 'top' ? subPanelTop : panel.offsetHeight - height
+    const top = Math.min(
+      Math.max(desiredTop, toPanelPx(VIEWPORT_MARGIN - panelRect.top)),
+      toPanelPx(window.innerHeight - VIEWPORT_MARGIN - panelRect.top) - height
+    )
+
+    setSubPanelPosition((current) =>
+      current &&
+      current.page === page &&
+      current.placement === placement &&
+      current.top === top &&
+      current.left === left &&
+      current.width === width &&
+      current.maxHeight === maxHeight
+        ? current
+        : { page, placement, top, left, width, maxHeight }
+    )
+  }, [page, subPanelAlign, subPanelTop])
+
+  useLayoutEffect(() => {
+    if (page === 'main') {
+      setSubPanelPosition(null)
+      return
+    }
+    updateSubPanelPosition()
+
+    // Either box can settle after mount — the sub-panel with async skills or memory
+    // counts, the `w-max` main panel with a knowledge-base subtitle — and the window
+    // can be resized while the menu is open. Re-place it in all of those cases.
+    const panel = panelRef.current
+    const subPanel = subPanelRef.current
+    let observer: ResizeObserver | undefined
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(() => updateSubPanelPosition())
+      if (panel) observer.observe(panel)
+      if (subPanel) observer.observe(subPanel)
+    }
+    window.addEventListener('resize', updateSubPanelPosition)
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', updateSubPanelPosition)
+      cancelAnimationFrame(settleFrameRef.current ?? 0)
+      settleFrameRef.current = undefined
+    }
+  }, [page, updateSubPanelPosition])
+
+  // Measurements are only valid for the page they were taken on; until the effect
+  // runs for a newly opened page we fall back to the anchor-based placement.
+  const resolvedSubPanelPosition = subPanelPosition?.page === page ? subPanelPosition : null
 
   // Manual cross-mode switching (chat ↔ work) is only offered before the
   // conversation starts — mirroring the work-side `entry.locked` in the other
@@ -1077,15 +1192,32 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
         </div>
       </Stack>
 
-      {/* Sub panel - absolutely positioned to the right */}
+      {/* Sub panel - absolutely positioned beside the main panel */}
       {page !== 'main' && (
         <Stack
           key={page}
           ref={subPanelRef}
           gap={0}
           py="xs"
-          className="absolute left-full w-[240px] max-h-[360px] overflow-y-auto bg-[var(--mantine-color-body)] rounded-r-lg shadow-lg border-l border-[var(--mantine-color-default-border)]"
-          style={subPanelAlign === 'top' ? { top: subPanelTop } : { bottom: 0 }}
+          className={`absolute overflow-y-auto bg-[var(--mantine-color-body)] shadow-lg border-[var(--mantine-color-default-border)] ${
+            resolvedSubPanelPosition?.placement === 'overlay'
+              ? 'rounded-lg border'
+              : resolvedSubPanelPosition?.placement === 'left'
+                ? 'right-full rounded-l-lg border-r'
+                : 'left-full rounded-r-lg border-l'
+          }`}
+          style={{
+            width: resolvedSubPanelPosition?.width ?? SUB_PANEL_WIDTH,
+            maxHeight: resolvedSubPanelPosition?.maxHeight ?? SUB_PANEL_MAX_HEIGHT,
+            ...(resolvedSubPanelPosition?.placement === 'overlay'
+              ? { left: resolvedSubPanelPosition.left }
+              : undefined),
+            ...(resolvedSubPanelPosition
+              ? { top: resolvedSubPanelPosition.top }
+              : subPanelAlign === 'top'
+                ? { top: subPanelTop }
+                : { bottom: 0 }),
+          }}
           onMouseEnter={handleSubPanelEnter}
         >
           {renderSubPanel()}
