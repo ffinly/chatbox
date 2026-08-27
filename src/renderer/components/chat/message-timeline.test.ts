@@ -1,6 +1,6 @@
 import type { MessageContentParts } from '@shared/types'
 import { describe, expect, test } from 'vitest'
-import { createMessageTimelineLayout } from './message-timeline'
+import { createCollapsedDisplayGroups, createMessageTimelineLayout } from './message-timeline'
 
 const reasoning = { type: 'reasoning' as const, text: 'Private reasoning' }
 const answer = { type: 'text' as const, text: 'Final answer' }
@@ -105,5 +105,54 @@ describe('createMessageTimelineLayout', () => {
     expect(result.orderedContentParts).toEqual([toolCall])
     expect(result.lastStepIndex).toBe(0)
     expect(result.groupedContentParts).toEqual([{ type: 'step_group', parts: [toolCall] }])
+  })
+})
+
+const imageToolCall = {
+  type: 'tool-call' as const,
+  state: 'result' as const,
+  toolCallId: 'tool-image',
+  toolName: 'chatbox_cli',
+  args: {},
+  result: {
+    ok: true,
+    command: 'image generate',
+    accepted: true,
+    background: true,
+    recordId: 'record-1',
+    status: 'pending',
+    startedAt: 1,
+    wait: { mode: 'callback', managedBy: 'chatbox', modelShouldPoll: false },
+  },
+}
+
+describe('createCollapsedDisplayGroups', () => {
+  test('keeps image parts emitted before the last step', () => {
+    const image = { type: 'image' as const, storageKey: 'img-1' }
+    const contentParts: MessageContentParts = [image, reasoning, answer]
+
+    const { orderedContentParts, lastStepIndex } = createMessageTimelineLayout(contentParts, true)
+
+    expect(createCollapsedDisplayGroups(orderedContentParts, lastStepIndex)).toEqual([image, answer])
+  })
+
+  test('hides process steps, including image generation tool calls shown as artifacts', () => {
+    const contentParts: MessageContentParts = [imageToolCall, answer]
+
+    const { orderedContentParts, lastStepIndex } = createMessageTimelineLayout(contentParts, true)
+
+    expect(createCollapsedDisplayGroups(orderedContentParts, lastStepIndex)).toEqual([answer])
+  })
+
+  test('falls back to the last step when the message ends on one', () => {
+    const image = { type: 'image' as const, storageKey: 'img-1' }
+    const contentParts: MessageContentParts = [image, reasoning]
+
+    const { orderedContentParts, lastStepIndex } = createMessageTimelineLayout(contentParts, true)
+
+    expect(createCollapsedDisplayGroups(orderedContentParts, lastStepIndex)).toEqual([
+      image,
+      { type: 'step_group', parts: [reasoning] },
+    ])
   })
 })

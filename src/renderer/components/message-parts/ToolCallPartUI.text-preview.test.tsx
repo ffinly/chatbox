@@ -42,6 +42,7 @@ vi.mock('@/platform', () => ({ default: platformMock }))
 vi.mock('@/stores/imageGenerationStore', () => ({
   useCurrentGeneratingId: () => null,
   useImageGenerationRecord: () => ({ data: undefined, isFetched: true }),
+  useImageGenerationRecords: () => [],
 }))
 
 vi.mock('@/adapters/CurrentGenerationService', () => ({
@@ -57,7 +58,7 @@ vi.mock('@/stores/uiStore', () => ({
   useUIStore: (selector: (state: { setPictureShow: () => void }) => unknown) => selector({ setPictureShow: vi.fn() }),
 }))
 
-import { DownloadArtifactsUI } from './ToolCallPartUI'
+import { MessageArtifactsUI } from './ToolCallPartUI'
 
 function downloadPart(filePath: string): MessageToolCallPart {
   return {
@@ -105,7 +106,7 @@ describe('text file preview for create_download', () => {
   function renderDownload(path: string) {
     return render(
       <MantineProvider>
-        <DownloadArtifactsUI parts={[downloadPart(path)]} sessionId="s1" messageId="m1" />
+        <MessageArtifactsUI imageParts={[]} downloadParts={[downloadPart(path)]} sessionId="s1" messageId="m1" />
       </MantineProvider>
     )
   }

@@ -38,6 +38,7 @@ import {
   IconInfoCircle,
   IconLoader,
   IconMessage,
+  IconPackage,
   IconPhoto,
   IconPlayerPlay,
   IconSparkles,
@@ -67,7 +68,11 @@ import {
   unregisterPausedStepElement,
   useApprovalCardHighlighted,
 } from '@/stores/approvalAttentionStore'
-import { useCurrentGeneratingId, useImageGenerationRecord } from '@/stores/imageGenerationStore'
+import {
+  useCurrentGeneratingId,
+  useImageGenerationRecord,
+  useImageGenerationRecords,
+} from '@/stores/imageGenerationStore'
 import * as toastActions from '@/stores/toastActions'
 import { useUIStore } from '@/stores/uiStore'
 import { inlineSandboxHtmlAssets } from './html-artifact-assets'
@@ -639,13 +644,10 @@ const GeneralToolCallUI: FC<{ part: MessageToolCallPart }> = ({ part }) => {
   const isBashNotAvailable = isBashNotAvailableResult(part)
   const isError = part.state === 'error' || isBashNotAvailable
   const [expanded, setExpanded] = useAutoExpandOnSignal(isBashNotAvailable)
-  const acceptedImageTask = getAcceptedImageBackgroundTaskResult(part.result)
-  const { data: imageRecord } = useImageGenerationRecord(acceptedImageTask?.recordId ?? null)
 
   return (
     <Stack gap={6} mb="xs">
       <ToolCallPill part={part} onClick={() => setExpanded((prev) => !prev)} expanded={expanded} />
-      <ImageGenerationResultGallery images={imageRecord?.generatedImages ?? []} />
       <Collapse in={expanded}>
         <Box
           ml={4}
@@ -979,15 +981,24 @@ function isDownloadArtifact(part: MessageToolCallPart): boolean {
   return result?.downloadable === true
 }
 
-export const DownloadArtifactsUI: FC<{ parts: MessageToolCallPart[] } & ToolCallActionContext> = ({
-  parts,
-  sessionId,
-  messageId,
-}) => {
+export const MessageArtifactsUI: FC<
+  { imageParts: MessageToolCallPart[]; downloadParts: MessageToolCallPart[] } & ToolCallActionContext
+> = ({ imageParts, downloadParts, sessionId, messageId }) => {
   const { t } = useTranslation()
-  const artifacts = parts.filter(isDownloadArtifact)
+  const artifacts = downloadParts.filter(isDownloadArtifact)
+  const imageRecordIds = useMemo(
+    () =>
+      imageParts
+        .map((part) => getAcceptedImageBackgroundTaskResult(part.result)?.recordId)
+        .filter((recordId): recordId is string => Boolean(recordId)),
+    [imageParts]
+  )
+  const imageRecords = useImageGenerationRecords(imageRecordIds)
+  const generatedImages = useMemo(() => imageRecords.flatMap((record) => record?.generatedImages ?? []), [imageRecords])
 
-  if (artifacts.length === 0) return null
+  // A run that is still generating has no artifact to show yet — stay invisible
+  // instead of leaving an empty section behind.
+  if (artifacts.length === 0 && generatedImages.length === 0) return null
 
   return (
     <Stack
@@ -998,12 +1009,13 @@ export const DownloadArtifactsUI: FC<{ parts: MessageToolCallPart[] } & ToolCall
       style={{ borderTop: '1px solid color-mix(in srgb, var(--chatbox-border-primary) 70%, transparent)' }}
     >
       <Group gap={6}>
-        <IconDownload size={14} color="var(--chatbox-tint-brand)" />
+        <IconPackage size={14} color="var(--chatbox-tint-brand)" />
         <Text size="xs" fw={600} c="chatbox-secondary">
           {t('Artifacts')}
         </Text>
       </Group>
       <Stack gap={6}>
+        <ImageGenerationResultGallery images={generatedImages} />
         {artifacts.map((part) => (
           <CreateDownloadUI key={part.toolCallId} part={part} sessionId={sessionId} messageId={messageId} />
         ))}
@@ -1682,7 +1694,6 @@ const TimelineToolCallStepContent: FC<TimelineToolCallStepProps & { commandResul
           {t('The original task cannot be resumed. Please send a new image generation request.')}
         </Text>
       )}
-      <ImageGenerationResultGallery images={imageRecord?.generatedImages ?? []} />
       <Collapse in={expanded && hasDetail}>
         <Box
           // The rotating locate ring plays only after the pill's "View" action, as

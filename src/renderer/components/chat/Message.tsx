@@ -51,6 +51,7 @@ import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { formatElapsedTime } from '@/hooks/useThinkingTimer'
 import { cn } from '@/lib/utils'
 import { navigateToSettings } from '@/modals/settings-navigation'
+import { getAcceptedImageBackgroundTaskResult } from '@/packages/chatbox-cli/background-task-result'
 import { copyToClipboard } from '@/packages/navigator'
 import { countWord } from '@/packages/word-count'
 import { lockSessionAgentMode, setSessionAgentMode } from '@/stores/session/agent-mode'
@@ -71,12 +72,7 @@ import ActionMenu, { type ActionMenuItemProps } from '../ActionMenu'
 import { AssistantAvatar, SystemAvatar, UserAvatar } from '../common/Avatar'
 import { ScalableIcon } from '../common/ScalableIcon'
 import Loading from '../icons/Loading'
-import {
-  DownloadArtifactsUI,
-  ReasoningContentUI,
-  StepTimelineUI,
-  ToolCallPartUI,
-} from '../message-parts/ToolCallPartUI'
+import { MessageArtifactsUI, ReasoningContentUI, StepTimelineUI, ToolCallPartUI } from '../message-parts/ToolCallPartUI'
 import { MessageAttachmentGrid } from './MessageAttachmentGrid'
 import MessageErrTips from './MessageErrTips'
 import MessageStatuses, { PreparingToolCallStatus } from './MessageLoading'
@@ -85,7 +81,7 @@ import { isMessageReminderPresentation, resolveMessageErrorPresentation } from '
 import { shouldRightAlignMessage } from './message-layout'
 import { getMessagePreviewText } from './message-navigation-utils'
 import { getMessageRoleClass } from './message-role-class'
-import { createMessageTimelineLayout } from './message-timeline'
+import { createCollapsedDisplayGroups, createMessageTimelineLayout } from './message-timeline'
 import { getMessageTokenDisplay } from './message-token-display'
 import { PictureGallery } from './PictureGallery'
 import { useProcessTimelineCollapse } from './useProcessTimelineCollapse'
@@ -524,6 +520,17 @@ const _Message: FC<Props> = (props) => {
       ),
     [contentParts]
   )
+  // Generated images are an outcome of the run, not a step of it: they are shown in the
+  // artifacts area so the collapsed work process never hides them.
+  const imageArtifactParts = useMemo(
+    () =>
+      contentParts.filter(
+        (item): item is MessageToolCallPart =>
+          item.type === 'tool-call' &&
+          getAcceptedImageBackgroundTaskResult((item as MessageToolCallPart).result) !== null
+      ),
+    [contentParts]
+  )
 
   // Normalize provider-specific non-streaming reasoning order before deciding
   // which text belongs to the process timeline and which text is the final answer.
@@ -570,21 +577,16 @@ const _Message: FC<Props> = (props) => {
       : t('{{count}} steps', { count: workStepCount })
   const [processCollapsed, setProcessCollapsed] = useProcessTimelineCollapse(props.sessionMode, msg.generating)
 
-  // When collapsed, hide the process and show the final answer. The answer can
-  // span multiple parts after the last step (e.g. text + image), so show the
-  // whole answer region rather than only the last part.
-  const displayGroups = useMemo<typeof groupedContentParts>(() => {
-    if (!(showWorkSummary && processCollapsed)) return groupedContentParts
-    const answerParts = orderedContentParts.slice(lastStepIndex + 1)
-    if (answerParts.length > 0) return answerParts
-    // The message ended on a process step — fall back to showing that last step.
-    const lastPart = orderedContentParts[orderedContentParts.length - 1]
-    if (!lastPart) return []
-    if (lastPart.type === 'tool-call' || lastPart.type === 'reasoning') {
-      return [{ type: 'step_group' as const, parts: [lastPart] }]
-    }
-    return [lastPart]
-  }, [showWorkSummary, processCollapsed, groupedContentParts, orderedContentParts, lastStepIndex])
+  // When collapsed, hide the process and show the final answer. The answer can span
+  // multiple parts after the last step (e.g. text + image), so show the whole answer
+  // region rather than only the last part.
+  const displayGroups = useMemo<typeof groupedContentParts>(
+    () =>
+      showWorkSummary && processCollapsed
+        ? createCollapsedDisplayGroups(orderedContentParts, lastStepIndex)
+        : groupedContentParts,
+    [showWorkSummary, processCollapsed, groupedContentParts, orderedContentParts, lastStepIndex]
+  )
 
   // Renders an intermediate text block inside the step timeline, reusing the same
   // markdown settings as the main answer text.
@@ -986,9 +988,12 @@ const _Message: FC<Props> = (props) => {
                 )}
               </div>
             ))}
-          {!msg.generating && (
-            <DownloadArtifactsUI parts={downloadArtifactParts} sessionId={sessionId} messageId={msg.id} />
-          )}
+          <MessageArtifactsUI
+            imageParts={imageArtifactParts}
+            downloadParts={msg.generating ? [] : downloadArtifactParts}
+            sessionId={sessionId}
+            messageId={msg.id}
+          />
           {preparingToolCallStatuses?.map((status) => (
             <PreparingToolCallStatus key={`preparing-tool-call-${status.toolName ?? 'tool-call'}`} status={status} />
           ))}
