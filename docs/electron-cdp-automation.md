@@ -97,7 +97,7 @@ await sleep(3000) // 额外等待 React hydration 完成
 
 `--user-data-dir` 下的 `config.json` 是应用的持久化存储。关键注意：
 
-- **必须使用正确的 configVersion**: 当前为 `14`，错误版本会导致 migration 异常
+- **必须使用正确的 configVersion**: 当前为 `15`；更高的伪造版本会跳过必要迁移，更低的版本会重复执行历史迁移
 - **zustand persist version**: settings 中的 `__version` 字段对应 zustand persist 版本，当前为 `6`
 - **最佳实践**: 先用默认目录启动一次，复制生成的 config.json 作为基础模板
 
