@@ -1,4 +1,5 @@
 import { type ModelProvider, ModelProviderEnum, ModelProviderType, type ProviderModelInfo } from '../types'
+import { applyGitHubCopilotModelMetadata } from './definitions/github-copilot-routing'
 
 /**
  * Maps a provider's type (its API family) to the model API style. ChatboxAI, custom
@@ -22,6 +23,23 @@ export function apiStyleFromProviderType(
   type: ModelProviderType | string | undefined
 ): ProviderModelInfo['apiStyle'] | undefined {
   return type ? API_STYLE_BY_PROVIDER_TYPE[type as ModelProviderType] : undefined
+}
+
+/**
+ * Resolve the API style used for reasoning controls and request routing.
+ * Proxy providers such as GitHub Copilot overwrite the provider-type fallback
+ * from the model id so catalog/stored records match the wire protocol.
+ */
+export function withResolvedModelApiStyle(
+  model: ProviderModelInfo,
+  options: { providerId?: string; providerType?: string }
+): ProviderModelInfo {
+  if (options.providerId === 'github-copilot') {
+    return applyGitHubCopilotModelMetadata(model)
+  }
+  if (model.apiStyle) return model
+  const apiStyle = apiStyleFromProviderType(options.providerType)
+  return apiStyle ? { ...model, apiStyle } : model
 }
 
 /**

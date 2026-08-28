@@ -46,6 +46,20 @@ describe('reasoning-control', () => {
     expect(getReasoningControlCapabilities(ModelProviderEnum.OpenAIResponses, model('gpt-5.1')).supported).toBe(true)
   })
 
+  it('writes Responses reasoning options for Copilot GPT-5.6 Luna once apiStyle is routed', () => {
+    const luna = model('gpt-5.6-luna', 'openai-responses')
+    luna.capabilities = ['reasoning']
+
+    const options = getReasoningProviderOptions('github-copilot', luna, 'high')
+
+    expect(options?.openai).toEqual({
+      reasoningEffort: 'high',
+      reasoningSummary: 'auto',
+      include: ['reasoning.encrypted_content'],
+      forceReasoning: true,
+    })
+  })
+
   it('does not offer reasoning controls for non-reasoning GPT-5 chat models', () => {
     const openaiCapabilities = getReasoningControlCapabilities(ModelProviderEnum.OpenAI, model('gpt-5-chat-latest'))
     expect(openaiCapabilities.supported).toBe(false)

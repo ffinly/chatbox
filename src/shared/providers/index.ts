@@ -3,7 +3,7 @@ import type { ModelInterface } from '../models/types'
 import { mergeSharedOAuthProviderSettings, resolveEffectiveApiKey } from '../oauth'
 import type { Config, ProviderModelInfo, SessionSettings, Settings } from '../types'
 import type { ModelDependencies } from '../types/adapters'
-import { apiStyleFromProviderType } from './api-style'
+import { withResolvedModelApiStyle } from './api-style'
 import './builtin-registration'
 import { mergeProviderModelCapabilities } from './model-config'
 import {
@@ -104,10 +104,12 @@ function getModelConfig(settings: SessionSettings, globalSettings: Settings, pro
  * reasoning semantics). For built-in providers that resolve reasoning by their own id,
  * apiStyle is ignored, so stamping it is a harmless no-op.
  */
-function withReasoningApiStyle(model: ProviderModelInfo, providerType: string | undefined): ProviderModelInfo {
-  if (model.apiStyle) return model
-  const apiStyle = apiStyleFromProviderType(providerType)
-  return apiStyle ? { ...model, apiStyle } : model
+function withReasoningApiStyle(
+  model: ProviderModelInfo,
+  providerType: string | undefined,
+  providerId?: string
+): ProviderModelInfo {
+  return withResolvedModelApiStyle(model, { providerId, providerType })
 }
 
 /**
@@ -136,7 +138,11 @@ export function getModel(
   if (providerDefinition) {
     // Provider is registered - use the new registry-based approach
     const { providerSetting, formattedApiHost, providerBaseInfo } = getProviderSettings(settings, globalSettings)
-    const model = withReasoningApiStyle(getModelConfig(settings, globalSettings, provider), providerBaseInfo.type)
+    const model = withReasoningApiStyle(
+      getModelConfig(settings, globalSettings, provider),
+      providerBaseInfo.type,
+      provider
+    )
     const formattedApiPath = providerSetting.apiPath || providerBaseInfo.defaultSettings?.apiPath || ''
     const effectiveApiKey = resolveEffectiveApiKey(providerSetting, dependencies.platformType || 'desktop')
 
@@ -157,7 +163,11 @@ export function getModel(
 
   // Provider not registered - check if it's a custom provider
   const { providerSetting, formattedApiHost, providerBaseInfo } = getProviderSettings(settings, globalSettings)
-  const model = withReasoningApiStyle(getModelConfig(settings, globalSettings, provider), providerBaseInfo.type)
+  const model = withReasoningApiStyle(
+    getModelConfig(settings, globalSettings, provider),
+    providerBaseInfo.type,
+    provider
+  )
 
   if (providerBaseInfo.isCustom) {
     const formattedApiPath = providerSetting.apiPath || providerBaseInfo.defaultSettings?.apiPath || ''
