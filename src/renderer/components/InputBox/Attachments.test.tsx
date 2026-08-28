@@ -28,6 +28,26 @@ vi.mock('react-i18next', () => ({
 }))
 
 describe('FileMiniCard session attachment failure', () => {
+  test('labels a missing Chatbox AI account license as Sign in needed', () => {
+    const onErrorClick = vi.fn()
+    render(
+      <MantineProvider>
+        <FileMiniCard
+          name="lecture.pdf"
+          fileType="application/pdf"
+          status="error"
+          errorMessage="chatbox_ai_parser_license_key_required"
+          onDelete={vi.fn()}
+          onErrorClick={onErrorClick}
+        />
+      </MantineProvider>
+    )
+
+    expect(screen.getByText('Sign in needed')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'lecture.pdf: Sign in needed' }))
+    expect(onErrorClick).toHaveBeenCalledOnce()
+  })
+
   test('shows an indexing failure and lets the user continue the failed checkpoint', () => {
     const onRecover = vi.fn()
     const onErrorClick = vi.fn()

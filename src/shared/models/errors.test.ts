@@ -142,6 +142,7 @@ describe('ChatboxAIAPIError', () => {
     [MESSAGE_ERROR_CODES.FILE_PREPROCESS_FAILED, 'file_preprocess_failed'],
     [MESSAGE_ERROR_CODES.FILE_STORAGE_QUOTA_EXCEEDED, 'file_storage_quota_exceeded'],
     [MESSAGE_ERROR_CODES.EMPTY_ATTACHMENT_CONTENT, 'empty_attachment_content'],
+    [20046, 'chatbox_ai_parser_license_key_required'],
   ] as const)('getDetail maps client error code %s to %s', (code, name) => {
     const detail = ChatboxAIAPIError.getDetail(code)
 

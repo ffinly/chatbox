@@ -94,6 +94,9 @@ function _errorI18nKeys(t: (key: string) => string) {
   )
   t('Chatbox AI document parsing failed. Please try again later.')
   t(
+    '<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license, or choose a different <OpenDocumentParserSettingButton>document parser</OpenDocumentParserSettingButton>.'
+  )
+  t(
     'Document parsing failed. You can go to <OpenDocumentParserSettingButton>Settings</OpenDocumentParserSettingButton> and switch to Chatbox AI for cloud-based document parsing.'
   )
   t(

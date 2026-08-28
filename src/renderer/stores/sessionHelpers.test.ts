@@ -285,7 +285,7 @@ describe('preprocessFile local parser fallback', () => {
     expect(result.error).toBe('empty_attachment_content')
   })
 
-  it('keeps local_parser_failed when local parsing throws without a license', async () => {
+  it('prompts for a license when local parsing throws without a key', async () => {
     const file = createFile('no-license.pdf')
     licenseState.key = undefined
     mockParseFileLocally.mockRejectedValueOnce(new Error('local failed'))
@@ -295,23 +295,11 @@ describe('preprocessFile local parser fallback', () => {
     expect(mockUploadAndCreateUserFile).not.toHaveBeenCalled()
     expect(result.content).toBe('')
     expect(result.storageKey).toBe('')
-    expect(result.error).toBe('local_parser_failed')
-    expect(mockReportError).toHaveBeenCalledWith(
-      expect.objectContaining({ message: 'local_parser_failed' }),
-      expect.objectContaining({
-        domain: 'file-attachment',
-        operation: 'preprocess-file',
-        priority: 'high',
-        tags: expect.objectContaining({
-          file_extension: 'pdf',
-          preprocess_stage: 'local_parse',
-          user_error_code: 'local_parser_failed',
-        }),
-      })
-    )
+    expect(result.error).toBe('chatbox_ai_parser_license_key_required')
+    expect(mockReportError).not.toHaveBeenCalled()
   })
 
-  it('rejects empty local content without a license for ordinary attachments', async () => {
+  it('prompts for a license when local parsing returns empty content without a key', async () => {
     const file = createFile('empty-without-license.pdf')
     licenseState.key = undefined
     mockParseFileLocally.mockResolvedValueOnce({ isSupported: true, key: 'missing-local-key' })
@@ -321,7 +309,23 @@ describe('preprocessFile local parser fallback', () => {
     expect(mockUploadAndCreateUserFile).not.toHaveBeenCalled()
     expect(result.content).toBe('')
     expect(result.storageKey).toBe('')
-    expect(result.error).toBe('empty_attachment_content')
+    expect(result.error).toBe('chatbox_ai_parser_license_key_required')
+    expect(mockReportError).not.toHaveBeenCalled()
+  })
+
+  it('prompts for a license when Chatbox AI parser is selected and local parsing fails without a key', async () => {
+    parserState.type = 'chatbox-ai'
+    const file = createFile('cloud-without-license.pdf')
+    licenseState.key = undefined
+    mockParseFileLocally.mockResolvedValueOnce({ isSupported: false })
+
+    const result = await prepareFileAttachment(file, { provider: '', modelId: '' })
+
+    expect(mockUploadAndCreateUserFile).not.toHaveBeenCalled()
+    expect(result.content).toBe('')
+    expect(result.storageKey).toBe('')
+    expect(result.error).toBe('chatbox_ai_parser_license_key_required')
+    expect(mockReportError).not.toHaveBeenCalled()
   })
 
   it('reprocesses whitespace-only cached content instead of returning an empty attachment', async () => {

@@ -109,7 +109,16 @@ const FileParseError = NiceModal.create(({ errorCode, fileName }: FileParseError
           model: t('current model'),
         }}
         components={{
-          OpenSettingButton: <span />,
+          OpenSettingButton: (
+            <button
+              type="button"
+              className="cursor-pointer border-0 bg-transparent p-0 underline font-semibold text-blue-600 hover:text-blue-700"
+              onClick={() => {
+                onClose()
+                navigateToSettings('/chatbox-ai')
+              }}
+            />
+          ),
           OpenExtensionSettingButton: <span />,
           OpenMorePlanButton: (
             <a
@@ -127,8 +136,9 @@ const FileParseError = NiceModal.create(({ errorCode, fileName }: FileParseError
             />
           ),
           OpenDocumentParserSettingButton: (
-            <a
-              className="cursor-pointer underline font-semibold text-blue-600 hover:text-blue-700"
+            <button
+              type="button"
+              className="cursor-pointer border-0 bg-transparent p-0 underline font-semibold text-blue-600 hover:text-blue-700"
               onClick={() => {
                 onClose()
                 navigateToSettings('/document-parser')

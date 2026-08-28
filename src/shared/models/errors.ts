@@ -292,6 +292,12 @@ export class ChatboxAIAPIError extends BaseError {
       code: 20030,
       i18nKey: 'Chatbox AI document parsing failed. Please try again later.',
     },
+    chatbox_ai_parser_license_key_required: {
+      name: 'chatbox_ai_parser_license_key_required',
+      code: 20046,
+      i18nKey:
+        '<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license, or choose a different <OpenDocumentParserSettingButton>document parser</OpenDocumentParserSettingButton>.',
+    },
     third_party_parser_failed: {
       name: 'third_party_parser_failed',
       code: 20031,

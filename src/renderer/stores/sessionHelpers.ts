@@ -7,7 +7,11 @@ import {
 } from '@chatbox/core/application/attachments'
 import { projectSessionMeta } from '@chatbox/core/application/session'
 import { isSessionAttachmentRagSupportedFilePath, isSupportedFile, isTextFilePath } from '@shared/file-extensions'
-import { EMPTY_ATTACHMENT_CONTENT_ERROR, NON_RECOVERABLE_LOCAL_PARSER_ERROR_CODES } from '@shared/file-parse-errors'
+import {
+  CHATBOX_AI_PARSER_LICENSE_KEY_REQUIRED_ERROR,
+  EMPTY_ATTACHMENT_CONTENT_ERROR,
+  NON_RECOVERABLE_LOCAL_PARSER_ERROR_CODES,
+} from '@shared/file-parse-errors'
 import { searchSessionMessages } from '@shared/services/native-session-search'
 import type { Session, SessionMeta, SessionSettings, SessionThreadBrief, Settings } from '@shared/types'
 import type { DocumentParserConfig } from '@shared/types/settings'
@@ -93,8 +97,10 @@ class FilePreprocessFailure extends Error {
 
 const EXPECTED_FILE_PREPROCESS_ERROR_CODES = new Set([
   'chatbox_ai_parser_failed',
+  CHATBOX_AI_PARSER_LICENSE_KEY_REQUIRED_ERROR,
   'document_parser_not_configured',
   EMPTY_ATTACHMENT_CONTENT_ERROR,
+  'license_key_required',
   'local_parser_failed',
   'mineru_api_token_required',
   'parsing_cancelled',
@@ -262,8 +268,21 @@ function hasParsedText(content: string): boolean {
   return content.trim().length > 0
 }
 
+type LocalParserFallbackOptions = {
+  allowChatboxAIFallback?: boolean
+  forceChatboxAIFallback?: boolean
+}
+
 function canFallbackToChatboxAI(): boolean {
   return Boolean(settingActions.getLicenseKey())
+}
+
+function isChatboxAIFallbackAllowed(options: LocalParserFallbackOptions): boolean {
+  return Boolean(options.forceChatboxAIFallback) || options.allowChatboxAIFallback !== false
+}
+
+function requireChatboxAIParserLicense(): never {
+  throw new Error(CHATBOX_AI_PARSER_LICENSE_KEY_REQUIRED_ERROR)
 }
 
 function hasUsableSessionAttachmentRagLicense(): boolean {
@@ -363,22 +382,20 @@ async function fallbackToChatboxAIParser(
     if (isStorageQuotaError(error)) {
       throw new FilePreprocessFailure(FILE_STORAGE_QUOTA_EXCEEDED_ERROR, 'cloud_parse', error)
     }
-    if (error instanceof Error && error.message === EMPTY_ATTACHMENT_CONTENT_ERROR) {
+    if (
+      error instanceof Error &&
+      (error.message === EMPTY_ATTACHMENT_CONTENT_ERROR ||
+        error.message === CHATBOX_AI_PARSER_LICENSE_KEY_REQUIRED_ERROR ||
+        error.message === 'license_key_required')
+    ) {
       throw error
     }
     throw new Error('chatbox_ai_parser_failed')
   }
 }
 
-type LocalParserFallbackOptions = {
-  allowChatboxAIFallback?: boolean
-  forceChatboxAIFallback?: boolean
-}
-
 function shouldFallbackToChatboxAI(options: LocalParserFallbackOptions): boolean {
-  return (
-    Boolean(options.forceChatboxAIFallback) || (options.allowChatboxAIFallback !== false && canFallbackToChatboxAI())
-  )
+  return isChatboxAIFallbackAllowed(options) && canFallbackToChatboxAI()
 }
 
 async function parseFileWithLocalFallback(
@@ -391,6 +408,9 @@ async function parseFileWithLocalFallback(
       if (shouldFallbackToChatboxAI(options)) {
         return await fallbackToChatboxAIParser(file, 'empty_content')
       }
+      if (isChatboxAIFallbackAllowed(options)) {
+        requireChatboxAIParserLicense()
+      }
       throw new FilePreprocessFailure(
         EMPTY_ATTACHMENT_CONTENT_ERROR,
         'local_parse',
@@ -402,6 +422,10 @@ async function parseFileWithLocalFallback(
     log.error(`Local parsing failed for "${file.name}":`, error)
 
     if (error instanceof FilePreprocessFailure) {
+      throw error
+    }
+
+    if (error instanceof Error && error.message === CHATBOX_AI_PARSER_LICENSE_KEY_REQUIRED_ERROR) {
       throw error
     }
 
@@ -420,6 +444,10 @@ async function parseFileWithLocalFallback(
       return await fallbackToChatboxAIParser(file, 'local_parser_failed')
     }
 
+    if (isChatboxAIFallbackAllowed(options)) {
+      requireChatboxAIParserLicense()
+    }
+
     if (errorCode === 'local_parser_failed') {
       throw error
     }
@@ -432,7 +460,10 @@ async function parseFileWithLocalFallback(
  */
 async function parseFileWithChatboxAI(file: File): Promise<ParsedAttachmentContent> {
   const licenseKey = settingActions.getLicenseKey()
-  const uploadedKey = await remote.uploadAndCreateUserFile(licenseKey || '', file)
+  if (!licenseKey) {
+    requireChatboxAIParserLicense()
+  }
+  const uploadedKey = await remote.uploadAndCreateUserFile(licenseKey, file)
 
   // Get uploaded file content
   const content = (await storage.getBlob(uploadedKey).catch(() => '')) || ''

@@ -1,5 +1,6 @@
 import NiceModal from '@ebay/nice-modal-react'
 import { Typography } from '@mui/material'
+import { CHATBOX_AI_PARSER_LICENSE_KEY_REQUIRED_ERROR } from '@shared/file-parse-errors'
 import { ChatboxAIAPIError } from '@shared/models/errors'
 import type { SessionAttachmentIndexingStage } from '@shared/types'
 import { IconPlayerPlay } from '@tabler/icons-react'
@@ -71,6 +72,12 @@ function getErrorStatusLabel(errorCode: string | undefined, t: (key: string) => 
   }
   if (isSessionAttachmentRagIndexingError(errorCode)) {
     return t('Indexing failed')
+  }
+  if (errorCode === CHATBOX_AI_PARSER_LICENSE_KEY_REQUIRED_ERROR) {
+    return t('Sign in needed')
+  }
+  if (errorCode === 'license_key_required') {
+    return t('License needed')
   }
   return t('Processing failed')
 }
@@ -160,6 +167,29 @@ export function FileMiniCard(props: {
       : (statusText ?? (status === 'completed' ? parserLabel : undefined))
   const clampedProgressValue =
     typeof progressValue === 'number' ? Math.max(0, Math.min(100, Math.round(progressValue))) : undefined
+  const statusTextContent = displayedStatusText ? (
+    <Typography
+      component="span"
+      className={
+        status === 'error'
+          ? 'min-w-0 text-red-500 text-center'
+          : isTakingLong
+            ? 'min-w-0 text-amber-600 text-center'
+            : 'min-w-0 text-gray-500 text-center'
+      }
+      sx={{
+        fontSize: '11px',
+        lineHeight: 1.15,
+        whiteSpace: 'pre-line',
+        overflow: 'hidden',
+        display: '-webkit-box',
+        WebkitBoxOrient: 'vertical',
+        WebkitLineClamp: 2,
+      }}
+    >
+      {displayedStatusText}
+    </Typography>
+  ) : null
 
   return (
     <div
@@ -186,26 +216,21 @@ export function FileMiniCard(props: {
           {displayedStatusText && (
             <div className="mt-1 flex items-center justify-center gap-1 w-full min-w-0">
               {status === 'processing' && <Loader2 size="12" className="animate-spin text-blue-500 shrink-0" />}
-              <Typography
-                className={
-                  status === 'error'
-                    ? 'min-w-0 text-red-500 text-center'
-                    : isTakingLong
-                      ? 'min-w-0 text-amber-600 text-center'
-                      : 'min-w-0 text-gray-500 text-center'
-                }
-                sx={{
-                  fontSize: '11px',
-                  lineHeight: 1.15,
-                  whiteSpace: 'pre-line',
-                  overflow: 'hidden',
-                  display: '-webkit-box',
-                  WebkitBoxOrient: 'vertical',
-                  WebkitLineClamp: 2,
-                }}
-              >
-                {displayedStatusText}
-              </Typography>
+              {status === 'error' && onErrorClick ? (
+                <button
+                  type="button"
+                  aria-label={`${name}: ${displayedStatusText}`}
+                  className="min-w-0 cursor-pointer border-0 bg-transparent p-0"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onErrorClick()
+                  }}
+                >
+                  {statusTextContent}
+                </button>
+              ) : (
+                statusTextContent
+              )}
               {status === 'error' && recoveryAction && onRecover && (
                 <MiniButton
                   className="flex-none !w-5 !h-5 !p-0.5 text-blue-600 hover:text-blue-700"
