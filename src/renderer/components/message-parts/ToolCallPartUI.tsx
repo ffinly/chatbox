@@ -86,6 +86,9 @@ const log = getLogger('tool-call-part-ui')
 const TOOL_ERROR_PREVIEW_LENGTH = 1_200
 const TOOL_PAYLOAD_PREVIEW_LENGTH = 8_000
 const APPROVAL_PAYLOAD_MAX_HEIGHT = 'min(240px, 35vh)'
+const WRAPPABLE_TEXT_STYLE = { overflowWrap: 'anywhere' } as const
+const PREFORMATTED_OVERFLOW_STYLE = { whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' } as const
+const PRELINE_OVERFLOW_STYLE = { whiteSpace: 'pre-line', lineHeight: 1.5, overflowWrap: 'anywhere' } as const
 const GIT_BASH_DOWNLOAD_URL = 'https://git-scm.com/downloads/win'
 const WSL_INSTALL_URL = 'https://learn.microsoft.com/windows/wsl/install'
 
@@ -171,7 +174,7 @@ const ToolCallErrorDetails: FC<{ part: MessageToolCallPart }> = ({ part }) => {
     )
   }
   return (
-    <Text size="sm" c="chatbox-error">
+    <Text size="sm" c="chatbox-error" style={WRAPPABLE_TEXT_STYLE}>
       {errorText || t('Tool call failed')}
     </Text>
   )
@@ -378,6 +381,8 @@ const getSafeExternalHref = (raw: string): string | null => {
   }
 }
 
+const SEARCH_RESULT_CARD_WIDTH = 164
+
 const SearchResultCard: FC<{ index: number; result: SearchResultItem }> = ({ index, result }) => {
   const href = getSafeExternalHref(result.link)
 
@@ -386,19 +391,30 @@ const SearchResultCard: FC<{ index: number; result: SearchResultItem }> = ({ ind
       radius="md"
       p={8}
       bg="var(--chatbox-background-gray-secondary)"
-      w={164}
+      w={SEARCH_RESULT_CARD_WIDTH}
+      maw={SEARCH_RESULT_CARD_WIDTH}
       className="shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
       title={result.title}
+      style={{ minWidth: 0, overflow: 'hidden' }}
     >
-      <Group gap={4} wrap="nowrap" align="flex-start">
+      <Group gap={4} wrap="nowrap" align="flex-start" style={{ minWidth: 0 }}>
         <Text size="xs" fw={600} className="shrink-0" m={0} lh={1.35}>
           {index + 1}.
         </Text>
-        <Text size="xs" truncate="end" m={0} lh={1.35}>
+        <Text size="xs" truncate="end" m={0} lh={1.35} style={{ minWidth: 0 }}>
           {result.title}
         </Text>
       </Group>
-      <Text size="10px" truncate="end" c="chatbox-tertiary" m={0} mt={4} lh={1.25}>
+      <Text
+        size="10px"
+        truncate="end"
+        c="chatbox-tertiary"
+        m={0}
+        mt={4}
+        lh={1.25}
+        title={result.link}
+        style={{ minWidth: 0 }}
+      >
         {result.link}
       </Text>
     </Paper>
@@ -409,11 +425,27 @@ const SearchResultCard: FC<{ index: number; result: SearchResultItem }> = ({ ind
   }
 
   return (
-    <Box component="a" href={href} target="_blank" rel="noopener noreferrer" className="no-underline">
+    <Box
+      component="a"
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="no-underline"
+      maw={SEARCH_RESULT_CARD_WIDTH}
+      style={{ minWidth: 0, flexShrink: 0 }}
+    >
       {content}
     </Box>
   )
 }
+
+const SearchResultList: FC<{ results: SearchResultItem[] }> = ({ results }) => (
+  <div className="flex min-w-0 max-w-full gap-2 overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
+    {results.map((result, index) => (
+      <SearchResultCard key={`${index}-${result.link}`} index={index} result={result} />
+    ))}
+  </div>
+)
 
 function extractSearchQueries(parts: MessageToolCallPart[]): string[] {
   const queries: string[] = []
@@ -450,7 +482,7 @@ export const WebSearchGroupUI: FC<{ parts: MessageToolCallPart[] }> = ({ parts }
   const border = isFailState ? 'none' : expanded ? '1px solid var(--chatbox-border-brand)' : 'none'
 
   return (
-    <Stack gap={4} mb={4}>
+    <Stack gap={4} mb={4} style={{ minWidth: 0, maxWidth: '100%' }}>
       <UnstyledButton
         onClick={resultCount > 0 || queries.length > 0 || hasError ? () => setExpanded((prev) => !prev) : undefined}
       >
@@ -498,21 +530,22 @@ export const WebSearchGroupUI: FC<{ parts: MessageToolCallPart[] }> = ({ parts }
         </Group>
       </UnstyledButton>
       {expanded && queries.length > 0 && (
-        <Group gap={4} ml={4}>
+        <Group gap={4} ml={4} wrap="wrap" style={{ minWidth: 0 }}>
           {queries.map((query, index) => (
-            <Text key={`${index}-${query}`} size="xs" c="chatbox-tertiary" fs="italic" lh={1.4}>
+            <Text
+              key={`${index}-${query}`}
+              size="xs"
+              c="chatbox-tertiary"
+              fs="italic"
+              lh={1.4}
+              style={{ overflowWrap: 'anywhere' }}
+            >
               "{query}"{index < queries.length - 1 && ','}
             </Text>
           ))}
         </Group>
       )}
-      {expanded && allResults.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
-          {allResults.map((result, index) => (
-            <SearchResultCard key={`${index}-${result.link}`} index={index} result={result} />
-          ))}
-        </div>
-      )}
+      {expanded && allResults.length > 0 && <SearchResultList results={allResults} />}
       {expanded && errorPart && (
         <Box ml={4} pl="sm" style={{ borderLeft: '1px solid var(--chatbox-tint-error)' }}>
           <ToolCallErrorDetails part={errorPart} />
@@ -591,18 +624,21 @@ const ParseLinkUI: FC<{ part: MessageToolCallPart }> = ({ part }) => {
             borderLeft: `1px solid ${isError ? 'var(--chatbox-tint-error)' : 'var(--chatbox-tint-placeholder)'}`,
             maxHeight: 400,
             overflowY: 'auto',
+            overflowX: 'hidden',
             marginLeft: 7,
+            minWidth: 0,
+            maxWidth: '100%',
           }}
         >
           {url && (
-            <Text size="xs" c="chatbox-tertiary" mb={4}>
+            <Text size="xs" c="chatbox-tertiary" mb={4} style={WRAPPABLE_TEXT_STYLE}>
               {url}
             </Text>
           )}
           {isError ? (
             <ToolCallErrorDetails part={part} />
           ) : (
-            <Text size="sm" c="chatbox-tertiary" style={{ whiteSpace: 'pre-line', lineHeight: 1.5 }}>
+            <Text size="sm" c="chatbox-tertiary" style={PRELINE_OVERFLOW_STYLE}>
               {content}
             </Text>
           )}
@@ -621,7 +657,7 @@ const ParseLinkDetails: FC<{ part: MessageToolCallPart }> = ({ part }) => {
   return (
     <Stack gap={6}>
       {url && (
-        <Text size="xs" c="chatbox-tertiary">
+        <Text size="xs" c="chatbox-tertiary" style={WRAPPABLE_TEXT_STYLE}>
           {url}
         </Text>
       )}
@@ -629,7 +665,7 @@ const ParseLinkDetails: FC<{ part: MessageToolCallPart }> = ({ part }) => {
         <ToolCallErrorDetails part={part} />
       ) : (
         content && (
-          <Text size="sm" c="chatbox-tertiary" style={{ whiteSpace: 'pre-line', lineHeight: 1.5 }}>
+          <Text size="sm" c="chatbox-tertiary" style={PRELINE_OVERFLOW_STYLE}>
             {content}
           </Text>
         )
@@ -654,6 +690,8 @@ const GeneralToolCallUI: FC<{ part: MessageToolCallPart }> = ({ part }) => {
           pl="sm"
           style={{
             borderLeft: `2px solid ${isError ? 'var(--chatbox-tint-error)' : 'var(--chatbox-tint-success)'}`,
+            minWidth: 0,
+            maxWidth: '100%',
           }}
         >
           <GeneralToolCallDetails part={part} />
@@ -669,12 +707,14 @@ const GeneralToolCallDetails: FC<{ part: MessageToolCallPart }> = ({ part }) => 
   const isBashNotAvailable = isBashNotAvailableResult(part)
 
   return (
-    <Stack gap="xs">
+    <Stack gap="xs" style={{ minWidth: 0, maxWidth: '100%' }}>
       <Box>
         <Text size="xs" c="chatbox-tertiary" fw={500} mb={2}>
           {t('Arguments')}
         </Text>
-        <Code block>{stringifyToolPayload(part.args)}</Code>
+        <Code block style={PREFORMATTED_OVERFLOW_STYLE}>
+          {stringifyToolPayload(part.args)}
+        </Code>
       </Box>
       {isError ? (
         <Box>
@@ -691,7 +731,9 @@ const GeneralToolCallDetails: FC<{ part: MessageToolCallPart }> = ({ part }) => 
             <Text size="xs" c="chatbox-tertiary" fw={500} mb={2}>
               {t('Result')}
             </Text>
-            <Code block>{stringifyToolPayload(part.result)}</Code>
+            <Code block style={PREFORMATTED_OVERFLOW_STYLE}>
+              {stringifyToolPayload(part.result)}
+            </Code>
           </Box>
         )
       )}
@@ -1060,13 +1102,13 @@ const CommandExecutionDetails: FC<{ part: MessageToolCallPart }> = ({ part }) =>
   const hasFinished = part.state === 'result' || part.state === 'error'
 
   return (
-    <Stack gap="xs">
+    <Stack gap="xs" style={{ minWidth: 0, maxWidth: '100%' }}>
       {command && (
         <Box>
           <Text size="xs" c="chatbox-tertiary" fw={500} mb={2}>
             {t('Command')}
           </Text>
-          <Code block style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+          <Code block style={PREFORMATTED_OVERFLOW_STYLE}>
             {command}
           </Code>
         </Box>
@@ -1076,7 +1118,7 @@ const CommandExecutionDetails: FC<{ part: MessageToolCallPart }> = ({ part }) =>
           <Text size="xs" c="chatbox-tertiary" fw={500} mb={2}>
             stdout
           </Text>
-          <Code block style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+          <Code block style={PREFORMATTED_OVERFLOW_STYLE}>
             {stdout || '—'}
           </Code>
         </Box>
@@ -1086,7 +1128,7 @@ const CommandExecutionDetails: FC<{ part: MessageToolCallPart }> = ({ part }) =>
           <Text size="xs" c="chatbox-tertiary" fw={500} mb={2}>
             stderr
           </Text>
-          <Code block style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+          <Code block style={PREFORMATTED_OVERFLOW_STYLE}>
             {stderr}
           </Code>
         </Box>
@@ -1163,6 +1205,8 @@ const UserExecUI: FC<{ part: MessageToolCallPart }> = ({ part }) => {
           pl="sm"
           style={{
             borderLeft: `2px solid ${isError || isDenied ? 'var(--chatbox-tint-error)' : 'var(--chatbox-tint-success)'}`,
+            minWidth: 0,
+            maxWidth: '100%',
           }}
         >
           <CommandExecutionDetails part={part} />
@@ -1291,11 +1335,13 @@ const PausedToolCallDetails: FC<{ part: MessageToolCallPart }> = ({ part }) => {
       </Text>
       {payload && (
         <Box style={{ maxHeight: APPROVAL_PAYLOAD_MAX_HEIGHT, overflow: 'auto' }}>
-          <Code block>{payload}</Code>
+          <Code block style={PREFORMATTED_OVERFLOW_STYLE}>
+            {payload}
+          </Code>
         </Box>
       )}
       {pauseReason?.type === 'user_exec_approval' && pauseReason.explanation && (
-        <Text size="xs" c="chatbox-secondary" style={{ whiteSpace: 'pre-wrap' }}>
+        <Text size="xs" c="chatbox-secondary" style={PREFORMATTED_OVERFLOW_STYLE}>
           {pauseReason.explanation}
         </Text>
       )}
@@ -1318,22 +1364,25 @@ const WebSearchDetails: FC<{ part: MessageToolCallPart }> = ({ part }) => {
   const results = extractSearchResults(part)
   const queries = extractSearchQueries([part])
   return (
-    <Stack gap={6}>
+    <Stack gap={6} style={{ minWidth: 0, maxWidth: '100%' }}>
       {queries.length > 0 && (
-        <Group gap={6}>
+        <Group gap={6} wrap="wrap" style={{ minWidth: 0 }}>
           {queries.map((query, index) => (
-            <Text key={`${index}-${query}`} size="xs" c="chatbox-tertiary" fs="italic" lh={1.4}>
+            <Text
+              key={`${index}-${query}`}
+              size="xs"
+              c="chatbox-tertiary"
+              fs="italic"
+              lh={1.4}
+              style={{ overflowWrap: 'anywhere' }}
+            >
               "{query}"
             </Text>
           ))}
         </Group>
       )}
       {results.length > 0 ? (
-        <div className="flex gap-2 overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
-          {results.map((result, index) => (
-            <SearchResultCard key={`${index}-${result.link}`} index={index} result={result} />
-          ))}
-        </div>
+        <SearchResultList results={results} />
       ) : (
         <Text size="sm" c="chatbox-tertiary">
           {t('Search unsuccessful')}
@@ -1708,6 +1757,9 @@ const TimelineToolCallStepContent: FC<TimelineToolCallStepProps & { commandResul
             color: 'var(--chatbox-tint-secondary)',
             // Amber accent marks "decision needed" apart from routine tool details.
             borderLeft: isApprovalPaused ? '3px solid var(--chatbox-tint-warning)' : undefined,
+            minWidth: 0,
+            maxWidth: '100%',
+            overflow: 'hidden',
           }}
         >
           <TimelineToolCallDetail part={part} />
@@ -1875,7 +1927,7 @@ const TimelineReasoningStep: FC<{
             overflowY: 'auto',
           }}
         >
-          <Text size="sm" c="chatbox-tertiary" style={{ whiteSpace: 'pre-line', lineHeight: 1.5 }}>
+          <Text size="sm" c="chatbox-tertiary" style={PRELINE_OVERFLOW_STYLE}>
             {reasoningContent}
           </Text>
         </Box>
@@ -1895,8 +1947,8 @@ export const StepTimelineUI: FC<
   } & ToolCallActionContext
 > = ({ parts, message, sessionId, messageId, onCopyReasoningContent, renderText }) => {
   return (
-    <Box pos="relative" my={8} mb={12}>
-      <Stack gap={TIMELINE_STACK_GAP}>
+    <Box pos="relative" my={8} mb={12} style={{ minWidth: 0, maxWidth: '100%' }}>
+      <Stack gap={TIMELINE_STACK_GAP} style={{ minWidth: 0 }}>
         {parts.map((part, index) => {
           const isFirst = index === 0
           const isLast = index === parts.length - 1
@@ -1918,7 +1970,7 @@ export const StepTimelineUI: FC<
                 {renderText ? (
                   renderText(part, index)
                 ) : (
-                  <Text size="sm" style={{ whiteSpace: 'pre-line' }}>
+                  <Text size="sm" style={PRELINE_OVERFLOW_STYLE}>
                     {part.text}
                   </Text>
                 )}

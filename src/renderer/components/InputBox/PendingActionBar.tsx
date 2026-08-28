@@ -102,7 +102,7 @@ const PayloadBlock: FC<{ children: string; mono?: boolean }> = ({ children, mono
 )
 
 const MutedText: FC<{ children: string }> = ({ children }) => (
-  <Text size="xs" c="chatbox-tertiary" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.55 }}>
+  <Text size="xs" c="chatbox-tertiary" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.55, overflowWrap: 'anywhere' }}>
     {children}
   </Text>
 )
