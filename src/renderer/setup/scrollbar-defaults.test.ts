@@ -37,4 +37,10 @@ describe('global scrollbar defaults', () => {
     expect(globalStyles).toContain('.katex-display::-webkit-scrollbar')
     expect(globalStyles).toContain('.scrollbar-custom::-webkit-scrollbar')
   })
+
+  test('keeps display math wide enough for equation tags', () => {
+    const globalStyles = readRendererSource('static/globals.css')
+
+    expect(globalStyles).toMatch(/\.katex-display\s*>\s*\.katex\s*\{[^}]*min-width:\s*100%;/s)
+  })
 })

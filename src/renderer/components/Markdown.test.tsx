@@ -228,6 +228,24 @@ describe('Markdown images', () => {
   })
 })
 
+describe('Markdown LaTeX equation tags', () => {
+  it('renders \\tag as a display-math equation number', () => {
+    render(
+      <Markdown>
+        {`$$
+s+\\sum_{j=1}^{k}R_j\\le \\ell_k.
+\\tag{1}
+$$`}
+      </Markdown>
+    )
+
+    const displayMath = document.querySelector('.katex-display')
+    const tag = displayMath?.querySelector('.tag')
+    expect(displayMath).not.toBeNull()
+    expect(tag?.textContent).toContain('(1)')
+  })
+})
+
 describe('Markdown sandbox file links', () => {
   it('renders hallucinated sandbox links as a file chip instead of a dead anchor', () => {
     render(<Markdown sessionId="session-1">{'[**Download plot.py**](sandbox:/mnt/data/plot.py)'}</Markdown>)

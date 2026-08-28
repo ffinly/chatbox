@@ -252,9 +252,9 @@
 }
 
 .katex-display > .katex {
-  /* width: auto; */
-  /* max-width: 100%; */
   display: inline-block;
+  /* Keep the box at least as wide as the line so \tag stays on the right. */
+  min-width: 100%;
 }
 
 /* Hide scrollbar for inline math */
