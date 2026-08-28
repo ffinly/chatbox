@@ -44,7 +44,7 @@ export const MODEL_BRAND_PATTERNS: ReadonlyArray<readonly [RegExp, ModelBrand]> 
   [/doubao|ep-202/i, 'doubao'],
   [/baichuan/i, 'baichuan'],
   [/yi-/i, 'yi'],
-  [/hunyuan/i, 'hunyuan'],
+  [/hunyuan|(?:^|[/:_.-])hy4(?:$|[/:_.-])/i, 'hunyuan'],
   [/minimax|abab/i, 'minimax'],
   [/step-/i, 'stepfun'],
   [/cohere|command-r/i, 'cohere'],
