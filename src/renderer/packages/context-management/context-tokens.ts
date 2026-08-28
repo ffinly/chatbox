@@ -3,6 +3,7 @@ import type { CompactionPoint, Message, Session, Settings } from '@shared/types'
 import { useEffect, useMemo, useRef } from 'react'
 import { getTokenizerType } from '@/packages/token-estimation'
 import { useTokenEstimation } from '@/packages/token-estimation/hooks/useTokenEstimation'
+import type { ExactDraftTokens } from '@/packages/token-estimation/types'
 import queryClient from '@/stores/queryClient'
 import { selectMessagesForSendContext } from './attachment-payload'
 import { buildContextForSession } from './context-builder'
@@ -35,7 +36,15 @@ export interface UseContextTokensResult {
   currentInputTokens: number
   totalTokens: number
   isCalculating: boolean
+  isDraftCalculating: boolean
+  isCurrentInputApproximate: boolean
+  isTotalApproximate: boolean
+  isContextApproximate: boolean
+  isContextCalculating: boolean
   pendingTasks: number
+  pendingContextMessages: number
+  /** Exact worker count for the current draft, for seeding the outgoing message at submit. */
+  exactDraftTokens: ExactDraftTokens | null
 }
 
 /**
@@ -191,8 +200,7 @@ export function useStableEligibleMessages(messages: Message[] | undefined): Mess
  * Does NOT cache:
  * - currentInputTokens (changes with constructedMessage)
  * - totalTokens (derived from currentInputTokens + contextTokens)
- * - isCalculating (real-time queue status)
- * - pendingTasks (real-time queue status)
+ * - calculation and progress status (real-time draft and context work)
  */
 export function useContextTokens(options: UseContextTokensOptions): UseContextTokensResult {
   const { sessionId, session, settings, model, modelSupportToolUseForFile, sandboxMode, constructedMessage } = options
@@ -231,7 +239,7 @@ export function useContextTokens(options: UseContextTokensOptions): UseContextTo
     sandboxMode,
   })
 
-  const isCalculating = tokenResult.isCalculating
+  const isContextCalculating = tokenResult.isContextCalculating
 
   // 5. Read existing cache value (for recalculation consistency)
   const existingCacheValue = useMemo(() => {
@@ -241,13 +249,13 @@ export function useContextTokens(options: UseContextTokensOptions): UseContextTo
 
   // 6. New cache value (only when calculation complete)
   const newCacheValue = useMemo<ContextTokensCacheValue | null>(() => {
-    if (!cacheKey || isCalculating) return null
+    if (!cacheKey || isContextCalculating) return null
     return {
       contextTokens: tokenResult.contextTokens,
       messageCount: contextMessages.length,
       timestamp: Date.now(),
     }
-  }, [cacheKey, isCalculating, tokenResult.contextTokens, contextMessages.length])
+  }, [cacheKey, isContextCalculating, tokenResult.contextTokens, contextMessages.length])
 
   // 7. Write to cache when calculation completes
   useEffect(() => {
@@ -262,6 +270,13 @@ export function useContextTokens(options: UseContextTokensOptions): UseContextTo
     currentInputTokens: tokenResult.currentInputTokens,
     totalTokens: tokenResult.totalTokens,
     isCalculating: tokenResult.isCalculating,
+    isDraftCalculating: tokenResult.isDraftCalculating,
+    isCurrentInputApproximate: tokenResult.isCurrentInputApproximate,
+    isTotalApproximate: tokenResult.isTotalApproximate,
+    isContextApproximate: tokenResult.isContextApproximate,
+    isContextCalculating: tokenResult.isContextCalculating,
     pendingTasks: tokenResult.pendingTasks,
+    pendingContextMessages: tokenResult.pendingContextMessages,
+    exactDraftTokens: tokenResult.exactDraftTokens,
   }
 }

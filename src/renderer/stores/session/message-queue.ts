@@ -471,10 +471,27 @@ export function updateQueuedMessageText(sessionId: string, itemId: string, text:
     sessionId,
     getQueue(sessionId).map((queued) => {
       if (queued.id !== itemId || queued.inFlight) return queued
-      const contentParts = queued.message.contentParts.some((part) => part.type === 'text')
+      const hasTextPart = queued.message.contentParts.some((part) => part.type === 'text')
+      if (hasTextPart && queued.message.contentParts.every((part) => part.type !== 'text' || part.text === text)) {
+        return queued
+      }
+      const contentParts = hasTextPart
         ? queued.message.contentParts.map((part) => (part.type === 'text' ? { ...part, text } : part))
         : [{ type: 'text' as const, text }, ...queued.message.contentParts]
-      return { ...queued, message: { ...queued.message, contentParts } }
+      // Token counts describe the previous text; both the send-path estimate
+      // and the analyzer's legacy-cache check would keep trusting them for
+      // the edited one, so delivery and steering must re-estimate.
+      return {
+        ...queued,
+        message: {
+          ...queued.message,
+          contentParts,
+          tokenCount: undefined,
+          tokenCountMap: undefined,
+          tokenCalculatedAt: undefined,
+          tokenCountApproximate: undefined,
+        },
+      }
     })
   )
 }

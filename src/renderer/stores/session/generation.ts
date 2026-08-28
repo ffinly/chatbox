@@ -16,7 +16,7 @@ import { guardSessionAction } from './action-guard'
 import { createAttachmentResolver } from './attachment-resolver'
 import { createNewFork, createSaveAndResendFork, findMessageLocation } from './forks'
 import { insertMessageAfter, modifyMessage } from './messages'
-import { getSessionSettings } from './session-settings'
+import { getSessionSettings, getSessionTokenModel } from './session-settings'
 import type { AgentModeEntrySource } from './types'
 
 /** Internal generation entry point for callers that already hold the session generation lock. */
@@ -165,9 +165,13 @@ export function saveAndResendMessage(
       id: uuidv4(),
       timestamp: Date.now(),
       wordCount: countMessageWords(editedMessage),
-      tokenCount: estimateTokensFromMessages([editedMessage]),
+      tokenCount: 0,
       tokenCountMap: undefined,
+      tokenCountApproximate: undefined,
     }
+    // Estimated with the map already cleared: the estimate trusts a carried
+    // entry, and the edited text invalidates whatever the original carried.
+    replacement.tokenCount = estimateTokensFromMessages([replacement], 'output', getSessionTokenModel(session))
     let forked: boolean
     try {
       forked = await createSaveAndResendFork(sessionId, editedMessage.id, replacement)

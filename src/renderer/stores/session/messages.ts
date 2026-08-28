@@ -4,13 +4,14 @@ import { getReachableSessionMessages } from '@chatbox/core/session/generation-st
 import { isExpectedGenerationError } from '@shared/models/error-classification'
 import { BaseError, ChatboxAIAPIError } from '@shared/models/errors'
 import { extractStreamErrorMessage } from '@shared/models/utils/stream-error-message'
-import { planAttachmentOwnershipTransfers } from '@shared/session-attachment-rag/ownership'
 import { supportsSessionGeneration } from '@shared/session/capabilities'
 import { findMessageLocation } from '@shared/session/message-forks'
+import { planAttachmentOwnershipTransfers } from '@shared/session-attachment-rag/ownership'
 import { createMessage, type Message } from '@shared/types'
 import { countMessageWords } from '@shared/utils/message'
 import { normalizeErrorForSentry } from '@shared/utils/sentry_policy'
 import { createModel } from '@/adapters'
+import { rendererApplication } from '@/app/renderer-application'
 import { getLogger } from '@/lib/utils'
 import { runCompactionWithUIState } from '@/packages/context-management'
 import { getModelDisplayName } from '@/packages/model-setting-utils'
@@ -18,12 +19,11 @@ import { estimateTokensFromMessages } from '@/packages/token'
 import platform from '@/platform'
 import { reportError } from '@/utils/sentry'
 import { SESSION_ATTACHMENT_RAG_LOG_PREFIX } from '../../../shared/session-attachment-rag/logging'
-import { rendererApplication } from '@/app/renderer-application'
-import { getSessionSettings } from './session-settings'
 import { ensureMessageFileSessionAttachment } from '../sessionAttachmentRagIndexing'
 import * as settingActions from '../settingActions'
 import { settingsStore } from '../settingsStore'
 import { guardSessionAction } from './action-guard'
+import { getSessionSettings, getSessionTokenModel } from './session-settings'
 import { getSessionWebBrowsing } from './utils'
 
 const log = getLogger('session-messages')
@@ -82,7 +82,9 @@ export async function insertMessage(sessionId: string, msg: Message) {
     return
   }
   msg.wordCount = countMessageWords(msg)
-  msg.tokenCount = estimateTokensFromMessages([msg])
+  // The session model addresses both the tokenizer and the draft worker's
+  // remembered exact count for a long draft being sent.
+  msg.tokenCount = estimateTokensFromMessages([msg], 'output', getSessionTokenModel(session))
   return await rendererApplication.sessions.insertMessage(session.id, msg)
 }
 
@@ -105,7 +107,7 @@ export async function insertMessageAfter(
     if (!options.requireAnchor) return
   }
   msg.wordCount = countMessageWords(msg)
-  msg.tokenCount = estimateTokensFromMessages([msg])
+  msg.tokenCount = estimateTokensFromMessages([msg], 'output', session ? getSessionTokenModel(session) : undefined)
 
   await rendererApplication.sessions.insertMessage(sessionId, msg, afterMsgId, options)
 }
@@ -128,8 +130,11 @@ export async function modifyMessage(
   }
   if (refreshCounting) {
     updated.wordCount = countMessageWords(updated)
-    updated.tokenCount = estimateTokensFromMessages([updated])
+    // Cleared first: the estimate below trusts a carried map entry, and the
+    // edited text invalidates whatever the message carried.
     updated.tokenCountMap = undefined
+    updated.tokenCountApproximate = undefined
+    updated.tokenCount = estimateTokensFromMessages([updated], 'output', getSessionTokenModel(session))
   }
 
   // 更新消息时间戳
@@ -163,8 +168,11 @@ export async function persistStreamingMessage(
 ): Promise<void> {
   if (options?.refreshCounting) {
     message.wordCount = countMessageWords(message)
-    message.tokenCount = estimateTokensFromMessages([message])
+    // Cleared first: the estimate below trusts a carried map entry, and the
+    // streamed text invalidates whatever the message carried.
     message.tokenCountMap = undefined
+    message.tokenCountApproximate = undefined
+    message.tokenCount = estimateTokensFromMessages([message])
   }
   message.timestamp = Date.now()
   await rendererApplication.sessions.updateMessage(sessionId, message.id, message)

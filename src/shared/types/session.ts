@@ -31,6 +31,20 @@ export const TokenCalculatedAtSchema = z
 
 export type TokenCalculatedAt = z.infer<typeof TokenCalculatedAtSchema>
 
+// Marks tokenizer entries whose count is a sampling fallback rather than an
+// exact encode (e.g. the tokenizer worker was unavailable). Absent for exact
+// entries and for historical data, which is always exact.
+export const TokenCountApproximateSchema = z
+  .object({
+    default: z.boolean().optional(),
+    deepseek: z.boolean().optional(),
+    default_preview: z.boolean().optional(),
+    deepseek_preview: z.boolean().optional(),
+  })
+  .optional()
+
+export type TokenCountApproximate = z.infer<typeof TokenCountApproximateSchema>
+
 // Search result schemas
 export const SearchResultItemSchema = z.object({
   title: z.string(),
@@ -376,6 +390,7 @@ export const MessageSchema = z.object({
   finishReason: z.string().optional(),
   tokenCountMap: TokenCountMapSchema.optional(), // estimate token count as input
   tokenCalculatedAt: TokenCalculatedAtSchema,
+  tokenCountApproximate: TokenCountApproximateSchema,
   updatedAt: z.number().optional(),
   isSummary: z.boolean().optional(), // Marks message as a compaction summary
   isForkMarker: z.boolean().optional(), // Marks a UI-only fork boundary message

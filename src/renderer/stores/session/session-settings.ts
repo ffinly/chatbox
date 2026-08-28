@@ -1,6 +1,7 @@
 import { type Session, type SessionSettings, SessionSettingsSchema } from '@shared/types'
 import { useMemo } from 'react'
 import { rendererApplication } from '@/app/renderer-application'
+import type { TokenModel } from '@/packages/token'
 import * as defaults from '../../../shared/defaults'
 import { settingsStore, useSettingsStore } from '../settingsStore'
 
@@ -42,4 +43,14 @@ export async function getSessionSettings(sessionId: string) {
     return SessionSettingsSchema.parse(globalSettings)
   }
   return mergeDefaultSessionSettings(session)
+}
+
+/**
+ * The session's chat model as a token-estimation model ref. This is the same
+ * resolution the InputBox feeds into useTokenEstimation, so counts cached
+ * against it (e.g. the draft worker's) stay addressable from non-React code.
+ */
+export function getSessionTokenModel(session: Session): TokenModel | undefined {
+  const { provider, modelId } = mergeDefaultSessionSettings(session)
+  return provider && modelId ? { provider, modelId } : undefined
 }

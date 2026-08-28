@@ -7,11 +7,15 @@
 
 import { estimateMessageToolCallTokens } from '@shared/context/tool-tokens'
 import type { Message, MessageFile, MessageLink } from '@shared/types/session'
-import { getMessageText } from '@shared/utils/message'
 import { MAX_INLINE_FILE_LINES } from '@/packages/context-management/attachment-payload'
 import { getTokenCacheKey, isAttachmentCacheValid, isMessageTextCacheValid } from './cache-keys'
 import { getPriority } from './computation-queue'
-import { estimateTokens } from './tokenizer'
+import {
+  estimateDraftTokensImmediately,
+  getDraftTokenizationText,
+  getTokenizationTextDigest,
+} from './draft-tokenization'
+import { canRetryExactTokenization, getExactTokenizationFallbackCount } from './exact-retry'
 import type { ComputationTask, ContentMode, TokenBreakdown, TokenizerType } from './types'
 
 // ============================================================================
@@ -32,6 +36,12 @@ export interface AnalyzeTokenRequirementsOptions {
   modelSupportToolUseForFile: boolean
   /** Whether sandbox mode is active (files sent as metadata only) */
   sandboxMode?: boolean
+  /**
+   * Latest draft text token count from the caller (exact worker result or
+   * sampled estimate). Without it, long drafts fall back to a sampled
+   * estimate that is reported as settled.
+   */
+  currentInputTextTokens?: number
 }
 
 /**
@@ -59,6 +69,8 @@ export interface PartialAnalysisResult {
   breakdown: TokenBreakdown
   /** Tasks that need computation (without sessionId - caller must add it) */
   pendingTasks: Omit<ComputationTask, 'id' | 'createdAt' | 'sessionId'>[]
+  /** Whether any counted text token is a persisted sampling fallback rather than an exact encode */
+  hasApproximateText: boolean
 }
 
 /**
@@ -69,6 +81,8 @@ interface MessageTextAnalysisResult {
   tokens: number
   /** Whether calculation is needed */
   needsCalculation: boolean
+  /** The counted value is a persisted sampling fallback, not an exact encode */
+  approximate?: boolean
   /** Task to submit (if calculation needed) */
   task?: Omit<ComputationTask, 'id' | 'createdAt' | 'sessionId'>
 }
@@ -105,6 +119,7 @@ export function analyzeTokenRequirements(options: AnalyzeTokenRequirementsOption
     tokenizerType,
     modelSupportToolUseForFile,
     sandboxMode = false,
+    currentInputTextTokens,
   } = options
 
   const currentInput = analyzeCurrentInputTokens({
@@ -112,6 +127,7 @@ export function analyzeTokenRequirements(options: AnalyzeTokenRequirementsOption
     tokenizerType,
     modelSupportToolUseForFile,
     sandboxMode,
+    currentInputTextTokens,
   })
   const context = analyzeContextTokens({
     contextMessages,
@@ -134,17 +150,24 @@ export function analyzeTokenRequirements(options: AnalyzeTokenRequirementsOption
 
 /**
  * Analyze only the current input message (draft). Kept separate from context
- * analysis so callers can memoize the two independently: the draft is
- * tokenized synchronously (tiktoken), and must not be re-encoded every time
- * the context messages change.
+ * analysis so callers can memoize the two independently. The hook supplies
+ * the latest immediate or worker-computed count without coupling draft work
+ * to context message changes.
  */
 export function analyzeCurrentInputTokens(options: {
   constructedMessage: Message | undefined
   tokenizerType: TokenizerType
   modelSupportToolUseForFile: boolean
   sandboxMode?: boolean
+  currentInputTextTokens?: number
 }): PartialAnalysisResult {
-  const { constructedMessage, tokenizerType, modelSupportToolUseForFile, sandboxMode = false } = options
+  const {
+    constructedMessage,
+    tokenizerType,
+    modelSupportToolUseForFile,
+    sandboxMode = false,
+    currentInputTextTokens,
+  } = options
 
   const pendingTasks: Omit<ComputationTask, 'id' | 'createdAt' | 'sessionId'>[] = []
   let text = 0
@@ -152,7 +175,7 @@ export function analyzeCurrentInputTokens(options: {
   let toolCalls = 0
 
   if (constructedMessage) {
-    const textResult = analyzeMessageText(constructedMessage, tokenizerType, true, 0)
+    const textResult = analyzeMessageText(constructedMessage, tokenizerType, true, 0, currentInputTextTokens)
     text = textResult.tokens
     if (textResult.needsCalculation && textResult.task) {
       pendingTasks.push(textResult.task)
@@ -172,7 +195,9 @@ export function analyzeCurrentInputTokens(options: {
     toolCalls = estimateMessageToolCallTokens(constructedMessage)
   }
 
-  return { breakdown: { text, attachments, toolCalls }, pendingTasks }
+  // Draft approximation is tracked by the caller's own draft state, not the
+  // persisted marker, which only ever describes stored context messages.
+  return { breakdown: { text, attachments, toolCalls }, pendingTasks, hasApproximateText: false }
 }
 
 /**
@@ -190,6 +215,7 @@ export function analyzeContextTokens(options: {
   let text = 0
   let attachments = 0
   let toolCalls = 0
+  let hasApproximateText = false
 
   // Analyze context messages (reverse order so newest messages have higher priority)
   // contextMessages is ordered oldest to newest, but we want newest first for calculation
@@ -201,6 +227,9 @@ export function analyzeContextTokens(options: {
 
     const textResult = analyzeMessageText(msg, tokenizerType, false, priorityIndex)
     text += textResult.tokens
+    if (textResult.approximate) {
+      hasApproximateText = true
+    }
     if (textResult.needsCalculation && textResult.task) {
       pendingTasks.push(textResult.task)
     }
@@ -221,7 +250,7 @@ export function analyzeContextTokens(options: {
     toolCalls += estimateMessageToolCallTokens(msg)
   }
 
-  return { breakdown: { text, attachments, toolCalls }, pendingTasks }
+  return { breakdown: { text, attachments, toolCalls }, pendingTasks, hasApproximateText }
 }
 
 // ============================================================================
@@ -241,14 +270,12 @@ function analyzeMessageText(
   message: Message,
   tokenizerType: TokenizerType,
   isCurrentInput: boolean,
-  messageIndex: number
+  messageIndex: number,
+  currentInputTextTokens?: number
 ): MessageTextAnalysisResult {
-  // For current input (constructedMessage), calculate tokens inline.
-  // This message only exists in React state, not in the store,
-  // so async task execution would fail with "message not found".
   if (isCurrentInput) {
-    const text = getMessageText(message, true, true)
-    const tokens = estimateTokens(text, getTokenModel(tokenizerType))
+    const tokens =
+      currentInputTextTokens ?? estimateDraftTokensImmediately(getDraftTokenizationText(message), tokenizerType)
     return { tokens, needsCalculation: false }
   }
 
@@ -258,9 +285,33 @@ function analyzeMessageText(
   const cacheValid = isMessageTextCacheValid(cachedValue, calculatedAt, message.updatedAt)
 
   if (cacheValid) {
-    return { tokens: cachedValue ?? 0, needsCalculation: false }
+    if (message.tokenCountApproximate?.[tokenizerType] !== true) {
+      return { tokens: cachedValue ?? 0, needsCalculation: false }
+    }
+    // A persisted worker-failure fallback: count it as the best available
+    // value but keep it marked approximate. An exact encode is re-attempted
+    // only while the bounded per-run budget lasts (the next launch retries
+    // afresh), so a broken worker runtime cannot loop the queue forever.
+    const textDigest = getTokenizationTextDigest(getDraftTokenizationText(message))
+    if (!canRetryExactTokenization(message.id, tokenizerType, textDigest)) {
+      return { tokens: cachedValue ?? 0, needsCalculation: false, approximate: true }
+    }
+    return {
+      tokens: cachedValue ?? 0,
+      needsCalculation: true,
+      approximate: true,
+      task: {
+        type: 'message-text',
+        messageId: message.id,
+        tokenizerType,
+        textDigest,
+        retryAttempt: getExactTokenizationFallbackCount(message.id, tokenizerType, textDigest),
+        priority: getPriority(isCurrentInput, 'message-text', messageIndex),
+      },
+    }
   }
 
+  const textDigest = getTokenizationTextDigest(getDraftTokenizationText(message))
   return {
     tokens: 0,
     needsCalculation: true,
@@ -268,16 +319,11 @@ function analyzeMessageText(
       type: 'message-text',
       messageId: message.id,
       tokenizerType,
+      textDigest,
+      retryAttempt: getExactTokenizationFallbackCount(message.id, tokenizerType, textDigest),
       priority: getPriority(isCurrentInput, 'message-text', messageIndex),
     },
   }
-}
-
-function getTokenModel(tokenizerType: TokenizerType): { provider: string; modelId: string } | undefined {
-  if (tokenizerType === 'deepseek') {
-    return { provider: 'deepseek', modelId: 'deepseek-chat' }
-  }
-  return undefined
 }
 
 /**

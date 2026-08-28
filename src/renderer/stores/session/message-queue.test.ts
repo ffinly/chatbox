@@ -668,5 +668,57 @@ describe('message queue', () => {
       const first = messageQueueStore.getState().queues['session-1']?.[0]
       expect(first?.message.contentParts).toEqual([{ type: 'text', text: 'edited text' }])
     })
+
+    it('editing a queued item drops the counts computed for its previous text', async () => {
+      const seeded: Message = {
+        ...userMessage('m1', 'original long draft'),
+        tokenCount: 999,
+        tokenCountMap: { default: 424242 },
+        tokenCalculatedAt: { default: 123 },
+        tokenCountApproximate: { default: true },
+      }
+      enqueueUserMessage('session-1', seeded)
+      await flushMicrotasks()
+
+      updateQueuedMessageText('session-1', 'm1', 'edited text')
+
+      // Both consumers read this message object: ordinary delivery inserts it
+      // as-is, and a steer claim injects it mid-generation. Stale counts here
+      // would be trusted by the send path and the analyzer alike.
+      const delivered = messageQueueStore.getState().queues['session-1']?.[0]?.message
+      expect(delivered?.tokenCount).toBeUndefined()
+      expect(delivered?.tokenCountMap).toBeUndefined()
+      expect(delivered?.tokenCalculatedAt).toBeUndefined()
+      expect(delivered?.tokenCountApproximate).toBeUndefined()
+    })
+
+    it('a steer-claimed item edited in the queue carries no stale counts', async () => {
+      const seeded: Message = {
+        ...userMessage('m1', 'original long draft'),
+        tokenCountMap: { default: 424242 },
+      }
+      enqueueUserMessage('session-1', seeded)
+      await flushMicrotasks()
+
+      updateQueuedMessageText('session-1', 'm1', 'edited text')
+      expect(requestSteerQueuedMessage('session-1', 'm1')).toBe(true)
+
+      const claimed = takeRequestedSteerableMessage('session-1', acceptAll)
+      expect(claimed?.message.contentParts).toEqual([{ type: 'text', text: 'edited text' }])
+      expect(claimed?.message.tokenCountMap).toBeUndefined()
+    })
+
+    it('an edit that leaves the text unchanged keeps the carried counts', async () => {
+      const seeded: Message = {
+        ...userMessage('m1', 'same text'),
+        tokenCountMap: { default: 424242 },
+      }
+      enqueueUserMessage('session-1', seeded)
+      await flushMicrotasks()
+
+      updateQueuedMessageText('session-1', 'm1', 'same text')
+
+      expect(messageQueueStore.getState().queues['session-1']?.[0]?.message.tokenCountMap).toEqual({ default: 424242 })
+    })
   })
 })

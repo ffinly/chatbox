@@ -79,6 +79,7 @@ import {
 } from '@/packages/model-registry'
 import * as picUtils from '@/packages/pic_utils'
 import { skillsController, subscribeSkillsChanged } from '@/packages/skills/controller'
+import { seedExactDraftTokens } from '@/packages/token-estimation'
 import platform from '@/platform'
 import { StorageKeyGenerator } from '@/storage/StoreStorage'
 import * as atoms from '@/stores/atoms'
@@ -706,16 +707,27 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
     }, [modelSupportToolUseForFile, currentSession?.messages])
 
     // Calculate token counts using unified cache layer
-    const { contextTokens, currentInputTokens, totalTokens, isCalculating, pendingTasks, messageCount } =
-      useContextTokens({
-        sessionId: currentSessionId || null,
-        session: currentSession,
-        settings: currentSessionMergedSettings || {},
-        model,
-        modelSupportToolUseForFile,
-        sandboxMode,
-        constructedMessage: preConstructedMessage.message,
-      })
+    const {
+      contextTokens,
+      currentInputTokens,
+      totalTokens,
+      isCalculating,
+      isCurrentInputApproximate,
+      isTotalApproximate,
+      isContextApproximate,
+      isContextCalculating,
+      pendingContextMessages,
+      messageCount,
+      exactDraftTokens,
+    } = useContextTokens({
+      sessionId: currentSessionId || null,
+      session: currentSession,
+      settings: currentSessionMergedSettings || {},
+      model,
+      modelSupportToolUseForFile,
+      sandboxMode,
+      constructedMessage: preConstructedMessage.message,
+    })
 
     const globalAutoCompaction = useSettingsStore((state) => state.autoCompaction)
     const [isCompacting, setIsCompacting] = useState(false)
@@ -928,6 +940,10 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
           return
         }
 
+        // Hand the worker's exact draft count to the send path on the message
+        // itself; the projection check inside skips a draft edited since.
+        const outgoingMessage = seedExactDraftTokens(latestMessage, exactDraftTokens)
+
         const messageTextForHistory = latestMessage.contentParts.find((p) => p.type === 'text')?.text || ''
 
         const finalizeUserMessageDraft = () => {
@@ -969,7 +985,11 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
           // Queued delivery reads session settings later; a dirty reasoning-level
           // change must land before finalize clears its state (same as the send path).
           await waitForReasoningPersist()
-          const enqueueResult = enqueueUserMessage(currentSessionId, latestMessage, currentSession?.messages.at(-1)?.id)
+          const enqueueResult = enqueueUserMessage(
+            currentSessionId,
+            outgoingMessage,
+            currentSession?.messages.at(-1)?.id
+          )
           if (enqueueResult !== 'queued') {
             // The draft is kept in both failure cases — it is the only copy of the text.
             toastActions.add(enqueueResult === 'full' ? t('Message queue is full') : t('Failed to queue the message'))
@@ -984,7 +1004,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
         }
 
         const params = {
-          constructedMessage: latestMessage,
+          constructedMessage: outgoingMessage,
           needGenerating,
           settingsPatch: reasoningSettingsPatch,
           onUserMessageReady: finalizeUserMessageDraft,
@@ -1987,7 +2007,11 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                   contextTokens={contextTokens}
                   totalTokens={totalTokens}
                   isCalculating={isCalculating}
-                  pendingTasks={pendingTasks}
+                  isCurrentInputApproximate={isCurrentInputApproximate}
+                  isTotalApproximate={isTotalApproximate}
+                  isContextApproximate={isContextApproximate}
+                  isContextCalculating={isContextCalculating}
+                  pendingContextMessages={pendingContextMessages}
                   totalContextMessages={messageCount}
                   contextWindow={effectiveContextWindow ?? undefined}
                   currentMessageCount={currentContextMessageIds?.length ?? 0}
@@ -2008,7 +2032,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                     <ScalableIcon icon={IconArrowUp} size={14} />
                     {isCalculating && <Loader size={10} />}
                     <Text span size="xs" className="whitespace-nowrap" c="inherit">
-                      {isCalculating ? '~' : ''}
+                      {isTotalApproximate ? '~' : ''}
                       {formatNumber(totalTokens)}
                       {tokenPercentage !== null && tokenPercentage > 10 && ` (${tokenPercentage}%)`}
                     </Text>

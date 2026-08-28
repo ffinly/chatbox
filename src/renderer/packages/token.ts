@@ -8,6 +8,7 @@ import {
   buildAttachmentWrapperSuffix,
   MAX_INLINE_FILE_LINES,
 } from './context-management/attachment-payload'
+import { estimateDraftTokensImmediately, shouldTokenizeDraftOffMainThread } from './token-estimation/draft-tokenization'
 import {
   estimateDeepSeekTokens,
   estimateTokens,
@@ -42,6 +43,27 @@ export function getTokenCountForModel(
   return 0
 }
 
+/**
+ * Message text tokens. An exact per-tokenizer count already carried on the
+ * message — filled by the computation queue, or seeded at submit from the
+ * draft worker (`seedExactDraftTokens`) — is trusted over re-encoding. Without
+ * one, text long enough for the draft worker gets the bounded sampling
+ * estimate instead of a full encode: every caller here sits on the main
+ * thread, where encoding a very long unseeded submit is exactly the stall
+ * this pipeline exists to avoid. The computation queue later replaces the
+ * estimate with the worker's exact count. Write paths must clear
+ * `tokenCountMap` before re-estimating edited text.
+ */
+function estimateMessageTextTokens(msg: Message, type: 'output' | 'input', model?: TokenModel): number {
+  const carried = msg.tokenCountMap?.[getTokenCacheKey(model)]
+  if (carried) return carried
+  const text = getMessageText(msg, false, type === 'output')
+  if (shouldTokenizeDraftOffMainThread(text)) {
+    return estimateDraftTokensImmediately(text, getTokenizerType(model))
+  }
+  return estimateTokens(text, model)
+}
+
 // 参考: https://github.com/pkoukk/tiktoken-go#counting-tokens-for-chat-api-calls
 // OpenAI Cookbook: https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
 export function estimateTokensFromMessages(
@@ -61,7 +83,7 @@ export function estimateTokensFromMessages(
         continue
       }
       ret += tokensPerMessage
-      ret += estimateTokens(getMessageText(msg, false, type === 'output'), model)
+      ret += estimateMessageTextTokens(msg, type, model)
       ret += estimateTokens(msg.role, model)
       if (msg.name) {
         ret += estimateTokens(msg.name, model)
@@ -311,7 +333,7 @@ export function estimateTokensFromMessagesForSendPayload(
       }
 
       total += tokensPerMessage
-      total += estimateTokens(getMessageText(msg, false, type === 'output'), model)
+      total += estimateMessageTextTokens(msg, type, model)
       total += estimateTokens(msg.role, model)
 
       if (msg.name) {

@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getTokenizationTextDigest } from '../draft-tokenization'
+import { _resetExactTokenizationFallbacks, getExactTokenizationFallbackCount } from '../exact-retry'
 import { ResultPersister, resultPersister } from '../result-persister'
 import type { TaskResult } from '../types'
 
@@ -25,6 +27,9 @@ function createMessageTextResult(
     messageId: 'msg-1',
     tokenizerType: 'default',
     tokens: 100,
+    // The bare test messages carry no content parts, so their projection is ''.
+    textDigest: getTokenizationTextDigest(''),
+    approximate: false,
     calculatedAt: Date.now(),
     ...overrides,
   }
@@ -56,10 +61,12 @@ describe('ResultPersister', () => {
     persister = new ResultPersister()
     vi.clearAllMocks()
     vi.useFakeTimers()
+    _resetExactTokenizationFallbacks()
   })
 
   afterEach(() => {
     persister.cancel()
+    _resetExactTokenizationFallbacks()
     vi.useRealTimers()
   })
 
@@ -507,6 +514,95 @@ describe('ResultPersister', () => {
 
       const result = capturedUpdater?.(null)
       expect(result).toEqual([])
+    })
+
+    it('drops a result computed against text the message no longer holds', async () => {
+      let capturedUpdater: ((messages: unknown[]) => unknown[]) | undefined
+      updateMessagesMock.mockImplementation((async (_sessionId: string, updater: unknown) => {
+        if (typeof updater === 'function') {
+          capturedUpdater = updater as (messages: unknown[]) => unknown[]
+        }
+        return mockSession
+      }) as typeof updateMessagesMock)
+
+      // The encode ran against the original long text; the user edited the
+      // message while the result sat in the worker and this throttle window.
+      persister.addResult(
+        createMessageTextResult({
+          tokens: 80000,
+          textDigest: getTokenizationTextDigest('the original long text'),
+          approximate: true,
+          calculatedAt: 12345,
+        })
+      )
+      await persister.flushNow()
+
+      const messages = [{ id: 'msg-1', contentParts: [{ type: 'text', text: 'now something short' }] }]
+      const result = capturedUpdater?.(messages) as Array<{
+        tokenCountMap?: unknown
+        tokenCalculatedAt?: unknown
+      }>
+
+      expect(result?.[0]?.tokenCountMap).toBeUndefined()
+      expect(result?.[0]?.tokenCalculatedAt).toBeUndefined()
+      expect(
+        getExactTokenizationFallbackCount('msg-1', 'default', getTokenizationTextDigest('the original long text'))
+      ).toBe(0)
+    })
+
+    it('applies a result whose digest matches the current text', async () => {
+      let capturedUpdater: ((messages: unknown[]) => unknown[]) | undefined
+      updateMessagesMock.mockImplementation((async (_sessionId: string, updater: unknown) => {
+        if (typeof updater === 'function') {
+          capturedUpdater = updater as (messages: unknown[]) => unknown[]
+        }
+        return mockSession
+      }) as typeof updateMessagesMock)
+
+      persister.addResult(
+        createMessageTextResult({
+          tokens: 321,
+          textDigest: getTokenizationTextDigest('the current text'),
+          calculatedAt: 12345,
+        })
+      )
+      await persister.flushNow()
+
+      const messages = [{ id: 'msg-1', contentParts: [{ type: 'text', text: 'the current text' }] }]
+      const result = capturedUpdater?.(messages)
+
+      expect(result?.[0]).toMatchObject({
+        tokenCountMap: { default: 321 },
+        tokenCalculatedAt: { default: 12345 },
+      })
+    })
+
+    it('marks a fallback result approximate and clears the marker on an exact overwrite', async () => {
+      let capturedUpdater: ((messages: unknown[]) => unknown[]) | undefined
+      updateMessagesMock.mockImplementation((async (_sessionId: string, updater: unknown) => {
+        if (typeof updater === 'function') {
+          capturedUpdater = updater as (messages: unknown[]) => unknown[]
+        }
+        return mockSession
+      }) as typeof updateMessagesMock)
+
+      persister.addResult(createMessageTextResult({ tokens: 500, approximate: true }))
+      await persister.flushNow()
+
+      const approximated = capturedUpdater?.([{ id: 'msg-1' }]) as Array<{ tokenCountApproximate?: unknown }>
+      expect(approximated?.[0]?.tokenCountApproximate).toEqual({ default: true })
+      expect(getExactTokenizationFallbackCount('msg-1', 'default', getTokenizationTextDigest(''))).toBe(1)
+
+      persister.addResult(createMessageTextResult({ tokens: 480, approximate: false }))
+      await persister.flushNow()
+
+      const exact = capturedUpdater?.(approximated as unknown[]) as Array<{
+        tokenCountMap?: unknown
+        tokenCountApproximate?: unknown
+      }>
+      expect(exact?.[0]?.tokenCountMap).toMatchObject({ default: 480 })
+      expect(exact?.[0]?.tokenCountApproximate).toBeUndefined()
+      expect(getExactTokenizationFallbackCount('msg-1', 'default', getTokenizationTextDigest(''))).toBe(0)
     })
 
     it('leaves unmatched messages unchanged', async () => {

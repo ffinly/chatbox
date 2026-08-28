@@ -28,6 +28,7 @@ vi.mock('@/app/renderer-application', () => ({
 }))
 vi.mock('./session-settings', () => ({
   getSessionSettings: getSessionSettingsMock,
+  getSessionTokenModel: () => undefined,
 }))
 vi.mock('./attachment-resolver', () => ({ createAttachmentResolver: vi.fn() }))
 vi.mock('./forks', () => ({
