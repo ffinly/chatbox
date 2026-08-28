@@ -17,7 +17,6 @@ import {
   IconChevronRight,
   IconFileText,
   IconHome,
-  IconMail,
   IconMessage2,
   IconPencil,
   IconRefresh,
@@ -126,12 +125,6 @@ function RouteComponent() {
               icon={<IconFileText className="w-full h-full" />}
               title={t('Changelog')}
               link={`https://chatboxai.app/${language.split('-')[0] || 'en'}/help-center/changelog`}
-            />
-            <ListItem
-              icon={<IconMail className="w-full h-full" />}
-              title={t('E-mail')}
-              link={`mailto:hi@chatboxai.com`}
-              value="hi@chatboxai.com"
             />
             <ListItem
               icon={<IconMessage2 className="w-full h-full" />}
