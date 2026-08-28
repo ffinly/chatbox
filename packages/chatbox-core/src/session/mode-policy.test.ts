@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { Session } from '../types'
-import { hasConversationStarted, isActionAvailableInMode, resolveSessionMode } from './mode-policy'
+import {
+  hasConversationStarted,
+  isActionAvailableInMode,
+  isThreadHistoryAvailable,
+  resolveSessionMode,
+} from './mode-policy'
 
 describe('resolveSessionMode', () => {
   it('maps on to work and everything else to chat', () => {
@@ -33,6 +38,28 @@ describe('isActionAvailableInMode', () => {
       expect(isActionAvailableInMode(action, 'chat')).toBe(false)
       expect(isActionAvailableInMode(action, 'work')).toBe(true)
     }
+  })
+})
+
+describe('isThreadHistoryAvailable', () => {
+  it('keeps the empty history surface hidden in work mode', () => {
+    expect(isThreadHistoryAvailable({ threads: undefined }, 'work')).toBe(false)
+    expect(isThreadHistoryAvailable({ threads: [] }, 'work')).toBe(false)
+  })
+
+  it('shows stored thread boundaries in work mode', () => {
+    expect(
+      isThreadHistoryAvailable(
+        {
+          threads: [{ id: 't1', name: 'Earlier topic', createdAt: 1, messages: [] }],
+        },
+        'work'
+      )
+    ).toBe(true)
+  })
+
+  it('keeps thread history available in chat mode', () => {
+    expect(isThreadHistoryAvailable({ threads: undefined }, 'chat')).toBe(true)
   })
 })
 

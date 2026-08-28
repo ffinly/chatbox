@@ -1,5 +1,10 @@
 import { getSessionActionGate } from '@chatbox/core/session/action-gates'
-import { isActionAvailableInMode, resolveSessionMode } from '@chatbox/core/session/mode-policy'
+import {
+  isActionAvailableInMode,
+  isThreadHistoryAvailable,
+  resolveSessionMode,
+  type SessionMode,
+} from '@chatbox/core/session/mode-policy'
 import NiceModal from '@ebay/nice-modal-react'
 import { Button, Flex, Stack, Transition } from '@mantine/core'
 import { useThrottledCallback } from '@mantine/hooks'
@@ -444,7 +449,7 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
   // identity comes from the frozen Soul — so showing it would misrepresent what the
   // model receives, whatever the display setting says.
   const hideSystemPrompt = hideSystemPromptMessage || !isActionAvailableInMode('session-system-prompt', sessionMode)
-  const showThreadHistory = isActionAvailableInMode('thread-history', sessionMode)
+  const showThreadHistory = isThreadHistoryAvailable(currentSession, sessionMode)
 
   const renderMessageBlock = useCallback(
     (msg: SessionMessage, options: { isFirstItem: boolean; isLastItem: boolean }) => {
@@ -471,7 +476,7 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
       if (shouldHideSystemPrompt) {
         return (
           <Stack key={msg.id} gap={0}>
-            {thread && <ThreadLabel thread={thread} sessionId={currentSession.id} />}
+            {thread && <ThreadLabel thread={thread} sessionId={currentSession.id} sessionMode={sessionMode} />}
             {/* Virtuoso items must keep a measurable height so their canonical message indices
                 remain stable; the placeholder also carries the first/last paddings the hidden
                 message would have contributed, keeping the visible transcript's spacing. */}
@@ -488,7 +493,7 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
 
       return (
         <Stack key={msg.id} gap={0} pt={msg.role === 'user' ? 4 : 0}>
-          {thread && <ThreadLabel thread={thread} sessionId={currentSession.id} />}
+          {thread && <ThreadLabel thread={thread} sessionId={currentSession.id} sessionMode={sessionMode} />}
           <ErrorBoundary name={`message-item`}>
             {msg.isForkMarker ? (
               <ForkMarkerMessage
@@ -712,9 +717,10 @@ export default memo(MessageList)
 
 type ThreadLabelProps = {
   sessionId: string
+  sessionMode: SessionMode
   thread: SessionThreadBrief
 }
-const ThreadLabel: FC<ThreadLabelProps> = memo(({ thread, sessionId }) => {
+const ThreadLabel: FC<ThreadLabelProps> = memo(({ thread, sessionId, sessionMode }) => {
   const { t } = useTranslation()
   const setShowHistoryDrawer = useSetAtom(atoms.showThreadHistoryDrawerAtom)
 
@@ -757,23 +763,27 @@ const ThreadLabel: FC<ThreadLabelProps> = memo(({ thread, sessionId }) => {
             icon: IconListTree,
             onClick: handleOpenHistoryDrawer,
           },
-          {
-            text: t('Continue this thread'),
-            icon: IconSwitch3,
-            onClick: handleContinueThread,
-          },
-          {
-            text: t('Move to Conversations'),
-            icon: IconMessagePlus,
-            onClick: handleMoveToConversations,
-          },
-          { divider: true },
-          {
-            doubleCheck: true,
-            text: t('delete'),
-            icon: IconTrash,
-            onClick: handleDeleteThread,
-          },
+          ...(sessionMode === 'chat'
+            ? [
+                {
+                  text: t('Continue this thread'),
+                  icon: IconSwitch3,
+                  onClick: handleContinueThread,
+                },
+                {
+                  text: t('Move to Conversations'),
+                  icon: IconMessagePlus,
+                  onClick: handleMoveToConversations,
+                },
+                { divider: true as const },
+                {
+                  doubleCheck: true,
+                  text: t('delete'),
+                  icon: IconTrash,
+                  onClick: handleDeleteThread,
+                },
+              ]
+            : []),
         ]}
       >
         <span

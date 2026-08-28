@@ -1,7 +1,8 @@
-import { isActionAvailableInMode, resolveSessionMode } from '@chatbox/core/session/mode-policy'
+import { isThreadHistoryAvailable, resolveSessionMode } from '@chatbox/core/session/mode-policy'
 import NiceModal from '@ebay/nice-modal-react'
 import { ActionIcon, Button, Flex } from '@mantine/core'
 import { TestId } from '@shared/automation/testids'
+import type { Session } from '@shared/types'
 import {
   IconClearAll,
   IconCode,
@@ -36,8 +37,9 @@ import LayoutShrink from '../icons/LayoutShrink'
  * 顶部标题工具栏（右侧）
  * @returns
  */
-export default function Toolbar({ sessionId }: { sessionId: string }) {
+export default function Toolbar({ session }: { session: Session }) {
   const { t } = useTranslation()
+  const sessionId = session.id
   const isSmallScreen = useIsSmallScreen()
   const isLargeScreen = useIsLargeScreen()
 
@@ -46,7 +48,7 @@ export default function Toolbar({ sessionId }: { sessionId: string }) {
   const widthFull = useUIStore((s) => s.widthFull)
   const setWidthFull = useUIStore((s) => s.setWidthFull)
   const agentModeEntry = useSessionAgentMode(sessionId)
-  const showThreadHistory = isActionAvailableInMode('thread-history', resolveSessionMode(agentModeEntry.value))
+  const showThreadHistory = isThreadHistoryAvailable(session, resolveSessionMode(agentModeEntry.value))
 
   const handleExportAndSave = () => {
     NiceModal.show('export-chat')

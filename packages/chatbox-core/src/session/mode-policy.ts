@@ -71,6 +71,16 @@ export function isActionAvailableInMode(action: ModePolicyAction, mode: SessionM
 }
 
 /**
+ * Work Mode does not create or expose an empty Thread History surface.
+ * Sessions with archived threads keep their stored conversation boundaries
+ * visible so the transcript does not present separate topics as one
+ * continuous exchange.
+ */
+export function isThreadHistoryAvailable(session: Pick<Session, 'threads'>, mode: SessionMode): boolean {
+  return isActionAvailableInMode('thread-history', mode) || Boolean(session.threads?.length)
+}
+
+/**
  * Whether the session has left the "brand new chat" state that still allows
  * manual cross-mode switching. Threads are checked too: clearing context
  * archives the exchanged messages into a thread while `messages` resets.

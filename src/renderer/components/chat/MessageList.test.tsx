@@ -65,6 +65,7 @@ vi.mock('react-virtuoso', async () => {
 
 const messageRenderLog = vi.hoisted(() => [] as Array<{ id: string; readOnly?: boolean }>)
 const messageButtonGroupLog = vi.hoisted(() => [] as Array<{ id: string; buttonGroup?: string }>)
+const actionMenuItemsLog = vi.hoisted(() => [] as Array<Array<{ text?: string; divider?: boolean }>>)
 vi.mock('./Message', () => ({
   default: ({ msg, readOnly, buttonGroup }: { msg: Message; readOnly?: boolean; buttonGroup?: string }) => {
     messageRenderLog.push({ id: msg.id, readOnly })
@@ -99,7 +100,10 @@ vi.mock('./ForkGroup', () => ({
 }))
 
 vi.mock('../ActionMenu', () => ({
-  default: ({ children }: { children: ReactNode }) => <>{children}</>,
+  default: ({ children, items }: { children: ReactNode; items: Array<{ text?: string; divider?: boolean }> }) => {
+    actionMenuItemsLog.push(items)
+    return <>{children}</>
+  },
 }))
 
 vi.mock('../common/ErrorBoundary', () => ({
@@ -255,6 +259,7 @@ describe('MessageList new message layout', () => {
     isSmallScreenMock.value = false
     messageRenderLog.length = 0
     messageButtonGroupLog.length = 0
+    actionMenuItemsLog.length = 0
     virtuosoScrollToIndexMock.mockClear()
     Object.defineProperty(window, 'matchMedia', {
       configurable: true,
@@ -419,7 +424,7 @@ describe('MessageList new message layout', () => {
     ).toBe('2')
   })
 
-  test('hides thread labels in work mode', () => {
+  test('keeps stored thread labels visible without structural actions in work mode', () => {
     const session: Session = {
       id: 'session-1',
       type: 'chat',
@@ -451,10 +456,16 @@ describe('MessageList new message layout', () => {
       </MantineProvider>
     )
 
-    expect(container.textContent).not.toContain('Archived Thread')
-    expect(container.textContent).not.toContain('Current Thread')
+    expect(container.textContent).toContain('Archived Thread')
+    expect(container.textContent).toContain('Current Thread')
     expect(container.querySelector('[data-testid="message-archived-user"]')).not.toBeNull()
     expect(container.querySelector('[data-testid="message-current-user"]')).not.toBeNull()
+    const threadActions = actionMenuItemsLog.flat().flatMap((item) => (item.text ? [item.text] : []))
+    expect(threadActions).toContain('Edit Thread Name')
+    expect(threadActions).toContain('Show in Thread List')
+    expect(threadActions).not.toContain('Continue this thread')
+    expect(threadActions).not.toContain('Move to Conversations')
+    expect(threadActions).not.toContain('delete')
   })
 
   test('keeps fork switchers reachable when their system-message pivot is hidden', () => {

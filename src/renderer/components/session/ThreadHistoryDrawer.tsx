@@ -1,4 +1,4 @@
-import { isActionAvailableInMode, resolveSessionMode } from '@chatbox/core/session/mode-policy'
+import { isThreadHistoryAvailable, resolveSessionMode } from '@chatbox/core/session/mode-policy'
 import NiceModal from '@ebay/nice-modal-react'
 import { ActionIcon, Badge, Flex, ScrollArea, Text } from '@mantine/core'
 import SwipeableDrawer from '@mui/material/SwipeableDrawer'
@@ -24,7 +24,8 @@ export default function ThreadHistoryDrawer({ session }: { session: Session }) {
   const language = useLanguage()
   const [showDrawer, setShowDrawer] = useAtom(showThreadHistoryDrawerAtom)
   const agentModeEntry = useSessionAgentMode(session.id)
-  const showThreadHistory = isActionAvailableInMode('thread-history', resolveSessionMode(agentModeEntry.value))
+  const sessionMode = resolveSessionMode(agentModeEntry.value)
+  const showThreadHistory = isThreadHistoryAvailable(session, sessionMode)
 
   const currentMessageList = useMemo(() => getAllMessageList(session), [session])
 
@@ -57,8 +58,8 @@ export default function ThreadHistoryDrawer({ session }: { session: Session }) {
     [session.id, setShowDrawer]
   )
 
-  // Work mode has no Thread History; not rendering the drawer also removes
-  // entry paths that bypass the hidden menu items (iOS swipe-to-open).
+  // Do not mount an unavailable drawer: this also closes entry paths that
+  // bypass the hidden menu items, such as iOS swipe-to-open.
   if (!showThreadHistory) {
     return null
   }
@@ -103,6 +104,7 @@ export default function ThreadHistoryDrawer({ session }: { session: Session }) {
             goto={gotoThreadMessage}
             showHistoryDrawer={showDrawer}
             switchThread={handleSwitchThread}
+            allowStructureActions={sessionMode === 'chat'}
             lastOne={index === threadList.length - 1}
           />
         ))}
@@ -116,10 +118,11 @@ function ThreadItem(props: {
   goto(threadId: string): void
   showHistoryDrawer: string | boolean
   switchThread(threadId: string): void
+  allowStructureActions: boolean
   lastOne?: boolean
 }) {
   const { t } = useTranslation()
-  const { thread, goto, switchThread, lastOne } = props
+  const { thread, goto, switchThread, allowStructureActions, lastOne } = props
   const threadName = thread.name || t('New Thread')
   const currentSessionId = useAtomValue(currentSessionIdAtom)
   const isSmallScreen = useIsSmallScreen()
@@ -157,25 +160,29 @@ function ThreadItem(props: {
         type="desktop"
         items={[
           { text: t('Edit Thread Name'), icon: IconEdit, onClick: onEditButtonClick },
-          { text: t('Switch'), icon: IconSwitch, onClick: onSwitchButtonClick },
-          {
-            divider: true,
-          },
-          {
-            doubleCheck: true,
-            text: t('Delete'),
-            icon: IconTrash,
-            onClick: () => {
-              if (!currentSessionId) {
-                return
-              }
-              if (lastOne) {
-                void removeCurrentThread(currentSessionId)
-              } else {
-                void removeThread(currentSessionId, thread.id)
-              }
-            },
-          },
+          ...(allowStructureActions
+            ? [
+                { text: t('Switch'), icon: IconSwitch, onClick: onSwitchButtonClick },
+                {
+                  divider: true as const,
+                },
+                {
+                  doubleCheck: true,
+                  text: t('Delete'),
+                  icon: IconTrash,
+                  onClick: () => {
+                    if (!currentSessionId) {
+                      return
+                    }
+                    if (lastOne) {
+                      void removeCurrentThread(currentSessionId)
+                    } else {
+                      void removeThread(currentSessionId, thread.id)
+                    }
+                  },
+                },
+              ]
+            : []),
         ]}
         opened={menuOpened}
         onChange={(opened) => setMenuOpened(opened)}

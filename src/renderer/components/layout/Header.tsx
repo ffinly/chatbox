@@ -88,7 +88,7 @@ export default function Header(props: { session: Session }) {
           </Tooltip>
         </Flex>
 
-        <Toolbar sessionId={currentSession.id} />
+        <Toolbar session={currentSession} />
 
         <WindowControls className="-mr-3 ml-2" />
       </Flex>

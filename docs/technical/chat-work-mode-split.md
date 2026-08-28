@@ -32,7 +32,7 @@
 | 删除消息 | 允许 | 禁止 |
 | 编辑用户消息 | 允许（可只存不发） | 仅 Save & Resend，无"仅保存"，禁改角色 |
 | 会话系统提示词 | 消息列表展示，会话设置可编辑（受"隐藏系统提示词"开关控制） | 两处入口都隐藏（身份由 Soul 表达；Copilot 人设冻进 Soul 段，无 Copilot 的会话 prompt 不进入请求） |
-| 新话题 / 话题历史 | 允许 | 入口移除（工作模式保持单条线性会话；压缩归档不受影响） |
+| 新话题 / 话题历史 | 允许 | 不允许创建新话题；无历史时隐藏话题历史，已有归档话题时保留分隔与历史入口 |
 | 消息队列（message queue） | **禁用**（生成中阻断发送） | 保留 |
 | Steering（立即发送插队） | **禁用** | 保留 |
 | 全局停止 | 停止一切可达的生成（含 fork 分支内） | 同左（现状） |
@@ -80,7 +80,7 @@
 - 新增 mode-policy 模块（见上节）。
 - **模式切换冻结**：`setSessionAgentMode` 增加 `source` 参数；会话产生首条用户消息后，`'user'` 来源的跨模式切换（`'on'` ↔ 非 `'on'`）被拒绝。智能切换建议的 accept（`lockSessionAgentMode`）与 decline（`'auto'→'off'`，source `'suggestion'`）不受影响；`'auto'` ↔ `'off'` 属聊天模式内部偏好，本就由智能切换开关的过期逻辑（首条消息后禁用）覆盖。
 - 模式面板两个方向对称锁定：工作→聊天沿用 `entry.locked`；聊天→工作在会话开始后禁用按钮，tooltip 复用既有文案（"Locked after the chat starts… start a new chat to change"）。
-- 工作模式消息限制落在 UI 入口（隐藏）+ store 后备：编辑入口仅用户消息保留，编辑弹窗仅 Save & Resend（隐藏"仅保存"、锁定角色选择器）；删除入口与在下方回答入口移除；ForkGroup 删除分支入口移除；压缩摘要（SummaryMessage）的编辑/删除入口同策略隐藏——摘要编辑是纯保存改写模型上下文，删除会重新展开被压缩历史，均属工作模式禁止的消息手术。新话题与话题历史入口同样隐藏（store 侧 `refreshContextAndCreateNewThread` 做后备拦截并覆盖快捷键路径，模式经 `getSessionAgentModeEntry` 规范解析以兼容 legacy map 会话；上下文压缩归档不受影响）。
+- 工作模式消息限制落在 UI 入口（隐藏）+ store 后备：编辑入口仅用户消息保留，编辑弹窗仅 Save & Resend（隐藏"仅保存"、锁定角色选择器）；删除入口与在下方回答入口移除；ForkGroup 删除分支入口移除；压缩摘要（SummaryMessage）的编辑/删除入口同策略隐藏——摘要编辑是纯保存改写模型上下文，删除会重新展开被压缩历史，均属工作模式禁止的消息手术。新话题入口隐藏（store 侧 `refreshContextAndCreateNewThread` 做后备拦截并覆盖快捷键路径，模式经 `getSessionAgentModeEntry` 规范解析以兼容 legacy map 会话）；话题历史在会话没有归档话题时隐藏，已有归档话题时保留消息流分隔与历史入口，避免把多个话题误呈现成一段连续对话；上下文压缩归档不受影响。
 - 存量已混用模式的会话不迁移，策略从更新后开始生效。
 
 ### 阶段三：聊天模式禁用消息队列与 Steering
