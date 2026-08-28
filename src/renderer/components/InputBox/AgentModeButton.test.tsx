@@ -65,19 +65,15 @@ describe('AgentModeButton', () => {
     agentModeValue = 'on'
   })
 
-  test('is disabled and explains why when the selected model does not support agent tools', async () => {
+  test('keeps independent capabilities available when the selected model does not support agent tools', () => {
+    window.localStorage.setItem('chatbox.web-search-moved-tip-dismissed.v1', 'true')
     renderButton({ modelSupportsAgentMode: false })
 
     const button = screen.getByRole('button', { name: 'Chat Mode' })
-    expect(button).toHaveProperty('disabled', true)
+    expect(button).toHaveProperty('disabled', false)
+    fireEvent.click(button)
 
-    fireEvent.mouseEnter(button.parentElement as HTMLElement)
-
-    expect(
-      await screen.findByText(
-        'This model is older and has limited capabilities, so it does not support more advanced features.'
-      )
-    ).toBeTruthy()
+    expect(screen.getByText('Agent mode menu')).toBeTruthy()
   })
 
   test('remains enabled for a model that supports agent tools', () => {
@@ -107,6 +103,18 @@ describe('AgentModeButton', () => {
     expect(screen.getByRole('button', { name: 'Work Mode' }).textContent).toBe('Work Mode')
   })
 
+  test('opens and closes the mode menu by click for touch input', () => {
+    window.localStorage.setItem('chatbox.web-search-moved-tip-dismissed.v1', 'true')
+    renderButton()
+
+    const button = screen.getByRole('button', { name: 'Work Mode' })
+    fireEvent.click(button)
+    expect(screen.getByText('Agent mode menu')).toBeTruthy()
+
+    fireEvent.click(button)
+    expect(screen.queryByText('Agent mode menu')).toBeNull()
+  })
+
   test.each([
     ['on', 'on', 'Work Mode'],
     ['off', 'off', 'Chat Mode'],
@@ -123,7 +131,7 @@ describe('AgentModeButton', () => {
   test('falls back to the chat mode status icon when the model is unsupported', () => {
     const view = renderButton({ modelSupportsAgentMode: false, compact: true })
 
-    expect(screen.getByRole('button', { name: 'Chat Mode' })).toHaveProperty('disabled', true)
+    expect(screen.getByRole('button', { name: 'Chat Mode' })).toHaveProperty('disabled', false)
     expect(view.container.querySelector('[data-agent-mode-status="off"]')).toBeTruthy()
   })
 })

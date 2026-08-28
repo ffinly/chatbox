@@ -35,11 +35,14 @@ import { navigateToSettings } from '@/modals/settings-navigation'
 import { BUILTIN_MCP_SERVERS } from '@/packages/mcp/builtin'
 import { skillsController, subscribeSkillsChanged } from '@/packages/skills/controller'
 import { WEB_SEARCH_PROVIDERS, type WebSearchProviderValue } from '@/packages/web-search/constants'
+import platform from '@/platform'
 import { listCopilotMemories, listMemories } from '@/stores/agentPersonaStore'
 import { useAutoValidate } from '@/stores/premiumActions'
 import { setSessionAgentMode, useSessionAgentMode } from '@/stores/session/agent-mode'
 import { useMcpSettings, useSettingsStore } from '@/stores/settingsStore'
+import * as toastActions from '@/stores/toastActions'
 import { useUIStore } from '@/stores/uiStore'
+import { featureFlags } from '@/utils/feature-flags'
 import { ScalableIcon } from '../common/ScalableIcon'
 import MCPStatus from '../mcp/MCPStatus'
 import { CommandApprovalOptions, WorkingDirectoryContent } from './AgentModeSettingsContent'
@@ -246,7 +249,7 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
   const enabledMCPCount = mcp.servers.filter((s) => s.enabled).length + mcp.enabledBuiltinServers.length
 
   // Knowledge Base state
-  const { data: knowledgeBases } = useKnowledgeBases()
+  const { data: knowledgeBases } = useKnowledgeBases(featureFlags.knowledgeBase)
 
   // Skills state
   const [skills, setSkills] = useState<Array<{ name: string; description: string }>>([])
@@ -285,6 +288,10 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
 
   const handleModeChange = useCallback(
     (value: AgentModeValue) => {
+      if (value === 'on' && !platform.isDesktopLike) {
+        toastActions.add(t('Work Mode is currently only available on the desktop app.'))
+        return
+      }
       if (entry.value === value) return
       trackAgentModeSelect({
         sessionId,
@@ -298,7 +305,7 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
       }
       void setSessionAgentMode(sessionId, value)
     },
-    [entry.value, modelId, providerId, sessionId, setAgentModeLastSelected]
+    [entry.value, modelId, providerId, sessionId, setAgentModeLastSelected, t]
   )
   const handleSmartSwitchingChange = useCallback(
     (enabled: boolean) => {
@@ -528,13 +535,16 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
     const isActive = agentModeUIState.displayValue === value
     const isLockedDisabled = entry.locked && value !== 'on'
     const isSwitchFrozen = conversationStarted && resolveSessionMode(value) !== resolveSessionMode(entry.value)
-    const isModelDisabled = !modelSupportsAgentMode && value !== 'off'
-    const isDisabled = isLockedDisabled || isSwitchFrozen || isModelDisabled
-    const tooltipLabel = isModelDisabled
-      ? t('This model does not support Agent Mode')
-      : t('Locked after the chat starts to keep tools and context consistent — start a new chat to change')
+    const isPlatformUnsupported = !platform.isDesktopLike && value === 'on'
+    const isModelDisabled = !isPlatformUnsupported && !modelSupportsAgentMode && value !== 'off'
+    const isDisabled = !isPlatformUnsupported && (isLockedDisabled || isSwitchFrozen || isModelDisabled)
+    const tooltipLabel = isPlatformUnsupported
+      ? t('Work Mode is currently only available on the desktop app.')
+      : isModelDisabled
+        ? t('This model does not support Agent Mode')
+        : t('Locked after the chat starts to keep tools and context consistent — start a new chat to change')
     return (
-      <Tooltip label={tooltipLabel} disabled={!isDisabled} withArrow zIndex={3000}>
+      <Tooltip label={tooltipLabel} disabled={!isDisabled && !isPlatformUnsupported} withArrow zIndex={3000}>
         <span className="flex min-w-0 flex-1">
           <Button
             data-testid={value === 'off' ? TestId.agent.modeChat : TestId.agent.modeWork}
@@ -609,6 +619,9 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
       onMouseLeave={clearSubPanelOpenTimer}
       onFocus={(e) => handleExtensionHover(targetPage, e as unknown as React.MouseEvent, subPanelAlign)}
       onBlur={handleSubPanelLeave}
+      onClick={(e) => {
+        if (!disabled) handleExtensionHover(targetPage, e as unknown as React.MouseEvent, subPanelAlign)
+      }}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
@@ -1041,7 +1054,7 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
           <Text size="xs" c="chatbox-secondary" className="leading-snug max-w-[244px]">
             {modeDescription}
           </Text>
-          {isChatModeSelected && (
+          {isChatModeSelected && platform.isDesktopLike && (
             <Flex
               justify="space-between"
               align="center"
@@ -1171,13 +1184,15 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
             disabled={workModeCapabilitiesDisabled}
           />
 
-          <ExtensionRow
-            icon={<IconVocabulary size={16} className="text-[var(--chatbox-tint-secondary)]" />}
-            label={t('Knowledge Base')}
-            subtitle={selectedKB?.name}
-            active={page === 'knowledge-base'}
-            page="knowledge-base"
-          />
+          {featureFlags.knowledgeBase && (
+            <ExtensionRow
+              icon={<IconVocabulary size={16} className="text-[var(--chatbox-tint-secondary)]" />}
+              label={t('Knowledge Base')}
+              subtitle={selectedKB?.name}
+              active={page === 'knowledge-base'}
+              page="knowledge-base"
+            />
+          )}
 
           {supportsWorkingDirectories && (
             <ExtensionRow

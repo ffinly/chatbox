@@ -30,7 +30,6 @@ import {
   IconPlus,
   IconSettings,
   IconWand,
-  IconWorldWww,
 } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
@@ -595,12 +594,12 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
         ...[...preprocessedSessionAttachmentIds].sort((a, b) => a - b),
       ],
       queryFn: () => {
-        if (platform.type !== 'desktop' || preprocessedSessionAttachmentIds.length === 0) {
+        if (!platform.isDesktopLike || preprocessedSessionAttachmentIds.length === 0) {
           return []
         }
         return platform.getSessionAttachmentRagController().getAttachments(preprocessedSessionAttachmentIds)
       },
-      enabled: platform.type === 'desktop' && preprocessedSessionAttachmentIds.length > 0,
+      enabled: platform.isDesktopLike && preprocessedSessionAttachmentIds.length > 0,
       refetchInterval: (query): number | false => {
         const attachments = (query.state.data as SessionAttachment[] | undefined) ?? []
         return shouldRefetchSessionAttachmentStates(attachments, preprocessedSessionAttachmentIds.length) ? 1500 : false
@@ -906,7 +905,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
             preprocessedFilesForSubmit.flatMap((file) => (file.sessionAttachmentId ? [file.sessionAttachmentId] : []))
           )
         )
-        if (platform.type === 'desktop' && submitSessionAttachmentIds.length > 0) {
+        if (platform.isDesktopLike && submitSessionAttachmentIds.length > 0) {
           const latestAttachmentStates = await platform
             .getSessionAttachmentRagController()
             .getAttachments(submitSessionAttachmentIds)
@@ -1159,7 +1158,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
           }
 
           let nextPreprocessedFile: PreprocessedFile = preprocessedFile
-          if (platform.type === 'desktop') {
+          if (platform.isDesktopLike) {
             const draftMessageId = draftMessageIdRef.current || uuidv4()
             const indexedFile = await startPreparedSessionAttachmentIndexing({
               file,
@@ -1435,10 +1434,10 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
       (kb: KnowledgeBase | null) => {
         if (!kb || kb.id === knowledgeBase?.id) {
           setKnowledgeBase(undefined)
-          trackEvent('knowledge_base_disabled', { knowledge_base_name: knowledgeBase?.name })
+          trackEvent('knowledge_base_disabled')
         } else {
           setKnowledgeBase(pick(kb, 'id', 'name'))
-          trackEvent('knowledge_base_enabled', { knowledge_base_name: kb.name })
+          trackEvent('knowledge_base_enabled')
         }
       },
       [knowledgeBase, setKnowledgeBase]
@@ -1811,7 +1810,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                             // Ignore cancellation errors
                           })
                         }
-                        if (platform.type === 'desktop' && preprocessedFile?.sessionAttachmentId) {
+                        if (platform.isDesktopLike && preprocessedFile?.sessionAttachmentId) {
                           void platform
                             .getSessionAttachmentRagController()
                             .deleteAttachment(preprocessedFile.sessionAttachmentId)
@@ -1851,29 +1850,6 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
               <Flex align="center" gap={0}>
                 <AttachmentMenu onImageUploadClick={onImageUploadClick} onFileUploadClick={onFileUploadClick} t={t} />
 
-                {/* Desktop owns Web Search in AgentModePanel for both Chat and Work modes.
-                    Mobile/Web keep this standalone entry because they do not render that panel. */}
-                {platform.type !== 'desktop' && (
-                  <Tooltip label={t('Web Search')} position="top" withArrow disabled={isSmallScreen}>
-                    <UnstyledButton
-                      data-testid={TestId.chat.webSearchToggle}
-                      onClick={() => {
-                        setWebBrowsingMode(!webBrowsingMode)
-                        dom.focusMessageInput()
-                      }}
-                      className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors"
-                    >
-                      <IconWorldWww
-                        size={toolbarIconSize}
-                        strokeWidth={1.8}
-                        className={
-                          webBrowsingMode ? 'text-[var(--chatbox-tint-brand)]' : 'text-[var(--chatbox-tint-secondary)]'
-                        }
-                      />
-                    </UnstyledButton>
-                  </Tooltip>
-                )}
-
                 <ReasoningControlButton
                   provider={model?.provider}
                   model={reasoningModelInfo}
@@ -1882,27 +1858,24 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                   onChange={(level) => void handleReasoningLevelChange(level)}
                 />
 
-                {/* Agent Mode Panel - desktop only */}
-                {platform.type === 'desktop' && (
-                  <AgentModeButton
-                    sessionId={currentSessionId || 'new'}
-                    providerId={model?.provider}
-                    modelId={model?.modelId}
-                    iconSize={toolbarIconSize}
-                    compact={isSmallScreen}
-                    modelSupportsAgentMode={model ? modelSupportsAgentMode : true}
-                    webBrowsingMode={webBrowsingMode}
-                    onWebBrowsingChange={(v) => {
-                      setWebBrowsingMode(v)
-                      dom.focusMessageInput()
-                    }}
-                    currentKnowledgeBaseId={knowledgeBase?.id}
-                    onKnowledgeBaseSelect={handleKnowledgeBaseSelect}
-                    onSkillSelect={insertSkillCommand}
-                    draftCopilotId={draftCopilotId}
-                    draftCopilotName={draftCopilotName}
-                  />
-                )}
+                <AgentModeButton
+                  sessionId={currentSessionId || 'new'}
+                  providerId={model?.provider}
+                  modelId={model?.modelId}
+                  iconSize={toolbarIconSize}
+                  compact={isSmallScreen}
+                  modelSupportsAgentMode={model ? modelSupportsAgentMode : true}
+                  webBrowsingMode={webBrowsingMode}
+                  onWebBrowsingChange={(v) => {
+                    setWebBrowsingMode(v)
+                    dom.focusMessageInput()
+                  }}
+                  currentKnowledgeBaseId={knowledgeBase?.id}
+                  onKnowledgeBaseSelect={handleKnowledgeBaseSelect}
+                  onSkillSelect={insertSkillCommand}
+                  draftCopilotId={draftCopilotId}
+                  draftCopilotName={draftCopilotName}
+                />
 
                 {!isSmallScreen &&
                   canCreateThread &&

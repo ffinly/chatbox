@@ -56,6 +56,7 @@ const mocks = vi.hoisted(() => {
     lockReason: null,
   }
   const knowledgeBases: Array<{ id: number; name: string }> = []
+  const useKnowledgeBasesMock = vi.fn(() => ({ data: knowledgeBases }))
   const openDirectoryDialogMock = vi.fn()
   const trackWebSearchClickMock = vi.fn()
   const trackMemoryClickMock = vi.fn()
@@ -69,23 +70,30 @@ const mocks = vi.hoisted(() => {
   const setCopilotMemoryMock = vi.fn()
   const addOrUpdateCopilotMock = vi.fn()
   const niceModalShowMock = vi.fn()
+  const platform = { type: 'desktop', isDesktopLike: true, openDirectoryDialog: openDirectoryDialogMock }
+  const featureFlags = { knowledgeBase: true }
+  const toastAddMock = vi.fn()
 
   return {
     addOrUpdateCopilotMock,
     agentModeEntry,
     copilotMemoryOwners,
+    featureFlags,
     knowledgeBases,
     listCopilotMemoriesMock,
     listMemoriesMock,
     myCopilots,
     niceModalShowMock,
     openDirectoryDialogMock,
+    platform,
     setCopilotMemoryMock,
     setSessionAgentModeMock,
     settingsState,
     trackMemoryClickMock,
     trackWebSearchClickMock,
+    toastAddMock,
     uiState,
+    useKnowledgeBasesMock,
   }
 })
 
@@ -121,7 +129,7 @@ vi.mock('@/analytics/agent-mode', () => ({
 }))
 
 vi.mock('@/hooks/knowledge-base', () => ({
-  useKnowledgeBases: () => ({ data: mocks.knowledgeBases }),
+  useKnowledgeBases: mocks.useKnowledgeBasesMock,
 }))
 
 vi.mock('@/hooks/mcp', () => ({
@@ -145,8 +153,12 @@ vi.mock('@/packages/skills/controller', () => ({
 }))
 
 vi.mock('@/platform', () => ({
-  default: { type: 'desktop', isDesktopLike: true, openDirectoryDialog: mocks.openDirectoryDialogMock },
+  default: mocks.platform,
 }))
+
+vi.mock('@/utils/feature-flags', () => ({ featureFlags: mocks.featureFlags }))
+
+vi.mock('@/stores/toastActions', () => ({ add: mocks.toastAddMock }))
 
 vi.mock('@/app/renderer-application', () => ({
   rendererApplication: {
@@ -211,6 +223,9 @@ beforeEach(() => {
   mocks.listCopilotMemoriesMock.mockImplementation(() => new Promise(() => {}))
   mocks.myCopilots.splice(0)
   mocks.copilotMemoryOwners.splice(0)
+  mocks.platform.type = 'desktop'
+  mocks.platform.isDesktopLike = true
+  mocks.featureFlags.knowledgeBase = true
   mocks.uiState.newSessionState = {}
   mocks.uiState.newSessionCommandApprovalModeDefault = undefined
   mocks.uiState.newSessionWorkingDirectoriesDefault = undefined
@@ -253,6 +268,32 @@ describe('AgentModePanel mode buttons', () => {
 
     expect(mocks.uiState.setAgentModeLastSelected).toHaveBeenCalledWith('on')
     expect(mocks.setSessionAgentModeMock).toHaveBeenCalledWith('new', 'on')
+  })
+
+  test('keeps Chat Mode selected on web and explains that Work Mode requires desktop', () => {
+    mocks.platform.type = 'web'
+    mocks.platform.isDesktopLike = false
+    mocks.agentModeEntry.value = 'off'
+    renderPanel({ modelSupportsAgentMode: false })
+
+    const workMode = screen.getByRole('button', { name: 'Work Mode' })
+    expect(workMode).toHaveProperty('disabled', false)
+    fireEvent.click(workMode)
+
+    expect(mocks.toastAddMock).toHaveBeenCalledWith('Work Mode is currently only available on the desktop app.')
+    expect(mocks.setSessionAgentModeMock).not.toHaveBeenCalled()
+    expect(screen.queryByText('Smart Switching')).toBeNull()
+  })
+
+  test('does not query or show Knowledge Base where the platform capability is unavailable', () => {
+    mocks.platform.type = 'web'
+    mocks.platform.isDesktopLike = false
+    mocks.featureFlags.knowledgeBase = false
+
+    renderPanel()
+
+    expect(mocks.useKnowledgeBasesMock).toHaveBeenCalledWith(false)
+    expect(screen.queryByRole('button', { name: 'Knowledge Base' })).toBeNull()
   })
 
   test('keeps the remembered mode untouched when re-selecting the current mode', () => {
@@ -303,6 +344,16 @@ describe('AgentModePanel submenu hover behavior', () => {
 
     expect(screen.getAllByText('MCP')).toHaveLength(1)
     expect(screen.getAllByText('Skills')).toHaveLength(2)
+  })
+
+  test('opens a submenu by click for touch input', () => {
+    renderPanel()
+
+    fireEvent.click(screen.getByRole('button', { name: /^Global Memory/ }))
+
+    expect(
+      screen.getByText('Applies to every chat. This conversation can read and write new long-term memories.')
+    ).toBeTruthy()
   })
 
   test('clears a pending switch when Escape closes the submenu', () => {

@@ -1,4 +1,4 @@
-import { ActionIcon, Popover, Text, Tooltip, UnstyledButton } from '@mantine/core'
+import { ActionIcon, Popover, Text, UnstyledButton } from '@mantine/core'
 import { TestId } from '@shared/automation/testids'
 import type { AgentModeValue, KnowledgeBase } from '@shared/types'
 import { IconRobot, IconX } from '@tabler/icons-react'
@@ -76,8 +76,6 @@ const AgentModeButton: FC<AgentModeButtonProps> = ({
     () => getAgentModeUIState(entry, modelSupportsAgentMode),
     [entry, modelSupportsAgentMode]
   )
-  const disabled = agentModeUIState.modelUnsupported
-
   const color = useMemo(() => {
     return MODE_COLORS[agentModeUIState.displayValue]
   }, [agentModeUIState.displayValue])
@@ -126,13 +124,13 @@ const AgentModeButton: FC<AgentModeButtonProps> = ({
 
   const handleDismissWebSearchMovedTip = useCallback(() => {
     setShowWebSearchMovedTip(false)
-    setOpened(false)
+    setPanelOpened(false)
     try {
       window.localStorage.setItem(WEB_SEARCH_MOVED_TIP_DISMISSED_KEY, 'true')
     } catch {
       // Keep the tip dismissed for this render even if persistent storage is unavailable.
     }
-  }, [])
+  }, [setPanelOpened])
 
   useEffect(() => {
     return () => {
@@ -153,51 +151,39 @@ const AgentModeButton: FC<AgentModeButtonProps> = ({
     <Popover
       position="top-start"
       shadow="md"
-      opened={(showWebSearchMovedTip || opened) && !settingsOpened && !disabled && !suppressedByChipMenu}
+      opened={(showWebSearchMovedTip || opened) && !settingsOpened && !suppressedByChipMenu}
       onChange={setPanelOpened}
       keepMounted
       transitionProps={{ transition: 'pop', duration: 200 }}
     >
       <Popover.Target>
         <span className="inline-flex">
-          <Tooltip
-            label={t(
-              'This model is older and has limited capabilities, so it does not support more advanced features.'
-            )}
-            disabled={!disabled}
-            position="top-start"
-            withArrow
-            openDelay={0}
+          <UnstyledButton
+            data-testid={TestId.agent.modeTrigger}
+            aria-label={modeLabel}
+            onMouseEnter={showWebSearchMovedTip ? undefined : handleMouseEnter}
+            onMouseLeave={showWebSearchMovedTip ? undefined : handleMouseLeave}
+            onClick={() => {
+              clearTimeout(openTimerRef.current)
+              clearTimeout(closeTimerRef.current)
+              if (showWebSearchMovedTip) {
+                handleDismissWebSearchMovedTip()
+                return
+              }
+              setPanelOpened(!opened)
+            }}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg transition-colors hover:bg-[var(--chatbox-background-tertiary)]"
+            style={{ color }}
           >
-            <span
-              className="inline-flex"
-              style={{ cursor: disabled ? 'not-allowed' : undefined }}
-              tabIndex={disabled ? 0 : undefined}
-            >
-              <UnstyledButton
-                data-testid={TestId.agent.modeTrigger}
-                disabled={disabled}
-                aria-label={modeLabel}
-                onMouseEnter={disabled || showWebSearchMovedTip ? undefined : handleMouseEnter}
-                onMouseLeave={disabled || showWebSearchMovedTip ? undefined : handleMouseLeave}
-                className={`flex items-center gap-1 px-2 py-1 rounded-lg transition-colors ${disabled ? '' : 'hover:bg-[var(--chatbox-background-tertiary)]'}`}
-                style={{
-                  color,
-                  opacity: disabled ? 0.5 : undefined,
-                  pointerEvents: disabled ? 'none' : undefined,
-                }}
-              >
-                {compact ? (
-                  <CompactAgentModeIcon mode={agentModeUIState.displayValue} size={iconSize} />
-                ) : (
-                  <>
-                    <IconRobot size={iconSize} strokeWidth={1.8} />
-                    <span className="text-xs font-medium whitespace-nowrap">{modeLabel}</span>
-                  </>
-                )}
-              </UnstyledButton>
-            </span>
-          </Tooltip>
+            {compact ? (
+              <CompactAgentModeIcon mode={agentModeUIState.displayValue} size={iconSize} />
+            ) : (
+              <>
+                <IconRobot size={iconSize} strokeWidth={1.8} />
+                <span className="text-xs font-medium whitespace-nowrap">{modeLabel}</span>
+              </>
+            )}
+          </UnstyledButton>
         </span>
       </Popover.Target>
       <Popover.Dropdown
