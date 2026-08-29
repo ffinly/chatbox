@@ -23,9 +23,11 @@ vi.mock('./agentPersonaStore', () => ({ copilotMemoryEpoch, retireCopilotMemorie
 
 import {
   copilotMemoryOwnersAtom,
+  copilotMemoryTokensAtom,
   disableCopilotMemory,
   enableCopilotMemory,
   getCopilotMemoryScope,
+  getCopilotMemorySelection,
   getPausedCallMemoryScope,
   myCopilotsAtom,
   removeMyCopilot,
@@ -40,6 +42,7 @@ describe('copilot store', () => {
     getItem.mockReset().mockImplementation(readPersisted)
     await getDefaultStore().set(myCopilotsAtom, [copilot])
     await getDefaultStore().set(copilotMemoryOwnersAtom, [])
+    await getDefaultStore().set(copilotMemoryTokensAtom, [])
     setItem.mockClear()
     retireCopilotMemories.mockClear()
     copilotMemoryEpoch.mockClear().mockReturnValue(0)
@@ -52,6 +55,32 @@ describe('copilot store', () => {
   test('a copilot with its own memory owns the session memory scope', async () => {
     await enableCopilotMemory({ id: 'cp1', name: 'Tutor' })
     await expect(getCopilotMemoryScope('cp1')).resolves.toEqual({ type: 'copilot', copilotId: 'cp1', epoch: 0 })
+  })
+
+  test('records off-on round trips even when the final scope is unchanged', async () => {
+    await enableCopilotMemory({ id: 'cp1', name: 'Tutor' })
+    const initial = await getCopilotMemorySelection('cp1')
+    await enableCopilotMemory({ id: 'cp1', name: 'Renamed Tutor' })
+    const unchanged = await getCopilotMemorySelection('cp1')
+
+    await disableCopilotMemory('cp1')
+    const disabled = await getCopilotMemorySelection('cp1')
+    const disabledOwners = await getDefaultStore().get(copilotMemoryOwnersAtom)
+    const disabledTokens = await getDefaultStore().get(copilotMemoryTokensAtom)
+    await enableCopilotMemory({ id: 'cp1', name: 'Tutor' })
+    const restored = await getCopilotMemorySelection('cp1')
+
+    expect(initial.scope).toEqual({ type: 'copilot', copilotId: 'cp1', epoch: 0 })
+    expect(initial.memoryStateToken).toEqual(expect.any(String))
+    expect(unchanged.memoryStateToken).toBe(initial.memoryStateToken)
+    expect(disabled.scope).toEqual({ type: 'global' })
+    expect(disabled.memoryStateToken).toEqual(expect.any(String))
+    expect(disabled.memoryStateToken).not.toBe(initial.memoryStateToken)
+    expect(disabledOwners).toEqual([])
+    expect(disabledTokens).toEqual([{ id: 'cp1', token: disabled.memoryStateToken }])
+    expect(restored.scope).toEqual(initial.scope)
+    expect(restored.memoryStateToken).toEqual(expect.any(String))
+    expect(restored.memoryStateToken).not.toBe(disabled.memoryStateToken)
   })
 
   test('a copilot that was never saved to My Copilots can own memory', async () => {
@@ -115,6 +144,72 @@ describe('copilot store', () => {
 
     finishRead?.([{ id: 'cp1', name: 'Tutor' }])
     await expect(enabled).resolves.toBe(true)
+  })
+
+  test('hydrates memory preference keys once across repeated generation reads', async () => {
+    vi.resetModules()
+    persisted.set('copilot-memory-owners', [{ id: 'cp1', name: 'Tutor' }])
+    persisted.set('copilot-memory-state-tokens', [{ id: 'cp1', token: 'token-1' }])
+    const freshStore = await import('./copilotStore')
+
+    await freshStore.getCopilotMemorySelection('cp1')
+    await freshStore.getCopilotMemorySelection('cp1')
+
+    expect(getItem.mock.calls.filter(([key]) => key === 'copilot-memory-owners')).toHaveLength(1)
+    expect(getItem.mock.calls.filter(([key]) => key === 'copilot-memory-state-tokens')).toHaveLength(1)
+  })
+
+  test('waits for the first preference mutation before resolving generation scope', async () => {
+    vi.resetModules()
+    persisted.set('copilot-memory-owners', [{ id: 'cp1', name: 'Tutor' }])
+    let finishTokenRead: ((tokens: unknown) => void) | undefined
+    getItem.mockImplementation((key: string, initialValue: unknown) => {
+      if (key !== 'copilot-memory-state-tokens') return readPersisted(key, initialValue)
+      return new Promise((resolve) => {
+        finishTokenRead = resolve
+      })
+    })
+    const freshStore = await import('./copilotStore')
+    await expect(freshStore.readCopilotMemoryEnabled('cp1')).resolves.toBe(true)
+
+    const update = freshStore.disableCopilotMemory('cp1')
+    let selectionSettled = false
+    const selection = freshStore.getCopilotMemorySelection('cp1').then((value) => {
+      selectionSettled = true
+      return value
+    })
+    await Promise.resolve()
+    expect(selectionSettled).toBe(false)
+
+    finishTokenRead?.([])
+    const resolvedSelection = await selection
+    expect(resolvedSelection.scope).toEqual({ type: 'global' })
+    expect(resolvedSelection.memoryStateToken).toEqual(expect.any(String))
+    await update
+  })
+
+  test.each([
+    [{ token: 'token-2' }, ''],
+    [[null, { id: 'cp1', token: 2 }, { id: 7, token: 'token-2' }, { id: 'cp1', token: '' }], ''],
+    [[null, { id: 'cp1', token: 'token-3' }], 'token-3'],
+    [
+      [
+        { id: 'cp1', token: 'token-3' },
+        { id: 'cp1', token: 'token-5' },
+      ],
+      'token-5',
+    ],
+    [[{ id: 'cp1', token: 'x'.repeat(129) }], ''],
+  ])('sanitizes a persisted memory state token record', async (persistedTokens, expectedToken) => {
+    vi.resetModules()
+    persisted.set('copilot-memory-owners', [{ id: 'cp1', name: 'Tutor' }])
+    persisted.set('copilot-memory-state-tokens', persistedTokens)
+    const freshStore = await import('./copilotStore')
+
+    await expect(freshStore.getCopilotMemorySelection('cp1')).resolves.toEqual({
+      scope: { type: 'copilot', copilotId: 'cp1', epoch: 0 },
+      memoryStateToken: expectedToken,
+    })
   })
 
   test('pins the epoch the scope was resolved against, not the one at write time', async () => {

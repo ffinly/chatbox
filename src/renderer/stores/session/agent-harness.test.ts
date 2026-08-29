@@ -1853,4 +1853,52 @@ describe('chat mode memories', () => {
     await storage.setItemNow('copilot-memories', {})
     await storage.setItemNow('agent-memories', [])
   })
+
+  test('reloads global memory after a copilot memory round trip', async () => {
+    const copilotId = 'cp-memory-round-trip'
+    await enableCopilotMemory({ id: copilotId, name: 'Tutor' })
+    await disableCopilotMemory(copilotId)
+    await storageMock.setItemNow('agent-memories', [
+      { id: 'gm-latest', content: 'Latest global fact', createdAt: 1700000000000 },
+    ])
+    const persistSessionPromptContextSnapshot = vi.fn()
+    const assistantMessage: Message = {
+      id: 'msg-assistant-round-trip',
+      role: MessageRoleEnum.Assistant,
+      timestamp: Date.now(),
+      contentParts: [{ type: 'text', text: 'Previous response' }],
+    }
+
+    const prepared = await chatPrepare(
+      {
+        provider: ModelProviderEnum.ChatboxAI,
+        modelId: 'test-model',
+        sessionPromptContextSnapshot: {
+          version: 1,
+          soul: '',
+          memories: [{ id: 'gm-stale', content: 'Stale global fact', createdAt: 1600000000000 }],
+          workspaceInstructions: '',
+          workspaceDirectories: [],
+          capturedAt: 1600000000000,
+          memoryEnabled: true,
+          memoryStateToken: '',
+        },
+      } as SessionSettings,
+      [userMessage, assistantMessage, { ...userMessage, id: 'msg-user-round-trip' }],
+      { persistSessionPromptContextSnapshot },
+      { ...createSession(), copilotId }
+    )
+
+    expect(persistSessionPromptContextSnapshot).toHaveBeenCalledTimes(1)
+    expect(persistSessionPromptContextSnapshot.mock.calls[0][0]).toMatchObject({
+      memories: [{ id: 'gm-latest', content: 'Latest global fact', createdAt: 1700000000000 }],
+      memoryEnabled: true,
+      memoryStateToken: expect.any(String),
+    })
+    const serialized = JSON.stringify(prepared.coreMessages)
+    expect(serialized).toContain('[gm-latest] Latest global fact')
+    expect(serialized).not.toContain('Stale global fact')
+
+    await storageMock.setItemNow('agent-memories', [])
+  })
 })

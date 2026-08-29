@@ -135,6 +135,31 @@ const MCPServerItem: FC<{
   )
 }
 
+const MemorySettingRow: FC<{
+  label: string
+  description: string
+  checked: boolean
+  onChange: (enabled: boolean) => void
+}> = ({ label, description, checked, onChange }) => (
+  <Flex justify="space-between" align="center" gap="sm" px="sm" py="xs">
+    <Stack gap={2} className="min-w-0">
+      <Text size="sm" fw={500}>
+        {label}
+      </Text>
+      <Text size="xs" c="dimmed" className="leading-snug">
+        {description}
+      </Text>
+    </Stack>
+    <Switch
+      aria-label={label}
+      checked={checked}
+      size="xs"
+      className="shrink-0"
+      onChange={(event) => onChange(event.currentTarget.checked)}
+    />
+  </Flex>
+)
+
 // --- Main component ---
 
 const AgentModePanel: FC<AgentModePanelProps> = ({
@@ -207,17 +232,18 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
     const owned = copilotMemoryOwners.find((owner) => owner.id === sessionCopilotId)
     return savedCopilot?.name ?? owned?.name ?? currentSession?.name ?? draftCopilotName
   }, [copilotMemoryOwners, currentSession?.name, draftCopilotName, savedCopilot, sessionCopilotId])
-  const memoryEnabled = sessionCopilotId ? isCopilotMemoryEnabled(sessionCopilotId) : globalMemoryEnabled
-  // Which store the conversation actually reads and writes — mirrors
-  // getCopilotMemoryScope, so a copilot whose own memory is off leaves its chats on
-  // the global list and the counts and shortcuts below point there.
-  const memoryScopeCopilotId = sessionCopilotId && memoryEnabled ? sessionCopilotId : undefined
+  const copilotMemoryEnabled = Boolean(sessionCopilotId && isCopilotMemoryEnabled(sessionCopilotId))
+  const effectiveMemorySource = copilotMemoryEnabled ? 'copilot' : globalMemoryEnabled ? 'global' : 'none'
+  // Keep retained memories manageable while their switch is off. The main row
+  // only shows the count for the effective source, so a disabled store never
+  // looks active.
+  const managedMemoryCopilotId = effectiveMemorySource === 'copilot' ? sessionCopilotId : undefined
   const [memoryCount, setMemoryCount] = useState<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
     setMemoryCount(null)
-    const load = memoryScopeCopilotId ? listCopilotMemories(memoryScopeCopilotId) : listMemories()
+    const load = managedMemoryCopilotId ? listCopilotMemories(managedMemoryCopilotId) : listMemories()
     void load
       .then((entries) => {
         if (!cancelled) setMemoryCount(entries.length)
@@ -228,7 +254,7 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
     return () => {
       cancelled = true
     }
-  }, [memoryScopeCopilotId])
+  }, [managedMemoryCopilotId])
 
   const isProviderAvailable = useCallback(
     (provider: WebSearchProviderValue) => {
@@ -686,7 +712,7 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
     [setSettings]
   )
 
-  const handleMemoryEnabledChange = useCallback(
+  const trackMemoryEnabledChange = useCallback(
     (enabled: boolean) => {
       trackMemoryClick(
         {
@@ -697,22 +723,25 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
         },
         enabled
       )
-      if (sessionCopilotId) {
-        setCopilotMemory({ id: sessionCopilotId, name: sessionCopilotName ?? sessionCopilotId }, enabled)
-      } else {
-        setSettings({ memoryEnabled: enabled })
-      }
     },
-    [
-      agentModeUIState.isActive,
-      modelId,
-      providerId,
-      sessionCopilotId,
-      sessionCopilotName,
-      sessionId,
-      setCopilotMemory,
-      setSettings,
-    ]
+    [agentModeUIState.isActive, modelId, providerId, sessionId]
+  )
+
+  const handleCopilotMemoryEnabledChange = useCallback(
+    (enabled: boolean) => {
+      if (!sessionCopilotId) return
+      trackMemoryEnabledChange(enabled)
+      setCopilotMemory({ id: sessionCopilotId, name: sessionCopilotName ?? sessionCopilotId }, enabled)
+    },
+    [sessionCopilotId, sessionCopilotName, setCopilotMemory, trackMemoryEnabledChange]
+  )
+
+  const handleGlobalMemoryEnabledChange = useCallback(
+    (enabled: boolean) => {
+      trackMemoryEnabledChange(enabled)
+      setSettings({ memoryEnabled: enabled })
+    },
+    [setSettings, trackMemoryEnabledChange]
   )
 
   const openCopilotSettings = useCallback(() => {
@@ -775,20 +804,11 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
     }
 
     if (page === 'memory') {
-      const memoryDescription = sessionCopilotId
-        ? memoryEnabled
-          ? t(
-              "Chats with this copilot read and write the copilot's own memories. Global memory stays out of these conversations."
-            )
-          : t('Off. This copilot keeps no memories of its own; the global memory setting applies instead.')
-        : memoryEnabled
-          ? t('Applies to every chat. This conversation can read and write new long-term memories.')
-          : t('Off for every chat. Nothing new is saved, and existing memories are not used.')
       return (
         <>
           <SubPanelHeader
-            title={sessionCopilotId ? t('Copilot Memory') : t('Global Memory')}
-            settingsPath={savedCopilot && memoryScopeCopilotId ? undefined : '/agent'}
+            title={t('Memory')}
+            settingsPath={savedCopilot && effectiveMemorySource === 'copilot' ? undefined : '/agent'}
           />
           <Divider my={4} />
           {sessionCopilotName && (
@@ -796,9 +816,24 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
               {sessionCopilotName}
             </Text>
           )}
-          <Text size="xs" c="chatbox-secondary" px="sm" py={6} className="leading-snug">
-            {memoryDescription}
-          </Text>
+          {sessionCopilotId && (
+            <MemorySettingRow
+              label={t('Copilot Memory')}
+              description={t(
+                'All chats with this Copilot use its shared memory when on, or follow Global Memory when off.'
+              )}
+              checked={copilotMemoryEnabled}
+              onChange={handleCopilotMemoryEnabledChange}
+            />
+          )}
+          {!copilotMemoryEnabled && (
+            <MemorySettingRow
+              label={t('Global Memory')}
+              description={t("Shared by chats that don't use Copilot Memory.")}
+              checked={globalMemoryEnabled}
+              onChange={handleGlobalMemoryEnabledChange}
+            />
+          )}
           <Divider my={4} />
           {memoryCount === null ? (
             <Flex justify="center" py="md">
@@ -813,7 +848,7 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
                 size="xs"
                 variant="light"
                 onClick={() => {
-                  if (savedCopilot && memoryScopeCopilotId) {
+                  if (savedCopilot && effectiveMemorySource === 'copilot') {
                     openCopilotSettings()
                     return
                   }
@@ -1120,21 +1155,20 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
 
           <ExtensionRow
             icon={<IconNotes size={16} className="text-[var(--chatbox-tint-secondary)]" />}
-            label={sessionCopilotId ? t('Copilot Memory') : t('Global Memory')}
-            badge={memoryCount && memoryCount > 0 ? memoryCount : undefined}
+            label={t('Memory')}
+            badge={effectiveMemorySource !== 'none' && memoryCount && memoryCount > 0 ? memoryCount : undefined}
             active={page === 'memory'}
             page="memory"
             subPanelAlign="top"
             rightContent={
               <Flex gap="xs" align="center" className="shrink-0">
-                <Switch
-                  checked={memoryEnabled}
-                  size="xs"
-                  onChange={(e) => {
-                    e.stopPropagation()
-                    handleMemoryEnabledChange(e.currentTarget.checked)
-                  }}
-                />
+                <Badge size="xs" variant="light" color={effectiveMemorySource === 'none' ? 'gray' : 'chatbox-brand'}>
+                  {effectiveMemorySource === 'copilot'
+                    ? t('Copilot Memory')
+                    : effectiveMemorySource === 'global'
+                      ? t('Global Memory')
+                      : t('Off')}
+                </Badge>
                 <IconChevronRight size={14} className="text-[var(--chatbox-tint-tertiary)]" />
               </Flex>
             }

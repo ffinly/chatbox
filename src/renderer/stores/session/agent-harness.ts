@@ -20,6 +20,7 @@ import type {
   Settings,
 } from '@shared/types'
 import type { ModelDependencies } from '@shared/types/adapters'
+import { combineMemoryStateTokens } from '@shared/types/agent-persona'
 import { sequenceMessages } from '@shared/utils/message'
 import {
   resolveReasoningReplayPolicy,
@@ -46,7 +47,7 @@ import {
 import { getOS } from '@/packages/navigator'
 import platform from '@/platform'
 import { createSandboxProvider } from '@/sandbox'
-import { getCopilotMemoryScope } from '@/stores/copilotStore'
+import { getCopilotMemorySelection } from '@/stores/copilotStore'
 
 import { SESSION_ATTACHMENT_RAG_LOG_PREFIX } from '../../../shared/session-attachment-rag/logging'
 import { createAttachmentResolver } from './attachment-resolver'
@@ -246,11 +247,17 @@ export async function prepareAgentGenerationHarness(
   // session entirely; otherwise the global switch decides. When the effective
   // switch is off, stored memories are neither injected nor maintained in
   // either mode (Soul/identity are unaffected).
-  const memoryScope = await getCopilotMemoryScope(session.copilotId)
+  const memorySelection = await getCopilotMemorySelection(session.copilotId)
+  const memoryScope = memorySelection.scope
   const memoryEnabled = memoryScope.type === 'copilot' || globalSettings.memoryEnabled !== false
+  const memoryStateToken = combineMemoryStateTokens(
+    memorySelection.memoryStateToken,
+    memoryScope.type === 'global' ? globalSettings.memoryStateToken : ''
+  )
   const promptContextSnapshot = await resolveSessionPromptContextSnapshot({
     effectiveAgentMode,
     memoryEnabled,
+    memoryStateToken,
     memoryScope,
     settings,
     messages,

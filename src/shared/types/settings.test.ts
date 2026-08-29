@@ -1,6 +1,30 @@
 import { describe, expect, test } from 'vitest'
 import { settings as defaultSettings } from '../defaults'
+import {
+  combineMemoryStateTokens,
+  EFFECTIVE_MEMORY_STATE_TOKEN_MAX_CHARS,
+  MEMORY_STATE_TOKEN_MAX_CHARS,
+} from './agent-persona'
 import { SessionSettingsSchema, SettingsSchema } from './settings'
+
+test('SessionSettingsSchema preserves the largest effective memory state token', () => {
+  const componentToken = 'x'.repeat(MEMORY_STATE_TOKEN_MAX_CHARS)
+  const effectiveToken = combineMemoryStateTokens(componentToken, componentToken)
+  const parsed = SessionSettingsSchema.parse({
+    sessionPromptContextSnapshot: {
+      version: 1,
+      soul: '',
+      memories: [],
+      memoryStateToken: effectiveToken,
+      workspaceInstructions: '',
+      workspaceDirectories: [],
+      capturedAt: 1,
+    },
+  })
+
+  expect(effectiveToken).toHaveLength(EFFECTIVE_MEMORY_STATE_TOKEN_MAX_CHARS)
+  expect(parsed.sessionPromptContextSnapshot?.memoryStateToken).toBe(effectiveToken)
+})
 
 describe('SettingsSchema RAG default models', () => {
   test('parses default embedding and rerank model selections', () => {

@@ -10,8 +10,10 @@ import {
 
 export interface ResolveSessionPromptContextSnapshotOptions {
   effectiveAgentMode: 'on' | 'off'
-  /** Memory switch for this request (global or the session copilot's); when off, chat mode never captures. */
+  /** Effective memory switch for this request (global or the session Copilot's). */
   memoryEnabled: boolean
+  /** Opaque token for the selected source's effective setting. */
+  memoryStateToken?: string
   /** Which memory store this session reads; defaults to the global one. */
   memoryScope?: MemoryScope
   settings: SessionSettings
@@ -29,10 +31,58 @@ export function extractCopilotPersona(messages: Message[], targetMsgIx: number):
 }
 
 /** Whether a snapshot's memories came from the store the session currently uses. */
-function snapshotMatchesMemoryScope(snapshot: SessionPromptContextSnapshot, memoryScope: MemoryScope): boolean {
-  return memoryScope.type === 'copilot'
-    ? snapshot.memoryCopilotId === memoryScope.copilotId
-    : snapshot.memoryCopilotId === undefined
+export function sessionPromptContextSnapshotMatchesMemoryState(
+  snapshot: SessionPromptContextSnapshot,
+  memoryScope: MemoryScope,
+  memoryEnabled: boolean,
+  memoryStateToken: string
+): boolean {
+  const matchesScope =
+    memoryScope.type === 'copilot'
+      ? snapshot.memoryCopilotId === memoryScope.copilotId
+      : snapshot.memoryCopilotId === undefined
+  return (
+    matchesScope &&
+    (snapshot.memoryEnabled ?? true) === memoryEnabled &&
+    (snapshot.memoryStateToken ?? '') === memoryStateToken
+  )
+}
+
+function setSnapshotMemoryState(
+  snapshot: SessionPromptContextSnapshot,
+  memoryEnabled: boolean,
+  memoryStateToken: string
+): SessionPromptContextSnapshot {
+  return {
+    ...snapshot,
+    memories: memoryEnabled ? snapshot.memories : [],
+    memoryEnabled,
+    memoryStateToken,
+  }
+}
+
+async function reloadSnapshotMemories(
+  snapshot: SessionPromptContextSnapshot,
+  memoryScope: MemoryScope,
+  memoryEnabled: boolean,
+  memoryStateToken: string
+): Promise<SessionPromptContextSnapshot> {
+  const memories = memoryEnabled ? await listMemoriesForScope(memoryScope) : []
+  const reloaded = { ...snapshot, memories, memoryEnabled, memoryStateToken }
+  if (memoryScope.type === 'copilot') reloaded.memoryCopilotId = memoryScope.copilotId
+  else delete reloaded.memoryCopilotId
+  return reloaded
+}
+
+function anchorSnapshotToStartedConversation(
+  snapshot: SessionPromptContextSnapshot,
+  messages: Message[]
+): SessionPromptContextSnapshot {
+  const capturedAt = messages[0]?.timestamp
+  if (capturedAt === undefined) return snapshot
+  const anchored = { ...snapshot, capturedAt }
+  delete anchored.capturedUtcOffsetMinutes
+  return anchored
 }
 
 /**
@@ -43,36 +93,48 @@ function snapshotMatchesMemoryScope(snapshot: SessionPromptContextSnapshot, memo
  * Agent mode: only trusts 'agent'-scoped snapshots — a chat-scoped one was
  * captured before the session's first agent generation, and Soul edits made in
  * between must still apply (missing scope means a pre-scope agent snapshot).
- * A working-directory change is user-explicit, so it re-captures; so is a
- * memory-scope change (copilot memory toggled), which re-captures from the
- * store the session now uses.
+ * Working-directory changes re-capture the full snapshot. Memory setting
+ * changes reload only its memory slice, leaving the frozen Soul and workspace
+ * instructions intact.
  *
  * Chat mode: reads memories (no Soul/identity) through the same snapshot and
  * accepts either scope. Capture happens only at conversation start (before the
- * first assistant turn) and only when memories exist — memories appearing
- * mid-conversation, including ones this very session just saved via
- * save_memory, apply to future conversations only, exactly as the tool
- * description promises; sessions that never touch memories get no snapshot
- * churn. A snapshot whose memory scope no longer matches (copilot memory
- * toggled mid-conversation) keeps everything but its memories, so the frozen
- * conversation-start anchor still pins the prompt prefix; the new store joins at
- * the next conversation start, mirroring how the global switch behaves.
+ * first assistant turn) and only when memories exist for ordinary global-memory
+ * chats. Copilot chats and memory-off chats also keep an empty snapshot so a
+ * later setting change can be detected. Memories appearing mid-conversation,
+ * including ones this very session just saved via save_memory, apply to future
+ * conversations only. Explicitly switching memory state is the exception: the
+ * next generation reloads the selected store's latest memories while keeping the
+ * rest of the conversation-start snapshot frozen.
  */
 export async function resolveSessionPromptContextSnapshot(
   options: ResolveSessionPromptContextSnapshotOptions
 ): Promise<SessionPromptContextSnapshot | undefined> {
-  const { effectiveAgentMode, memoryEnabled, settings, messages, targetMsgIx, persist, copilotId } = options
+  const {
+    effectiveAgentMode,
+    memoryEnabled,
+    memoryStateToken = '',
+    settings,
+    messages,
+    targetMsgIx,
+    persist,
+    copilotId,
+  } = options
   const memoryScope = options.memoryScope ?? { type: 'global' }
   const existing = settings.sessionPromptContextSnapshot
 
   if (effectiveAgentMode === 'on') {
-    if (
+    const existingAgentSnapshotMatches =
       existing &&
       (existing.scope ?? 'agent') === 'agent' &&
-      sessionPromptContextSnapshotMatchesDirectories(existing, settings.workingDirectories) &&
-      snapshotMatchesMemoryScope(existing, memoryScope)
-    ) {
-      return existing
+      sessionPromptContextSnapshotMatchesDirectories(existing, settings.workingDirectories)
+    if (existingAgentSnapshotMatches) {
+      if (sessionPromptContextSnapshotMatchesMemoryState(existing, memoryScope, memoryEnabled, memoryStateToken)) {
+        return existing
+      }
+      const reloaded = await reloadSnapshotMemories(existing, memoryScope, memoryEnabled, memoryStateToken)
+      persist?.(reloaded)
+      return reloaded
     }
     const hasLegacyCommandHistory = messages
       .slice(0, targetMsgIx)
@@ -81,7 +143,11 @@ export async function resolveSessionPromptContextSnapshot(
           (part) => part.type === 'tool-call' && (part.toolName === 'user_exec' || part.toolName === 'code_execution')
         )
       )
-    const captured = await captureSessionPromptContextSnapshot(settings.workingDirectories, 'agent', memoryScope)
+    const captured = setSnapshotMemoryState(
+      await captureSessionPromptContextSnapshot(settings.workingDirectories, 'agent', memoryScope),
+      memoryEnabled,
+      memoryStateToken
+    )
     const copilotPersona = copilotId ? extractCopilotPersona(messages, targetMsgIx) : undefined
     const snapshot = {
       ...captured,
@@ -96,23 +162,32 @@ export async function resolveSessionPromptContextSnapshot(
 
   const isConversationStart = !messages.slice(0, targetMsgIx).some((message) => message.role === 'assistant')
   if (existing) {
-    if (snapshotMatchesMemoryScope(existing, memoryScope)) return existing
-    // The other store's memories must not leak into this conversation, but the
-    // rest of the snapshot still anchors the system prompt (capture instant and
-    // UTC offset): dropping it outright would move the frozen date line and
-    // invalidate the provider prefix cache mid-conversation. The new store is
-    // recorded even though nothing is re-captured, so a tool call this generation
-    // pauses is continued against the store its tools were built for.
-    if (!isConversationStart) {
-      const rescoped: SessionPromptContextSnapshot = { ...existing, memories: [] }
-      if (memoryScope.type === 'copilot') rescoped.memoryCopilotId = memoryScope.copilotId
-      else delete rescoped.memoryCopilotId
-      persist?.(rescoped)
-      return rescoped
+    if (sessionPromptContextSnapshotMatchesMemoryState(existing, memoryScope, memoryEnabled, memoryStateToken)) {
+      return existing
     }
+    // Switching stores is user-explicit, so reload that store's latest memories.
+    // Keep the rest of the snapshot anchored: re-capturing it would also change
+    // the frozen date, Soul, and workspace instructions.
+    const reloaded = await reloadSnapshotMemories(existing, memoryScope, memoryEnabled, memoryStateToken)
+    persist?.(reloaded)
+    return reloaded
   }
-  if (memoryEnabled && isConversationStart && (await listMemoriesForScope(memoryScope)).length > 0) {
-    const snapshot = await captureSessionPromptContextSnapshot(settings.workingDirectories, 'chat', memoryScope)
+  const needsMemoryStateSnapshot = Boolean(
+    copilotId || memoryScope.type === 'copilot' || !memoryEnabled || memoryStateToken !== ''
+  )
+  if (
+    needsMemoryStateSnapshot ||
+    (memoryEnabled && isConversationStart && (await listMemoriesForScope(memoryScope)).length > 0)
+  ) {
+    let snapshot = setSnapshotMemoryState(
+      await captureSessionPromptContextSnapshot(settings.workingDirectories, 'chat', memoryScope),
+      memoryEnabled,
+      memoryStateToken
+    )
+    if (!isConversationStart) {
+      snapshot = anchorSnapshotToStartedConversation(snapshot, messages)
+      if (memoryStateToken === '') snapshot = { ...snapshot, memories: [] }
+    }
     persist?.(snapshot)
     return snapshot
   }

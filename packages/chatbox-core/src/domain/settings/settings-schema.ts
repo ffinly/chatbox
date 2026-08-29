@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { DEFAULT_INTERFACE_COLORS, getDefaultInterfaceColors } from '../../theme-colors'
-import { SessionPromptContextSnapshotSchema } from '../../types/agent-persona'
+import { MEMORY_STATE_TOKEN_MAX_CHARS, SessionPromptContextSnapshotSchema } from '../../types/agent-persona'
 import { COMMAND_APPROVAL_MODES } from '../../types/command-execution'
 import { ModelProviderEnum, ModelProviderType } from '../../types/provider'
 import { DEFAULT_ENABLED_BUILTIN_SKILL_NAMES, SkillSettingsSchema } from '../../types/skills'
@@ -579,6 +579,9 @@ export const SettingsSchema = GlobalSessionSettingsSchema.extend({
   // memory tools are not registered and stored memories are not injected in
   // either mode (Soul is unaffected).
   memoryEnabled: z.boolean().optional().catch(undefined),
+  // Opaque version of effective Global Memory state. Sessions compare it lazily
+  // at generation time so an off-on round trip still refreshes memory.
+  memoryStateToken: z.string().max(MEMORY_STATE_TOKEN_MAX_CHARS).optional().catch(undefined),
 
   extension: ExtensionSettingsSchema,
   mcp: MCPSettingsSchema,

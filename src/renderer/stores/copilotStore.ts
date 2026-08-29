@@ -1,5 +1,11 @@
 import type { CopilotDetail } from '@shared/types'
-import type { MemoryScope, SessionPromptContextSnapshot } from '@shared/types/agent-persona'
+import {
+  type CopilotMemoryStateToken,
+  createMemoryStateToken,
+  type MemoryScope,
+  parseCopilotMemoryStateTokens,
+  type SessionPromptContextSnapshot,
+} from '@shared/types/agent-persona'
 import { getDefaultStore } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import storage, { StorageKey } from '@/storage'
@@ -7,6 +13,8 @@ import { copilotMemoryEpoch, retireCopilotMemories } from './agentPersonaStore'
 
 /** Copilots whose chats keep their own memory list instead of the global one. */
 export const COPILOT_MEMORY_OWNERS_STORAGE_KEY = 'copilot-memory-owners'
+/** Per-Copilot source revision retained across enabled and disabled states. */
+export const COPILOT_MEMORY_TOKENS_STORAGE_KEY = 'copilot-memory-state-tokens'
 
 export interface CopilotMemoryOwner {
   id: string
@@ -21,7 +29,7 @@ export interface CopilotMemoryOwner {
  * resolving a session's memory scope) read the mirror to see UI edits that have
  * not been written out yet.
  */
-function createMirroredListAtom<T>(key: string) {
+function createMirroredListAtom<T>(key: string, parse?: (value: unknown) => T[]) {
   let current: T[] | undefined
   let pendingRead: Promise<T[]> | undefined
 
@@ -29,9 +37,9 @@ function createMirroredListAtom<T>(key: string) {
   const read = (storageKey: string = key, initialValue: T[] = []): Promise<T[]> => {
     if (current !== undefined) return Promise.resolve(current)
     pendingRead ??= storage
-      .getItem<T[]>(storageKey, initialValue)
+      .getItem<unknown>(storageKey, initialValue)
       .then((stored) => {
-        if (current === undefined) current = stored
+        if (current === undefined) current = parse ? parse(stored) : (stored as T[])
         return current
       })
       .finally(() => {
@@ -61,14 +69,55 @@ function createMirroredListAtom<T>(key: string) {
     return read().then((items) => store.set(listAtom, updater(current ?? items)))
   }
 
-  return { atom: listAtom, read, update }
+  return { atom: listAtom, read, update, peek: () => current }
 }
 
 const myCopilots = createMirroredListAtom<CopilotDetail>(StorageKey.MyCopilots)
 const memoryOwners = createMirroredListAtom<CopilotMemoryOwner>(COPILOT_MEMORY_OWNERS_STORAGE_KEY)
+const memoryTokens = createMirroredListAtom<CopilotMemoryStateToken>(
+  COPILOT_MEMORY_TOKENS_STORAGE_KEY,
+  parseCopilotMemoryStateTokens
+)
 
 export const myCopilotsAtom = myCopilots.atom
 export const copilotMemoryOwnersAtom = memoryOwners.atom
+export const copilotMemoryTokensAtom = memoryTokens.atom
+
+let memoryPreferenceMutation: Promise<unknown> = Promise.resolve()
+
+function afterMemoryPreferenceHydration(operation: () => Promise<void>): Promise<void> {
+  const run = memoryPreferenceMutation.then(async () => {
+    await Promise.all([memoryOwners.read(), memoryTokens.read()])
+    await operation()
+  })
+  memoryPreferenceMutation = run.catch(() => undefined)
+  return run
+}
+
+function changeCopilotMemoryStateToken(
+  tokens: CopilotMemoryStateToken[],
+  copilotId: string
+): CopilotMemoryStateToken[] {
+  return [...tokens.filter((entry) => entry.id !== copilotId), { id: copilotId, token: createMemoryStateToken() }]
+}
+
+function applyCopilotMemoryEnabled(owner: CopilotMemoryOwner): Promise<void> {
+  const owners = memoryOwners.peek() ?? []
+  if (owners.some((item) => item.id === owner.id)) {
+    return memoryOwners.update((current) => [...current.filter((item) => item.id !== owner.id), owner])
+  }
+  const tokenWrite = memoryTokens.update((current) => changeCopilotMemoryStateToken(current, owner.id))
+  const ownerWrite = memoryOwners.update((current) => [...current.filter((item) => item.id !== owner.id), owner])
+  return Promise.all([tokenWrite, ownerWrite]).then(() => undefined)
+}
+
+function applyCopilotMemoryDisabled(copilotId: string): Promise<void> {
+  const owners = memoryOwners.peek() ?? []
+  if (!owners.some((owner) => owner.id === copilotId)) return Promise.resolve()
+  const tokenWrite = memoryTokens.update((current) => changeCopilotMemoryStateToken(current, copilotId))
+  const ownerWrite = memoryOwners.update((current) => current.filter((owner) => owner.id !== copilotId))
+  return Promise.all([tokenWrite, ownerWrite]).then(() => undefined)
+}
 
 export function addOrUpdateMyCopilot(target: CopilotDetail): Promise<void> {
   return myCopilots.update((copilots) => {
@@ -99,18 +148,42 @@ export async function removeMyCopilot(id: string): Promise<void> {
  * built-in one that was never saved — keeps memories just the same.
  */
 export function enableCopilotMemory(owner: CopilotMemoryOwner): Promise<void> {
-  return memoryOwners.update((owners) => [...owners.filter((item) => item.id !== owner.id), owner])
+  if (memoryOwners.peek() !== undefined && memoryTokens.peek() !== undefined) {
+    return applyCopilotMemoryEnabled(owner)
+  }
+  return afterMemoryPreferenceHydration(() => applyCopilotMemoryEnabled(owner))
 }
 
 /** Fall back to global memory; the copilot's own entries stay for a later re-enable. */
 export function disableCopilotMemory(copilotId: string): Promise<void> {
-  return memoryOwners.update((owners) => owners.filter((owner) => owner.id !== copilotId))
+  if (memoryOwners.peek() !== undefined && memoryTokens.peek() !== undefined) {
+    return applyCopilotMemoryDisabled(copilotId)
+  }
+  return afterMemoryPreferenceHydration(() => applyCopilotMemoryDisabled(copilotId))
 }
 
 /** Wait for persisted ownership before initializing an editable UI draft. */
 export async function readCopilotMemoryEnabled(copilotId: string): Promise<boolean> {
   const owners = await memoryOwners.read()
   return owners.some((owner) => owner.id === copilotId)
+}
+
+export interface CopilotMemorySelection {
+  scope: MemoryScope
+  memoryStateToken: string
+}
+
+/** Resolve the live Copilot memory source and its opaque state token in one read. */
+export async function getCopilotMemorySelection(copilotId: string | undefined): Promise<CopilotMemorySelection> {
+  if (!copilotId) return { scope: { type: 'global' }, memoryStateToken: '' }
+  await memoryPreferenceMutation
+  const [owners, tokens] = await Promise.all([memoryOwners.read(), memoryTokens.read()])
+  const memoryStateToken = tokens.find((entry) => entry.id === copilotId)?.token ?? ''
+  if (!owners.some((item) => item.id === copilotId)) return { scope: { type: 'global' }, memoryStateToken }
+  return {
+    scope: { type: 'copilot', copilotId, epoch: copilotMemoryEpoch(copilotId) },
+    memoryStateToken,
+  }
 }
 
 /**
@@ -122,9 +195,8 @@ export async function readCopilotMemoryEnabled(copilotId: string): Promise<boole
  * deleted or its memory switched off, and would pull a global conversation into a
  * copilot list that only gained its own memory afterwards.
  *
- * A chat conversation only captures a snapshot once its store holds something, so a
- * copilot's very first memory has no frozen store to go back to; there the session's
- * current scope is the whole record.
+ * An ordinary global-memory chat may have no snapshot while its store is empty; there
+ * the session's current scope is the whole record.
  */
 export function getPausedCallMemoryScope(
   snapshot: SessionPromptContextSnapshot | undefined,
@@ -141,12 +213,5 @@ export function getPausedCallMemoryScope(
 
 /** Resolve the live memory scope before generation, including UI changes whose debounced persistence is still pending. */
 export async function getCopilotMemoryScope(copilotId: string | undefined): Promise<MemoryScope> {
-  if (!copilotId) return { type: 'global' }
-  const owners = await memoryOwners.read()
-  // Check ownership and capture the epoch in one synchronous step: a generation
-  // reaches its memory tools several awaits later, and the scope has to pin the
-  // incarnation it was actually resolved against.
-  return owners.some((owner) => owner.id === copilotId)
-    ? { type: 'copilot', copilotId, epoch: copilotMemoryEpoch(copilotId) }
-    : { type: 'global' }
+  return (await getCopilotMemorySelection(copilotId)).scope
 }

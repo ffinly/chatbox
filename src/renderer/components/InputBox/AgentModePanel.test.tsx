@@ -349,11 +349,9 @@ describe('AgentModePanel submenu hover behavior', () => {
   test('opens a submenu by click for touch input', () => {
     renderPanel()
 
-    fireEvent.click(screen.getByRole('button', { name: /^Global Memory/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Memory/ }))
 
-    expect(
-      screen.getByText('Applies to every chat. This conversation can read and write new long-term memories.')
-    ).toBeTruthy()
+    expect(screen.getByText("Shared by chats that don't use Copilot Memory.")).toBeTruthy()
   })
 
   test('clears a pending switch when Escape closes the submenu', () => {
@@ -412,7 +410,7 @@ describe('AgentModePanel capability availability', () => {
     renderPanel()
 
     expect(screen.getByRole('button', { name: 'Web Search' }).getAttribute('aria-disabled')).toBe('false')
-    expect(screen.getByRole('button', { name: /^Global Memory/ }).getAttribute('aria-disabled')).toBe('false')
+    expect(screen.getByRole('button', { name: /^Memory/ }).getAttribute('aria-disabled')).toBe('false')
     expect(screen.getByRole('button', { name: 'Knowledge Base' }).getAttribute('aria-disabled')).toBe('false')
     expect(screen.getByRole('button', { name: /^Code Execution/ }).getAttribute('aria-disabled')).toBe('true')
     expect(screen.getByRole('button', { name: 'Skills' }).getAttribute('aria-disabled')).toBe('true')
@@ -455,7 +453,7 @@ describe('AgentModePanel capability availability', () => {
   test('keeps all capability rows enabled in Work Mode', () => {
     renderPanel()
 
-    for (const name of ['Web Search', /^Global Memory/, 'Skills', 'MCP', 'Knowledge Base', 'Working Directory']) {
+    for (const name of ['Web Search', /^Memory/, 'Skills', 'MCP', 'Knowledge Base', 'Working Directory']) {
       expect(screen.getByRole('button', { name }).getAttribute('aria-disabled')).toBe('false')
     }
     expect(screen.getByRole('button', { name: /^Code Execution/ }).getAttribute('aria-disabled')).toBe('false')
@@ -463,16 +461,17 @@ describe('AgentModePanel capability availability', () => {
 })
 
 describe('AgentModePanel memory', () => {
-  test('keeps the Memory switch available in Chat Mode and writes the global setting', () => {
+  test('shows the effective global source and updates it from the Memory panel', () => {
     mocks.agentModeEntry.value = 'off'
     renderPanel()
 
-    const memoryRow = screen.getByRole('button', { name: /^Global Memory/ })
-    const memorySwitch = memoryRow.querySelector('input[type="checkbox"]')
-    expect(memorySwitch).not.toBeNull()
-    expect((memorySwitch as HTMLInputElement).checked).toBe(true)
+    const memoryRow = screen.getByRole('button', { name: /^Memory/ })
+    expect(memoryRow.textContent).toContain('Global Memory')
+    fireEvent.mouseEnter(memoryRow)
 
-    fireEvent.click(memorySwitch as HTMLInputElement)
+    const globalSwitch = screen.getByRole('switch', { name: 'Global Memory' })
+    expect(globalSwitch).toHaveProperty('checked', true)
+    fireEvent.click(globalSwitch)
 
     expect(mocks.settingsState.setSettings).toHaveBeenCalledWith({ memoryEnabled: false })
     expect(mocks.trackMemoryClickMock).toHaveBeenCalledWith(
@@ -481,7 +480,7 @@ describe('AgentModePanel memory', () => {
     )
   })
 
-  test('explains that Memory applies to every chat and links to agent settings', async () => {
+  test('explains the global store and links to agent settings', async () => {
     mocks.listMemoriesMock.mockResolvedValue([
       { id: 'm1', content: 'Prefers concise answers', createdAt: 1 },
       { id: 'm2', content: 'Works in Beijing', createdAt: 2 },
@@ -490,11 +489,9 @@ describe('AgentModePanel memory', () => {
     const { navigateToSettings } = await import('@/modals/settings-navigation')
     renderPanel({ onClose })
 
-    fireEvent.mouseEnter(screen.getByRole('button', { name: /^Global Memory/ }))
+    fireEvent.mouseEnter(screen.getByRole('button', { name: /^Memory/ }))
 
-    expect(
-      screen.getByText('Applies to every chat. This conversation can read and write new long-term memories.')
-    ).toBeTruthy()
+    expect(screen.getByText("Shared by chats that don't use Copilot Memory.")).toBeTruthy()
 
     await vi.waitFor(() => {
       expect(screen.getByText('2 saved')).toBeTruthy()
@@ -505,48 +502,56 @@ describe('AgentModePanel memory', () => {
     expect(navigateToSettings).toHaveBeenCalledWith('/agent')
   })
 
-  test('says Memory is off for every chat without mentioning the current chat', () => {
+  test('shows an unambiguous off status while keeping the global switch available', () => {
     mocks.settingsState.memoryEnabled = false
     renderPanel({ sessionId: 's1' })
 
-    fireEvent.mouseEnter(screen.getByRole('button', { name: /^Global Memory/ }))
+    const memoryRow = screen.getByRole('button', { name: /^Memory/ })
+    expect(memoryRow.textContent).toContain('Off')
+    fireEvent.mouseEnter(memoryRow)
 
-    expect(
-      screen.getByText('Off for every chat. Nothing new is saved, and existing memories are not used.')
-    ).toBeTruthy()
-    expect(screen.queryByText('All chats')).toBeNull()
-    expect(screen.queryByText('This chat keeps memories already loaded until you start a new chat.')).toBeNull()
+    expect(screen.getByRole('switch', { name: 'Global Memory' })).toHaveProperty('checked', false)
+    expect(screen.getByText("Shared by chats that don't use Copilot Memory.")).toBeTruthy()
   })
 
-  test('binds the Memory switch to the copilot behind the chat', () => {
+  test('offers both the Copilot and global switches when Copilot Memory is off', () => {
     mocks.myCopilots.push({ id: 'cp1', name: 'Tutor', prompt: 'persona' })
     renderPanel({ draftCopilotId: 'cp1' })
 
-    const memoryRow = screen.getByRole('button', { name: /^Copilot Memory/ })
-    const memorySwitch = memoryRow.querySelector('input[type="checkbox"]')
-    expect(memorySwitch).not.toBeNull()
-    expect((memorySwitch as HTMLInputElement).checked).toBe(false)
+    const memoryRow = screen.getByRole('button', { name: /^Memory/ })
+    expect(memoryRow.textContent).toContain('Global Memory')
+    fireEvent.mouseEnter(memoryRow)
 
-    fireEvent.click(memorySwitch as HTMLInputElement)
+    const copilotSwitch = screen.getByRole('switch', { name: 'Copilot Memory' })
+    const globalSwitch = screen.getByRole('switch', { name: 'Global Memory' })
+    expect(copilotSwitch).toHaveProperty('checked', false)
+    expect(globalSwitch).toHaveProperty('checked', true)
+
+    fireEvent.click(copilotSwitch)
 
     expect(mocks.setCopilotMemoryMock).toHaveBeenCalledWith({ id: 'cp1', name: 'Tutor' }, true)
     expect(mocks.settingsState.setSettings).not.toHaveBeenCalled()
+
+    fireEvent.click(globalSwitch)
+    expect(mocks.settingsState.setSettings).toHaveBeenCalledWith({ memoryEnabled: false })
   })
 
-  test('shows the copilot memory description and manages memories through copilot settings', async () => {
+  test('shows the Copilot source and manages its memories through Copilot settings', async () => {
     mocks.myCopilots.push({ id: 'cp1', name: 'Tutor', prompt: 'persona' })
     mocks.copilotMemoryOwners.push({ id: 'cp1', name: 'Tutor' })
     mocks.listCopilotMemoriesMock.mockResolvedValue([{ id: 'm1', content: 'Learner level is B1', createdAt: 1 }])
     const onClose = vi.fn()
     renderPanel({ draftCopilotId: 'cp1', onClose })
 
-    fireEvent.mouseEnter(screen.getByRole('button', { name: /^Copilot Memory/ }))
+    const memoryRow = screen.getByRole('button', { name: /^Memory/ })
+    expect(memoryRow.textContent).toContain('Copilot Memory')
+    fireEvent.mouseEnter(memoryRow)
 
     expect(
-      screen.getByText(
-        "Chats with this copilot read and write the copilot's own memories. Global memory stays out of these conversations."
-      )
+      screen.getByText('All chats with this Copilot use its shared memory when on, or follow Global Memory when off.')
     ).toBeTruthy()
+    expect(screen.getByRole('switch', { name: 'Copilot Memory' })).toHaveProperty('checked', true)
+    expect(screen.queryByRole('switch', { name: 'Global Memory' })).toBeNull()
     await vi.waitFor(() => {
       expect(screen.getByText('1 saved')).toBeTruthy()
     })
@@ -566,11 +571,12 @@ describe('AgentModePanel memory', () => {
     const onClose = vi.fn()
     renderPanel({ draftCopilotId: 'cp1', onClose })
 
-    fireEvent.mouseEnter(screen.getByRole('button', { name: /^Copilot Memory/ }))
+    fireEvent.mouseEnter(screen.getByRole('button', { name: /^Memory/ }))
 
     expect(
-      screen.getByText('Off. This copilot keeps no memories of its own; the global memory setting applies instead.')
+      screen.getByText('All chats with this Copilot use its shared memory when on, or follow Global Memory when off.')
     ).toBeTruthy()
+    expect(screen.getByText("Shared by chats that don't use Copilot Memory.")).toBeTruthy()
     await vi.waitFor(() => {
       expect(screen.getByText('1 saved')).toBeTruthy()
     })
@@ -589,7 +595,7 @@ describe('AgentModePanel memory', () => {
     const onClose = vi.fn()
     renderPanel({ draftCopilotId: 'chatbox-featured:24', onClose })
 
-    fireEvent.mouseEnter(screen.getByRole('button', { name: /^Copilot Memory/ }))
+    fireEvent.mouseEnter(screen.getByRole('button', { name: /^Memory/ }))
 
     expect(screen.getByText('Translator')).toBeTruthy()
     await vi.waitFor(() => {
@@ -606,13 +612,27 @@ describe('AgentModePanel memory', () => {
   test('keys memory for an unsaved copilot by its copilot id', () => {
     renderPanel({ draftCopilotId: 'ghost', draftCopilotName: 'Ghost Writer' })
 
-    const memoryRow = screen.getByRole('button', { name: /^Copilot Memory/ })
-    const memorySwitch = memoryRow.querySelector('input[type="checkbox"]') as HTMLInputElement
-    expect(memorySwitch.checked).toBe(false)
+    const memoryRow = screen.getByRole('button', { name: /^Memory/ })
+    fireEvent.mouseEnter(memoryRow)
+    const memorySwitch = screen.getByRole('switch', { name: 'Copilot Memory' })
+    expect(memorySwitch).toHaveProperty('checked', false)
 
     fireEvent.click(memorySwitch)
 
     expect(mocks.setCopilotMemoryMock).toHaveBeenCalledWith({ id: 'ghost', name: 'Ghost Writer' }, true)
+  })
+
+  test('shows Memory off and both recovery switches when Copilot and global memory are off', () => {
+    mocks.settingsState.memoryEnabled = false
+    mocks.myCopilots.push({ id: 'cp1', name: 'Tutor', prompt: 'persona' })
+    renderPanel({ draftCopilotId: 'cp1' })
+
+    const memoryRow = screen.getByRole('button', { name: /^Memory/ })
+    expect(memoryRow.textContent).toContain('Off')
+    fireEvent.mouseEnter(memoryRow)
+
+    expect(screen.getByRole('switch', { name: 'Copilot Memory' })).toHaveProperty('checked', false)
+    expect(screen.getByRole('switch', { name: 'Global Memory' })).toHaveProperty('checked', false)
   })
 })
 

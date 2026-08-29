@@ -11,6 +11,49 @@ export const MEMORY_ENTRY_MAX_CHARS = 1_000
 /** Max total characters of memory content injected into the system prompt. */
 export const MEMORY_PROMPT_MAX_CHARS = 8_000
 
+export const MEMORY_STATE_TOKEN_MAX_CHARS = 128
+export const EFFECTIVE_MEMORY_STATE_TOKEN_MAX_CHARS = MEMORY_STATE_TOKEN_MAX_CHARS * 2 + 1
+let fallbackMemoryStateTokenSequence = 0
+
+export function isMemoryStateToken(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    value.length > 0 &&
+    value.length <= MEMORY_STATE_TOKEN_MAX_CHARS &&
+    /^[A-Za-z0-9-]+$/.test(value)
+  )
+}
+
+export function createMemoryStateToken(): string {
+  const runtimeCrypto = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto
+  if (typeof runtimeCrypto?.randomUUID === 'function') return runtimeCrypto.randomUUID()
+  fallbackMemoryStateTokenSequence++
+  return `${Date.now().toString(36)}-${fallbackMemoryStateTokenSequence.toString(36)}-${Math.random().toString(36).slice(2)}`
+}
+
+/** Combine the Copilot and Global source versions without variable-size escaping. */
+export function combineMemoryStateTokens(first: unknown, second: unknown): string {
+  const tokens = [first, second].map((value) => (isMemoryStateToken(value) ? value : ''))
+  return tokens.every((token) => token === '') ? '' : `${tokens[0]}:${tokens[1]}`
+}
+
+export interface CopilotMemoryStateToken {
+  id: string
+  token: string
+}
+
+export function parseCopilotMemoryStateTokens(value: unknown): CopilotMemoryStateToken[] {
+  if (!Array.isArray(value)) return []
+  const tokens = new Map<string, string>()
+  for (const entry of value) {
+    if (typeof entry !== 'object' || entry === null) continue
+    const record = entry as Record<string, unknown>
+    if (typeof record.id !== 'string' || !isMemoryStateToken(record.token)) continue
+    tokens.set(record.id, record.token)
+  }
+  return Array.from(tokens, ([id, token]) => ({ id, token }))
+}
+
 export const MemoryEntrySchema = z.object({
   id: z.string(),
   content: z.string(),
@@ -44,9 +87,15 @@ export const SessionPromptContextSnapshotSchema = z.object({
   memories: z.array(MemoryEntrySchema),
   // Copilot whose memory list the memories above were captured from. Missing
   // means they came from the global list. A session whose memory scope no longer
-  // matches its snapshot (copilot memory toggled) stops trusting the snapshot's
-  // memories and re-captures per mode rules.
+  // matches its snapshot (copilot memory toggled) reloads the snapshot's memory
+  // slice from the newly selected source.
   memoryCopilotId: z.string().optional().catch(undefined),
+  // Whether memories were enabled when this snapshot's memory slice was last
+  // resolved. Missing is interpreted as enabled.
+  memoryEnabled: z.boolean().optional().catch(undefined),
+  // Opaque version of the selected memory source when its slice was resolved.
+  // Missing is interpreted as the initial state.
+  memoryStateToken: z.string().max(EFFECTIVE_MEMORY_STATE_TOKEN_MAX_CHARS).optional().catch(undefined),
   workspaceInstructions: z.string(),
   // The working directories the workspace instructions were captured for. When the
   // session's directories change, the workspace part is re-captured (user-explicit

@@ -98,6 +98,22 @@ describe('SettingsService', () => {
     })
   })
 
+  test('records every effective Global Memory change', () => {
+    const service = new SettingsService(new MemorySettingsStorage(), { isDesktopLike: false })
+
+    service.updateSettings({ memoryEnabled: false })
+    const disabledToken = service.getSettings().memoryStateToken
+    expect(disabledToken).toEqual(expect.any(String))
+
+    service.updateSettings({ memoryEnabled: true })
+    const enabledToken = service.getSettings().memoryStateToken
+    expect(enabledToken).toEqual(expect.any(String))
+    expect(enabledToken).not.toBe(disabledToken)
+
+    service.updateSettings({ memoryEnabled: true })
+    expect(service.getSettings().memoryStateToken).toBe(enabledToken)
+  })
+
   test('logs failed writes, exposes the failure to flush and continues the persistence queue', async () => {
     const storage = new MemorySettingsStorage()
     const writeError = new Error('storage unavailable')

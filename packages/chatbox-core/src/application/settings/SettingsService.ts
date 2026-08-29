@@ -10,6 +10,7 @@ import {
   SettingsSchema,
 } from '../../domain/settings'
 import type { LoggerPort, SettingsRepositoryPort, SettingsStoragePort, SettingsUpdate } from '../../ports'
+import { createMemoryStateToken } from '../../types/agent-persona'
 
 export type SettingsListener = (settings: Settings, previousSettings: Settings) => void
 
@@ -85,6 +86,9 @@ export class SettingsService implements SettingsRepositoryPort {
       if (!Object.is(resultRecord[key], currentRecord[key])) {
         nextRecord[key] = parsedRecord[key]
       }
+    }
+    if ((this.snapshot.memoryEnabled !== false) !== (parsed.memoryEnabled !== false)) {
+      nextRecord.memoryStateToken = createMemoryStateToken()
     }
     const next = nextRecord as unknown as Settings
     this.publish(next)

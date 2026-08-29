@@ -10,6 +10,7 @@ import { buildContext } from '@shared/context'
 import { toSandboxSeedAttachment } from '@shared/sandbox/attachment-path'
 import type { Message, Session, SessionSettings } from '@shared/types'
 import type { ModelDependencies } from '@shared/types/adapters'
+import { combineMemoryStateTokens } from '@shared/types/agent-persona'
 import {
   trackAgentModePauseAction,
   trackAgentModeSuggested,
@@ -24,7 +25,7 @@ import platform from '@/platform'
 import { createSandboxProvider } from '@/sandbox'
 import { settingsService } from '@/settings-runtime'
 import { StorageKeyGenerator } from '@/storage/StoreStorage'
-import { getPausedCallMemoryScope } from '@/stores/copilotStore'
+import { getCopilotMemorySelection, getPausedCallMemoryScope } from '@/stores/copilotStore'
 import { markFirstSuccessfulChatCompleted } from '@/stores/firstSuccessfulChat'
 import { prepareAgentGenerationHarness, refreshSessionAttachmentStatuses } from '@/stores/session/agent-harness'
 import {
@@ -41,6 +42,7 @@ import {
   persistStreamingMessage,
   updateStreamingCache,
 } from '@/stores/session/messages'
+import { sessionPromptContextSnapshotMatchesMemoryState } from '@/stores/session/prompt-context-snapshot'
 import { getSessionSettings } from '@/stores/session/session-settings'
 import { registerSteeringConsumer } from '@/stores/session/steering'
 import { buildToolsForSession } from '@/stores/session/tools-builder'
@@ -215,13 +217,36 @@ const dependencies: GenerationServiceDependencies<ModelDependencies> = {
           lockAgentMode: request.lockAgentMode,
           persistSessionPromptContextSnapshot: (snapshot) => {
             // A canceled generation (thread switch/new thread) must not write its
-            // late capture; the CAS guard inside handles the remaining races.
+            // late capture. Re-check the live memory state as well: an older
+            // generation may finish loading after the user changes the source.
             if (request.signal.aborted) return
-            persistSessionPromptContextSnapshotGuarded(
-              request.session.id,
-              snapshot,
-              request.settings.sessionPromptContextSnapshot?.capturedAt
-            )
+            void getCopilotMemorySelection(request.session.copilotId)
+              .then((memorySelection) => {
+                if (request.signal.aborted) return
+                const liveGlobalSettings = settingsService.getSettings()
+                const memoryScope = memorySelection.scope
+                const memoryEnabled = memoryScope.type === 'copilot' || liveGlobalSettings.memoryEnabled !== false
+                const memoryStateToken = combineMemoryStateTokens(
+                  memorySelection.memoryStateToken,
+                  memoryScope.type === 'global' ? liveGlobalSettings.memoryStateToken : ''
+                )
+                if (
+                  !sessionPromptContextSnapshotMatchesMemoryState(
+                    snapshot,
+                    memoryScope,
+                    memoryEnabled,
+                    memoryStateToken
+                  )
+                ) {
+                  return
+                }
+                persistSessionPromptContextSnapshotGuarded(
+                  request.session.id,
+                  snapshot,
+                  request.settings.sessionPromptContextSnapshot?.capturedAt
+                )
+              })
+              .catch((error) => log.error('Failed to validate prompt-context memory state:', error))
           },
         },
         isPro: settingActions.isPro,

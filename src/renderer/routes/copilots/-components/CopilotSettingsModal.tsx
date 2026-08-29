@@ -337,9 +337,7 @@ const CopilotSettingsModal = NiceModal.create(
                   {t('Copilot Memory')}
                 </Text>
                 <Text size="xs" c="dimmed">
-                  {t(
-                    "When on, chats with this copilot read and write the copilot's own memories instead of global memory."
-                  )}
+                  {t('All chats with this Copilot use its shared memory when on, or follow Global Memory when off.')}
                 </Text>
               </Stack>
               <Switch
