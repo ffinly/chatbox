@@ -772,15 +772,26 @@ describe('AgentModePanel touch layout', () => {
     const onWebBrowsingChange = vi.fn()
     renderPanel({ layout: 'touch', onWebBrowsingChange })
 
-    const webSearchRow = screen.getByRole('button', { name: 'Web Search' })
-    const webSearchSwitch = webSearchRow.querySelector('input[type="checkbox"]')
-    expect(webSearchSwitch).not.toBeNull()
-    fireEvent.click(webSearchSwitch as HTMLInputElement)
+    const webSearchSwitch = screen.getByRole('switch')
+    const switchTrack = webSearchSwitch.nextElementSibling
+    expect(switchTrack).not.toBeNull()
+    fireEvent.click(switchTrack as HTMLElement)
 
-    expect(onWebBrowsingChange).toHaveBeenCalledWith(true)
     expect(screen.queryByTestId(TestId.agent.modePanelBack)).toBeNull()
     expect(screen.queryByText('Bing Search')).toBeNull()
     expect(screen.getByRole('button', { name: 'Web Search' })).toBeTruthy()
+
+    fireEvent.click(webSearchSwitch)
+    expect(onWebBrowsingChange).toHaveBeenCalledWith(true)
+  })
+
+  test('opens the Web Search provider page from the row', () => {
+    renderPanel({ layout: 'touch' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Web Search' }))
+
+    expect(screen.getByTestId(TestId.agent.modePanelBack)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Web Search' })).toBeNull()
   })
 })
 

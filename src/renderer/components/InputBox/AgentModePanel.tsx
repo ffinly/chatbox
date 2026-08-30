@@ -68,6 +68,10 @@ import {
 
 const useSession = (sessionId: string | null) => rendererApplication.sessionHooks.useSession(sessionId)
 
+function isNestedRowControlEvent(event: { target: EventTarget | null }) {
+  return event.target instanceof Element && Boolean(event.target.closest('[data-row-control]'))
+}
+
 type PanelPage =
   | 'main'
   | 'web-search'
@@ -698,9 +702,11 @@ const AgentModePanel = forwardRef<AgentModePanelHandle, AgentModePanelProps>(fun
       }
       onBlur={isTouchLayout ? undefined : handleSubPanelLeave}
       onClick={(e) => {
-        if (!disabled) handleExtensionHover(targetPage, e as unknown as React.MouseEvent, subPanelAlign)
+        if (disabled || isNestedRowControlEvent(e)) return
+        handleExtensionHover(targetPage, e as unknown as React.MouseEvent, subPanelAlign)
       }}
       onKeyDown={(e) => {
+        if (isNestedRowControlEvent(e)) return
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
           handleExtensionHover(targetPage, e as unknown as React.MouseEvent, subPanelAlign)
@@ -1211,27 +1217,32 @@ const AgentModePanel = forwardRef<AgentModePanelHandle, AgentModePanelProps>(fun
               subPanelAlign="top"
               rightContent={
                 <Flex gap="xs" align="center" className="shrink-0">
-                  <Switch
-                    data-testid={TestId.chat.webSearchToggle}
-                    checked={webBrowsingMode}
-                    size="xs"
+                  <span
+                    data-row-control
+                    className="inline-flex"
                     onClick={(e) => e.stopPropagation()}
-                    onChange={(e) => {
-                      e.stopPropagation()
-                      const enabled = e.currentTarget.checked
-                      trackWebSearchClick(
-                        {
-                          sessionId,
-                          mode: agentModeUIState.isActive ? 'work_mode' : 'chat_mode',
-                          provider: providerId,
-                          model: modelId,
-                        },
-                        enabled,
-                        webSearchProvider
-                      )
-                      onWebBrowsingChange(enabled)
-                    }}
-                  />
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <Switch
+                      data-testid={TestId.chat.webSearchToggle}
+                      checked={webBrowsingMode}
+                      size="xs"
+                      onChange={(e) => {
+                        const enabled = e.currentTarget.checked
+                        trackWebSearchClick(
+                          {
+                            sessionId,
+                            mode: agentModeUIState.isActive ? 'work_mode' : 'chat_mode',
+                            provider: providerId,
+                            model: modelId,
+                          },
+                          enabled,
+                          webSearchProvider
+                        )
+                        onWebBrowsingChange(enabled)
+                      }}
+                    />
+                  </span>
                   <IconChevronRight size={14} className="text-[var(--chatbox-tint-tertiary)]" />
                 </Flex>
               }
