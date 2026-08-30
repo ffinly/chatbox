@@ -7,7 +7,7 @@
  */
 
 export const AUTOMATION_CONTRACT_ID = 'chatbox-ui'
-export const AUTOMATION_CONTRACT_VERSION = '1.6.0'
+export const AUTOMATION_CONTRACT_VERSION = '1.7.0'
 export const AUTOMATION_CONTRACT_VERSION_ATTRIBUTE = 'data-automation-contract-version'
 
 /** Adjacent identity attributes hosted on TestId elements. */
@@ -52,6 +52,7 @@ export const TestId = {
   agent: {
     modeTrigger: 'agent-mode-trigger',
     modePanel: 'agent-mode-panel',
+    modePanelBack: 'agent-mode-panel-back',
     modeChat: 'agent-mode-chat',
     modeWork: 'agent-mode-work',
     approvalStatusTrigger: 'agent-approval-status-trigger',

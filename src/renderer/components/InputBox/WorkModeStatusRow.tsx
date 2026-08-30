@@ -189,7 +189,7 @@ const WorkModeStatusRow: FC<WorkModeStatusRowProps> = ({ sessionId, providerId, 
         </Popover.Dropdown>
       </Popover>
 
-      {supportsWorkingDirectories && (
+      {supportsWorkingDirectories() && (
         <>
           <span className="mx-1 h-3 w-[0.5px] shrink-0 bg-[var(--chatbox-border-secondary)]" />
           <Popover

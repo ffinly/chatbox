@@ -9,7 +9,9 @@ import { useUIStore } from '@/stores/uiStore'
 
 // The working-directory feature needs the desktop filesystem and directory picker. Windows
 // uses the native execution backend; bound directory writes are validated in the main process.
-export const supportsWorkingDirectories = platform.isDesktopLike && !!platform.openDirectoryDialog
+export function supportsWorkingDirectories() {
+  return platform.isDesktopLike && !!platform.openDirectoryDialog
+}
 
 export function getDirectoryName(directory: string) {
   return directory.split(/[\\/]/).filter(Boolean).pop() || directory

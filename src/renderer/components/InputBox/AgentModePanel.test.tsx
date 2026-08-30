@@ -71,7 +71,7 @@ const mocks = vi.hoisted(() => {
   const addOrUpdateCopilotMock = vi.fn()
   const niceModalShowMock = vi.fn()
   const platform = { type: 'desktop', isDesktopLike: true, openDirectoryDialog: openDirectoryDialogMock }
-  const featureFlags = { knowledgeBase: true }
+  const featureFlags = { knowledgeBase: true, skills: true, mcp: true, agentMode: true }
   const toastAddMock = vi.fn()
 
   return {
@@ -193,6 +193,7 @@ vi.mock('@/stores/uiStore', () => ({
   useUIStore: (selector: (state: typeof mocks.uiState) => unknown) => selector(mocks.uiState),
 }))
 
+import { TestId } from '@shared/automation/testids'
 import { recentDirectoriesStore } from '@/stores/recentDirectoriesStore'
 import AgentModePanel from './AgentModePanel'
 
@@ -226,6 +227,9 @@ beforeEach(() => {
   mocks.platform.type = 'desktop'
   mocks.platform.isDesktopLike = true
   mocks.featureFlags.knowledgeBase = true
+  mocks.featureFlags.skills = true
+  mocks.featureFlags.mcp = true
+  mocks.featureFlags.agentMode = true
   mocks.uiState.newSessionState = {}
   mocks.uiState.newSessionCommandApprovalModeDefault = undefined
   mocks.uiState.newSessionWorkingDirectoriesDefault = undefined
@@ -270,19 +274,22 @@ describe('AgentModePanel mode buttons', () => {
     expect(mocks.setSessionAgentModeMock).toHaveBeenCalledWith('new', 'on')
   })
 
-  test('keeps Chat Mode selected on web and explains that Work Mode requires desktop', () => {
+  test('shows Chat Mode as the current state on web without a Work Mode switcher', () => {
     mocks.platform.type = 'web'
     mocks.platform.isDesktopLike = false
     mocks.agentModeEntry.value = 'off'
     renderPanel({ modelSupportsAgentMode: false })
 
-    const workMode = screen.getByRole('button', { name: 'Work Mode' })
-    expect(workMode).toHaveProperty('disabled', false)
-    fireEvent.click(workMode)
-
-    expect(mocks.toastAddMock).toHaveBeenCalledWith('Work Mode is currently only available on the desktop app.')
-    expect(mocks.setSessionAgentModeMock).not.toHaveBeenCalled()
+    expect(screen.getByText('Chat Mode')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Work Mode' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Chat Mode' })).toBeNull()
     expect(screen.queryByText('Smart Switching')).toBeNull()
+    expect(
+      screen.getByText('This app currently supports Chat Mode only. Use Work Mode on the desktop app.')
+    ).toBeTruthy()
+    expect(
+      screen.getByText('Skills, MCP, code execution, and Working Directory are available in the desktop app.')
+    ).toBeTruthy()
   })
 
   test('does not query or show Knowledge Base where the platform capability is unavailable', () => {
@@ -740,5 +747,66 @@ describe('AgentModePanel working directories', () => {
       expect(recentDirectoriesStore.getState().directories).toEqual([selectedDirectory, '/Users/themez/Downloads'])
     })
     expect(mocks.uiState.setNewSessionState).not.toHaveBeenCalled()
+  })
+})
+
+describe('AgentModePanel touch layout', () => {
+  test('opens a submenu in-page and returns without closing the menu', () => {
+    const onClose = vi.fn()
+    renderPanel({ layout: 'touch', onClose })
+
+    fireEvent.click(screen.getByRole('button', { name: /^Memory/ }))
+
+    expect(screen.getByText("Shared by chats that don't use Copilot Memory.")).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /^Memory/ })).toBeNull()
+    expect(screen.getByTestId(TestId.agent.modePanelBack)).toBeTruthy()
+
+    fireEvent.click(screen.getByTestId(TestId.agent.modePanelBack))
+
+    expect(screen.getByRole('button', { name: /^Memory/ })).toBeTruthy()
+    expect(screen.queryByText("Shared by chats that don't use Copilot Memory.")).toBeNull()
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  test('toggles Web Search without opening the provider page', () => {
+    const onWebBrowsingChange = vi.fn()
+    renderPanel({ layout: 'touch', onWebBrowsingChange })
+
+    const webSearchRow = screen.getByRole('button', { name: 'Web Search' })
+    const webSearchSwitch = webSearchRow.querySelector('input[type="checkbox"]')
+    expect(webSearchSwitch).not.toBeNull()
+    fireEvent.click(webSearchSwitch as HTMLInputElement)
+
+    expect(onWebBrowsingChange).toHaveBeenCalledWith(true)
+    expect(screen.queryByTestId(TestId.agent.modePanelBack)).toBeNull()
+    expect(screen.queryByText('Bing Search')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Web Search' })).toBeTruthy()
+  })
+})
+
+describe('AgentModePanel platform-unavailable capabilities', () => {
+  test('hides desktop-only capability rows and explains they need the desktop app', () => {
+    mocks.platform.type = 'mobile'
+    mocks.platform.isDesktopLike = false
+    mocks.featureFlags.knowledgeBase = false
+    mocks.featureFlags.skills = false
+    mocks.featureFlags.mcp = false
+    mocks.featureFlags.agentMode = false
+    renderPanel({ layout: 'touch' })
+
+    expect(screen.queryByRole('button', { name: /^Code Execution/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Skills' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'MCP' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Working Directory' })).toBeNull()
+    expect(screen.queryByText('Extensions')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Web Search' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /^Memory/ })).toBeTruthy()
+    expect(screen.getByText('Chat Mode')).toBeTruthy()
+    expect(
+      screen.getByText('This app currently supports Chat Mode only. Use Work Mode on the desktop app.')
+    ).toBeTruthy()
+    expect(
+      screen.getByText('Skills, MCP, code execution, and Working Directory are available in the desktop app.')
+    ).toBeTruthy()
   })
 })

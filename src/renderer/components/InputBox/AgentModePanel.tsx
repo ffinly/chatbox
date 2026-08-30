@@ -5,6 +5,7 @@ import { TestId } from '@shared/automation/testids'
 import type { AgentModeValue, KnowledgeBase } from '@shared/types'
 import {
   IconCheck,
+  IconChevronLeft,
   IconChevronRight,
   IconCode,
   IconFile,
@@ -18,7 +19,17 @@ import {
 } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 import { PlusIcon } from 'lucide-react'
-import { type FC, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  type FC,
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   trackAgentModeSelect,
@@ -48,6 +59,7 @@ import MCPStatus from '../mcp/MCPStatus'
 import { CommandApprovalOptions, WorkingDirectoryContent } from './AgentModeSettingsContent'
 import AgentModeStatusIcon from './AgentModeStatusIcon'
 import { getAgentModeUIState } from './agentModeState'
+import type { ComposerMenuLayout } from './composerTouchLayout'
 import {
   supportsWorkingDirectories,
   useCommandApprovalModeState,
@@ -85,6 +97,10 @@ type SubPanelPosition = {
   maxHeight: number
 }
 
+export interface AgentModePanelHandle {
+  goBack: () => boolean
+}
+
 export interface AgentModePanelProps {
   sessionId: string
   providerId?: string
@@ -99,6 +115,8 @@ export interface AgentModePanelProps {
   /** Copilot picked on the new-chat page, where the draft session is not persisted yet. */
   draftCopilotId?: string
   draftCopilotName?: string
+  /** Defaults to the desktop flyout. The composer button passes `touch` on phones, tablets, and mobile web. */
+  layout?: ComposerMenuLayout
 }
 
 // --- Sub-components ---
@@ -162,20 +180,33 @@ const MemorySettingRow: FC<{
 
 // --- Main component ---
 
-const AgentModePanel: FC<AgentModePanelProps> = ({
-  sessionId,
-  providerId,
-  modelId,
-  modelSupportsAgentMode = true,
-  webBrowsingMode,
-  onWebBrowsingChange,
-  currentKnowledgeBaseId,
-  onKnowledgeBaseSelect,
-  onSkillSelect,
-  onClose,
-  draftCopilotId,
-  draftCopilotName,
-}) => {
+const AgentModePanel = forwardRef<AgentModePanelHandle, AgentModePanelProps>(function AgentModePanel(
+  {
+    sessionId,
+    providerId,
+    modelId,
+    modelSupportsAgentMode = true,
+    webBrowsingMode,
+    onWebBrowsingChange,
+    currentKnowledgeBaseId,
+    onKnowledgeBaseSelect,
+    onSkillSelect,
+    onClose,
+    draftCopilotId,
+    draftCopilotName,
+    layout = 'desktop',
+  },
+  ref
+) {
+  const isTouchLayout = layout === 'touch'
+  const showModeSwitcher = platform.isDesktopLike
+  const showDesktopCapabilityHint = !platform.isDesktopLike
+  const showCodeExecution = featureFlags.agentMode
+  const showSkills = featureFlags.skills
+  const showMcp = featureFlags.mcp
+  const showKnowledgeBase = featureFlags.knowledgeBase
+  const showWorkingDirectory = supportsWorkingDirectories()
+  const showExtensions = showSkills || showMcp || showKnowledgeBase || showWorkingDirectory
   const { t } = useTranslation()
   const [page, setPage] = useState<PanelPage>('main')
   const closeTimerRef = useRef<ReturnType<typeof setTimeout>>()
@@ -397,6 +428,11 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
       clearSubPanelCloseTimer()
       clearSubPanelOpenTimer()
 
+      if (isTouchLayout) {
+        setPage(target)
+        return
+      }
+
       let nextSubPanelTop = 0
       if (align === 'top' && e && panelRef.current) {
         const row = e.currentTarget as HTMLElement
@@ -420,7 +456,7 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
 
       openTimerRef.current = setTimeout(openTarget, 180)
     },
-    [clearSubPanelCloseTimer, clearSubPanelOpenTimer, page]
+    [clearSubPanelCloseTimer, clearSubPanelOpenTimer, isTouchLayout, page]
   )
 
   const handleSubPanelEnter = useCallback(() => {
@@ -441,6 +477,18 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
     clearSubPanelOpenTimer()
     setPage('main')
   }, [clearSubPanelCloseTimer, clearSubPanelOpenTimer])
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      goBack: () => {
+        if (page === 'main') return false
+        resetSubPanel()
+        return true
+      },
+    }),
+    [page, resetSubPanel]
+  )
 
   useEffect(() => {
     return () => {
@@ -517,7 +565,7 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
   }, [page, subPanelAlign, subPanelTop])
 
   useLayoutEffect(() => {
-    if (page === 'main') {
+    if (page === 'main' || isTouchLayout) {
       setSubPanelPosition(null)
       return
     }
@@ -541,7 +589,7 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
       cancelAnimationFrame(settleFrameRef.current ?? 0)
       settleFrameRef.current = undefined
     }
-  }, [page, updateSubPanelPosition])
+  }, [isTouchLayout, page, updateSubPanelPosition])
 
   // Measurements are only valid for the page they were taken on; until the effect
   // runs for a newly opened page we fall back to the anchor-based placement.
@@ -640,11 +688,15 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
           : disabled
             ? ''
             : 'hover:bg-[var(--mantine-color-gray-0)] dark:hover:bg-[var(--mantine-color-dark-5)]'
-      } ${disabled ? 'cursor-default opacity-50' : 'cursor-pointer'}`}
-      onMouseEnter={(e) => handleExtensionHover(targetPage, e, subPanelAlign)}
-      onMouseLeave={clearSubPanelOpenTimer}
-      onFocus={(e) => handleExtensionHover(targetPage, e as unknown as React.MouseEvent, subPanelAlign)}
-      onBlur={handleSubPanelLeave}
+      } ${disabled ? 'cursor-default opacity-50' : 'cursor-pointer'} ${isTouchLayout ? 'min-h-11' : ''}`}
+      onMouseEnter={isTouchLayout ? undefined : (e) => handleExtensionHover(targetPage, e, subPanelAlign)}
+      onMouseLeave={isTouchLayout ? undefined : clearSubPanelOpenTimer}
+      onFocus={
+        isTouchLayout
+          ? undefined
+          : (e) => handleExtensionHover(targetPage, e as unknown as React.MouseEvent, subPanelAlign)
+      }
+      onBlur={isTouchLayout ? undefined : handleSubPanelLeave}
       onClick={(e) => {
         if (!disabled) handleExtensionHover(targetPage, e as unknown as React.MouseEvent, subPanelAlign)
       }}
@@ -682,10 +734,23 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
     settingsPath,
     disabled = false,
   }) => (
-    <Flex justify="space-between" align="center" px="sm" py="xs">
-      <Text fw={600} size="sm">
-        {title}
-      </Text>
+    <Flex justify="space-between" align="center" px="sm" py="xs" gap="xs">
+      <Flex align="center" gap="xs" className="min-w-0">
+        {isTouchLayout && (
+          <ActionIcon
+            data-testid={TestId.agent.modePanelBack}
+            variant="subtle"
+            size={28}
+            aria-label={t('Back')}
+            onClick={resetSubPanel}
+          >
+            <IconChevronLeft size={18} />
+          </ActionIcon>
+        )}
+        <Text fw={600} size="sm">
+          {title}
+        </Text>
+      </Flex>
       {settingsPath && (
         <ActionIcon
           variant="subtle"
@@ -1059,13 +1124,20 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
     return null
   }
 
+  const showMainList = !isTouchLayout || page === 'main'
+  const showTouchSubPage = isTouchLayout && page !== 'main'
+  const panelWidthClass = isTouchLayout
+    ? 'w-full'
+    : 'w-max min-w-[min(240px,calc(100vw-24px))] max-w-[min(340px,calc(100vw-24px))]'
+
   // ==================== RENDER ====================
   return (
     <div
       data-testid={TestId.agent.modePanel}
+      data-layout={layout}
       className="relative"
       ref={panelRef}
-      onMouseLeave={handleSubPanelLeave}
+      onMouseLeave={isTouchLayout ? undefined : handleSubPanelLeave}
       onKeyDown={(e) => {
         if (e.key === 'Escape' && page === 'main') {
           e.preventDefault()
@@ -1073,176 +1145,212 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
         }
       }}
     >
-      {/* Main panel - always visible */}
-      {/* Width follows the mode labels (localized text can be much wider than English) within a clamp.
-          The clamp also tracks the viewport: the window can be resized down to 280px (see window_state.ts). */}
-      <Stack gap={0} py="xs" className="w-max min-w-[min(240px,calc(100vw-24px))] max-w-[min(340px,calc(100vw-24px))]">
-        {/* Header: mode switcher */}
-        <Stack gap="xs" px="sm" py="xs" onMouseEnter={handleNonExtensionHover}>
-          <Text fw={600} size="sm" c="chatbox-primary">
-            {t('Mode')}
-          </Text>
-          <Flex gap={6}>
-            <ModeButton value="off" label={t('Chat Mode')} />
-            <ModeButton value="on" label={t('Work Mode')} />
-          </Flex>
-          <Text size="xs" c="chatbox-secondary" className="leading-snug max-w-[244px]">
-            {modeDescription}
-          </Text>
-          {isChatModeSelected && platform.isDesktopLike && (
-            <Flex
-              justify="space-between"
-              align="center"
-              gap="sm"
-              className="rounded-lg bg-chatbox-background-secondary px-2 py-1.5"
-            >
-              <Stack gap={0} className="min-w-0">
-                <Text size="xs" fw={500} c="chatbox-primary">
-                  {t('Smart Switching')}
+      {showMainList && (
+        <Stack gap={0} py="xs" className={panelWidthClass}>
+          <Stack gap="xs" px="sm" py="xs" onMouseEnter={isTouchLayout ? undefined : handleNonExtensionHover}>
+            <Text fw={600} size="sm" c="chatbox-primary">
+              {t('Mode')}
+            </Text>
+            {showModeSwitcher ? (
+              <>
+                <Flex gap={6}>
+                  <ModeButton value="off" label={t('Chat Mode')} />
+                  <ModeButton value="on" label={t('Work Mode')} />
+                </Flex>
+                <Text size="xs" c="chatbox-secondary" className="leading-snug max-w-[244px]">
+                  {modeDescription}
                 </Text>
-                <Text size="xs" c="chatbox-secondary" className="leading-snug max-w-[196px]">
-                  {smartSwitchingDescription}
-                </Text>
-              </Stack>
-              <Switch
-                size="xs"
-                checked={smartSwitchingEnabled}
-                disabled={isSmartSwitchingDisabled}
-                onChange={(e) => handleSmartSwitchingChange(e.currentTarget.checked)}
+              </>
+            ) : (
+              <Flex align="flex-start" gap="sm" className="rounded-lg bg-chatbox-background-secondary px-2 py-1.5">
+                <AgentModeStatusIcon mode="off" size={14} className="mt-0.5 shrink-0" />
+                <Stack gap={2} className="min-w-0">
+                  <Text size="sm" fw={500} c="chatbox-primary">
+                    {t('Chat Mode')}
+                  </Text>
+                  <Text size="xs" c="chatbox-secondary" className="leading-snug">
+                    {t('This app currently supports Chat Mode only. Use Work Mode on the desktop app.')}
+                  </Text>
+                </Stack>
+              </Flex>
+            )}
+            {showModeSwitcher && isChatModeSelected && (
+              <Flex
+                justify="space-between"
+                align="center"
+                gap="sm"
+                className="rounded-lg bg-chatbox-background-secondary px-2 py-1.5"
+              >
+                <Stack gap={0} className="min-w-0">
+                  <Text size="xs" fw={500} c="chatbox-primary">
+                    {t('Smart Switching')}
+                  </Text>
+                  <Text size="xs" c="chatbox-secondary" className="leading-snug max-w-[196px]">
+                    {smartSwitchingDescription}
+                  </Text>
+                </Stack>
+                <Switch
+                  size="xs"
+                  checked={smartSwitchingEnabled}
+                  disabled={isSmartSwitchingDisabled}
+                  onChange={(e) => handleSmartSwitchingChange(e.currentTarget.checked)}
+                />
+              </Flex>
+            )}
+          </Stack>
+
+          <div>
+            <Divider my={4} mx="sm" label={t('Built-in')} labelPosition="left" />
+
+            <ExtensionRow
+              icon={<IconWorldWww size={16} className="text-[var(--chatbox-tint-secondary)]" />}
+              label={t('Web Search')}
+              subtitle={webBrowsingMode ? webSearchProviderLabel : undefined}
+              active={page === 'web-search'}
+              page="web-search"
+              subPanelAlign="top"
+              rightContent={
+                <Flex gap="xs" align="center" className="shrink-0">
+                  <Switch
+                    data-testid={TestId.chat.webSearchToggle}
+                    checked={webBrowsingMode}
+                    size="xs"
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => {
+                      e.stopPropagation()
+                      const enabled = e.currentTarget.checked
+                      trackWebSearchClick(
+                        {
+                          sessionId,
+                          mode: agentModeUIState.isActive ? 'work_mode' : 'chat_mode',
+                          provider: providerId,
+                          model: modelId,
+                        },
+                        enabled,
+                        webSearchProvider
+                      )
+                      onWebBrowsingChange(enabled)
+                    }}
+                  />
+                  <IconChevronRight size={14} className="text-[var(--chatbox-tint-tertiary)]" />
+                </Flex>
+              }
+            />
+
+            <ExtensionRow
+              icon={<IconNotes size={16} className="text-[var(--chatbox-tint-secondary)]" />}
+              label={t('Memory')}
+              badge={effectiveMemorySource !== 'none' && memoryCount && memoryCount > 0 ? memoryCount : undefined}
+              active={page === 'memory'}
+              page="memory"
+              subPanelAlign="top"
+              rightContent={
+                <Flex gap="xs" align="center" className="shrink-0">
+                  <Badge size="xs" variant="light" color={effectiveMemorySource === 'none' ? 'gray' : 'chatbox-brand'}>
+                    {effectiveMemorySource === 'copilot'
+                      ? t('Copilot Memory')
+                      : effectiveMemorySource === 'global'
+                        ? t('Global Memory')
+                        : t('Off')}
+                  </Badge>
+                  <IconChevronRight size={14} className="text-[var(--chatbox-tint-tertiary)]" />
+                </Flex>
+              }
+            />
+
+            {showCodeExecution && (
+              <ExtensionRow
+                icon={<IconCode size={16} className="text-[var(--chatbox-tint-secondary)]" />}
+                label={t('Code Execution')}
+                active={page === 'code-execution'}
+                page="code-execution"
+                disabled={workModeCapabilitiesDisabled}
+                subPanelAlign="top"
+                rightContent={
+                  <Flex gap="xs" align="center" className="shrink-0">
+                    {commandApprovalMode === 'full_access' ? (
+                      <Badge size="xs" variant="light" color="red">
+                        {t('Full Access')}
+                      </Badge>
+                    ) : (
+                      <Badge size="xs" variant="light">
+                        {commandApprovalMode === 'always_ask' ? t('Always Ask') : t('Smart Approval')}
+                      </Badge>
+                    )}
+                    <IconChevronRight size={14} className="text-[var(--chatbox-tint-tertiary)]" />
+                  </Flex>
+                }
               />
-            </Flex>
+            )}
+
+            {showExtensions && <Divider my={4} mx="sm" label={t('Extensions')} labelPosition="left" />}
+
+            {showSkills && (
+              <ExtensionRow
+                icon={<IconWand size={16} className="text-[var(--chatbox-tint-secondary)]" />}
+                label="Skills"
+                badge={enabledSkillNames.length > 0 ? enabledSkillNames.length : undefined}
+                active={page === 'skills'}
+                page="skills"
+                disabled={workModeCapabilitiesDisabled}
+              />
+            )}
+
+            {showMcp && (
+              <ExtensionRow
+                icon={<IconHammer size={16} className="text-[var(--chatbox-tint-secondary)]" />}
+                label="MCP"
+                badge={enabledMCPCount > 0 ? enabledMCPCount : undefined}
+                active={page === 'mcp'}
+                page="mcp"
+                disabled={workModeCapabilitiesDisabled}
+              />
+            )}
+
+            {showKnowledgeBase && (
+              <ExtensionRow
+                icon={<IconVocabulary size={16} className="text-[var(--chatbox-tint-secondary)]" />}
+                label={t('Knowledge Base')}
+                subtitle={selectedKB?.name}
+                active={page === 'knowledge-base'}
+                page="knowledge-base"
+              />
+            )}
+
+            {showWorkingDirectory && (
+              <ExtensionRow
+                icon={<IconFolderCog size={16} className="text-[var(--chatbox-tint-secondary)]" />}
+                label={t('Working Directory')}
+                badge={workingDirectories.length > 0 ? workingDirectories.length : undefined}
+                active={page === 'working-directory'}
+                page="working-directory"
+                disabled={workModeCapabilitiesDisabled}
+              />
+            )}
+          </div>
+
+          {showDesktopCapabilityHint && (
+            <Text size="xs" c="chatbox-secondary" px="sm" pt="sm" pb="xs" className="leading-snug">
+              {t('Skills, MCP, code execution, and Working Directory are available in the desktop app.')}
+            </Text>
           )}
         </Stack>
+      )}
 
-        {/* Independent capabilities stay available in Chat Mode; agent capabilities require Work Mode. */}
-        <div>
-          {/* Built-in capabilities */}
-          <Divider my={4} mx="sm" label={t('Built-in')} labelPosition="left" />
+      {showTouchSubPage && (
+        <Stack
+          key={page}
+          ref={subPanelRef}
+          gap={0}
+          py="xs"
+          className="w-full overflow-y-auto overscroll-contain"
+          style={{ maxHeight: 'min(70dvh, 560px)' }}
+        >
+          {renderSubPanel()}
+        </Stack>
+      )}
 
-          <ExtensionRow
-            icon={<IconWorldWww size={16} className="text-[var(--chatbox-tint-secondary)]" />}
-            label={t('Web Search')}
-            subtitle={webBrowsingMode ? webSearchProviderLabel : undefined}
-            active={page === 'web-search'}
-            page="web-search"
-            subPanelAlign="top"
-            rightContent={
-              <Flex gap="xs" align="center" className="shrink-0">
-                <Switch
-                  data-testid={TestId.chat.webSearchToggle}
-                  checked={webBrowsingMode}
-                  size="xs"
-                  onChange={(e) => {
-                    e.stopPropagation()
-                    const enabled = e.currentTarget.checked
-                    trackWebSearchClick(
-                      {
-                        sessionId,
-                        mode: agentModeUIState.isActive ? 'work_mode' : 'chat_mode',
-                        provider: providerId,
-                        model: modelId,
-                      },
-                      enabled,
-                      webSearchProvider
-                    )
-                    onWebBrowsingChange(enabled)
-                  }}
-                />
-                <IconChevronRight size={14} className="text-[var(--chatbox-tint-tertiary)]" />
-              </Flex>
-            }
-          />
-
-          <ExtensionRow
-            icon={<IconNotes size={16} className="text-[var(--chatbox-tint-secondary)]" />}
-            label={t('Memory')}
-            badge={effectiveMemorySource !== 'none' && memoryCount && memoryCount > 0 ? memoryCount : undefined}
-            active={page === 'memory'}
-            page="memory"
-            subPanelAlign="top"
-            rightContent={
-              <Flex gap="xs" align="center" className="shrink-0">
-                <Badge size="xs" variant="light" color={effectiveMemorySource === 'none' ? 'gray' : 'chatbox-brand'}>
-                  {effectiveMemorySource === 'copilot'
-                    ? t('Copilot Memory')
-                    : effectiveMemorySource === 'global'
-                      ? t('Global Memory')
-                      : t('Off')}
-                </Badge>
-                <IconChevronRight size={14} className="text-[var(--chatbox-tint-tertiary)]" />
-              </Flex>
-            }
-          />
-
-          <ExtensionRow
-            icon={<IconCode size={16} className="text-[var(--chatbox-tint-secondary)]" />}
-            label={t('Code Execution')}
-            active={page === 'code-execution'}
-            page="code-execution"
-            disabled={workModeCapabilitiesDisabled}
-            subPanelAlign="top"
-            rightContent={
-              <Flex gap="xs" align="center" className="shrink-0">
-                {commandApprovalMode === 'full_access' ? (
-                  <Badge size="xs" variant="light" color="red">
-                    {t('Full Access')}
-                  </Badge>
-                ) : (
-                  <Badge size="xs" variant="light">
-                    {commandApprovalMode === 'always_ask' ? t('Always Ask') : t('Smart Approval')}
-                  </Badge>
-                )}
-                <IconChevronRight size={14} className="text-[var(--chatbox-tint-tertiary)]" />
-              </Flex>
-            }
-          />
-
-          {/* Extensions */}
-          <Divider my={4} mx="sm" label={t('Extensions')} labelPosition="left" />
-
-          <ExtensionRow
-            icon={<IconWand size={16} className="text-[var(--chatbox-tint-secondary)]" />}
-            label="Skills"
-            badge={enabledSkillNames.length > 0 ? enabledSkillNames.length : undefined}
-            active={page === 'skills'}
-            page="skills"
-            disabled={workModeCapabilitiesDisabled}
-          />
-
-          <ExtensionRow
-            icon={<IconHammer size={16} className="text-[var(--chatbox-tint-secondary)]" />}
-            label="MCP"
-            badge={enabledMCPCount > 0 ? enabledMCPCount : undefined}
-            active={page === 'mcp'}
-            page="mcp"
-            disabled={workModeCapabilitiesDisabled}
-          />
-
-          {featureFlags.knowledgeBase && (
-            <ExtensionRow
-              icon={<IconVocabulary size={16} className="text-[var(--chatbox-tint-secondary)]" />}
-              label={t('Knowledge Base')}
-              subtitle={selectedKB?.name}
-              active={page === 'knowledge-base'}
-              page="knowledge-base"
-            />
-          )}
-
-          {supportsWorkingDirectories && (
-            <ExtensionRow
-              icon={<IconFolderCog size={16} className="text-[var(--chatbox-tint-secondary)]" />}
-              label={t('Working Directory')}
-              badge={workingDirectories.length > 0 ? workingDirectories.length : undefined}
-              active={page === 'working-directory'}
-              page="working-directory"
-              disabled={workModeCapabilitiesDisabled}
-            />
-          )}
-        </div>
-      </Stack>
-
-      {/* Sub panel - absolutely positioned beside the main panel */}
-      {page !== 'main' && (
+      {!isTouchLayout && page !== 'main' && (
         <Stack
           key={page}
           ref={subPanelRef}
@@ -1274,6 +1382,6 @@ const AgentModePanel: FC<AgentModePanelProps> = ({
       )}
     </div>
   )
-}
+})
 
 export default AgentModePanel
