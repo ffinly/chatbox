@@ -1396,5 +1396,16 @@
   "Unnamed copilot": "Copilot بلا اسم",
   "Clear all": "مسح الكل",
   "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license, or choose a different <OpenDocumentParserSettingButton>document parser</OpenDocumentParserSettingButton>.": "<OpenSettingButton>سجّل الدخول إلى Chatbox AI</OpenSettingButton> لاستخدام ترخيص حسابك، أو اختر <OpenDocumentParserSettingButton>محلّل مستندات</OpenDocumentParserSettingButton> مختلفًا.",
-  "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "<OpenSettingButton>سجّل الدخول إلى Chatbox AI</OpenSettingButton> لاستخدام ترخيص حسابك."
+  "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "<OpenSettingButton>سجّل الدخول إلى Chatbox AI</OpenSettingButton> لاستخدام ترخيص حسابك.",
+  "Web Search settings": "إعدادات بحث الويب",
+  "Web Search was not run: sign in to use Chatbox AI Search": "لم يتم تشغيل بحث الويب: سجّل الدخول لاستخدام بحث Chatbox AI",
+  "{{tool}} could not run": "تعذّر تشغيل {{tool}}",
+  "Chatbox AI Search is built in and does not require an API key. Sign in to use web search and webpage reading. No web results were used in this response.": "بحث Chatbox AI مدمج ولا يتطلب مفتاح API. سجّل الدخول لاستخدام بحث الويب وقراءة صفحات الويب. لم تُستخدم أي نتائج من الويب في هذه الإجابة.",
+  "Web Search was skipped: sign in to Chatbox AI": "تم تخطي بحث الويب: سجّل الدخول إلى Chatbox AI",
+  "Web Search was skipped because Chatbox AI requires sign-in. Future searches in this chat will fail until you sign in or change providers.": "تم تخطي بحث الويب لأن Chatbox AI يتطلب تسجيل الدخول. ستفشل عمليات البحث التالية في هذه المحادثة حتى تسجّل الدخول أو تغيّر المزوّد.",
+  "Sign in required": "تسجيل الدخول مطلوب",
+  "Setup required": "الإعداد مطلوب",
+  "Chatbox AI Search needs sign-in. Web Search will be skipped while this setting is on.": "يتطلب بحث Chatbox AI تسجيل الدخول. سيتم تخطي بحث الويب ما دام هذا الإعداد مفعّلًا.",
+  "The selected Web Search provider needs to be configured before it can run.": "يجب إعداد مزوّد بحث الويب المحدد قبل أن يتمكن من العمل.",
+  "Open Web Search settings": "فتح إعدادات بحث الويب"
 }

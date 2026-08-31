@@ -1396,5 +1396,16 @@
   "Unnamed copilot": "Unbenannter Copilot",
   "Clear all": "Alle löschen",
   "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license, or choose a different <OpenDocumentParserSettingButton>document parser</OpenDocumentParserSettingButton>.": "<OpenSettingButton>Melde dich bei Chatbox AI an</OpenSettingButton>, um deine Kontolizenz zu verwenden, oder wähle einen anderen <OpenDocumentParserSettingButton>Dokumentenparser</OpenDocumentParserSettingButton>.",
-  "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "<OpenSettingButton>Melde dich bei Chatbox AI an</OpenSettingButton>, um deine Kontolizenz zu verwenden."
+  "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "<OpenSettingButton>Melde dich bei Chatbox AI an</OpenSettingButton>, um deine Kontolizenz zu verwenden.",
+  "Web Search settings": "Websuche-Einstellungen",
+  "Web Search was not run: sign in to use Chatbox AI Search": "Websuche wurde nicht ausgeführt: Melde dich an, um die Chatbox AI-Suche zu verwenden",
+  "{{tool}} could not run": "{{tool}} konnte nicht ausgeführt werden",
+  "Chatbox AI Search is built in and does not require an API key. Sign in to use web search and webpage reading. No web results were used in this response.": "Die Chatbox AI-Suche ist integriert und benötigt keinen API-Schlüssel. Melde dich an, um die Websuche und das Lesen von Webseiten zu nutzen. Für diese Antwort wurden keine Webergebnisse verwendet.",
+  "Web Search was skipped: sign in to Chatbox AI": "Websuche wurde übersprungen: Melde dich bei Chatbox AI an",
+  "Web Search was skipped because Chatbox AI requires sign-in. Future searches in this chat will fail until you sign in or change providers.": "Die Websuche wurde übersprungen, weil Chatbox AI eine Anmeldung erfordert. Weitere Suchen in diesem Chat schlagen fehl, bis du dich anmeldest oder den Anbieter wechselst.",
+  "Sign in required": "Anmeldung erforderlich",
+  "Setup required": "Einrichtung erforderlich",
+  "Chatbox AI Search needs sign-in. Web Search will be skipped while this setting is on.": "Für die Chatbox AI-Suche ist eine Anmeldung erforderlich. Solange diese Einstellung aktiviert ist, wird die Websuche übersprungen.",
+  "The selected Web Search provider needs to be configured before it can run.": "Der ausgewählte Websuche-Anbieter muss eingerichtet werden, bevor er verwendet werden kann.",
+  "Open Web Search settings": "Websuche-Einstellungen öffnen"
 }

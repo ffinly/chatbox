@@ -1396,5 +1396,16 @@
   "Unnamed copilot": "Copilot без имени",
   "Clear all": "Очистить все",
   "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license, or choose a different <OpenDocumentParserSettingButton>document parser</OpenDocumentParserSettingButton>.": "<OpenSettingButton>Войдите в Chatbox AI</OpenSettingButton>, чтобы использовать лицензию своей учётной записи, или выберите другой <OpenDocumentParserSettingButton>анализатор документов</OpenDocumentParserSettingButton>.",
-  "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "<OpenSettingButton>Войдите в Chatbox AI</OpenSettingButton>, чтобы использовать лицензию своей учётной записи."
+  "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "<OpenSettingButton>Войдите в Chatbox AI</OpenSettingButton>, чтобы использовать лицензию своей учётной записи.",
+  "Web Search settings": "Настройки поиска в интернете",
+  "Web Search was not run: sign in to use Chatbox AI Search": "Поиск в интернете не выполнен: войдите, чтобы использовать поиск Chatbox AI",
+  "{{tool}} could not run": "Не удалось запустить {{tool}}",
+  "Chatbox AI Search is built in and does not require an API key. Sign in to use web search and webpage reading. No web results were used in this response.": "Поиск Chatbox AI встроен в приложение и не требует ключа API. Войдите, чтобы использовать поиск в интернете и чтение веб-страниц. В этом ответе результаты из интернета не использовались.",
+  "Web Search was skipped: sign in to Chatbox AI": "Поиск в интернете пропущен: войдите в Chatbox AI",
+  "Web Search was skipped because Chatbox AI requires sign-in. Future searches in this chat will fail until you sign in or change providers.": "Поиск в интернете пропущен, поскольку Chatbox AI требует входа. Следующие поиски в этом чате будут завершаться ошибкой, пока вы не войдёте или не смените провайдера.",
+  "Sign in required": "Требуется вход",
+  "Setup required": "Требуется настройка",
+  "Chatbox AI Search needs sign-in. Web Search will be skipped while this setting is on.": "Для поиска Chatbox AI требуется вход. Пока эта настройка включена, поиск в интернете будет пропускаться.",
+  "The selected Web Search provider needs to be configured before it can run.": "Перед запуском выбранный провайдер поиска в интернете необходимо настроить.",
+  "Open Web Search settings": "Открыть настройки поиска в интернете"
 }

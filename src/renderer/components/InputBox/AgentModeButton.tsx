@@ -7,8 +7,10 @@ import { type FC, useCallback, useEffect, useMemo, useRef, useState } from 'reac
 import { useTranslation } from 'react-i18next'
 import { Drawer } from 'vaul'
 import { blurMessageInput } from '@/hooks/dom'
+import { getWebSearchConfigurationIssue } from '@/packages/web-search/configuration-issue'
 import platform from '@/platform'
 import { useSessionAgentMode } from '@/stores/session/agent-mode'
+import { useSettingsStore } from '@/stores/settingsStore'
 import AgentModePanel, { type AgentModePanelHandle } from './AgentModePanel'
 import AgentModeStatusIcon from './AgentModeStatusIcon'
 import { getAgentModeUIState } from './agentModeState'
@@ -80,6 +82,10 @@ const AgentModeButton: FC<AgentModeButtonProps> = ({
   const openTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const closeTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const entry = useSessionAgentMode(sessionId)
+  const webSearchConfiguration = useSettingsStore((state) => state.extension.webSearch)
+  const licenseKey = useSettingsStore((state) => state.licenseKey)
+  const hasWebSearchWarning =
+    webBrowsingMode && getWebSearchConfigurationIssue(webSearchConfiguration, licenseKey) !== null
   const settingsOpened =
     Boolean((location.search as Record<string, unknown>)?.settings) || location.pathname.startsWith('/settings')
 
@@ -240,7 +246,7 @@ const AgentModeButton: FC<AgentModeButtonProps> = ({
         }
         setPanelOpened(isTouchLayout ? !opened : true)
       }}
-      className="flex items-center gap-1 px-2 py-1 rounded-lg transition-colors hover:bg-[var(--chatbox-background-tertiary)]"
+      className="relative flex items-center gap-1 px-2 py-1 rounded-lg transition-colors hover:bg-[var(--chatbox-background-tertiary)]"
       style={{ color }}
     >
       {compact ? (
@@ -250,6 +256,13 @@ const AgentModeButton: FC<AgentModeButtonProps> = ({
           <IconRobot size={iconSize} strokeWidth={1.8} />
           <span className="text-xs font-medium whitespace-nowrap">{modeLabel}</span>
         </>
+      )}
+      {hasWebSearchWarning && (
+        <span
+          data-web-search-warning
+          aria-hidden="true"
+          className="absolute right-1 top-0.5 h-1.5 w-1.5 rounded-full bg-[var(--chatbox-tint-error)]"
+        />
       )}
     </UnstyledButton>
   )

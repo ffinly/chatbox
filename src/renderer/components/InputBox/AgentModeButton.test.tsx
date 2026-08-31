@@ -9,6 +9,10 @@ import { render, screen } from '@/test-utils'
 const mocks = vi.hoisted(() => ({
   platform: { type: 'desktop', isDesktopLike: true },
   addBackButtonListener: vi.fn(),
+  settingsState: {
+    extension: { webSearch: { provider: 'build-in' as const } },
+    licenseKey: '',
+  },
 }))
 
 Object.defineProperty(window, 'matchMedia', {
@@ -43,6 +47,9 @@ vi.mock('@/stores/session/agent-mode', () => ({
 }))
 
 vi.mock('@/platform', () => ({ default: mocks.platform }))
+vi.mock('@/stores/settingsStore', () => ({
+  useSettingsStore: (selector: (state: typeof mocks.settingsState) => unknown) => selector(mocks.settingsState),
+}))
 
 vi.mock('@capacitor/app', () => ({
   App: { addListener: mocks.addBackButtonListener },
@@ -66,11 +73,13 @@ function renderButton({
   compact = false,
   layout,
   onWebBrowsingChange = vi.fn(),
+  webBrowsingMode = false,
 }: {
   modelSupportsAgentMode?: boolean
   compact?: boolean
   layout?: 'desktop' | 'touch'
   onWebBrowsingChange?: (enabled: boolean) => void
+  webBrowsingMode?: boolean
 } = {}) {
   return render(
     <MantineProvider>
@@ -79,7 +88,7 @@ function renderButton({
         modelSupportsAgentMode={modelSupportsAgentMode}
         compact={compact}
         layout={layout}
-        webBrowsingMode={false}
+        webBrowsingMode={webBrowsingMode}
         onWebBrowsingChange={onWebBrowsingChange}
         onKnowledgeBaseSelect={vi.fn()}
         onSkillSelect={vi.fn()}
@@ -93,6 +102,8 @@ describe('AgentModeButton', () => {
     agentModeValue = 'on'
     mocks.platform.type = 'desktop'
     mocks.platform.isDesktopLike = true
+    mocks.settingsState.extension.webSearch.provider = 'build-in'
+    mocks.settingsState.licenseKey = ''
     mocks.addBackButtonListener.mockReset()
     window.localStorage.clear()
   })
@@ -118,6 +129,12 @@ describe('AgentModeButton', () => {
     renderButton()
 
     expect(screen.getByRole('button', { name: 'Work Mode' }).textContent).toBe('Work Mode')
+  })
+
+  test('marks the mode trigger while enabled Web Search needs configuration', () => {
+    const view = renderButton({ webBrowsingMode: true })
+
+    expect(view.container.querySelector('[data-web-search-warning]')).toBeTruthy()
   })
 
   test('opens and closes the mode menu by click for touch input', () => {

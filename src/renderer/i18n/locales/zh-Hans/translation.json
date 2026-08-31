@@ -1395,5 +1395,16 @@
   "Unnamed copilot": "未命名搭档",
   "Clear all": "全部清空",
   "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license, or choose a different <OpenDocumentParserSettingButton>document parser</OpenDocumentParserSettingButton>.": "<OpenSettingButton>登录 Chatbox AI</OpenSettingButton> 以使用您的帐户许可证，或选择其他<OpenDocumentParserSettingButton>文档解析器</OpenDocumentParserSettingButton>。",
-  "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "<OpenSettingButton>登录 Chatbox AI</OpenSettingButton> 以使用您的帐户许可证。"
+  "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "<OpenSettingButton>登录 Chatbox AI</OpenSettingButton> 以使用您的帐户许可证。",
+  "Web Search settings": "联网搜索设置",
+  "Web Search was not run: sign in to use Chatbox AI Search": "联网搜索未执行：请登录以使用 Chatbox AI 搜索",
+  "{{tool}} could not run": "{{tool}} 无法运行",
+  "Chatbox AI Search is built in and does not require an API key. Sign in to use web search and webpage reading. No web results were used in this response.": "Chatbox AI 搜索是内置服务，无需 API Key。登录后即可使用联网搜索和网页正文读取。本次回答未使用任何网络结果。",
+  "Web Search was skipped: sign in to Chatbox AI": "联网搜索已跳过：请登录 Chatbox AI",
+  "Web Search was skipped because Chatbox AI requires sign-in. Future searches in this chat will fail until you sign in or change providers.": "由于 Chatbox AI 需要登录，联网搜索已跳过。在登录或更换搜索源之前，此对话后续的联网搜索都会失败。",
+  "Sign in required": "需要登录",
+  "Setup required": "需要配置",
+  "Chatbox AI Search needs sign-in. Web Search will be skipped while this setting is on.": "Chatbox AI 搜索需要登录。此设置保持开启时，联网搜索会被跳过。",
+  "The selected Web Search provider needs to be configured before it can run.": "所选联网搜索源需要完成配置后才能运行。",
+  "Open Web Search settings": "打开联网搜索设置"
 }

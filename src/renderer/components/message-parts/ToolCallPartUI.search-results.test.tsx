@@ -22,6 +22,8 @@ vi.mock('@/components/common/ChatboxAIErrorMessage', () => ({
 }))
 
 vi.mock('@/hooks/useBlob', () => ({ useBlob: () => ({ data: undefined }) }))
+vi.mock('@/hooks/useScreenChange', () => ({ useIsSmallScreen: () => false }))
+vi.mock('@/modals/settings-navigation', () => ({ navigateToSettings: vi.fn() }))
 
 vi.mock('@/platform', () => ({
   default: { appLog: vi.fn().mockResolvedValue(undefined), openLink: vi.fn() },
@@ -235,5 +237,23 @@ describe('tool call search result overflow', () => {
 
     const reasoning = screen.getByText(`I should open ${LONG_LINK} next.`)
     expect(reasoning.getAttribute('style')).toContain('overflow-wrap: anywhere')
+  })
+
+  it('expands actionable Web Search guidance without another click', () => {
+    render(
+      <MantineProvider>
+        <StepTimelineUI
+          parts={[
+            webSearchPart({
+              state: 'error',
+              result: { error: 'chatbox_search_license_key_required', errorCode: 20024 },
+            }),
+          ]}
+        />
+      </MantineProvider>
+    )
+
+    expect(screen.getByRole('status')).toBeTruthy()
+    expect(screen.getByText('Web Search was not run: sign in to use Chatbox AI Search')).toBeTruthy()
   })
 })

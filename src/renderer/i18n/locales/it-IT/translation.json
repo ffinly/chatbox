@@ -1396,5 +1396,16 @@
   "Unnamed copilot": "Copilot senza nome",
   "Clear all": "Cancella tutto",
   "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license, or choose a different <OpenDocumentParserSettingButton>document parser</OpenDocumentParserSettingButton>.": "<OpenSettingButton>Accedi a Chatbox AI</OpenSettingButton> per usare la licenza del tuo account oppure scegli un altro <OpenDocumentParserSettingButton>parser di documenti</OpenDocumentParserSettingButton>.",
-  "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "<OpenSettingButton>Accedi a Chatbox AI</OpenSettingButton> per usare la licenza del tuo account."
+  "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "<OpenSettingButton>Accedi a Chatbox AI</OpenSettingButton> per usare la licenza del tuo account.",
+  "Web Search settings": "Impostazioni della ricerca web",
+  "Web Search was not run: sign in to use Chatbox AI Search": "La ricerca web non è stata eseguita: accedi per usare la ricerca di Chatbox AI",
+  "{{tool}} could not run": "Impossibile eseguire {{tool}}",
+  "Chatbox AI Search is built in and does not require an API key. Sign in to use web search and webpage reading. No web results were used in this response.": "La ricerca di Chatbox AI è integrata e non richiede una chiave API. Accedi per usare la ricerca web e la lettura delle pagine. In questa risposta non sono stati usati risultati web.",
+  "Web Search was skipped: sign in to Chatbox AI": "Ricerca web ignorata: accedi a Chatbox AI",
+  "Web Search was skipped because Chatbox AI requires sign-in. Future searches in this chat will fail until you sign in or change providers.": "La ricerca web è stata ignorata perché Chatbox AI richiede l’accesso. Le prossime ricerche in questa chat non riusciranno finché non accederai o cambierai provider.",
+  "Sign in required": "Accesso richiesto",
+  "Setup required": "Configurazione richiesta",
+  "Chatbox AI Search needs sign-in. Web Search will be skipped while this setting is on.": "La ricerca di Chatbox AI richiede l’accesso. La ricerca web verrà ignorata finché questa impostazione resta attiva.",
+  "The selected Web Search provider needs to be configured before it can run.": "Il provider di ricerca web selezionato deve essere configurato prima di poter funzionare.",
+  "Open Web Search settings": "Apri le impostazioni della ricerca web"
 }

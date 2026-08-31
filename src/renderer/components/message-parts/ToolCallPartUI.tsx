@@ -51,7 +51,6 @@ import clsx from 'clsx'
 import { type FC, type ReactNode, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ImageGenerationResultGallery } from '@/components/chat/ImageGenerationResultGallery'
-import { ChatboxAIErrorMessage } from '@/components/common/ChatboxAIErrorMessage'
 import { ScalableIcon } from '@/components/common/ScalableIcon'
 import { ImageInStorage } from '@/components/Image'
 import { useBlob } from '@/hooks/useBlob'
@@ -78,6 +77,7 @@ import { useUIStore } from '@/stores/uiStore'
 import { inlineSandboxHtmlAssets } from './html-artifact-assets'
 import { getLocalFileName, localFilePathToUrl } from './local-file-url'
 import { ReasoningInlineSummary } from './ReasoningInlineSummary'
+import { ToolUnavailableCard } from './ToolUnavailableCard'
 
 // ─── Tool Error Result ──────────────────────────────────────────────
 
@@ -160,6 +160,11 @@ function extractToolError(part: MessageToolCallPart): { errorCode?: number; erro
   return { errorCode, errorText }
 }
 
+function hasKnownToolError(part: MessageToolCallPart): boolean {
+  const { errorCode } = extractToolError(part)
+  return errorCode !== undefined && ChatboxAIAPIError.getDetail(errorCode) !== null
+}
+
 const ToolCallErrorDetails: FC<{ part: MessageToolCallPart }> = ({ part }) => {
   const { t } = useTranslation()
   const { errorCode, errorText } = extractToolError(part)
@@ -168,9 +173,11 @@ const ToolCallErrorDetails: FC<{ part: MessageToolCallPart }> = ({ part }) => {
   // hide the underlying error text.
   if (errorCode && ChatboxAIAPIError.getDetail(errorCode)) {
     return (
-      <Text size="sm" c="chatbox-error" component="div">
-        <ChatboxAIErrorMessage errorCode={errorCode} trackingSource="msg_tool_error" />
-      </Text>
+      <ToolUnavailableCard
+        toolLabel={getToolName(part.toolName, part.args)}
+        toolName={part.toolName}
+        errorCode={errorCode}
+      />
     )
   }
   return (
@@ -472,8 +479,8 @@ export const WebSearchGroupUI: FC<{ parts: MessageToolCallPart[] }> = ({ parts }
     resultCount > 0 ? t('{{count}} results', { count: resultCount }) : noResults ? t('Search unsuccessful') : undefined
 
   const isFailState = hasError || noResults
-  const [expanded, setExpanded] = useAutoExpandOnSignal(false)
   const errorPart = hasError ? parts.find((p) => p.state === 'error') : undefined
+  const [expanded, setExpanded] = useAutoExpandOnSignal(Boolean(errorPart && hasKnownToolError(errorPart)))
   const bgColor = isFailState
     ? 'var(--chatbox-background-gray-secondary)'
     : expanded
@@ -560,7 +567,7 @@ export const WebSearchGroupUI: FC<{ parts: MessageToolCallPart[] }> = ({ parts }
 const ParseLinkUI: FC<{ part: MessageToolCallPart }> = ({ part }) => {
   const isLoading = part.state === 'call'
   const isError = part.state === 'error'
-  const [expanded, setExpanded] = useAutoExpandOnSignal(false)
+  const [expanded, setExpanded] = useAutoExpandOnSignal(hasKnownToolError(part))
   const result = part.result as Record<string, unknown> | undefined
   const title = (result?.title as string) || ''
   const content = (result?.content as string) || ''
@@ -678,8 +685,9 @@ const ParseLinkDetails: FC<{ part: MessageToolCallPart }> = ({ part }) => {
 
 const GeneralToolCallUI: FC<{ part: MessageToolCallPart }> = ({ part }) => {
   const isBashNotAvailable = isBashNotAvailableResult(part)
+  const isActionableToolError = hasKnownToolError(part)
   const isError = part.state === 'error' || isBashNotAvailable
-  const [expanded, setExpanded] = useAutoExpandOnSignal(isBashNotAvailable)
+  const [expanded, setExpanded] = useAutoExpandOnSignal(isBashNotAvailable || isActionableToolError)
 
   return (
     <Stack gap={6} mb="xs">
@@ -1546,6 +1554,7 @@ const TimelineToolCallStepContent: FC<TimelineToolCallStepProps & { commandResul
     part.state === 'result' &&
     (commandResult?.success === false || (commandExitCode !== undefined && commandExitCode !== 0))
   const isBashNotAvailable = isBashNotAvailableResult(part)
+  const isActionableToolError = hasKnownToolError(part)
   const isError =
     (part.state === 'error' && !isCancelled) ||
     isBashNotAvailable ||
@@ -1560,7 +1569,7 @@ const TimelineToolCallStepContent: FC<TimelineToolCallStepProps & { commandResul
     !isCommandFailure
   // Paused steps stay collapsed — the decision lives in the pending-action bar
   // above the input box, so several pending steps don't unfold at once.
-  const [expanded, setExpanded] = useAutoExpandOnSignal(isBashNotAvailable)
+  const [expanded, setExpanded] = useAutoExpandOnSignal(isBashNotAvailable || isActionableToolError)
   const isApprovalPaused = isPaused && isApprovalPauseReason(part.pauseReason)
   const stepRef = usePausedStepElementRegistration(sessionId, messageId, part.toolCallId, isPaused)
   const approvalHighlighted = useApprovalCardHighlighted(sessionId, messageId, part.toolCallId) && isPaused
@@ -1750,10 +1759,12 @@ const TimelineToolCallStepContent: FC<TimelineToolCallStepProps & { commandResul
           className={approvalHighlighted ? 'chatbox-approval-ring' : undefined}
           mt={6}
           mb={2}
-          p={10}
+          p={isActionableToolError ? 0 : 10}
           style={{
             borderRadius: 'var(--mantine-radius-md)',
-            backgroundColor: 'color-mix(in srgb, var(--chatbox-background-gray-secondary) 72%, transparent)',
+            backgroundColor: isActionableToolError
+              ? 'transparent'
+              : 'color-mix(in srgb, var(--chatbox-background-gray-secondary) 72%, transparent)',
             color: 'var(--chatbox-tint-secondary)',
             // Amber accent marks "decision needed" apart from routine tool details.
             borderLeft: isApprovalPaused ? '3px solid var(--chatbox-tint-warning)' : undefined,

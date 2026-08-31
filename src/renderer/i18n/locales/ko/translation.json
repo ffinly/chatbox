@@ -1396,5 +1396,16 @@
   "Unnamed copilot": "이름 없는 Copilot",
   "Clear all": "모두 삭제",
   "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license, or choose a different <OpenDocumentParserSettingButton>document parser</OpenDocumentParserSettingButton>.": "계정 라이선스를 사용하려면 <OpenSettingButton>Chatbox AI에 로그인</OpenSettingButton>하거나 다른 <OpenDocumentParserSettingButton>문서 파서</OpenDocumentParserSettingButton>를 선택하세요.",
-  "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "계정 라이선스를 사용하려면 <OpenSettingButton>Chatbox AI에 로그인</OpenSettingButton>하세요."
+  "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "계정 라이선스를 사용하려면 <OpenSettingButton>Chatbox AI에 로그인</OpenSettingButton>하세요.",
+  "Web Search settings": "웹 검색 설정",
+  "Web Search was not run: sign in to use Chatbox AI Search": "웹 검색이 실행되지 않았습니다. Chatbox AI 검색을 사용하려면 로그인하세요",
+  "{{tool}} could not run": "{{tool}}을(를) 실행할 수 없습니다",
+  "Chatbox AI Search is built in and does not require an API key. Sign in to use web search and webpage reading. No web results were used in this response.": "Chatbox AI 검색은 기본 제공 기능이므로 API 키가 필요하지 않습니다. 로그인하면 웹 검색과 웹페이지 읽기를 사용할 수 있습니다. 이 답변에는 웹 검색 결과가 사용되지 않았습니다.",
+  "Web Search was skipped: sign in to Chatbox AI": "웹 검색을 건너뛰었습니다. Chatbox AI에 로그인하세요",
+  "Web Search was skipped because Chatbox AI requires sign-in. Future searches in this chat will fail until you sign in or change providers.": "Chatbox AI 로그인이 필요하여 웹 검색을 건너뛰었습니다. 로그인하거나 제공자를 변경할 때까지 이 채팅의 이후 검색은 실패합니다.",
+  "Sign in required": "로그인 필요",
+  "Setup required": "설정 필요",
+  "Chatbox AI Search needs sign-in. Web Search will be skipped while this setting is on.": "Chatbox AI 검색을 사용하려면 로그인해야 합니다. 이 설정이 켜져 있는 동안 웹 검색을 건너뜁니다.",
+  "The selected Web Search provider needs to be configured before it can run.": "선택한 웹 검색 제공자를 실행하려면 먼저 설정해야 합니다.",
+  "Open Web Search settings": "웹 검색 설정 열기"
 }

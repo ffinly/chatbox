@@ -36,7 +36,7 @@ import { getReasoningControlCapabilities, stripReasoningProviderOptions } from '
 import { normalizeCompletedResponse } from './completed-response-normalizer'
 import { createMidRunToolResultRelief } from './context-pressure-relief'
 import { isExpectedGenerationError } from './error-classification'
-import { ApiError, ChatboxAIAPIError, MidStreamApiError } from './errors'
+import { ApiError, BaseError, ChatboxAIAPIError, MidStreamApiError } from './errors'
 import { wrapOpenAICompatibleNonStreamingModel } from './openai-compatible-non-streaming'
 import { stopWhenPersistentToolCallPause } from './persistent-tool-call-pause'
 import { mergeProviderMetadata, pickPersistableProviderMetadata } from './provider-part-metadata'
@@ -569,12 +569,15 @@ export default abstract class AbstractAISDKModel implements ModelInterface {
               name: toolError.error.name,
               message: toolError.error.message,
               stack: toolError.error.stack,
+              ...(toolError.error instanceof BaseError ? { errorCode: toolError.error.code } : {}),
             }
           : toolError.error
+      const errorCode = toolError.error instanceof BaseError ? toolError.error.code : undefined
       const mappedResult: ToolExecutionResult = {
         toolCallId: toolError.toolCallId,
         result: {
           error: serializedError,
+          ...(errorCode ? { errorCode } : {}),
           input: toolError.input,
           toolName: toolError.toolName,
         },

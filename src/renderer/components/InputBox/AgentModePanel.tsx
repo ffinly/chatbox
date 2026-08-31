@@ -1,9 +1,22 @@
 import { hasConversationStarted, resolveSessionMode } from '@chatbox/core/session/mode-policy'
 import NiceModal from '@ebay/nice-modal-react'
-import { ActionIcon, Badge, Button, Divider, Flex, Group, Loader, Stack, Switch, Text } from '@mantine/core'
+import {
+  ActionIcon,
+  Badge,
+  Button,
+  Divider,
+  Flex,
+  Group,
+  Loader,
+  Stack,
+  Switch,
+  Text,
+  UnstyledButton,
+} from '@mantine/core'
 import { TestId } from '@shared/automation/testids'
 import type { AgentModeValue, KnowledgeBase } from '@shared/types'
 import {
+  IconAlertCircle,
   IconCheck,
   IconChevronLeft,
   IconChevronRight,
@@ -45,6 +58,7 @@ import { useCopilotMemory, useMyCopilots } from '@/hooks/useCopilots'
 import { navigateToSettings } from '@/modals/settings-navigation'
 import { BUILTIN_MCP_SERVERS } from '@/packages/mcp/builtin'
 import { skillsController, subscribeSkillsChanged } from '@/packages/skills/controller'
+import { getWebSearchConfigurationIssue } from '@/packages/web-search/configuration-issue'
 import { WEB_SEARCH_PROVIDERS, type WebSearchProviderValue } from '@/packages/web-search/constants'
 import platform from '@/platform'
 import { listCopilotMemories, listMemories } from '@/stores/agentPersonaStore'
@@ -244,6 +258,18 @@ const AgentModePanel = forwardRef<AgentModePanelHandle, AgentModePanelProps>(fun
   const searxngBaseUrl = useSettingsStore((s) => s.extension.webSearch.searxngBaseUrl)
   const webSearchProviderLabel =
     WEB_SEARCH_PROVIDERS.find((p) => p.value === webSearchProvider)?.label ?? webSearchProvider
+  const webSearchConfigurationIssue = webBrowsingMode
+    ? getWebSearchConfigurationIssue(
+        {
+          provider: webSearchProvider,
+          tavilyApiKey,
+          bochaApiKey,
+          queritApiKey,
+          searxngBaseUrl,
+        },
+        licenseKey
+      )
+    : null
 
   // Memory is a global preference (all chats) unless the chat comes from a copilot:
   // then the switch here is that copilot's own — shared by every chat with it — and
@@ -293,12 +319,12 @@ const AgentModePanel = forwardRef<AgentModePanelHandle, AgentModePanelProps>(fun
 
   const isProviderAvailable = useCallback(
     (provider: WebSearchProviderValue) => {
-      if (provider === 'build-in') return !!licenseKey
-      if (provider === 'tavily') return !!tavilyApiKey
-      if (provider === 'bocha') return !!bochaApiKey
-      if (provider === 'querit') return !!queritApiKey
-      if (provider === 'searxng') return !!searxngBaseUrl?.trim()
-      return true
+      return (
+        getWebSearchConfigurationIssue(
+          { provider, tavilyApiKey, bochaApiKey, queritApiKey, searxngBaseUrl },
+          licenseKey
+        ) === null
+      )
     },
     [bochaApiKey, licenseKey, queritApiKey, searxngBaseUrl, tavilyApiKey]
   )
@@ -666,6 +692,7 @@ const AgentModePanel = forwardRef<AgentModePanelHandle, AgentModePanelProps>(fun
     rightContent?: React.ReactNode
     subPanelAlign?: 'top' | 'bottom'
     disabled?: boolean
+    danger?: boolean
   }> = ({
     icon,
     label,
@@ -676,6 +703,7 @@ const AgentModePanel = forwardRef<AgentModePanelHandle, AgentModePanelProps>(fun
     rightContent,
     subPanelAlign = 'bottom',
     disabled = false,
+    danger = false,
   }) => (
     <Flex
       justify="space-between"
@@ -718,14 +746,16 @@ const AgentModePanel = forwardRef<AgentModePanelHandle, AgentModePanelProps>(fun
     >
       <Flex gap="xs" align="center" className="min-w-0">
         {icon}
-        <Text size="sm">{label}</Text>
+        <Text size="sm" c={danger ? 'chatbox-error' : undefined}>
+          {label}
+        </Text>
         {badge !== undefined && (
           <Badge size="xs" variant="light">
             {badge}
           </Badge>
         )}
         {subtitle && (
-          <Text size="xs" c="dimmed" truncate className="max-w-[100px]">
+          <Text size="xs" c={danger ? 'chatbox-error' : 'dimmed'} truncate className="max-w-[100px]">
             {subtitle}
           </Text>
         )}
@@ -1209,9 +1239,27 @@ const AgentModePanel = forwardRef<AgentModePanelHandle, AgentModePanelProps>(fun
             <Divider my={4} mx="sm" label={t('Built-in')} labelPosition="left" />
 
             <ExtensionRow
-              icon={<IconWorldWww size={16} className="text-[var(--chatbox-tint-secondary)]" />}
+              icon={
+                <IconWorldWww
+                  size={16}
+                  className={
+                    webSearchConfigurationIssue
+                      ? 'text-[var(--chatbox-tint-error)]'
+                      : 'text-[var(--chatbox-tint-secondary)]'
+                  }
+                />
+              }
               label={t('Web Search')}
-              subtitle={webBrowsingMode ? webSearchProviderLabel : undefined}
+              subtitle={
+                webSearchConfigurationIssue === 'chatbox-ai-sign-in'
+                  ? (t('Sign in required') ?? undefined)
+                  : webSearchConfigurationIssue
+                    ? (t('Setup required') ?? undefined)
+                    : webBrowsingMode
+                      ? webSearchProviderLabel
+                      : undefined
+              }
+              danger={Boolean(webSearchConfigurationIssue)}
               active={page === 'web-search'}
               page="web-search"
               subPanelAlign="top"
@@ -1247,6 +1295,42 @@ const AgentModePanel = forwardRef<AgentModePanelHandle, AgentModePanelProps>(fun
                 </Flex>
               }
             />
+
+            {webSearchConfigurationIssue && (
+              <Flex
+                role="status"
+                align="flex-start"
+                gap={6}
+                mx="sm"
+                mb={6}
+                px={10}
+                py={8}
+                className="rounded-lg bg-chatbox-background-error-secondary"
+              >
+                <IconAlertCircle size={14} color="var(--chatbox-tint-error)" className="mt-0.5 shrink-0" />
+                <Stack gap={3} className="min-w-0">
+                  <Text size="xs" c="chatbox-secondary" className="leading-snug">
+                    {webSearchConfigurationIssue === 'chatbox-ai-sign-in'
+                      ? t('Chatbox AI Search needs sign-in. Web Search will be skipped while this setting is on.')
+                      : t('The selected Web Search provider needs to be configured before it can run.')}
+                  </Text>
+                  <UnstyledButton
+                    className="w-fit text-xs font-semibold text-[var(--chatbox-tint-brand)]"
+                    onClick={() => {
+                      onClose()
+                      navigateToSettings(
+                        webSearchConfigurationIssue === 'chatbox-ai-sign-in' ? undefined : '/web-search'
+                      )
+                    }}
+                  >
+                    {webSearchConfigurationIssue === 'chatbox-ai-sign-in'
+                      ? t('Sign in to Chatbox AI')
+                      : t('Open Web Search settings')}{' '}
+                    →
+                  </UnstyledButton>
+                </Stack>
+              </Flex>
+            )}
 
             <ExtensionRow
               icon={<IconNotes size={16} className="text-[var(--chatbox-tint-secondary)]" />}

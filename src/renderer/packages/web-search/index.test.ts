@@ -29,8 +29,10 @@ vi.mock('./bing-news', () => {
 vi.mock('./tavily', () => {
   return {
     TavilySearch: class {
-      search = vi.fn().mockResolvedValue({
-        items: [{ title: 'Tavily Result', snippet: 'test', link: 'https://example.com' }],
+      constructor(private readonly apiKey: string) {}
+      search = vi.fn().mockImplementation(async () => {
+        if (this.apiKey === 'failing-key') throw new Error('Tavily unavailable')
+        return { items: [{ title: 'Tavily Result', snippet: 'test', link: 'https://example.com' }] }
       })
     },
   }
@@ -151,5 +153,13 @@ describe('webSearchExecutor', () => {
     await expect(webSearchExecutor({ query: 'missing url' }, {})).rejects.toMatchObject({
       code: 20036,
     })
+  })
+
+  it('propagates the provider error when every configured provider fails', async () => {
+    mockGetExtensionSettings.mockReturnValue({
+      webSearch: { provider: 'tavily', tavilyApiKey: 'failing-key' },
+    } as ReturnType<typeof getExtensionSettings>)
+
+    await expect(webSearchExecutor({ query: 'provider failure' }, {})).rejects.toThrow('Tavily unavailable')
   })
 })

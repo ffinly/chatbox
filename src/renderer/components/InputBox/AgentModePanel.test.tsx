@@ -70,6 +70,7 @@ const mocks = vi.hoisted(() => {
   const setCopilotMemoryMock = vi.fn()
   const addOrUpdateCopilotMock = vi.fn()
   const niceModalShowMock = vi.fn()
+  const navigateToSettingsMock = vi.fn()
   const platform = { type: 'desktop', isDesktopLike: true, openDirectoryDialog: openDirectoryDialogMock }
   const featureFlags = { knowledgeBase: true, skills: true, mcp: true, agentMode: true }
   const toastAddMock = vi.fn()
@@ -83,6 +84,7 @@ const mocks = vi.hoisted(() => {
     listCopilotMemoriesMock,
     listMemoriesMock,
     myCopilots,
+    navigateToSettingsMock,
     niceModalShowMock,
     openDirectoryDialogMock,
     platform,
@@ -138,7 +140,7 @@ vi.mock('@/hooks/mcp', () => ({
 }))
 
 vi.mock('@/modals/settings-navigation', () => ({
-  navigateToSettings: vi.fn(),
+  navigateToSettings: mocks.navigateToSettingsMock,
 }))
 
 vi.mock('@/packages/navigator', () => ({
@@ -219,6 +221,9 @@ beforeEach(() => {
   vi.clearAllMocks()
   mocks.agentModeEntry.value = 'on'
   mocks.knowledgeBases.splice(0)
+  mocks.settingsState.extension.webSearch.provider = 'build-in'
+  mocks.settingsState.extension.webSearch.tavilyApiKey = ''
+  mocks.settingsState.licenseKey = ''
   mocks.settingsState.memoryEnabled = true
   mocks.listMemoriesMock.mockImplementation(() => new Promise(() => {}))
   mocks.listCopilotMemoriesMock.mockImplementation(() => new Promise(() => {}))
@@ -441,6 +446,19 @@ describe('AgentModePanel capability availability', () => {
       true,
       'build-in'
     )
+  })
+
+  test('explains that built-in Web Search needs sign-in without changing the enabled switch', () => {
+    renderPanel({ webBrowsingMode: true })
+
+    expect(screen.getByText('Sign in required')).toBeTruthy()
+    expect(
+      screen.getByText('Chatbox AI Search needs sign-in. Web Search will be skipped while this setting is on.')
+    ).toBeTruthy()
+    expect(screen.getByTestId(TestId.chat.webSearchToggle)).toHaveProperty('checked', true)
+
+    fireEvent.click(screen.getByRole('button', { name: /Sign in to Chatbox AI/ }))
+    expect(mocks.navigateToSettingsMock).toHaveBeenCalledWith(undefined)
   })
 
   test('allows selecting a Knowledge Base from Chat Mode', () => {

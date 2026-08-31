@@ -86,13 +86,18 @@ async function _searchRelatedResults(query: string, signal?: AbortSignal) {
       try {
         const result = await provider.search(query, signal)
         console.debug(`web search result for "${query}":`, result.items)
-        return result
+        return { result }
       } catch (err) {
         console.error(err)
-        return { items: [] }
+        return { error: err }
       }
     })
   )
+
+  const successfulResults = results.flatMap((entry) => (entry.result ? [entry.result] : []))
+  if (successfulResults.length === 0) {
+    throw results[0]?.error ?? new Error('Web search failed')
+  }
 
   const items: SearchResultItem[] = []
 
@@ -101,7 +106,7 @@ async function _searchRelatedResults(query: string, signal?: AbortSignal) {
   let hasMore = false
   do {
     hasMore = false
-    for (const result of results) {
+    for (const result of successfulResults) {
       const item = result.items[i]
       if (item) {
         hasMore = true

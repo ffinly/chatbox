@@ -1396,5 +1396,16 @@
   "Unnamed copilot": "Copilot uten navn",
   "Clear all": "Tøm alt",
   "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license, or choose a different <OpenDocumentParserSettingButton>document parser</OpenDocumentParserSettingButton>.": "<OpenSettingButton>Logg på Chatbox AI</OpenSettingButton> for å bruke kontolisensen din, eller velg en annen <OpenDocumentParserSettingButton>dokumenttolker</OpenDocumentParserSettingButton>.",
-  "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "<OpenSettingButton>Logg på Chatbox AI</OpenSettingButton> for å bruke kontolisensen din."
+  "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "<OpenSettingButton>Logg på Chatbox AI</OpenSettingButton> for å bruke kontolisensen din.",
+  "Web Search settings": "Innstillinger for nettsøk",
+  "Web Search was not run: sign in to use Chatbox AI Search": "Nettsøket ble ikke kjørt: Logg på for å bruke Chatbox AI-søk",
+  "{{tool}} could not run": "{{tool}} kunne ikke kjøres",
+  "Chatbox AI Search is built in and does not require an API key. Sign in to use web search and webpage reading. No web results were used in this response.": "Chatbox AI-søk er innebygd og krever ingen API-nøkkel. Logg på for å bruke nettsøk og lesing av nettsider. Ingen nettresultater ble brukt i dette svaret.",
+  "Web Search was skipped: sign in to Chatbox AI": "Nettsøk ble hoppet over: Logg på Chatbox AI",
+  "Web Search was skipped because Chatbox AI requires sign-in. Future searches in this chat will fail until you sign in or change providers.": "Nettsøket ble hoppet over fordi Chatbox AI krever pålogging. Senere søk i denne chatten vil mislykkes til du logger på eller bytter leverandør.",
+  "Sign in required": "Pålogging kreves",
+  "Setup required": "Oppsett kreves",
+  "Chatbox AI Search needs sign-in. Web Search will be skipped while this setting is on.": "Chatbox AI-søk krever pålogging. Nettsøk blir hoppet over så lenge denne innstillingen er på.",
+  "The selected Web Search provider needs to be configured before it can run.": "Den valgte nettsøkleverandøren må konfigureres før den kan kjøres.",
+  "Open Web Search settings": "Åpne innstillinger for nettsøk"
 }

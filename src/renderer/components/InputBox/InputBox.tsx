@@ -133,6 +133,7 @@ import { getComposerPlaceholder, getSubmitAction, getSubmitControl } from './sub
 import TokenCountMenu from './TokenCountMenu'
 import { useModelToolCapabilities } from './useModelToolCapabilities'
 import { useReasoningControlState } from './useReasoningControlState'
+import { WebSearchUnavailableBanner } from './WebSearchUnavailableBanner'
 import WorkModeStatusRow from './WorkModeStatusRow'
 
 const useSession = (sessionId: string | null) => rendererApplication.sessionHooks.useSession(sessionId)
@@ -1481,6 +1482,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
           {currentSessionId && (
             <CompactionStatus sessionId={currentSessionId} onViewSummary={onViewCompactionSummary} />
           )}
+          {currentSession && !isNewSession && <WebSearchUnavailableBanner session={currentSession} />}
           {currentSessionId && !isNewSession && <QueuedMessagesBar sessionId={currentSessionId} />}
           {currentSession && !isNewSession && (
             <ErrorBoundary name="pending-action-bar">

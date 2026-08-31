@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ModelDependencies } from '../types/adapters'
 import type { SentryScope } from '../utils/sentry_adapter'
 import AbstractAISDKModel, { isRetryableStatusError } from './abstract-ai-sdk'
-import { ApiError, MidStreamApiError } from './errors'
+import { ApiError, ChatboxAIAPIError, MidStreamApiError } from './errors'
 import type { CallChatCompletionOptions } from './types'
 
 const aiMocks = vi.hoisted(() => ({
@@ -160,6 +160,37 @@ describe('AbstractAISDKModel tool errors', () => {
       state: 'error',
       providerMetadata: callMetadata,
       resultProviderMetadata: errorMetadata,
+    })
+  })
+
+  it('preserves a Chatbox AI error code for actionable tool guidance', async () => {
+    const error = ChatboxAIAPIError.fromCodeName(
+      'chatbox_search_license_key_required',
+      'chatbox_search_license_key_required'
+    )
+    aiMocks.streamText.mockReturnValue({
+      fullStream: (async function* () {
+        yield {
+          type: 'tool-error',
+          toolCallId: 'tc1',
+          toolName: 'web_search',
+          input: { query: 'weather' },
+          error,
+          dynamic: true,
+        }
+      })(),
+      totalUsage: Promise.resolve({ inputTokens: 0, outputTokens: 0, totalTokens: 0 }),
+      finishReason: Promise.resolve('stop'),
+    })
+
+    const result = await createModel().chat([], {})
+
+    expect(result.contentParts[0]).toMatchObject({
+      state: 'error',
+      result: {
+        errorCode: 20024,
+        error: { errorCode: 20024 },
+      },
     })
   })
 })

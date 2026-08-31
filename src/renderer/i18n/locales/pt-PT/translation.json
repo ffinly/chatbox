@@ -1396,5 +1396,16 @@
   "Unnamed copilot": "Copilot sem nome",
   "Clear all": "Limpar tudo",
   "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license, or choose a different <OpenDocumentParserSettingButton>document parser</OpenDocumentParserSettingButton>.": "<OpenSettingButton>Inicie sessão no Chatbox AI</OpenSettingButton> para utilizar a licença da sua conta ou escolha outro <OpenDocumentParserSettingButton>analisador de documentos</OpenDocumentParserSettingButton>.",
-  "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "<OpenSettingButton>Inicie sessão no Chatbox AI</OpenSettingButton> para utilizar a licença da sua conta."
+  "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "<OpenSettingButton>Inicie sessão no Chatbox AI</OpenSettingButton> para utilizar a licença da sua conta.",
+  "Web Search settings": "Definições da pesquisa Web",
+  "Web Search was not run: sign in to use Chatbox AI Search": "A pesquisa Web não foi executada: inicie sessão para usar a pesquisa do Chatbox AI",
+  "{{tool}} could not run": "Não foi possível executar {{tool}}",
+  "Chatbox AI Search is built in and does not require an API key. Sign in to use web search and webpage reading. No web results were used in this response.": "A pesquisa do Chatbox AI está integrada e não requer uma chave de API. Inicie sessão para usar a pesquisa Web e a leitura de páginas. Não foram usados resultados da Web nesta resposta.",
+  "Web Search was skipped: sign in to Chatbox AI": "A pesquisa Web foi ignorada: inicie sessão no Chatbox AI",
+  "Web Search was skipped because Chatbox AI requires sign-in. Future searches in this chat will fail until you sign in or change providers.": "A pesquisa Web foi ignorada porque o Chatbox AI requer início de sessão. As próximas pesquisas nesta conversa irão falhar até iniciar sessão ou mudar de fornecedor.",
+  "Sign in required": "É necessário iniciar sessão",
+  "Setup required": "É necessária configuração",
+  "Chatbox AI Search needs sign-in. Web Search will be skipped while this setting is on.": "A pesquisa do Chatbox AI requer início de sessão. A pesquisa Web será ignorada enquanto esta definição estiver ativa.",
+  "The selected Web Search provider needs to be configured before it can run.": "O fornecedor de pesquisa Web selecionado tem de ser configurado antes de poder funcionar.",
+  "Open Web Search settings": "Abrir definições da pesquisa Web"
 }

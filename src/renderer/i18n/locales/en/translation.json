@@ -1395,5 +1395,16 @@
   "Unnamed copilot": "Unnamed copilot",
   "Clear all": "Clear all",
   "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license, or choose a different <OpenDocumentParserSettingButton>document parser</OpenDocumentParserSettingButton>.": "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license, or choose a different <OpenDocumentParserSettingButton>document parser</OpenDocumentParserSettingButton>.",
-  "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license."
+  "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.",
+  "Web Search settings": "Web Search settings",
+  "Web Search was not run: sign in to use Chatbox AI Search": "Web Search was not run: sign in to use Chatbox AI Search",
+  "{{tool}} could not run": "{{tool}} could not run",
+  "Chatbox AI Search is built in and does not require an API key. Sign in to use web search and webpage reading. No web results were used in this response.": "Chatbox AI Search is built in and does not require an API key. Sign in to use web search and webpage reading. No web results were used in this response.",
+  "Web Search was skipped: sign in to Chatbox AI": "Web Search was skipped: sign in to Chatbox AI",
+  "Web Search was skipped because Chatbox AI requires sign-in. Future searches in this chat will fail until you sign in or change providers.": "Web Search was skipped because Chatbox AI requires sign-in. Future searches in this chat will fail until you sign in or change providers.",
+  "Sign in required": "Sign in required",
+  "Setup required": "Setup required",
+  "Chatbox AI Search needs sign-in. Web Search will be skipped while this setting is on.": "Chatbox AI Search needs sign-in. Web Search will be skipped while this setting is on.",
+  "The selected Web Search provider needs to be configured before it can run.": "The selected Web Search provider needs to be configured before it can run.",
+  "Open Web Search settings": "Open Web Search settings"
 }

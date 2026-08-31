@@ -1396,5 +1396,16 @@
   "Unnamed copilot": "Copilot utan namn",
   "Clear all": "Rensa allt",
   "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license, or choose a different <OpenDocumentParserSettingButton>document parser</OpenDocumentParserSettingButton>.": "<OpenSettingButton>Logga in på Chatbox AI</OpenSettingButton> för att använda kontolicensen eller välj en annan <OpenDocumentParserSettingButton>dokumenttolk</OpenDocumentParserSettingButton>.",
-  "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "<OpenSettingButton>Logga in på Chatbox AI</OpenSettingButton> för att använda kontolicensen."
+  "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "<OpenSettingButton>Logga in på Chatbox AI</OpenSettingButton> för att använda kontolicensen.",
+  "Web Search settings": "Inställningar för webbsökning",
+  "Web Search was not run: sign in to use Chatbox AI Search": "Webbsökningen kördes inte: logga in för att använda Chatbox AI-sökning",
+  "{{tool}} could not run": "{{tool}} kunde inte köras",
+  "Chatbox AI Search is built in and does not require an API key. Sign in to use web search and webpage reading. No web results were used in this response.": "Chatbox AI-sökning är inbyggd och kräver ingen API-nyckel. Logga in för att använda webbsökning och läsa webbsidor. Inga webbresultat användes i det här svaret.",
+  "Web Search was skipped: sign in to Chatbox AI": "Webbsökningen hoppades över: logga in på Chatbox AI",
+  "Web Search was skipped because Chatbox AI requires sign-in. Future searches in this chat will fail until you sign in or change providers.": "Webbsökningen hoppades över eftersom Chatbox AI kräver inloggning. Senare sökningar i den här chatten misslyckas tills du loggar in eller byter leverantör.",
+  "Sign in required": "Inloggning krävs",
+  "Setup required": "Konfiguration krävs",
+  "Chatbox AI Search needs sign-in. Web Search will be skipped while this setting is on.": "Chatbox AI-sökning kräver inloggning. Webbsökningen hoppas över så länge den här inställningen är på.",
+  "The selected Web Search provider needs to be configured before it can run.": "Den valda webbsökleverantören måste konfigureras innan den kan köras.",
+  "Open Web Search settings": "Öppna inställningar för webbsökning"
 }
