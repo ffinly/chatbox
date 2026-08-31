@@ -140,6 +140,16 @@ describe('SessionItem inline rename', () => {
     expect(screen.queryByRole('textbox', { name: 'Name' })).toBeNull()
   })
 
+  test('removes the right margin only on desktop', () => {
+    const desktopView = renderItem()
+    expect(screen.getByTestId(TestId.sidebar.sessionItem).style.marginRight).toBe('0rem')
+    desktopView.unmount()
+
+    isSmallScreenMock.mockReturnValue(true)
+    renderItem()
+    expect(screen.getByTestId(TestId.sidebar.sessionItem).style.marginRight).toBe('var(--mantine-spacing-xs)')
+  })
+
   test('switches a non-current session before allowing a later double-click to rename it', () => {
     const view = renderItem(false)
     const title = screen.getByTestId(TestId.sidebar.sessionTitle)

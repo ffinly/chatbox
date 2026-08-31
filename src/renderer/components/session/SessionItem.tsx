@@ -269,7 +269,8 @@ function SessionItem(props: Props) {
             ? 'bg-chatbox-background-brand-secondary'
             : 'hover:bg-chatbox-background-gray-secondary'
       )}
-      mx="xs"
+      ml="xs"
+      mr={isSmallScreen ? 'xs' : 0}
       pl="xs"
       pr={props.isReordering ? 44 : 'xs'}
       py={8}

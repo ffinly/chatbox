@@ -171,6 +171,7 @@ export default function SessionList(props: Props) {
             </Flex>
           )}
           <Virtuoso
+            className="sidebar-session-list"
             style={{
               flex: 1,
               ...(platform.type === 'web'

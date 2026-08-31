@@ -36,6 +36,14 @@ body {
   background-color: color-mix(in srgb, var(--chatbox-tint-secondary) 90%, transparent);
 }
 
+.sidebar-session-list::-webkit-scrollbar {
+  width: 12px;
+}
+
+.sidebar-session-list::-webkit-scrollbar-thumb {
+  border-width: 3px;
+}
+
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
 }
