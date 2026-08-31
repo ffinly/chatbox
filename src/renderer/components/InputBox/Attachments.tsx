@@ -1,13 +1,13 @@
 import NiceModal from '@ebay/nice-modal-react'
 import { Typography } from '@mui/material'
 import { CHATBOX_AI_PARSER_LICENSE_KEY_REQUIRED_ERROR } from '@shared/file-parse-errors'
-import { ChatboxAIAPIError } from '@shared/models/errors'
 import type { SessionAttachmentIndexingStage } from '@shared/types'
 import { IconPlayerPlay } from '@tabler/icons-react'
 import { AlertCircle, CheckCircle, Eye, Link2, Loader2, RotateCw, Trash2 } from 'lucide-react'
 import type { MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AppTooltip as Tooltip } from '@/components/ui/tooltip'
+import platform from '@/platform'
 import {
   isSessionAttachmentRagAuthError,
   isSessionAttachmentRagIndexingError,
@@ -15,6 +15,7 @@ import {
   SESSION_ATTACHMENT_RAG_REQUIRES_KNOWLEDGE_BASE_ERROR,
   SESSION_ATTACHMENT_RAG_REQUIRES_TOOL_USE_MODEL_ERROR,
 } from '@/stores/sessionHelpers'
+import { getFileParseErrorI18nKey } from '@/utils/file-parse-error'
 import MiniButton from '../common/MiniButton'
 import FileIcon from '../FileIcon'
 import { ImageInStorage } from '../Image'
@@ -47,10 +48,10 @@ function getTranslatedErrorMessage(
   if (errorCode === SESSION_ATTACHMENT_RAG_REQUIRES_TOOL_USE_MODEL_ERROR) {
     return t('Large file Q&A requires a model with tool use support. Switch to a compatible model or remove this file.')
   }
-  const errorDetail = ChatboxAIAPIError.codeNameMap[errorCode]
-  if (errorDetail) {
+  const errorI18nKey = getFileParseErrorI18nKey(errorCode, platform.isDesktopLike)
+  if (errorI18nKey) {
     // 使用 i18nKey 进行翻译，去掉其中的 HTML 标签以便在 Tooltip 中显示纯文本
-    const translated = t(errorDetail.i18nKey)
+    const translated = t(errorI18nKey)
     // 移除 HTML/JSX 标签，只保留纯文本
     return translated.replace(/<[^>]*>/g, '')
   }

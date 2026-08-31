@@ -190,6 +190,9 @@ function _otherI18nKeys(t: (key: string) => string) {
   )
   t('Third-party cloud parsing service, supports PDF and most Office files. Requires API token.')
 
+  // src/renderer/modals/FileParseError.tsx
+  t('<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.')
+
   // src/renderer/components/knowledge-base/KnowledgeBaseForm.tsx
   t('Parser used to process uploaded documents')
 

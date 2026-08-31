@@ -1394,5 +1394,7 @@
   "Copilot Memories": "Memórias do Copilot",
   "Memories saved by chats with a specific copilot. Each copilot has its own list, and global memories stay out of those chats.": "Memórias guardadas pelos chats com um Copilot específico. Cada Copilot tem a sua própria lista e as memórias globais ficam de fora desses chats.",
   "Unnamed copilot": "Copilot sem nome",
-  "Clear all": "Limpar tudo"
+  "Clear all": "Limpar tudo",
+  "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license, or choose a different <OpenDocumentParserSettingButton>document parser</OpenDocumentParserSettingButton>.": "<OpenSettingButton>Inicie sessão no Chatbox AI</OpenSettingButton> para utilizar a licença da sua conta ou escolha outro <OpenDocumentParserSettingButton>analisador de documentos</OpenDocumentParserSettingButton>.",
+  "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "<OpenSettingButton>Inicie sessão no Chatbox AI</OpenSettingButton> para utilizar a licença da sua conta."
 }

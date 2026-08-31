@@ -5,7 +5,6 @@ import {
   LOCAL_PARSER_MAX_PDF_FILE_SIZE_LABEL,
   LOCAL_PARSER_PDF_PASSWORD_PROTECTED_ERROR,
 } from '@shared/file-parse-errors'
-import { ChatboxAIAPIError } from '@shared/models/errors'
 import { IconAlertCircle } from '@tabler/icons-react'
 import { Trans, useTranslation } from 'react-i18next'
 import { AdaptiveModal } from '@/components/common/AdaptiveModal'
@@ -23,6 +22,7 @@ import {
   SESSION_ATTACHMENT_RAG_REQUIRES_TOOL_USE_MODEL_ERROR,
 } from '@/stores/sessionAttachmentRagErrors'
 import * as settingActions from '@/stores/settingActions'
+import { getFileParseErrorI18nKey } from '@/utils/file-parse-error'
 
 interface FileParseErrorProps {
   errorCode: string
@@ -38,8 +38,8 @@ const FileParseError = NiceModal.create(({ errorCode, fileName }: FileParseError
     modal.hide()
   }
 
-  // 根据错误码获取错误详情
-  const errorDetail = ChatboxAIAPIError.codeNameMap[errorCode]
+  // 根据错误码和平台能力获取错误文案
+  const errorI18nKey = getFileParseErrorI18nKey(errorCode, platform.isDesktopLike)
 
   // 错误提示内容
   const renderErrorTips = () => {
@@ -97,14 +97,14 @@ const FileParseError = NiceModal.create(({ errorCode, fileName }: FileParseError
       )
     }
 
-    if (!errorDetail) {
+    if (!errorI18nKey) {
       // 未知错误
       return <Text>{t('Failed to parse file. Please try again or use a different file format.')}</Text>
     }
 
     return (
       <Trans
-        i18nKey={errorDetail.i18nKey}
+        i18nKey={errorI18nKey}
         values={{
           model: t('current model'),
         }}

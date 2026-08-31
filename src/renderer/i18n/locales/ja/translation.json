@@ -1394,5 +1394,7 @@
   "Copilot Memories": "Copilotメモリー",
   "Memories saved by chats with a specific copilot. Each copilot has its own list, and global memories stay out of those chats.": "特定のCopilotとのチャットで保存されたメモリーです。Copilotごとに専用のリストがあり、グローバルメモリーはそれらのチャットには読み込まれません。",
   "Unnamed copilot": "名前のないCopilot",
-  "Clear all": "すべて削除"
+  "Clear all": "すべて削除",
+  "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license, or choose a different <OpenDocumentParserSettingButton>document parser</OpenDocumentParserSettingButton>.": "アカウントのライセンスを使用するには<OpenSettingButton>Chatbox AI にサインイン</OpenSettingButton>するか、別の<OpenDocumentParserSettingButton>ドキュメントパーサー</OpenDocumentParserSettingButton>を選択してください。",
+  "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "アカウントのライセンスを使用するには<OpenSettingButton>Chatbox AI にサインイン</OpenSettingButton>してください。"
 }

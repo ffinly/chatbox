@@ -1394,5 +1394,7 @@
   "Copilot Memories": "Copilot 메모리",
   "Memories saved by chats with a specific copilot. Each copilot has its own list, and global memories stay out of those chats.": "특정 Copilot과의 대화에서 저장된 메모리입니다. Copilot마다 고유한 목록이 있으며, 해당 대화에는 전역 메모리가 사용되지 않습니다.",
   "Unnamed copilot": "이름 없는 Copilot",
-  "Clear all": "모두 삭제"
+  "Clear all": "모두 삭제",
+  "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license, or choose a different <OpenDocumentParserSettingButton>document parser</OpenDocumentParserSettingButton>.": "계정 라이선스를 사용하려면 <OpenSettingButton>Chatbox AI에 로그인</OpenSettingButton>하거나 다른 <OpenDocumentParserSettingButton>문서 파서</OpenDocumentParserSettingButton>를 선택하세요.",
+  "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "계정 라이선스를 사용하려면 <OpenSettingButton>Chatbox AI에 로그인</OpenSettingButton>하세요."
 }

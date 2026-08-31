@@ -31,31 +31,29 @@ Object.defineProperty(globalThis, 'ResizeObserver', {
   },
 })
 
-const { mockNavigateToSettings } = vi.hoisted(() => ({
+const { mockNavigateToSettings, mockPlatform } = vi.hoisted(() => ({
   mockNavigateToSettings: vi.fn(),
+  mockPlatform: { type: 'desktop', isDesktopLike: true },
 }))
 
 vi.mock('react-i18next', () => ({
-  Trans: ({ i18nKey, components }: { i18nKey: string; components?: Record<string, ReactElement> }) => (
-    <span>
-      {i18nKey}
-      {components?.OpenSettingButton
-        ? cloneElement(
-            components.OpenSettingButton,
-            {},
-            i18nKey.match(/<OpenSettingButton>(.*?)<\/OpenSettingButton>/)?.[1] ?? 'open Settings'
-          )
-        : null}
-      {components?.OpenDocumentParserSettingButton
-        ? cloneElement(
-            components.OpenDocumentParserSettingButton,
-            {},
-            i18nKey.match(/<OpenDocumentParserSettingButton>(.*?)<\/OpenDocumentParserSettingButton>/)?.[1] ??
-              'document parser'
-          )
-        : null}
-    </span>
-  ),
+  Trans: ({ i18nKey, components }: { i18nKey: string; components?: Record<string, ReactElement> }) => {
+    const openSettingLabel = i18nKey.match(/<OpenSettingButton>(.*?)<\/OpenSettingButton>/)?.[1]
+    const documentParserLabel = i18nKey.match(
+      /<OpenDocumentParserSettingButton>(.*?)<\/OpenDocumentParserSettingButton>/
+    )?.[1]
+    return (
+      <span>
+        {i18nKey}
+        {components?.OpenSettingButton && openSettingLabel
+          ? cloneElement(components.OpenSettingButton, {}, openSettingLabel)
+          : null}
+        {components?.OpenDocumentParserSettingButton && documentParserLabel
+          ? cloneElement(components.OpenDocumentParserSettingButton, {}, documentParserLabel)
+          : null}
+      </span>
+    )
+  },
   initReactI18next: { type: '3rdParty', init: vi.fn() },
   useTranslation: () => ({ t: (key: string) => key }),
 }))
@@ -93,9 +91,9 @@ vi.mock('@/packages/remote', () => ({
 }))
 
 vi.mock('@/platform', () => ({
-  default: {
+  default: Object.assign(mockPlatform, {
     openLink: vi.fn(),
-  },
+  }),
 }))
 
 vi.mock('@/stores/settingActions', () => ({
@@ -121,9 +119,11 @@ function showFileParseError(errorCode: string, fileName?: string) {
 describe('FileParseError', () => {
   beforeEach(() => {
     mockNavigateToSettings.mockReset()
+    mockPlatform.type = 'desktop'
+    mockPlatform.isDesktopLike = true
   })
 
-  test('prompts the user to sign in when Chatbox AI parsing has no account license', async () => {
+  test('lets desktop users switch parsers when Chatbox AI parsing has no account license', async () => {
     showFileParseError('chatbox_ai_parser_license_key_required', 'lecture.pdf')
 
     expect(await screen.findByText('File: lecture.pdf')).toBeTruthy()
@@ -136,4 +136,17 @@ describe('FileParseError', () => {
 
     expect(mockNavigateToSettings).toHaveBeenCalledWith('/chatbox-ai')
   })
+
+  test.each(['web', 'mobile'])(
+    'only prompts %s users to sign in because no alternative parser is available',
+    async (type) => {
+      mockPlatform.type = type
+      mockPlatform.isDesktopLike = false
+      showFileParseError('chatbox_ai_parser_license_key_required', 'lecture.pdf')
+
+      expect(await screen.findByText('File: lecture.pdf')).toBeTruthy()
+      expect(screen.getByText('Sign in to Chatbox AI').tagName).toBe('BUTTON')
+      expect(screen.queryByText('document parser')).toBeNull()
+    }
+  )
 })
