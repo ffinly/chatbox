@@ -79,6 +79,7 @@ describe('desktop context menu', () => {
         expect.objectContaining({ enabled: false, role: 'copy' }),
         expect.objectContaining({ enabled: false, role: 'cut' }),
         expect.objectContaining({ enabled: true, role: 'paste' }),
+        expect.objectContaining({ role: 'selectAll' }),
       ])
     )
     expect(mocks.popup).toHaveBeenCalledWith({ window: mainWindow })

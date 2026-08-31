@@ -39,7 +39,12 @@ export default class MenuBuilder {
           accelerator: 'CmdOrCtrl+Shift+V',
           enabled: props.isEditable,
         },
-        // { type: 'separator' },
+        { type: 'separator' },
+        {
+          role: 'selectAll',
+          label: locale.t('SelectAll'),
+          accelerator: 'CmdOrCtrl+A',
+        },
         // { role: 'resetZoom', label: locale.t('ResetZoom'), accelerator: 'CmdOrCtrl+0' },
         // { role: 'zoomIn', label: locale.t('ZoomIn'), accelerator: 'CmdOrCtrl+=' },
         // { role: 'zoomOut', label: locale.t('ZoomOut'), accelerator: 'CmdOrCtrl+-' },
