@@ -238,7 +238,7 @@ const AgentModeButton: FC<AgentModeButtonProps> = ({
           handleDismissWebSearchMovedTip()
           return
         }
-        setPanelOpened(!opened)
+        setPanelOpened(isTouchLayout ? !opened : true)
       }}
       className="flex items-center gap-1 px-2 py-1 rounded-lg transition-colors hover:bg-[var(--chatbox-background-tertiary)]"
       style={{ color }}

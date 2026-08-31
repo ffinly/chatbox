@@ -122,7 +122,7 @@ describe('AgentModeButton', () => {
 
   test('opens and closes the mode menu by click for touch input', () => {
     window.localStorage.setItem('chatbox.web-search-moved-tip-dismissed.v1', 'true')
-    renderButton()
+    renderButton({ layout: 'touch' })
 
     const button = screen.getByRole('button', { name: 'Work Mode' })
     fireEvent.click(button)
@@ -130,6 +130,18 @@ describe('AgentModeButton', () => {
 
     fireEvent.click(button)
     expect(screen.queryByText('Agent mode menu')).toBeNull()
+  })
+
+  test('keeps the desktop mode menu open when the trigger is clicked after hover', async () => {
+    window.localStorage.setItem('chatbox.web-search-moved-tip-dismissed.v1', 'true')
+    renderButton({ layout: 'desktop' })
+
+    const button = screen.getByRole('button', { name: 'Work Mode' })
+    fireEvent.mouseEnter(button)
+    await waitFor(() => expect(screen.getByText('Agent mode menu')).toBeTruthy())
+
+    fireEvent.click(button)
+    expect(screen.getByText('Agent mode menu')).toBeTruthy()
   })
 
   test('keeps the message input blurred after changing Web Search in the touch sheet', () => {
