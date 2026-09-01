@@ -5,7 +5,6 @@ import platform from '@/platform'
 import { router } from '@/router'
 import { initSessionPresentationBindings } from '@/session-bootstrap'
 import { initGoogleAnalyticsTracking } from '@/setup/ga_init'
-import { initHarmonyLocalModelSync, syncHarmonyLocalModels } from '@/setup/harmony_local_models'
 import { initJkTracking } from '@/setup/jk_analytics_init'
 import { initPlausibleTracking } from '@/setup/plausible_init'
 import { initSentry } from '@/setup/sentry_init'
@@ -69,9 +68,6 @@ export async function bootstrapRenderer(application: RendererApplication): Promi
     initOnboardingStore(),
     initRecentDirectoriesStore(),
   ])
-
-  await syncHarmonyLocalModels()
-  initHarmonyLocalModelSync()
 
   void i18n.changeLanguage(settings.language)
   initLoginLicenseStateReconciliation()
