@@ -39,6 +39,7 @@ import { AppUpdater } from './app-updater'
 import * as autoLauncher from './autoLauncher'
 import { formatTooLargeFileRead, readRegularFileBytesBounded } from './bounded-file-read'
 import { handleDeepLink } from './deeplinks'
+import { registerDesktopDirectRequestHandlers } from './desktop-direct-request'
 import { parseFile } from './file-parser'
 import { isQuitForInstallRequested } from './installer-command'
 import Locale from './locales'
@@ -1177,3 +1178,6 @@ registerSandboxHandlers()
 registerSkillsHandlers()
 registerOAuthHandlers()
 registerAgentPersonaHandlers()
+if (!IS_HARMONY_BUILD) {
+  registerDesktopDirectRequestHandlers()
+}

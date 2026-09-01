@@ -736,6 +736,7 @@
   "on the side bar to start a new conversation.": "en la barra lateral para iniciar una nueva conversación.",
   "One-click MCP servers for Chatbox AI subscribers": "Servidores MCP de un solo clic para suscriptores de Chatbox AI",
   "Only available before the first message.": "Solo disponible antes del primer mensaje.",
+  "Only enable this when necessary, as it may reduce connection speed.": "Activa esta opción solo cuando sea necesario, ya que puede reducir la velocidad de conexión.",
   "Only supports basic text files (.txt, .md, .json, code files, etc.). For PDF and Office files, please switch to Chatbox AI.": "Solo admite archivos de texto básicos (.txt, .md, .json, archivos de código, etc.). Para archivos PDF y Office, cambie a Chatbox AI.",
   "Open": "Abrir",
   "Open Authorization Page": "Abrir página de autorización",

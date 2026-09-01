@@ -736,6 +736,7 @@
   "on the side bar to start a new conversation.": "사이드바에서 새 대화를 시작하세요.",
   "One-click MCP servers for Chatbox AI subscribers": "Chatbox AI 구독자를 위한 원클릭 MCP 서버",
   "Only available before the first message.": "첫 메시지 전까지만 사용할 수 있습니다.",
+  "Only enable this when necessary, as it may reduce connection speed.": "필요한 경우에만 활성화하세요. 연결 속도가 느려질 수 있습니다.",
   "Only supports basic text files (.txt, .md, .json, code files, etc.). For PDF and Office files, please switch to Chatbox AI.": "기본 텍스트 파일(.txt, .md, .json, 코드 파일 등)만 지원합니다. PDF 및 Office 파일의 경우 Chatbox AI로 전환해 주세요.",
   "Open": "열기",
   "Open Authorization Page": "인증 페이지 열기",

@@ -802,6 +802,7 @@ function ProviderSettings({ providerId }: { providerId: string }) {
 
             <Switch
               label={t('Improve Network Compatibility')}
+              description={t('Only enable this when necessary, as it may reduce connection speed.')}
               checked={providerSettings?.useProxy || false}
               onChange={(e) =>
                 setProviderSettings({
@@ -812,10 +813,11 @@ function ProviderSettings({ providerId }: { providerId: string }) {
           </>
         )}
 
-        {/* useProxy for Ollama */}
+        {/* Network compatibility setting for Ollama */}
         {baseInfo.id === ModelProviderEnum.Ollama && (
           <Switch
             label={t('Improve Network Compatibility')}
+            description={t('Only enable this when necessary, as it may reduce connection speed.')}
             checked={providerSettings?.useProxy || false}
             onChange={(e) =>
               setProviderSettings({

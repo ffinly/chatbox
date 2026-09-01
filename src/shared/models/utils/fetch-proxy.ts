@@ -8,10 +8,7 @@ function toApiRequestSignal(signal: RequestInit['signal']): ApiRequestSignal {
   return (signal ?? undefined) as unknown as ApiRequestSignal
 }
 
-/**
- * Creates a fetch function that uses proxy when enabled,
- * or falls back to apiRequest for mobile CORS handling
- */
+/** Passes the provider's network-compatibility preference to the host request adapter. */
 export function createFetchWithProxy(useProxy: boolean | undefined, dependencies: ModelDependencies) {
   return async (url: RequestInfo | URL, init?: RequestInit) => {
     const method = init?.method || 'GET'

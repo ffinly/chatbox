@@ -84,6 +84,7 @@ Host composition
 - `@chatbox/core/model` 是显式模型入口；加载它时注册 builtin providers，并导出 registry/model API 与 Core `ModelFactory`。
 - `ModelFactory` 位于 `packages/chatbox-core/src/application/model/`，从注入的 Settings Repository、Config loader 和 `ModelDependencies` 组装模型，不读取 Renderer store。
 - 当前 Renderer 注入 fetch、OAuth、blob storage 等现有 Adapters；未来 React Native 注入自己的等价实现，无需复制 Provider 选择和模型创建规则。
+- Provider 的“改善网络兼容性”不是统一代理开关；各宿主的实际传输矩阵、CORS/Origin 边界和取消协议见[Provider 网络兼容性请求](./provider-networking.md)。
 
 这种显式入口同时避免 package re-export 导致重复 Provider side effects，并让 Metro/Hermes 可以直接消费经过声明的 public exports。
 
@@ -383,37 +384,17 @@ Cursor 订阅的 CLI PKCE 登录无法接到公开聊天 API，调研结论见 [
 
 原因是：provider ID 同时用于设置存储、运行时 provider 路由、OAuth 共享映射和设置页导航。若允许 builtin/custom 共用 ID，会出现“展示的是一个 provider，实际请求走的是另一个 provider”的控制面歧义
 
-## 架构演进
+## 注册表维护
 
-供应商系统经历了一次重大重构：
-
-### 旧方案（手动注册）
-
-记录于 [`docs/adding-provider.md`](../adding-provider.md)。添加一个新供应商需要修改 **7-8 个文件**：
-
-1. `types.ts` — 添加枚举值
-2. `models/your-provider.ts` — 创建模型实现
-3. `models/index.ts` — 在 `getModel()` switch 中添加 case
-4. `defaults.ts` — 在 `SystemProviders` 数组中添加配置
-5. `model-setting-utils/` — 创建并注册设置工具类
-6. UI 图标文件
-
-信息**高度分散**：供应商的 ID、名称、默认配置、工厂逻辑、显示名称分布在不同文件和 switch 语句中，新增或修改供应商极易遗漏步骤。
-
-### 新方案（注册表模式）
-
-记录于 [`docs/adding-new-provider.md`](../adding-new-provider.md)。添加一个新供应商只需 **4 个文件改动**：
+当前 Provider 只通过注册表模式接入。添加一个新供应商通常需要 **4 个文件改动**：
 
 1. `types.ts` — 添加枚举值
 2. `definitions/models/your-provider.ts` — 创建模型类
 3. `definitions/your-provider.ts` — 一次 `defineProvider()` 调用包含全部信息
 4. `providers/index.ts` — 添加一行副作用导入
 
-核心改进：**`defineProvider()` 成为供应商信息的唯一数据源**，消除了 switch 语句和分散配置。迁移对照表见 `docs/adding-new-provider.md` 的 "Migration Notes" 一节。
+`defineProvider()` 是供应商信息的单一数据源。不要重新引入 `getModel()` switch、`SystemProviders` 手工条目或独立 setting-util 注册路径。迁移对照表见 `docs/adding-new-provider.md` 的 "Migration Notes" 一节。
 
 ## 添加新供应商
 
-本文档不重复具体步骤。详细的分步指南请参阅：
-
-- **[`docs/adding-new-provider.md`](../adding-new-provider.md)**（当前推荐，注册表架构）
-- `docs/adding-provider.md`（旧版参考，已不推荐使用）
+本文档不重复具体步骤。详细的分步指南请参阅 [`docs/adding-new-provider.md`](../adding-new-provider.md)。

@@ -16,7 +16,7 @@ export interface RendererApiRequestClient {
 
 /**
  * Preserves both request paths used by model implementations:
- * ordinary fetch-with-retry and the host proxy-aware API request bridge.
+ * ordinary fetch-with-retry and the platform-aware API request path.
  */
 export class RendererRequestAdapter implements RequestAdapter {
   constructor(

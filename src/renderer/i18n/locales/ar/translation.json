@@ -736,6 +736,7 @@
   "on the side bar to start a new conversation.": "في الشريط الجانبي لبدء محادثة جديدة.",
   "One-click MCP servers for Chatbox AI subscribers": "خوادم MCP بنقرة واحدة لمشتركي Chatbox AI",
   "Only available before the first message.": "متاح فقط قبل الرسالة الأولى.",
+  "Only enable this when necessary, as it may reduce connection speed.": "فعّل هذا الخيار عند الضرورة فقط، فقد يؤدي إلى خفض سرعة الاتصال.",
   "Only supports basic text files (.txt, .md, .json, code files, etc.). For PDF and Office files, please switch to Chatbox AI.": "يدعم ملفات النصوص الأساسية فقط (.txt، .md، .json، ملفات الكود، إلخ). بالنسبة لملفات PDF وOffice، يرجى التبديل إلى Chatbox AI.",
   "Open": "فتح",
   "Open Authorization Page": "افتح صفحة التفويض",

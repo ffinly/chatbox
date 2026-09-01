@@ -31,11 +31,14 @@ export default defineConfig(({ mode }) => {
       },
       include: defaultInclude,
       exclude: [
-        'node_modules',
-        'dist',
-        'release',
-        '.erb',
-        ...(isModelProviderRun ? [] : ['test/integration/model-provider']),
+        // Workspace packages are symlinked into `packages/*/node_modules`, so a bare
+        // `node_modules` glob (which only matches the repo root entry) would collect
+        // every `packages/chatbox-core` suite a second time through the symlink.
+        '**/node_modules/**',
+        '**/dist/**',
+        'release/**',
+        '.erb/**',
+        ...(isModelProviderRun ? [] : ['test/integration/model-provider/**']),
       ],
       setupFiles: [],
       testTimeout: 10000,
