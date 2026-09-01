@@ -65,6 +65,7 @@ const {
 vi.mock('@/platform', () => ({
   default: {
     type: 'desktop',
+    isDesktopLike: true,
     parseFileLocally: mockParseFileLocally,
     parseFileWithMineru: mockParseFileWithMineru,
   },

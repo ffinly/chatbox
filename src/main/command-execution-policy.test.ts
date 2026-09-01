@@ -92,11 +92,9 @@ describe('failed sandbox command retry policy', () => {
       rmSync(link)
       symlinkSync(replacement, link)
 
-      expect(checkFailedCommandRetry({ ...failedCommand, retryOf, cwd: link })).toMatchObject(
-        {
-          valid: false,
-        }
-      )
+      expect(checkFailedCommandRetry({ ...failedCommand, retryOf, cwd: link })).toMatchObject({
+        valid: false,
+      })
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
@@ -111,8 +109,8 @@ describe('failed sandbox command retry policy', () => {
     expect(checkFailedCommandRetry({ ...failedCommand, retryOf: sessionOneRetry })).toMatchObject({
       valid: false,
     })
-    expect(
-      checkFailedCommandRetry({ ...failedCommand, sessionId: 'session-2', retryOf: sessionTwoRetry })
-    ).toEqual({ valid: true })
+    expect(checkFailedCommandRetry({ ...failedCommand, sessionId: 'session-2', retryOf: sessionTwoRetry })).toEqual({
+      valid: true,
+    })
   })
 })

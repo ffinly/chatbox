@@ -20,7 +20,6 @@ const PLATFORM_LABELS: Record<PlatformType, string> = {
   desktop: 'Desktop',
   web: 'Web',
   mobile: 'Mobile',
-  harmony: 'Mobile (HarmonyOS)',
 }
 
 export interface AgentIdentityOptions {

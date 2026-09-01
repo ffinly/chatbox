@@ -130,8 +130,7 @@ describe('SettingsSchema background image opacity', () => {
 
 describe('SettingsSchema new message scroll behavior', () => {
   test('defaults new message auto-scroll to top to disabled for existing settings', () => {
-    const legacySettings = { ...defaultSettings() }
-    delete legacySettings.autoScrollNewMessagesToTop
+    const { autoScrollNewMessagesToTop: _unset, ...legacySettings } = defaultSettings()
 
     expect(SettingsSchema.parse(legacySettings).autoScrollNewMessagesToTop).toBe(false)
   })

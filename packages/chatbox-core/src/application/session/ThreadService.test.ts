@@ -157,7 +157,7 @@ describe('ThreadService', () => {
     expect(harness.session.settings?.sessionPromptContextSnapshot).toBeUndefined()
     expect(harness.session.threads?.[0].sessionPromptContextSnapshot).toBe(snapshot)
     expect(
-      buildSessionExportThreads(harness.session, true).map(
+      buildSessionExportThreads(harness.session, true, true).map(
         (thread) => thread.messages.at(-1)?.contentParts.find((part) => part.type === 'text')?.text
       )
     ).toEqual(['saved-reply', 'active-reply', 'Previous conversation summary:\n\nSummary'])

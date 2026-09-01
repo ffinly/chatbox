@@ -15,7 +15,7 @@ import type { SessionMetaStorage } from '@/storage/SessionMetaStorage'
 import type { KnowledgeBaseController } from './knowledge-base/interface'
 import type { SessionAttachmentRagController } from './session-attachment-rag/interface'
 
-export type PlatformType = 'web' | 'desktop' | 'mobile'
+export type PlatformType = SharedPlatformType
 
 export interface Storage {
   getStorageType(): string
@@ -29,6 +29,8 @@ export interface Storage {
 
 export interface Platform extends Storage {
   type: PlatformType
+  /** Whether this platform is backed by the Electron main/preload bridge. */
+  isDesktopLike: boolean
 
   exporter: Exporter
 
@@ -84,8 +86,8 @@ export interface Platform extends Storage {
 
   // 追踪
 
-  initTracking(): void
-  trackingEvent(name: string, params: { [key: string]: string }): void
+  initTracking(): Promise<void> | void
+  trackingEvent(name: string, params: AnalyticsEventParams): Promise<void> | void
 
   // 通知
   shouldShowAboutDialogWhenStartUp(): Promise<boolean>

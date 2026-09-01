@@ -13,14 +13,7 @@ import {
   Title,
 } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import {
-  IconChevronRight,
-  IconFileText,
-  IconHome,
-  IconMessage2,
-  IconPencil,
-  IconRefresh,
-} from '@tabler/icons-react'
+import { IconChevronRight, IconFileText, IconHome, IconMessage2, IconPencil, IconRefresh } from '@tabler/icons-react'
 import { createFileRoute } from '@tanstack/react-router'
 import { Fragment, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'

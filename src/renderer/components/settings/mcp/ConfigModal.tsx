@@ -102,7 +102,7 @@ const ConfigForm: FC<{
 
   const handleSubmit = (values: typeof form.values) => {
     console.debug('form onSubmit', values)
-    trackEvent('save_mcp_server', { type: values.transport.type, name: values.name })
+    trackEvent('save_mcp_server', { type: values.transport.type })
     return props.onSave(getConfigFromFormValues(values))
   }
 

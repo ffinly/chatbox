@@ -44,6 +44,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { trackJkClickEvent } from '@/analytics/jk'
 import { JK_EVENTS, JK_PAGE_NAMES } from '@/analytics/jk-events'
+import { bucketPlausibleCount } from '@/analytics/plausible'
 import { AppTooltip as Tooltip } from '@/components/ui/tooltip'
 import { useKnowledgeBaseFiles, useKnowledgeBaseFilesActions, useKnowledgeBaseFilesCount } from '@/hooks/knowledge-base'
 import { useChunksPreview } from '@/hooks/useChunksPreview'
@@ -327,13 +328,12 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
 
         // Track successful uploads only
         if (successfulUploads.length > 0) {
+          const uploadedFileTypes = new Set(correctedFiles.map((file) => file.type || 'unknown'))
           trackEvent('knowledge_base_document_added', {
-            knowledge_base_id: knowledgeBase.id,
-            knowledge_base_name: knowledgeBase.name,
-            file_count: successfulUploads.length,
-            total_attempted: files.length,
-            failed_count: blockedUploadCount,
-            file_types: Array.from(new Set(correctedFiles.map((f) => f.type || 'unknown'))),
+            file_count: bucketPlausibleCount(successfulUploads.length),
+            attempted_file_count: bucketPlausibleCount(files.length),
+            failed_file_count: bucketPlausibleCount(blockedUploadCount),
+            file_type_count: bucketPlausibleCount(uploadedFileTypes.size),
           })
 
           // Immediately refresh the data to show the new files
@@ -356,7 +356,7 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
         )
       }
     },
-    [knowledgeBase?.id, knowledgeBase?.name, correctMimeType, refetch, refetchCount, invalidateFiles, isExpanded, t]
+    [knowledgeBase?.id, correctMimeType, refetch, refetchCount, invalidateFiles, isExpanded, t]
   )
 
   // Validate file type against supported types

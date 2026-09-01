@@ -1,14 +1,18 @@
-/**
- * Explicit React Native model-runtime entrypoint.
- *
- * Unlike `react-native.ts`, importing this module intentionally registers the
- * built-in providers in their historical display order.
- */
-import './providers/builtin-registration'
-
-export type { ModelFactoryOptions, ModelResolver } from './application/model'
-export { ModelFactory } from './application/model'
-export type { ModelInterface } from './models/types'
+/** @deprecated Import from `@chatbox/core/model`. */
+export type {
+  Config,
+  ModelDependencies,
+  ModelFactoryOptions,
+  ModelInterface,
+  ModelResolver,
+  OAuthAdapter,
+  ProviderModelInfo,
+  ProviderSettings,
+  RequestAdapter,
+  SessionSettings,
+  Settings,
+  StorageAdapter,
+} from '@chatbox/core/model'
 export {
   getAllProviders,
   getBuiltinProviderIds,
@@ -18,7 +22,7 @@ export {
   getSystemProviders,
   hasProvider,
   isBuiltinProviderId,
-} from './providers'
-export type { Config, ProviderModelInfo, ProviderSettings, SessionSettings, Settings } from './types'
-export type { ModelDependencies, OAuthAdapter, RequestAdapter, StorageAdapter } from './types/adapters'
-export { ModelProviderEnum, ModelProviderType } from './types/provider'
+  ModelFactory,
+  ModelProviderEnum,
+  ModelProviderType,
+} from '@chatbox/core/model'

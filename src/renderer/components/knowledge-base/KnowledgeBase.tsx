@@ -353,11 +353,9 @@ const KnowledgeBasePage: React.FC = () => {
 
       trackEvent('knowledge_base_created', {
         provider_mode: newProviderMode,
-        embedding_model: embeddingModel,
-        rerank_model: rerankModel || null,
-        vision_model: visionModel || null,
         document_parser: documentParser?.type || 'global',
-        knowledge_base_name: newKbName,
+        has_rerank_model: Boolean(rerankModel),
+        has_vision_model: Boolean(visionModel),
       })
 
       // Reset form

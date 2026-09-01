@@ -13,7 +13,7 @@ const { reportErrorMock, trackEventMock } = vi.hoisted(() => ({
   trackEventMock: vi.fn(),
 }))
 
-vi.mock('@/platform', () => ({ default: { type: 'desktop' } }))
+vi.mock('@/platform', () => ({ default: { type: 'desktop', isDesktopLike: true } }))
 vi.mock('@/utils/track', () => ({ trackEvent: trackEventMock }))
 vi.mock('@/utils/sentry', () => ({ reportError: reportErrorMock }))
 vi.mock('@/packages/model-setting-utils', () => ({ getModelDisplayName: vi.fn() }))
@@ -53,6 +53,23 @@ describe('trackGenerateEvent', () => {
         agent_mode: 'on',
         agent_mode_active: 'true',
         agent_mode_entry_source: 'locked_session',
+      })
+    )
+  })
+
+  test('groups custom provider and model identifiers', () => {
+    const settings = {
+      provider: 'custom-provider-private',
+      modelId: 'private-model-name',
+    } satisfies SessionSettings
+
+    trackGenerateEvent('session-1', settings, {} as Settings, 'chat')
+
+    expect(trackEventMock).toHaveBeenCalledWith(
+      'generate',
+      expect.objectContaining({
+        provider: 'custom',
+        model: 'custom',
       })
     )
   })

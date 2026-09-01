@@ -11,7 +11,6 @@ const storageMock = vi.hoisted(() => ({
   setItemNow: vi.fn(),
 }))
 
-
 vi.mock('@/packages/initial_data', () => ({
   defaultSessionsForCN: [],
   defaultSessionsForEN: [

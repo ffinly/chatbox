@@ -9,6 +9,8 @@ interface PlatformInfo {
   version: string
 }
 
+export type FetchImplementation = (url: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+
 function getRequestOrigin(url: RequestInfo | URL): string {
   if (url instanceof Request) {
     return new URL(url.url).origin
@@ -93,7 +95,10 @@ function sanitizeResponseBody(status: number, response: string): string {
   return response
 }
 
-export function createAfetch(platformInfo: PlatformInfo) {
+export function createAfetch(
+  platformInfo: PlatformInfo,
+  fetchImplementation: FetchImplementation = (url, init) => fetch(url, init)
+) {
   return async function afetch(
     url: RequestInfo | URL,
     init?: RequestInit,
@@ -118,7 +123,7 @@ export function createAfetch(platformInfo: PlatformInfo) {
             },
           }
         }
-        const res = await fetch(url, init)
+        const res = await fetchImplementation(url, init)
         // 状态码不在 200～299 之间，一般是接口报错了，这里也需要抛错后重试
         if (!res.ok) {
           const response = await res.text().catch((e: unknown) => {

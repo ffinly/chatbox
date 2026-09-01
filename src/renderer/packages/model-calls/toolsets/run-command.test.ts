@@ -90,13 +90,10 @@ describe('run_command', () => {
     })
     if (!tool.execute) throw new Error('run_command execute missing')
 
-    const result = await tool.execute(
-      { command: 'git status', workdir: 'packages/app' },
-      {
-        toolCallId: 'tool-failed',
-        messages: [],
-      } as never
-    )
+    const result = await tool.execute({ command: 'git status', workdir: 'packages/app' }, {
+      toolCallId: 'tool-failed',
+      messages: [],
+    } as never)
     expect(result).toMatchObject({
       success: false,
       sandboxed: true,
@@ -183,7 +180,9 @@ describe('run_command', () => {
     })
     await expect(toModelOutput(tool, result)).resolves.toEqual({
       type: 'text',
-      value: expect.stringContaining('Host retry fields were ignored because no matching sandbox failure was available.'),
+      value: expect.stringContaining(
+        'Host retry fields were ignored because no matching sandbox failure was available.'
+      ),
     })
     expect(resolveCommandRetryMock).toHaveBeenCalledWith({
       sessionId: 'session-1',
@@ -208,10 +207,10 @@ describe('run_command', () => {
     if (!tool.execute) throw new Error('run_command execute missing')
 
     await expect(
-      tool.execute(
-        { command: 'gh pr view 1077', sandbox_permissions: 'danger-full-access' },
-        { toolCallId: 'tool-incomplete-retry', messages: [] } as never
-      )
+      tool.execute({ command: 'gh pr view 1077', sandbox_permissions: 'danger-full-access' }, {
+        toolCallId: 'tool-incomplete-retry',
+        messages: [],
+      } as never)
     ).rejects.toThrow('sandbox_permissions and justification must be provided together for a host retry')
     expect(runCommand).not.toHaveBeenCalled()
     expect(resolveCommandRetryMock).not.toHaveBeenCalled()

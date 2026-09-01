@@ -24,6 +24,7 @@ async function loadSettingsStoreModule(
   vi.doMock('@/platform', () => ({
     default: {
       type: platformType,
+      isDesktopLike: platformType === 'desktop',
       ensureShortcutConfig: vi.fn(),
       ensureProxyConfig: vi.fn(),
       ensureAutoLaunch: vi.fn(),

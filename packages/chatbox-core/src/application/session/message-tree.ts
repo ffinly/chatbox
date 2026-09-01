@@ -198,7 +198,11 @@ export function applyMessageUpdate(
   return session
 }
 
-export function applyMessageRemoval(session: Session | null | undefined, sessionId: string, messageId: string): Session {
+export function applyMessageRemoval(
+  session: Session | null | undefined,
+  sessionId: string,
+  messageId: string
+): Session {
   if (!session) {
     throw new Error(`session ${sessionId} not found`)
   }
