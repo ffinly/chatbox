@@ -3,6 +3,7 @@ import type { MemoryEntry } from '@shared/types/agent-persona'
 import { IconTrash } from '@tabler/icons-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import PopoverConfirm from '@/components/common/PopoverConfirm'
 import { useCopilotMemory, useMyCopilots } from '@/hooks/useCopilots'
 import { clearCopilotMemories, deleteCopilotMemory, listAllCopilotMemories } from '@/stores/agentPersonaStore'
 
@@ -94,9 +95,16 @@ export function CopilotMemoriesSection() {
               {group.entries.length}
             </Badge>
             <Box flex={1} />
-            <Button size="xs" variant="subtle" color="chatbox-error" onClick={() => void handleClear(group.copilotId)}>
-              {t('Clear all')}
-            </Button>
+            <PopoverConfirm
+              title={t('Clear all memories for "{{name}}"? This cannot be undone.', { name: group.name })}
+              confirmButtonText={t('Clear all') ?? undefined}
+              confirmButtonColor="chatbox-error"
+              onConfirm={() => void handleClear(group.copilotId)}
+            >
+              <Button size="xs" variant="subtle" color="chatbox-error">
+                {t('Clear all')}
+              </Button>
+            </PopoverConfirm>
           </Flex>
           <Stack gap={6}>
             {group.entries.map((entry) => (

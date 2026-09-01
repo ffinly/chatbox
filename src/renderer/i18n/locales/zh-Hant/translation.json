@@ -1395,6 +1395,7 @@
   "Memories saved by chats with a specific copilot. Each copilot has its own list, and global memories stay out of those chats.": "與某個 Copilot 的對話所儲存的記憶。每個 Copilot 都有自己的一份清單，全域記憶不會進入這些對話。",
   "Unnamed copilot": "未命名的 Copilot",
   "Clear all": "全部清除",
+  "Clear all memories for \"{{name}}\"? This cannot be undone.": "確定要清空「{{name}}」的全部記憶嗎？此操作無法復原。",
   "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license, or choose a different <OpenDocumentParserSettingButton>document parser</OpenDocumentParserSettingButton>.": "<OpenSettingButton>登入 Chatbox AI</OpenSettingButton> 以使用您的帳戶許可證，或選擇其他<OpenDocumentParserSettingButton>文件解析器</OpenDocumentParserSettingButton>。",
   "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "<OpenSettingButton>登入 Chatbox AI</OpenSettingButton> 以使用您的帳戶許可證。",
   "Web Search settings": "網路搜尋設定",

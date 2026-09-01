@@ -1396,6 +1396,7 @@
   "Memories saved by chats with a specific copilot. Each copilot has its own list, and global memories stay out of those chats.": "Minnen som sparats av chattar med en viss Copilot. Varje Copilot har sin egen lista, och globala minnen används inte i de chattarna.",
   "Unnamed copilot": "Copilot utan namn",
   "Clear all": "Rensa allt",
+  "Clear all memories for \"{{name}}\"? This cannot be undone.": "Rensa alla minnen för ”{{name}}”? Det går inte att ångra.",
   "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license, or choose a different <OpenDocumentParserSettingButton>document parser</OpenDocumentParserSettingButton>.": "<OpenSettingButton>Logga in på Chatbox AI</OpenSettingButton> för att använda kontolicensen eller välj en annan <OpenDocumentParserSettingButton>dokumenttolk</OpenDocumentParserSettingButton>.",
   "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "<OpenSettingButton>Logga in på Chatbox AI</OpenSettingButton> för att använda kontolicensen.",
   "Web Search settings": "Inställningar för webbsökning",

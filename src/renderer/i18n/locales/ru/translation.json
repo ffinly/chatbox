@@ -1396,6 +1396,7 @@
   "Memories saved by chats with a specific copilot. Each copilot has its own list, and global memories stay out of those chats.": "Воспоминания, сохранённые в чатах с конкретным Copilot. У каждого Copilot свой список, а глобальные воспоминания в такие чаты не попадают.",
   "Unnamed copilot": "Copilot без имени",
   "Clear all": "Очистить все",
+  "Clear all memories for \"{{name}}\"? This cannot be undone.": "Очистить все воспоминания для «{{name}}»? Это действие нельзя отменить.",
   "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license, or choose a different <OpenDocumentParserSettingButton>document parser</OpenDocumentParserSettingButton>.": "<OpenSettingButton>Войдите в Chatbox AI</OpenSettingButton>, чтобы использовать лицензию своей учётной записи, или выберите другой <OpenDocumentParserSettingButton>анализатор документов</OpenDocumentParserSettingButton>.",
   "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "<OpenSettingButton>Войдите в Chatbox AI</OpenSettingButton>, чтобы использовать лицензию своей учётной записи.",
   "Web Search settings": "Настройки поиска в интернете",

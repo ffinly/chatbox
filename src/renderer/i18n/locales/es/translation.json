@@ -1396,6 +1396,7 @@
   "Memories saved by chats with a specific copilot. Each copilot has its own list, and global memories stay out of those chats.": "Recuerdos guardados por los chats con un Copilot concreto. Cada Copilot tiene su propia lista y los recuerdos globales quedan fuera de esos chats.",
   "Unnamed copilot": "Copilot sin nombre",
   "Clear all": "Borrar todo",
+  "Clear all memories for \"{{name}}\"? This cannot be undone.": "¿Borrar todos los recuerdos de «{{name}}»? Esta acción no se puede deshacer.",
   "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license, or choose a different <OpenDocumentParserSettingButton>document parser</OpenDocumentParserSettingButton>.": "<OpenSettingButton>Inicia sesión en Chatbox AI</OpenSettingButton> para usar la licencia de tu cuenta o elige otro <OpenDocumentParserSettingButton>analizador de documentos</OpenDocumentParserSettingButton>.",
   "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "<OpenSettingButton>Inicia sesión en Chatbox AI</OpenSettingButton> para usar la licencia de tu cuenta.",
   "Web Search settings": "Ajustes de búsqueda web",

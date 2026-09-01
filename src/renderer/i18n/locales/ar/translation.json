@@ -1396,6 +1396,7 @@
   "Memories saved by chats with a specific copilot. Each copilot has its own list, and global memories stay out of those chats.": "ذكريات محفوظة من الدردشات مع Copilot معيّن. لكل Copilot قائمته الخاصة، وتبقى الذكريات العامة خارج تلك الدردشات.",
   "Unnamed copilot": "Copilot بلا اسم",
   "Clear all": "مسح الكل",
+  "Clear all memories for \"{{name}}\"? This cannot be undone.": "هل تريد مسح كل ذكريات \"{{name}}\"؟ لا يمكن التراجع عن هذا الإجراء.",
   "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license, or choose a different <OpenDocumentParserSettingButton>document parser</OpenDocumentParserSettingButton>.": "<OpenSettingButton>سجّل الدخول إلى Chatbox AI</OpenSettingButton> لاستخدام ترخيص حسابك، أو اختر <OpenDocumentParserSettingButton>محلّل مستندات</OpenDocumentParserSettingButton> مختلفًا.",
   "<OpenSettingButton>Sign in to Chatbox AI</OpenSettingButton> to use your account license.": "<OpenSettingButton>سجّل الدخول إلى Chatbox AI</OpenSettingButton> لاستخدام ترخيص حسابك.",
   "Web Search settings": "إعدادات بحث الويب",
