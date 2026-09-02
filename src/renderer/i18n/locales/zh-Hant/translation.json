@@ -342,7 +342,7 @@
   "Delete this chat?": "刪除此對話？",
   "Delete this message?": "刪除這則訊息？",
   "Delete this record?": "刪除此紀錄？",
-  "Deleting this summary will restore original messages to context calculation.": "刪除此摘要將會把原始訊息恢復至上下文計算中。",
+  "Deleting this summary will restore original messages to context calculation.": "刪除此摘要將恢復到壓縮前的狀態",
   "Denied": "已拒絕",
   "Deny": "拒絕",
   "Deploy HTML content to EdgeOne Pages and obtaining an accessible public URL.": "將 HTML 內容部署至 EdgeOne Pages 並取得可存取的公開 URL。",
