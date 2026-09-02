@@ -65,11 +65,25 @@ vi.mock('react-virtuoso', async () => {
 
 const messageRenderLog = vi.hoisted(() => [] as Array<{ id: string; readOnly?: boolean }>)
 const messageButtonGroupLog = vi.hoisted(() => [] as Array<{ id: string; buttonGroup?: string }>)
+const promptCacheDeleteResolversLog = vi.hoisted(
+  () => [] as Array<(messageId: string, target: 'message' | 'summary') => boolean>
+)
 const actionMenuItemsLog = vi.hoisted(() => [] as Array<Array<{ text?: string; divider?: boolean }>>)
 vi.mock('./Message', () => ({
-  default: ({ msg, readOnly, buttonGroup }: { msg: Message; readOnly?: boolean; buttonGroup?: string }) => {
+  default: ({
+    msg,
+    readOnly,
+    buttonGroup,
+    shouldConfirmPromptCacheDelete,
+  }: {
+    msg: Message
+    readOnly?: boolean
+    buttonGroup?: string
+    shouldConfirmPromptCacheDelete: (messageId: string, target: 'message' | 'summary') => boolean
+  }) => {
     messageRenderLog.push({ id: msg.id, readOnly })
     messageButtonGroupLog.push({ id: msg.id, buttonGroup })
+    promptCacheDeleteResolversLog.push(shouldConfirmPromptCacheDelete)
     return <div data-testid={`message-${msg.id}`}>{msg.role}</div>
   },
 }))
@@ -193,6 +207,7 @@ vi.mock('@/stores/uiStore', () => ({
       sessionAgentModeMap: {},
       agentModeSmartSwitchingDefault: false,
       agentModeLastSelected: 'off',
+      promptCacheBreakConfirmDismissed: {},
     }),
   },
 }))
@@ -259,6 +274,7 @@ describe('MessageList new message layout', () => {
     isSmallScreenMock.value = false
     messageRenderLog.length = 0
     messageButtonGroupLog.length = 0
+    promptCacheDeleteResolversLog.length = 0
     actionMenuItemsLog.length = 0
     virtuosoScrollToIndexMock.mockClear()
     Object.defineProperty(window, 'matchMedia', {
@@ -466,6 +482,92 @@ describe('MessageList new message layout', () => {
     expect(threadActions).not.toContain('Continue this thread')
     expect(threadActions).not.toContain('Move to Conversations')
     expect(threadActions).not.toContain('delete')
+  })
+
+  test('applies cache-break delete policy only to the active context path', () => {
+    const session: Session = {
+      id: 'session-1',
+      type: 'chat',
+      name: 'Session',
+      settings: { agentMode: { value: 'on', locked: true, lockReason: null } },
+      threads: [
+        {
+          id: 'archived-thread',
+          name: 'Archived Thread',
+          createdAt: 1,
+          messages: [message('archived-user', MessageRoleEnum.User, 'old question')],
+        },
+      ],
+      messages: [
+        message('current-user', MessageRoleEnum.User, 'current question'),
+        message('current-assistant', MessageRoleEnum.Assistant, 'x'.repeat(4000)),
+      ],
+    }
+
+    render(
+      <MantineProvider>
+        <MessageList currentSession={session} />
+      </MantineProvider>
+    )
+
+    const resolveDeletePolicy = promptCacheDeleteResolversLog.at(-1)
+    expect(resolveDeletePolicy).toBeDefined()
+    expect(resolveDeletePolicy?.('archived-user', 'message')).toBe(false)
+    expect(resolveDeletePolicy?.('current-user', 'message')).toBe(true)
+    expect(resolveDeletePolicy?.('current-assistant', 'message')).toBe(false)
+  })
+
+  test('excludes messages outside the configured provider context from cache-break policy', () => {
+    const session: Session = {
+      id: 'session-1',
+      type: 'chat',
+      name: 'Session',
+      settings: {
+        agentMode: { value: 'on', locked: true, lockReason: null },
+        maxContextMessageCount: 1,
+      },
+      messages: [
+        message('old-assistant', MessageRoleEnum.Assistant, 'x'.repeat(4000)),
+        message('current-user', MessageRoleEnum.User, 'current question'),
+        message('current-assistant', MessageRoleEnum.Assistant, 'current answer'),
+      ],
+    }
+
+    render(
+      <MantineProvider>
+        <MessageList currentSession={session} />
+      </MantineProvider>
+    )
+
+    const resolveDeletePolicy = promptCacheDeleteResolversLog.at(-1)
+    expect(resolveDeletePolicy?.('old-assistant', 'message')).toBe(false)
+  })
+
+  test('uses the ordinary confirmation when deleting a filtered error message', () => {
+    const failedReply = {
+      ...message('failed-assistant', MessageRoleEnum.Assistant, 'failed answer'),
+      error: 'request failed',
+    }
+    const session: Session = {
+      id: 'session-1',
+      type: 'chat',
+      name: 'Session',
+      settings: { agentMode: { value: 'on', locked: true, lockReason: null } },
+      messages: [
+        failedReply,
+        message('current-user', MessageRoleEnum.User, 'current question'),
+        message('current-assistant', MessageRoleEnum.Assistant, 'x'.repeat(4000)),
+      ],
+    }
+
+    render(
+      <MantineProvider>
+        <MessageList currentSession={session} />
+      </MantineProvider>
+    )
+
+    const resolveDeletePolicy = promptCacheDeleteResolversLog.at(-1)
+    expect(resolveDeletePolicy?.(failedReply.id, 'message')).toBe(false)
   })
 
   test('keeps fork switchers reachable when their system-message pivot is hidden', () => {

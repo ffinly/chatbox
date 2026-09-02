@@ -2,11 +2,15 @@
 
 import { MantineProvider } from '@mantine/core'
 import type { Message } from '@shared/types'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
-const { showModalMock } = vi.hoisted(() => ({ showModalMock: vi.fn() }))
+const { showModalMock, isDismissedMock, dismissMock } = vi.hoisted(() => ({
+  showModalMock: vi.fn(),
+  isDismissedMock: vi.fn((_action?: string) => false),
+  dismissMock: vi.fn((_action?: string) => undefined),
+}))
 
 vi.mock('@ebay/nice-modal-react', () => ({ default: { show: showModalMock } }))
 vi.mock('@/components/Markdown', () => ({ default: ({ children }: { children: ReactNode }) => <div>{children}</div> }))
@@ -21,6 +25,10 @@ vi.mock('@/lib/utils', () => ({
 vi.mock('@/stores/settingsStore', () => ({
   useSettingsStore: (selector: (state: Record<string, boolean>) => boolean) =>
     selector({ enableMarkdownRendering: false, enableLaTeXRendering: false, enableMermaidRendering: false }),
+}))
+vi.mock('@/utils/prompt-cache-confirm', () => ({
+  isPromptCacheBreakConfirmDismissed: isDismissedMock,
+  dismissPromptCacheBreakConfirm: dismissMock,
 }))
 vi.mock('../common/ScalableIcon', () => ({ ScalableIcon: () => null }))
 vi.mock('../layout/Overlay', () => ({
@@ -54,6 +62,7 @@ function expandSummary() {
 describe('SummaryMessage mode policy', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    isDismissedMock.mockReturnValue(false)
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
       value: vi.fn().mockImplementation((query: string) => ({
@@ -77,12 +86,55 @@ describe('SummaryMessage mode policy', () => {
     expect(screen.getByLabelText('Delete')).toBeTruthy()
   })
 
-  test('work mode hides both summary controls (append-only policy)', () => {
+  test('work mode keeps the latest-summary edit and delete controls', () => {
     renderSummary({ sessionMode: 'work' })
     expandSummary()
 
-    expect(screen.queryByLabelText('Edit')).toBeNull()
-    expect(screen.queryByLabelText('Delete')).toBeNull()
+    expect(screen.getByLabelText('Edit')).toBeTruthy()
+    expect(screen.getByLabelText('Delete')).toBeTruthy()
+  })
+
+  test('explains the cache miss when deleting a summary in a long work-mode chat', () => {
+    renderSummary({ sessionMode: 'work', shouldConfirmPromptCacheDelete: () => true })
+    expandSummary()
+    fireEvent.click(within(screen.getByLabelText('Delete')).getByRole('button'))
+
+    expect(
+      screen.getByText('Deleting this summary will restore original messages to context calculation.')
+    ).toBeTruthy()
+    expect(
+      screen.getByText(
+        "It will also invalidate the model's cached context, so the next reply may cost more and take longer."
+      )
+    ).toBeTruthy()
+    expect(screen.getByLabelText("Don't show again")).toBeTruthy()
+  })
+
+  test('hides the cache explanation after the user dismissed future prompts', () => {
+    isDismissedMock.mockReturnValue(true)
+    renderSummary({ sessionMode: 'work', shouldConfirmPromptCacheDelete: () => true })
+    expandSummary()
+    fireEvent.click(within(screen.getByLabelText('Delete')).getByRole('button'))
+
+    expect(
+      screen.getByText('Deleting this summary will restore original messages to context calculation.')
+    ).toBeTruthy()
+    expect(
+      screen.queryByText(
+        "It will also invalidate the model's cached context, so the next reply may cost more and take longer."
+      )
+    ).toBeNull()
+    expect(screen.queryByLabelText("Don't show again")).toBeNull()
+  })
+
+  test('persists dont-show-again when deleting a cache-sensitive summary', () => {
+    renderSummary({ sessionMode: 'work', shouldConfirmPromptCacheDelete: () => true })
+    expandSummary()
+    fireEvent.click(within(screen.getByLabelText('Delete')).getByRole('button'))
+    fireEvent.click(screen.getByLabelText("Don't show again"))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+
+    expect(dismissMock).toHaveBeenCalledWith('delete-summary')
   })
 
   test('without an onDelete callback only the edit control renders', () => {

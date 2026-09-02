@@ -21,7 +21,6 @@ describe('isActionAvailableInMode', () => {
     for (const action of [
       'reply-below',
       'edit-assistant-message',
-      'delete-message',
       'delete-fork',
       'save-message-edit',
       'session-system-prompt',
@@ -31,6 +30,11 @@ describe('isActionAvailableInMode', () => {
       expect(isActionAvailableInMode(action, 'work')).toBe(false)
       expect(isActionAvailableInMode(action, 'chat')).toBe(true)
     }
+  })
+
+  it('keeps single-message delete available in both modes', () => {
+    expect(isActionAvailableInMode('delete-message', 'work')).toBe(true)
+    expect(isActionAvailableInMode('delete-message', 'chat')).toBe(true)
   })
 
   it('removes queueing and steering from chat mode', () => {

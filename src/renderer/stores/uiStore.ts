@@ -89,6 +89,7 @@ export const uiStore = createStore(
         // mode so users don't have to re-select Work Mode for every conversation.
         agentModeLastSelected: 'off' as Extract<AgentModeValue, 'on' | 'off'>,
         sessionAgentModeMap: {} as Record<string, AgentModeEntry>,
+        promptCacheBreakConfirmDismissed: {} as Record<string, boolean>,
       },
       (set, get) => ({
         addToast: (content: string, duration?: number, action?: Toast['action']) => {
@@ -282,6 +283,7 @@ export const uiStore = createStore(
         newSessionWorkingDirectoriesDefault: state.newSessionWorkingDirectoriesDefault,
         sessionWebBrowsingMap: state.sessionWebBrowsingMap,
         sessionKnowledgeBaseMap: state.sessionKnowledgeBaseMap,
+        promptCacheBreakConfirmDismissed: state.promptCacheBreakConfirmDismissed,
       }),
       storage: safeStorage,
     }

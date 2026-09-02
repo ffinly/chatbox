@@ -56,7 +56,6 @@ export function resolveSessionMode(agentModeValue: AgentModeValue | undefined): 
 const WORK_MODE_UNAVAILABLE: ReadonlySet<ModePolicyAction> = new Set([
   'reply-below',
   'edit-assistant-message',
-  'delete-message',
   'delete-fork',
   'save-message-edit',
   'session-system-prompt',

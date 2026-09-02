@@ -1,8 +1,8 @@
 # 聊天/工作模式分化（Chat / Work Mode Split）
 
-> Last updated: 2026-08
+> Last updated: 2026-09
 
-本文档记录聊天模式与工作模式在**消息结构操作自由度**上的分化设计：聊天模式恢复并放开结构自由（平铺追加回答、生成中切换分支、自由编辑删除），工作模式收紧为线性 append-only 会话（禁结构手术，保留消息队列与 steering）。涵盖动机、分阶段设计、性能与兼容性决策。
+本文档记录聊天模式与工作模式在**消息结构操作自由度**上的分化设计：聊天模式放开结构自由（平铺追加回答、生成中切换分支、自由编辑删除），工作模式收紧结构手术（禁止平铺追加、编辑助手消息、删除分支等），同时保留单条消息删除、消息队列与 steering。涵盖动机、分阶段设计、性能与兼容性决策。
 
 相关文档：[会话管理系统](./session-management.md)（fork 数据模型）、[状态管理](./state-management.md)（生成锁与并发控制）。
 
@@ -27,12 +27,14 @@
 | 在下方回答 | 平铺插入活跃路径，可多条并发生成 | 入口移除 |
 | 重新生成（Reply Again） | 创建 fork 分支（维持现状） | 创建 fork 分支（维持现状） |
 | 生成中切换分支 | 放开 | 维持禁止 |
-| 删除分支（delete-fork） | 允许（生成中仍禁止） | 入口移除（等同禁删消息） |
+| 删除分支（delete-fork） | 允许（生成中仍禁止） | 入口移除 |
 | 编辑助手消息 | 允许 | 禁止 |
-| 删除消息 | 允许 | 禁止 |
+| 删除消息 | 允许 | 允许；对话已有可缓存前缀时，删除历史消息需二次确认（可按场景勾选不再提示） |
+| 编辑压缩摘要 | 允许 | 允许 |
 | 编辑用户消息 | 允许（可只存不发） | 仅 Save & Resend，无"仅保存"，禁改角色 |
 | 会话系统提示词 | 消息列表展示，会话设置可编辑（受"隐藏系统提示词"开关控制） | 两处入口都隐藏（身份由 Soul 表达；Copilot 人设冻进 Soul 段，无 Copilot 的会话 prompt 不进入请求） |
 | 新话题 / 话题历史 | 允许 | 不允许创建新话题；无历史时隐藏话题历史，已有归档话题时保留分隔与历史入口 |
+| 切换模型 | 允许 | 对话已有可缓存前缀时需二次确认（可勾选不再提示） |
 | 消息队列（message queue） | **禁用**（生成中阻断发送） | 保留 |
 | Steering（立即发送插队） | **禁用** | 保留 |
 | 全局停止 | 停止一切可达的生成（含 fork 分支内） | 同左（现状） |
@@ -48,7 +50,7 @@
 
 ## 模式策略模块（mode-policy）
 
-静态能力限制收敛在 `packages/chatbox-core/src/session/mode-policy.ts`：`isActionAvailableInMode(action, mode)`，动作词表包括 `reply-below`、`edit-assistant-message`、`delete-message`、`delete-fork`、`save-message-edit`（仅保存不重发）、`session-system-prompt`（会话自带的系统提示词）、`queue-message`、`steer-queued-message`、`create-thread`（新话题）、`thread-history`（话题历史列表 / 抽屉 / 消息流标签）。
+静态能力限制收敛在 `packages/chatbox-core/src/session/mode-policy.ts`：`isActionAvailableInMode(action, mode)`，动作词表包括 `reply-below`、`edit-assistant-message`、`delete-message`、`delete-fork`、`save-message-edit`（仅保存不重发）、`session-system-prompt`（会话自带的系统提示词）、`queue-message`、`steer-queued-message`、`create-thread`（新话题）、`thread-history`（话题历史列表 / 抽屉 / 消息流标签）。工作模式在对话已有可缓存前缀时，删除历史消息与切换模型的二次确认由 `packages/chatbox-core/src/session/prompt-cache-policy.ts` 判定。
 
 与 `action-gates.ts` 的分工刻意区分两种语义：
 
@@ -80,7 +82,7 @@
 - 新增 mode-policy 模块（见上节）。
 - **模式切换冻结**：`setSessionAgentMode` 增加 `source` 参数；会话产生首条用户消息后，`'user'` 来源的跨模式切换（`'on'` ↔ 非 `'on'`）被拒绝。智能切换建议的 accept（`lockSessionAgentMode`）与 decline（`'auto'→'off'`，source `'suggestion'`）不受影响；`'auto'` ↔ `'off'` 属聊天模式内部偏好，本就由智能切换开关的过期逻辑（首条消息后禁用）覆盖。
 - 模式面板两个方向对称锁定：工作→聊天沿用 `entry.locked`；聊天→工作在会话开始后禁用按钮，tooltip 复用既有文案（"Locked after the chat starts… start a new chat to change"）。
-- 工作模式消息限制落在 UI 入口（隐藏）+ store 后备：编辑入口仅用户消息保留，编辑弹窗仅 Save & Resend（隐藏"仅保存"、锁定角色选择器）；删除入口与在下方回答入口移除；ForkGroup 删除分支入口移除；压缩摘要（SummaryMessage）的编辑/删除入口同策略隐藏——摘要编辑是纯保存改写模型上下文，删除会重新展开被压缩历史，均属工作模式禁止的消息手术。新话题入口隐藏（store 侧 `refreshContextAndCreateNewThread` 做后备拦截并覆盖快捷键路径，模式经 `getSessionAgentModeEntry` 规范解析以兼容 legacy map 会话）；话题历史在会话没有归档话题时隐藏，已有归档话题时保留消息流分隔与历史入口，避免把多个话题误呈现成一段连续对话；上下文压缩归档不受影响。
+- 工作模式消息限制落在 UI 入口（隐藏）+ store 后备：编辑入口仅用户消息保留，编辑弹窗仅 Save & Resend（隐藏"仅保存"、锁定角色选择器）；在下方回答入口移除；ForkGroup 删除分支入口移除；单条消息删除与最新压缩摘要的编辑/删除保留。对话已有可缓存前缀（压缩摘要、工具历史，或可见正文达到 `PROMPT_CACHE_CONFIRM_MIN_CHARS`）时，删除历史消息与切换模型会弹出说明缓存失效的二次确认；判定看当前选中的 provider 上下文（压缩点、上下文条数、进行中请求的前缀），删掉不在该上下文里或删完上下文不变的消息不弹。不再提示按场景记在 `uiStore`（删除历史消息 / 切换模型 / 删除摘要），互不影响。新话题入口隐藏（store 侧 `refreshContextAndCreateNewThread` 做后备拦截并覆盖快捷键路径，模式经 `getSessionAgentModeEntry` 规范解析以兼容 legacy map 会话）；话题历史在会话没有归档话题时隐藏，已有归档话题时保留消息流分隔与历史入口，避免把多个话题误呈现成一段连续对话；上下文压缩归档不受影响。
 - 存量已混用模式的会话不迁移，策略从更新后开始生效。
 
 ### 阶段三：聊天模式禁用消息队列与 Steering

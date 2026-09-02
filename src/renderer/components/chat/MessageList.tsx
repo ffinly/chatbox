@@ -5,6 +5,10 @@ import {
   resolveSessionMode,
   type SessionMode,
 } from '@chatbox/core/session/mode-policy'
+import {
+  type PromptCacheDeleteTarget,
+  shouldConfirmPromptCacheBreakForDelete,
+} from '@chatbox/core/session/prompt-cache-policy'
 import NiceModal from '@ebay/nice-modal-react'
 import { Button, Flex, Stack, Transition } from '@mantine/core'
 import { useThrottledCallback } from '@mantine/hooks'
@@ -47,6 +51,7 @@ import { moveThreadToConversations, removeThread, switchThread } from '@/stores/
 import { getAllMessageList, getCurrentThreadHistoryHash } from '@/stores/sessionHelpers'
 import { settingsStore, useSettingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
+import { evaluatePromptCacheDeleteContext } from '@/utils/prompt-cache-confirm'
 import { notifySessionLockBlocked } from '@/utils/session-lock-copy'
 import ActionMenu from '../ActionMenu'
 import { ErrorBoundary } from '../common/ErrorBoundary'
@@ -125,6 +130,30 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
     () => resolveSessionMode(getSessionAgentModeEntry(currentSession.id, currentSession).value),
     [currentSession]
   )
+  const promptCacheContextRef = useRef({
+    mode: sessionMode,
+    messages: currentSession.messages,
+    compactionPoints: currentSession.compactionPoints,
+    maxContextMessageCount: currentSession.settings?.maxContextMessageCount,
+  })
+  promptCacheContextRef.current = {
+    mode: sessionMode,
+    messages: currentSession.messages,
+    compactionPoints: currentSession.compactionPoints,
+    maxContextMessageCount: currentSession.settings?.maxContextMessageCount,
+  }
+  const shouldConfirmPromptCacheDelete = useCallback((messageId: string, target: PromptCacheDeleteTarget) => {
+    const { mode, messages, compactionPoints, maxContextMessageCount } = promptCacheContextRef.current
+    const context = evaluatePromptCacheDeleteContext(messages, messageId, {
+      compactionPoints,
+      maxContextMessageCount,
+    })
+    return shouldConfirmPromptCacheBreakForDelete(mode, messages, messageId, target, {
+      contextMessages: context.messages,
+      hasStartedAssistantRequest: context.hasStartedAssistantRequest,
+      deletionChangesContext: context.deletionChangesContext,
+    })
+  }, [])
 
   const latestSummaryMessageId = useMemo(() => {
     for (let i = currentMessageList.length - 1; i >= 0; i--) {
@@ -519,6 +548,7 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
                 }
                 sessionId={currentSession.id}
                 sessionMode={sessionMode}
+                shouldConfirmPromptCacheDelete={shouldConfirmPromptCacheDelete}
                 highlighted={msg.id === highlightedMessageId}
               />
             ) : (
@@ -533,6 +563,7 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
                 buttonGroup={options.isLastItem && msg.role === 'assistant' ? 'always' : 'auto'}
                 sessionLocks={sessionLocks}
                 sessionMode={sessionMode}
+                shouldConfirmPromptCacheDelete={shouldConfirmPromptCacheDelete}
                 allowGeneratingStop
                 assistantAvatarKey={currentSession.assistantAvatarKey}
                 sessionPicUrl={currentSession.picUrl}
@@ -549,6 +580,7 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
       hideSystemPrompt,
       sessionLocks,
       sessionMode,
+      shouldConfirmPromptCacheDelete,
       showThreadHistory,
       latestSummaryMessageId,
       highlightedMessageId,

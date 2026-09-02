@@ -22,6 +22,7 @@
     "./session/action-gates": "./src/session/action-gates.ts",
     "./session/generation-state": "./src/session/generation-state.ts",
     "./session/mode-policy": "./src/session/mode-policy.ts",
+    "./session/prompt-cache-policy": "./src/session/prompt-cache-policy.ts",
     "./session/message-success": "./src/session/message-success.ts",
     "./testing": "./src/testing/index.ts",
     "./testing/generation-stream": "./src/testing/generation-stream.ts",

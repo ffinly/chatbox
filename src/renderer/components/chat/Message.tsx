@@ -9,6 +9,7 @@ import {
 } from '@chatbox/core/session/action-gates'
 import { isCancellableGeneratingAssistantMessage } from '@chatbox/core/session/generation-state'
 import { isActionAvailableInMode, type SessionMode } from '@chatbox/core/session/mode-policy'
+import type { PromptCacheDeleteTarget } from '@chatbox/core/session/prompt-cache-policy'
 import NiceModal from '@ebay/nice-modal-react'
 import { ActionIcon, type ActionIconProps, Button, Flex, Loader, Modal, Stack, Text } from '@mantine/core'
 import { Box, Grid, useTheme } from '@mui/material'
@@ -67,6 +68,7 @@ import {
 import { stopMessageGeneration } from '@/stores/session/generation-cancellation'
 import { modifyMessage, removeMessage } from '@/stores/session/messages'
 import * as toastActions from '@/stores/toastActions'
+import { confirmPromptCacheBreakingAction, isPromptCacheBreakConfirmDismissed } from '@/utils/prompt-cache-confirm'
 import { getSessionLockNotice, notifySessionLockBlocked } from '@/utils/session-lock-copy'
 import ActionMenu, { type ActionMenuItemProps } from '../ActionMenu'
 import { AssistantAvatar, SystemAvatar, UserAvatar } from '../common/Avatar'
@@ -121,9 +123,11 @@ interface Props {
    * Resolved once by the list container and passed down (never subscribe
    * per-row — selectors would re-run on every streaming chunk). Work mode
    * hides structural surgery entries: Reply Again Below, assistant/system
-   * edit, delete (see @chatbox/core session/mode-policy).
+   * edit (see @chatbox/core session/mode-policy).
    */
   sessionMode?: SessionMode
+  /** Resolve prompt-cache delete policy when the action menu opens. */
+  shouldConfirmPromptCacheDelete?: (messageId: string, target: PromptCacheDeleteTarget) => boolean
   readOnly?: boolean
   allowGeneratingStop?: boolean
   small?: boolean
@@ -170,6 +174,7 @@ const _Message: FC<Props> = (props) => {
     buttonGroup = 'auto',
     sessionLocks = IDLE_SESSION_LOCK_STATE,
     sessionMode = 'chat',
+    shouldConfirmPromptCacheDelete,
     readOnly = false,
     allowGeneratingStop = false,
     small,
@@ -232,10 +237,11 @@ const _Message: FC<Props> = (props) => {
   const generationLocked = isGenerationLocked(sessionLocks)
 
   // Static mode policy (hidden entries), as opposed to the transient
-  // sessionLocks gates (disabled + notice). Work mode keeps the conversation
-  // append-only: user messages may only be edited together with a resend.
+  // sessionLocks gates (disabled + notice). Work mode allows delete;
+  // user messages may only be edited together with a resend.
   const canReplyBelow = isActionAvailableInMode('reply-below', sessionMode)
   const canDeleteMessage = isActionAvailableInMode('delete-message', sessionMode)
+  const [confirmCacheBreakingDelete, setConfirmCacheBreakingDelete] = useState(false)
   const canEditMessage = msg.role === 'user' || isActionAvailableInMode('edit-assistant-message', sessionMode)
   const editIsResendOnly = !isActionAvailableInMode('save-message-edit', sessionMode)
 
@@ -398,13 +404,18 @@ const _Message: FC<Props> = (props) => {
   }, [msg])
 
   const onDelMsg = useCallback(async () => {
+    const shouldConfirmCacheBreak =
+      confirmCacheBreakingDelete || shouldConfirmPromptCacheDelete?.(msg.id, 'message') === true
+    if (shouldConfirmCacheBreak && !(await confirmPromptCacheBreakingAction('delete-historical-message'))) {
+      return
+    }
     // Deleting a still-streaming reply must stop it first: the stream writes by
     // message id and would keep running invisibly after the message is gone.
     if (msg.generating) {
       await handleStop()
     }
     await removeMessage(sessionId, msg.id)
-  }, [handleStop, msg, sessionId])
+  }, [confirmCacheBreakingDelete, handleStop, msg, sessionId, shouldConfirmPromptCacheDelete])
 
   const onEditClick = useCallback(async () => {
     // The UI hides the edit entry for a streaming message, but guard anyway:
@@ -709,7 +720,7 @@ const _Message: FC<Props> = (props) => {
       ...(canDeleteMessage
         ? [
             {
-              doubleCheck: true,
+              doubleCheck: !confirmCacheBreakingDelete,
               text: t('delete'),
               icon: IconTrash,
               testId: TestId.message.actionDelete,
@@ -739,9 +750,23 @@ const _Message: FC<Props> = (props) => {
       canReplyBelow,
       canEditMessage,
       canDeleteMessage,
+      confirmCacheBreakingDelete,
     ]
   )
   const [actionMenuOpened, setActionMenuOpened] = useState(false)
+  const handleActionMenuChange = useCallback(
+    (opened: boolean) => {
+      setActionMenuOpened(opened)
+      if (opened) {
+        setConfirmCacheBreakingDelete(
+          canDeleteMessage &&
+            !isPromptCacheBreakConfirmDismissed('delete-historical-message') &&
+            shouldConfirmPromptCacheDelete?.(msg.id, 'message') === true
+        )
+      }
+    },
+    [canDeleteMessage, msg.id, shouldConfirmPromptCacheDelete]
+  )
 
   const isUserBubble = isBubbleLayout && msg.role === 'user'
   const isErrorReminder = msg.error ? isMessageReminderPresentation(resolveMessageErrorPresentation(msg)) : false
@@ -1138,7 +1163,7 @@ const _Message: FC<Props> = (props) => {
           items={actionMenuItems}
           contentTestId={TestId.message.actionMenu}
           opened={actionMenuOpened}
-          onChange={(opened) => setActionMenuOpened(opened)}
+          onChange={handleActionMenuChange}
         >
           <MessageActionIcon testId={TestId.message.actionMore} icon={IconDotsVertical} tooltip={t('More')} />
         </ActionMenu>

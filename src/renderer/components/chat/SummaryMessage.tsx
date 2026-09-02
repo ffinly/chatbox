@@ -1,6 +1,7 @@
 import { isActionAvailableInMode, type SessionMode } from '@chatbox/core/session/mode-policy'
+import type { PromptCacheDeleteTarget } from '@chatbox/core/session/prompt-cache-policy'
 import NiceModal from '@ebay/nice-modal-react'
-import { ActionIcon, Button, Collapse, Flex, Group, Stack, Text } from '@mantine/core'
+import { ActionIcon, Button, Checkbox, Collapse, Flex, Group, Stack, Text } from '@mantine/core'
 import type { Message } from '@shared/types'
 import { getMessageText } from '@shared/utils/message'
 import { IconChevronDown, IconChevronUp, IconPencil, IconTrash } from '@tabler/icons-react'
@@ -10,6 +11,7 @@ import Markdown from '@/components/Markdown'
 import { AppTooltip as Tooltip } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { dismissPromptCacheBreakConfirm, isPromptCacheBreakConfirmDismissed } from '@/utils/prompt-cache-confirm'
 import { ScalableIcon } from '../common/ScalableIcon'
 import { Modal } from '../layout/Overlay'
 
@@ -20,8 +22,10 @@ interface SummaryMessageProps {
   onDelete?: () => void
   sessionId: string
   highlighted?: boolean
-  /** Resolved by the list container; work mode hides summary edit/delete (mode-policy). */
+  /** Resolved by the list container; both modes keep latest-summary edit and delete. */
   sessionMode?: SessionMode
+  /** Resolve prompt-cache delete policy when the delete dialog opens. */
+  shouldConfirmPromptCacheDelete?: (messageId: string, target: PromptCacheDeleteTarget) => boolean
 }
 
 const SummaryMessage: FC<SummaryMessageProps> = ({
@@ -32,25 +36,37 @@ const SummaryMessage: FC<SummaryMessageProps> = ({
   sessionId,
   highlighted = false,
   sessionMode = 'chat',
+  shouldConfirmPromptCacheDelete,
 }) => {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [explainPromptCacheBreak, setExplainPromptCacheBreak] = useState(false)
+  const [dontShowAgain, setDontShowAgain] = useState(false)
   const enableMarkdownRendering = useSettingsStore((state) => state.enableMarkdownRendering)
   const enableLaTeXRendering = useSettingsStore((state) => state.enableLaTeXRendering)
   const enableMermaidRendering = useSettingsStore((state) => state.enableMermaidRendering)
 
   const summaryText = getMessageText(msg)
 
-  // The summary editor is a plain save of model-generated context, and deleting
-  // re-expands the compacted history — both are the message surgery work mode
-  // forbids, so the entries follow the same static policy as ordinary messages.
-  const canEditSummary = isActionAvailableInMode('edit-assistant-message', sessionMode)
   const canDeleteSummary = onDelete !== undefined && isActionAvailableInMode('delete-message', sessionMode)
 
   const handleConfirmDelete = () => {
+    if (explainPromptCacheBreak && dontShowAgain) {
+      dismissPromptCacheBreakConfirm('delete-summary')
+    }
     setShowDeleteConfirm(false)
+    setDontShowAgain(false)
     onDelete?.()
+  }
+
+  const handleDeleteClick = () => {
+    const shouldExplain =
+      !isPromptCacheBreakConfirmDismissed('delete-summary') &&
+      shouldConfirmPromptCacheDelete?.(msg.id, 'summary') === true
+    setExplainPromptCacheBreak(shouldExplain)
+    setDontShowAgain(false)
+    setShowDeleteConfirm(true)
   }
 
   const handleEdit = useCallback(() => {
@@ -110,25 +126,23 @@ const SummaryMessage: FC<SummaryMessageProps> = ({
             </Text>
           )}
 
-          {isLatestSummary && (canEditSummary || canDeleteSummary) && (
+          {isLatestSummary && (
             <Flex gap={0} mt="xs" className="opacity-0 group-hover/summary:opacity-100 transition-opacity">
-              {canEditSummary && (
-                <Tooltip label={t('Edit')} openDelay={1000} withArrow>
-                  <ActionIcon
-                    variant="subtle"
-                    w="auto"
-                    h="auto"
-                    miw="auto"
-                    mih="auto"
-                    p={4}
-                    bd={0}
-                    color="chatbox-secondary"
-                    onClick={handleEdit}
-                  >
-                    <ScalableIcon icon={IconPencil} size={16} />
-                  </ActionIcon>
-                </Tooltip>
-              )}
+              <Tooltip label={t('Edit')} openDelay={1000} withArrow>
+                <ActionIcon
+                  variant="subtle"
+                  w="auto"
+                  h="auto"
+                  miw="auto"
+                  mih="auto"
+                  p={4}
+                  bd={0}
+                  color="chatbox-secondary"
+                  onClick={handleEdit}
+                >
+                  <ScalableIcon icon={IconPencil} size={16} />
+                </ActionIcon>
+              </Tooltip>
               {canDeleteSummary && (
                 <Tooltip label={t('Delete')} openDelay={1000} withArrow>
                   <ActionIcon
@@ -140,7 +154,7 @@ const SummaryMessage: FC<SummaryMessageProps> = ({
                     p={4}
                     bd={0}
                     color="chatbox-secondary"
-                    onClick={() => setShowDeleteConfirm(true)}
+                    onClick={handleDeleteClick}
                   >
                     <ScalableIcon icon={IconTrash} size={16} />
                   </ActionIcon>
@@ -160,6 +174,20 @@ const SummaryMessage: FC<SummaryMessageProps> = ({
       >
         <Stack gap="md">
           <Text size="sm">{t('Deleting this summary will restore original messages to context calculation.')}</Text>
+          {explainPromptCacheBreak && (
+            <>
+              <Text size="sm">
+                {t(
+                  "It will also invalidate the model's cached context, so the next reply may cost more and take longer."
+                )}
+              </Text>
+              <Checkbox
+                label={t("Don't show again")}
+                checked={dontShowAgain}
+                onChange={(event) => setDontShowAgain(event.currentTarget.checked)}
+              />
+            </>
+          )}
           <Group justify="flex-end">
             <Button variant="default" onClick={() => setShowDeleteConfirm(false)}>
               {t('Cancel')}

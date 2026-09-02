@@ -85,6 +85,7 @@ import { useSessionAgentMode } from '@/stores/session/agent-mode'
 import { useSessionSettings } from '@/stores/session/session-settings'
 import { settingsStore, useSettingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
+import { confirmModelSwitchIfNeeded } from '@/utils/prompt-cache-confirm'
 import { getSessionLockNotice, notifySessionLockBlocked } from '@/utils/session-lock-copy'
 import { trackEvent } from '@/utils/track'
 import type {
@@ -1127,6 +1128,35 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
       ]
     )
 
+    const handleSelectModel = useCallback(
+      async (provider: string, modelId: string) => {
+        if (!onSelectModel) {
+          return
+        }
+        if (model?.provider === provider && model?.modelId === modelId) {
+          return
+        }
+        if (
+          !(await confirmModelSwitchIfNeeded(sessionMode, currentSession?.messages, isNewSession, {
+            compactionPoints: currentSession?.compactionPoints,
+            maxContextMessageCount: currentSessionMergedSettings.maxContextMessageCount,
+          }))
+        ) {
+          return
+        }
+        onSelectModel(provider, modelId)
+      },
+      [
+        currentSession,
+        currentSessionMergedSettings.maxContextMessageCount,
+        isNewSession,
+        model?.modelId,
+        model?.provider,
+        onSelectModel,
+        sessionMode,
+      ]
+    )
+
     const startNewThread = () => {
       const res = onStartNewThread?.()
       if (res) {
@@ -1983,7 +2013,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                 {/* Model Selector */}
                 <Box className="min-w-0 flex-1 justify-end max-w-[200px]">
                   <ModelSelectorV2
-                    onSelect={onSelectModel}
+                    onSelect={handleSelectModel}
                     selectedProviderId={model?.provider}
                     selectedModelId={model?.modelId}
                     modelDisabledCheck={modelDisabledCheck}
