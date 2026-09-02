@@ -723,6 +723,7 @@ const _Message: FC<Props> = (props) => {
               doubleCheck: !confirmCacheBreakingDelete,
               text: t('delete'),
               icon: IconTrash,
+              color: 'chatbox-error',
               testId: TestId.message.actionDelete,
               confirmTestId: TestId.message.actionDeleteConfirm,
               confirmPanelTestId: TestId.message.deleteConfirmation,

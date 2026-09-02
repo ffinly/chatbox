@@ -91,7 +91,11 @@ describe('SummaryMessage mode policy', () => {
     expandSummary()
 
     expect(screen.getByLabelText('Edit')).toBeTruthy()
-    expect(screen.getByLabelText('Delete')).toBeTruthy()
+    const deleteButton = within(screen.getByLabelText('Delete')).getByRole('button')
+    expect(deleteButton).toBeTruthy()
+    expect(deleteButton.getAttribute('data-color') || deleteButton.getAttribute('style') || '').toMatch(
+      /error|red|chatbox-error/
+    )
   })
 
   test('explains the cache miss when deleting a summary in a long work-mode chat', () => {

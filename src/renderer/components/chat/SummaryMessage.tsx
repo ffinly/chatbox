@@ -153,7 +153,7 @@ const SummaryMessage: FC<SummaryMessageProps> = ({
                     mih="auto"
                     p={4}
                     bd={0}
-                    color="chatbox-secondary"
+                    color="chatbox-error"
                     onClick={handleDeleteClick}
                   >
                     <ScalableIcon icon={IconTrash} size={16} />
