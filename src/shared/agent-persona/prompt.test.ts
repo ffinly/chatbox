@@ -122,6 +122,12 @@ describe('boundCopilotPersona', () => {
     expect(boundCopilotPersona('   ')).toBeUndefined()
   })
 
+  test('keeps a 32k-character overlay intact', () => {
+    const overlay = 'You are a writing coach. '.padEnd(32_000, 'x')
+    expect(overlay).toHaveLength(32_000)
+    expect(boundCopilotPersona(overlay)).toBe(overlay)
+  })
+
   test('caps overlay text to the Copilot budget and stays idempotent', () => {
     const overlay = `pirate ${'x'.repeat(COPILOT_PROMPT_MAX_CHARS + 200)}`
     const bounded = boundCopilotPersona(overlay)

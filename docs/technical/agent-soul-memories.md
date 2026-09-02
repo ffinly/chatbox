@@ -24,7 +24,7 @@ Agent mode 的 system prompt 由 harness 自行组装(不再走 `injectModelSyst
 5. ## Runtime                            Current model + Session context captured(快照日期,非当天日期)
 ```
 
-有 Copilot 的会话把 Copilot prompt 冻结进 `sessionPromptContextSnapshot.copilotPersona`(长度上限 `COPILOT_PROMPT_MAX_CHARS`=10000,与创建/编辑表单一致,低于 Soul 注入预算),组装时拼进 `## Soul` 段(全局 Soul 在前,Copilot 在后);无 Copilot 的会话级 system prompt 不进入请求。Chat mode 路径完全不变:会话 system prompt 仍作为独立消息发送。界面上工作模式仍隐藏系统提示词入口(身份由 Soul 段表达,见[聊天/工作模式分化](./chat-work-mode-split.md));存储中的 system 消息与 `copilotId` 不动。
+有 Copilot 的会话把 Copilot prompt 冻结进 `sessionPromptContextSnapshot.copilotPersona`(长度上限 `COPILOT_PROMPT_MAX_CHARS`=40000,与创建/编辑表单一致),组装时拼进 `## Soul` 段(全局 Soul 在前,Copilot 在后);无 Copilot 的会话级 system prompt 不进入请求。Chat mode 路径完全不变:会话 system prompt 仍作为独立消息发送。界面上工作模式仍隐藏系统提示词入口(身份由 Soul 段表达,见[聊天/工作模式分化](./chat-work-mode-split.md));存储中的 system 消息与 `copilotId` 不动。
 
 ### 冻结快照(SessionPromptContextSnapshot)
 

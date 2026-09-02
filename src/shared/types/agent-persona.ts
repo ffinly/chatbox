@@ -3,7 +3,7 @@ import { z } from 'zod'
 /** Max characters of Soul content injected into the system prompt (truncated with a marker beyond this). */
 export const SOUL_MAX_CHARS = 16_000
 /** Max characters of a Copilot prompt in the editor, snapshot, and Soul overlay. */
-export const COPILOT_PROMPT_MAX_CHARS = 10_000
+export const COPILOT_PROMPT_MAX_CHARS = 40_000
 /** Max number of stored memory entries. */
 export const MEMORY_MAX_ENTRIES = 100
 /** Max characters for a single memory entry. */
