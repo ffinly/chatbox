@@ -27,8 +27,6 @@ import {
   IconFolder,
   IconPhoto,
   IconPlayerStopFilled,
-  IconPlus,
-  IconSettings,
   IconWand,
 } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
@@ -119,6 +117,7 @@ import ProviderImageIcon from '../icons/ProviderImageIcon'
 import ModelSelectorV2 from '../ModelSelectorV2'
 import AgentModeButton from './AgentModeButton'
 import { FileMiniCard, getParserTypeLabel, ImageMiniCard } from './Attachments'
+import { ComposerSettingsMenu } from './ComposerSettingsMenu'
 import { getAgentModeUIState } from './agentModeState'
 import { ImageUploadInput } from './ImageUploadInput'
 import { INPUT_SURFACE_CLASS_NAME, INPUT_SURFACE_MIN_HEIGHT_CLASS_NAME, INPUT_SURFACE_STYLE } from './inputSurface'
@@ -1932,46 +1931,13 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                   </Tooltip>
                 )}
 
-                {/* Mobile: Settings menu */}
                 {isSmallScreen && (
-                  <Menu
-                    trigger="click"
-                    openDelay={100}
-                    closeDelay={100}
-                    keepMounted
-                    transitionProps={{
-                      transition: 'pop',
-                      duration: 200,
-                    }}
-                  >
-                    <Menu.Target>
-                      <UnstyledButton className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors">
-                        <IconSettings
-                          size={toolbarIconSize}
-                          strokeWidth={1.8}
-                          className="text-[var(--chatbox-tint-secondary)]"
-                        />
-                      </UnstyledButton>
-                    </Menu.Target>
-                    <Menu.Dropdown>
-                      {canCreateThread && (
-                        <Menu.Item
-                          data-testid={TestId.chat.newThread}
-                          leftSection={<ScalableIcon icon={IconPlus} size={16} />}
-                          onClick={startNewThread}
-                        >
-                          {t('New Thread')}
-                        </Menu.Item>
-                      )}
-                      <Menu.Item
-                        data-testid={TestId.chat.sessionSettings}
-                        leftSection={<ScalableIcon icon={IconAdjustmentsHorizontal} size={16} />}
-                        onClick={onClickSessionSettings}
-                      >
-                        {t('Conversation Settings')}
-                      </Menu.Item>
-                    </Menu.Dropdown>
-                  </Menu>
+                  <ComposerSettingsMenu
+                    canCreateThread={canCreateThread}
+                    toolbarIconSize={toolbarIconSize}
+                    onStartNewThread={startNewThread}
+                    onClickSessionSettings={onClickSessionSettings}
+                  />
                 )}
               </Flex>
 
