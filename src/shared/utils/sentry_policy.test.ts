@@ -282,4 +282,16 @@ describe('normalizeErrorForSentry', () => {
   test('does not inspect the content of primitive throws', () => {
     expect(normalizeErrorForSentry('private user text').message).toBe('Non-Error exception (string)')
   })
+
+  test('preserves finite primitive numbers as safe diagnostics', () => {
+    expect(normalizeErrorForSentry(401).message).toBe('Non-Error exception (number; value=401)')
+    expect(normalizeErrorForSentry(429).message).toBe('Non-Error exception (number; value=429)')
+    expect(normalizeErrorForSentry(500).message).toBe('Non-Error exception (number; value=500)')
+  })
+
+  test('does not preserve non-finite primitive numbers', () => {
+    expect(normalizeErrorForSentry(Number.NaN).message).toBe('Non-Error exception (number)')
+    expect(normalizeErrorForSentry(Number.POSITIVE_INFINITY).message).toBe('Non-Error exception (number)')
+    expect(normalizeErrorForSentry(Number.NEGATIVE_INFINITY).message).toBe('Non-Error exception (number)')
+  })
 })

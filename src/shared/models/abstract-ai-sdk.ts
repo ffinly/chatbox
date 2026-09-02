@@ -59,6 +59,17 @@ const RETRY_CONFIG = {
   BACKOFF_FACTOR: 2,
 } as const
 
+function sanitizeCallSettings(callSettings: CallSettings): CallSettings {
+  const maxOutputTokens = callSettings.maxOutputTokens
+  if (maxOutputTokens === undefined || (Number.isInteger(maxOutputTokens) && maxOutputTokens >= 1)) {
+    return callSettings
+  }
+
+  const sanitized = { ...callSettings }
+  delete sanitized.maxOutputTokens
+  return sanitized
+}
+
 /**
  * Retryable from a billing-safety perspective: upstream rejected or crashed
  * before running the model, so retrying will not cause duplicate charges.
@@ -236,7 +247,7 @@ export default abstract class AbstractAISDKModel implements ModelInterface {
     const sanitizedOptions = shouldStrip
       ? { ...options, providerOptions: stripReasoningProviderOptions(options.providerOptions) }
       : options
-    return this.getCallSettings(sanitizedOptions)
+    return sanitizeCallSettings(this.getCallSettings(sanitizedOptions))
   }
 
   public async chat(messages: ModelMessage[], options: CallChatCompletionOptions): Promise<StreamTextResult> {

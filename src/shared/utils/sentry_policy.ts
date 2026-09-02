@@ -143,6 +143,12 @@ export function normalizeErrorForSentry(error: unknown): Error {
   if (error instanceof Error) return error
 
   const descriptors: string[] = [valueKind(error)]
+  if (typeof error === 'number') {
+    const value = safeErrorDescriptor(error)
+    if (value) {
+      descriptors.push(`value=${value}`)
+    }
+  }
   if (error && typeof error === 'object' && !Array.isArray(error)) {
     try {
       const record = error as Record<string, unknown>

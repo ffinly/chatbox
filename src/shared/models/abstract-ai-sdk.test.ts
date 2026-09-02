@@ -5,7 +5,7 @@ import type { ModelDependencies } from '../types/adapters'
 import type { SentryScope } from '../utils/sentry_adapter'
 import AbstractAISDKModel, { isRetryableStatusError } from './abstract-ai-sdk'
 import { ApiError, ChatboxAIAPIError, MidStreamApiError } from './errors'
-import type { CallChatCompletionOptions } from './types'
+import type { CallChatCompletionOptions, CallSettings } from './types'
 
 const aiMocks = vi.hoisted(() => ({
   streamText: vi.fn(),
@@ -29,6 +29,8 @@ const languageModel: LanguageModelV3 = {
 }
 
 class TestModel extends AbstractAISDKModel {
+  public callSettings: CallSettings = {}
+
   protected getProvider(
     _options: CallChatCompletionOptions
   ): Pick<Provider, 'languageModel'> & Partial<Pick<Provider, 'embeddingModel' | 'imageModel'>> {
@@ -39,6 +41,10 @@ class TestModel extends AbstractAISDKModel {
 
   protected getChatModel(_options: CallChatCompletionOptions): LanguageModelV3 {
     return languageModel
+  }
+
+  protected override getCallSettings(): CallSettings {
+    return this.callSettings
   }
 }
 
@@ -65,8 +71,8 @@ function createDependencies(): ModelDependencies {
   }
 }
 
-function createModel(modelId = 'test-model'): TestModel {
-  return new TestModel(
+function createModel(modelId = 'test-model', callSettings: CallSettings = {}): TestModel {
+  const model = new TestModel(
     {
       model: {
         modelId,
@@ -76,7 +82,49 @@ function createModel(modelId = 'test-model'): TestModel {
     },
     createDependencies()
   )
+  model.callSettings = callSettings
+  return model
 }
+
+function mockEmptyStream(): void {
+  aiMocks.streamText.mockReturnValue({
+    fullStream: {
+      [Symbol.asyncIterator]() {
+        return { next: () => Promise.resolve({ done: true as const, value: undefined }) }
+      },
+    },
+    totalUsage: Promise.resolve({ inputTokens: 0, outputTokens: 0, totalTokens: 0 }),
+    finishReason: Promise.resolve('stop'),
+  })
+}
+
+describe('AbstractAISDKModel max output tokens', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockEmptyStream()
+  })
+
+  it.each([0, -1, 0.5, 1.5, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+    'omits invalid maxOutputTokens %s before calling the AI SDK',
+    async (maxOutputTokens) => {
+      const model = createModel('test-model', { maxOutputTokens })
+
+      await model.chatStream([], {}).next()
+
+      const sdkCallSettings = aiMocks.streamText.mock.calls[0]?.[0]
+      expect(sdkCallSettings).toBeDefined()
+      expect(sdkCallSettings).not.toHaveProperty('maxOutputTokens')
+    }
+  )
+
+  it.each([undefined, 1, 4096])('preserves valid maxOutputTokens %s', async (maxOutputTokens) => {
+    const model = createModel('test-model', { maxOutputTokens })
+
+    await model.chatStream([], {}).next()
+
+    expect(aiMocks.streamText.mock.calls[0]?.[0]?.maxOutputTokens).toBe(maxOutputTokens)
+  })
+})
 
 describe('AbstractAISDKModel tool errors', () => {
   beforeEach(() => {

@@ -189,7 +189,7 @@ export const GlobalSessionSettingsSchema = z.object({
   maxContextMessageCount: z.number().optional().catch(undefined),
   temperature: z.number().optional().catch(undefined),
   topP: z.number().optional().catch(undefined),
-  maxTokens: z.number().optional().catch(undefined),
+  maxTokens: z.number().finite().int().min(1).optional().catch(undefined),
   stream: z.boolean().optional().catch(true),
 })
 

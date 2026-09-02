@@ -26,6 +26,19 @@ test('SessionSettingsSchema preserves the largest effective memory state token',
   expect(parsed.sessionPromptContextSnapshot?.memoryStateToken).toBe(effectiveToken)
 })
 
+describe('SessionSettingsSchema max output tokens', () => {
+  test.each([0, -1, 0.5, 1.5, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+    'treats %s as unset',
+    (maxTokens) => {
+      expect(SessionSettingsSchema.parse({ maxTokens }).maxTokens).toBeUndefined()
+    }
+  )
+
+  test.each([undefined, 1, 4096])('preserves valid value %s', (maxTokens) => {
+    expect(SessionSettingsSchema.parse({ maxTokens }).maxTokens).toBe(maxTokens)
+  })
+})
+
 describe('SettingsSchema RAG default models', () => {
   test('parses default embedding and rerank model selections', () => {
     const parsed = SettingsSchema.parse({
