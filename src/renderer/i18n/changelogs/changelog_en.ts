@@ -1,5 +1,5 @@
 const changelog = `
-## v1.23.1 - 2026.xx.xx
+## v1.23.1 - 2026.09.02
 1. In long conversations, you'll be asked to confirm before deleting older messages or switching models if that would reset the cached context
 2. Copilot prompts can now be up to 40,000 characters
 3. Fixed the conversation settings menu sitting under the Android navigation bar
