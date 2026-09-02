@@ -19,7 +19,7 @@ vi.mock('@/stores/uiStore', () => ({
   },
 }))
 
-import { translationResources } from '@chatbox/i18n'
+import zhHans from '@/i18n/locales/zh-Hans/translation.json'
 import {
   confirmModelSwitchIfNeeded,
   confirmPromptCacheBreakingAction,
@@ -53,7 +53,7 @@ describe('getPromptCacheBreakCopy', () => {
   })
 
   it('localizes cache-break confirmation copy for Chinese', () => {
-    const zh = translationResources['zh-Hans'].translation
+    const zh = zhHans
     const copy = getPromptCacheBreakCopy('delete-historical-message')
     expect(copy.title).toBe('Delete this message?')
     expect(copy.message).toBe(
