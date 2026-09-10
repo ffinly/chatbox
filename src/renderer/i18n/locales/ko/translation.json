@@ -64,7 +64,7 @@
   "AI Explain": "AI 설명",
   "AI explanation consumes additional tokens": "AI 설명은 추가적인 Token을 소비합니다",
   "ai provider no implemented paint tips": "현재 AI 모델 제공업체({{aiProvider}})는 현재 그리기 기능을 지원하지 않습니다. 현재 Chatbox AI, OpenAI 및 Azure OpenAI만 이 기능을 제공합니다. 필요한 경우 <0>설정으로 이동</0>하여 AI 모델 제공업체를 변경해 주세요.",
-  "AI-generated content may be inaccurate. Please verify important information.": "AI가 생성한 콘텐츠는 부정확할 수 있습니다. 중요한 정보는 직접 확인해 주세요.",
+  "AI can be wrong. Verify key facts.": "AI도 틀릴 수 있어요. 중요 정보는 확인하세요.",
   "AI-generated images may not be accurate. Review output carefully.": "AI로 생성된 이미지는 정확하지 않을 수 있습니다. 결과를 주의 깊게 검토하세요.",
   "AIHubMix integration in Chatbox offers 10% discount": "Chatbox의 AIHubMix 통합으로 10% 할인 혜택을 누리세요",
   "All": "모두",

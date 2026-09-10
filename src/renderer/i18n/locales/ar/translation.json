@@ -64,7 +64,7 @@
   "AI Explain": "شرح AI",
   "AI explanation consumes additional tokens": "شرح AI يستهلك Tokens إضافية",
   "ai provider no implemented paint tips": "مزود نموذج AI الحالي ({{aiProvider}}) لا يدعم إمكانيات الرسم في هذا الوقت. حاليًا، يوفر Chatbox AI وOpenAI وAzure OpenAI فقط هذه الميزة. إذا لزم الأمر، يرجى <0>الانتقال إلى الإعدادات</0> وتبديل مزود نموذج AI.",
-  "AI-generated content may be inaccurate. Please verify important information.": "قد تكون المحتويات التي تم إنشاؤها بواسطة AI غير دقيقة. يرجى التحقق من المعلومات المهمة.",
+  "AI can be wrong. Verify key facts.": "قد يخطئ AI. تحقّق من الحقائق المهمة.",
   "AI-generated images may not be accurate. Review output carefully.": "الصور التي يتم إنشاؤها بواسطة AI قد لا تكون دقيقة. راجع النتائج بعناية.",
   "AIHubMix integration in Chatbox offers 10% discount": "توفر تكامل AIHubMix في Chatbox خصمًا بنسبة 10%",
   "All": "الكل",

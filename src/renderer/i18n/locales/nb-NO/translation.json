@@ -64,7 +64,7 @@
   "AI Explain": "AI-forklaring",
   "AI explanation consumes additional tokens": "AI-forklaring bruker ekstra Tokens",
   "ai provider no implemented paint tips": "Den nåværende AI-modell-leverandøren ({{aiProvider}}) støtter ikke bildegenerering for øyeblikket. Foreløpig tilbyr kun Chatbox AI, OpenAI og Azure OpenAI denne funksjonen. Om nødvendig, vennligst <0>gå til innstillinger</0> og bytt AI-modell-leverandør.",
-  "AI-generated content may be inaccurate. Please verify important information.": "AI-generert innhold kan være unøyaktig. Vennligst verifiser viktig informasjon.",
+  "AI can be wrong. Verify key facts.": "AI kan ta feil. Sjekk viktige fakta.",
   "AI-generated images may not be accurate. Review output carefully.": "AI-genererte bilder er ikke alltid nøyaktige. Kontroller resultatet nøye.",
   "AIHubMix integration in Chatbox offers 10% discount": "AIHubMix-integrasjon i Chatbox tilbyr 10% rabatt",
   "All": "Alle",

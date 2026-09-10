@@ -64,7 +64,7 @@
   "AI Explain": "Spiegazione AI",
   "AI explanation consumes additional tokens": "La spiegazione AI consuma Token aggiuntivi",
   "ai provider no implemented paint tips": "L'attuale provider del modello AI ({{aiProvider}}) non supporta le funzionalità di disegno al momento. Attualmente, solo Chatbox AI, OpenAI e Azure OpenAI offrono questa funzionalità. Se necessario, <0>vai nelle impostazioni</0> e cambia il provider del modello AI.",
-  "AI-generated content may be inaccurate. Please verify important information.": "I contenuti generati dall'AI potrebbero essere imprecisi. Ti preghiamo di verificare le informazioni importanti.",
+  "AI can be wrong. Verify key facts.": "AI può sbagliare. Verifica i fatti chiave.",
   "AI-generated images may not be accurate. Review output carefully.": "Le immagini generate dall'AI potrebbero non essere accurate. Controlla attentamente il risultato.",
   "AIHubMix integration in Chatbox offers 10% discount": "L'integrazione di AIHubMix in Chatbox offre uno sconto del 10%",
   "All": "Tutto",

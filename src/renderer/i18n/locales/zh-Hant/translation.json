@@ -64,7 +64,7 @@
   "AI Explain": "AI 解釋",
   "AI explanation consumes additional tokens": "AI 解釋會消耗額外的 Tokens",
   "ai provider no implemented paint tips": "目前的 AI 模型提供者 ({{aiProvider}}) 目前不支援繪圖功能。目前僅 Chatbox AI、OpenAI 和 Azure OpenAI 提供此功能。如有需要，請<0>前往設定</0>並切換 AI 模型提供者。",
-  "AI-generated content may be inaccurate. Please verify important information.": "AI 生成的內容可能不準確。請核實重要資訊。",
+  "AI can be wrong. Verify key facts.": "AI 可能出錯，請核實重要資訊。",
   "AI-generated images may not be accurate. Review output carefully.": "AI 生成的圖片可能不準確。請仔細檢閱輸出結果。",
   "AIHubMix integration in Chatbox offers 10% discount": "Chatbox 中的 AIHubMix 整合提供 10% 折扣",
   "All": "全部",
