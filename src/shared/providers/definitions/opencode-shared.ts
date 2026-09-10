@@ -183,7 +183,7 @@ export function createOpenCodeModel(config: CreateModelConfig, gateway: OpenCode
     topP: config.settings.topP,
     maxOutputTokens: config.settings.maxTokens,
     stream: config.settings.stream,
-    useProxy: config.providerSetting.useProxy || false,
+    useProxy: config.dependencies.platformType === 'mobile' || (config.providerSetting.useProxy ?? false),
   }
 
   switch (model.apiStyle) {

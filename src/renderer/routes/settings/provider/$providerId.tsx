@@ -813,8 +813,10 @@ function ProviderSettings({ providerId }: { providerId: string }) {
           </>
         )}
 
-        {/* Network compatibility setting for Ollama */}
-        {baseInfo.id === ModelProviderEnum.Ollama && (
+        {/* Network compatibility for built-in providers */}
+        {(baseInfo.id === ModelProviderEnum.Ollama ||
+          (platform.type === 'web' &&
+            (baseInfo.id === ModelProviderEnum.OpenCodeGo || baseInfo.id === ModelProviderEnum.OpenCodeZen))) && (
           <Switch
             label={t('Improve Network Compatibility')}
             description={t('Only enable this when necessary, as it may reduce connection speed.')}

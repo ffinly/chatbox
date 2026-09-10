@@ -52,7 +52,8 @@ function createDependencies(): ModelDependencies {
 function createModel(
   provider: ModelProviderEnum.OpenCodeGo | ModelProviderEnum.OpenCodeZen,
   modelId: string,
-  dependencies: ModelDependencies = createDependencies()
+  dependencies: ModelDependencies = createDependencies(),
+  useProxy?: boolean
 ) {
   const sessionSettings: SessionSettings = {
     provider,
@@ -71,6 +72,7 @@ function createModel(
       [provider]: {
         apiKey: 'sk-test',
         apiHost,
+        useProxy,
         models: [{ modelId }],
       },
     },
@@ -223,5 +225,53 @@ describe('OpenCode request session headers', () => {
     expect(headerValue(apiRequest.mock.calls[0]?.[0]?.headers as Record<string, string>, OPENCODE_SESSION_HEADER)).toBe(
       'session-responses'
     )
+  })
+})
+
+describe('OpenCode network compatibility', () => {
+  const routes = [
+    [ModelProviderEnum.OpenCodeGo, 'glm-5.3'],
+    [ModelProviderEnum.OpenCodeGo, 'grok-4.5'],
+    [ModelProviderEnum.OpenCodeGo, 'minimax-m3'],
+    [ModelProviderEnum.OpenCodeZen, 'glm-5.3'],
+    [ModelProviderEnum.OpenCodeZen, 'grok-4.5'],
+    [ModelProviderEnum.OpenCodeZen, 'claude-sonnet-4-6'],
+    [ModelProviderEnum.OpenCodeZen, 'gemini-3.7-flash'],
+  ] as const
+
+  it.each(routes)('uses native mobile transport for %s %s streams and catalogs', async (provider, modelId) => {
+    for (const useProxy of [undefined, false, true]) {
+      const dependencies = createDependencies()
+      dependencies.platformType = 'mobile'
+      const request = vi.mocked(dependencies.request.apiRequest)
+      request.mockResolvedValueOnce(new Response('', { headers: { 'content-type': 'text/event-stream' } }))
+      const model = createModel(provider, modelId, dependencies, useProxy)
+      const controller = new AbortController()
+      const result = await exposeChatModel(model).doStream({ ...generateRequest, abortSignal: controller.signal })
+      expect(request).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: 'POST',
+          useProxy: true,
+          signal: controller.signal,
+          retry: 0,
+        })
+      )
+      await result.stream.cancel()
+      request.mockClear()
+      request.mockResolvedValueOnce(jsonReply({ data: [{ id: modelId }] }))
+      await (model as OpenAI).listModels()
+      expect(request).toHaveBeenCalledWith(expect.objectContaining({ method: 'GET', useProxy: true }))
+    }
+  })
+
+  it.each(['desktop', 'web'] as const)('resolves the %s transport independently of mobile defaults', (platformType) => {
+    for (const [provider, modelId] of routes) {
+      for (const useProxy of [undefined, false, true]) {
+        const dependencies = createDependencies()
+        dependencies.platformType = platformType
+        const model = createModel(provider, modelId, dependencies, useProxy)
+        expect((model as OpenAI).options.useProxy).toBe(useProxy ?? false)
+      }
+    }
   })
 })
