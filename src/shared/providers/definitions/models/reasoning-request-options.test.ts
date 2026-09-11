@@ -7,9 +7,9 @@ import { describe, expect, it, vi } from 'vitest'
 import Claude from './claude'
 import CustomOpenAI from './custom-openai'
 import DeepSeek from './deepseek'
+import Ollama from './ollama'
 import OpenAI from './openai'
 import OpenRouter from './openrouter'
-import Ollama from './ollama'
 import Qwen from './qwen'
 
 class TestDeepSeek extends DeepSeek {
@@ -254,60 +254,63 @@ describe('reasoning request options', () => {
     expect(requestBody).not.toHaveProperty('top_k')
   })
 
-  it('passes DeepSeek thinking toggle and official effort levels to provider options', () => {
-    const deepseek = new TestDeepSeek(
-      {
-        apiKey: 'test-key',
-        model: reasoningModel('deepseek-v4-pro'),
-        temperature: 0.7,
-        topP: 0.9,
-      },
-      createDependencies()
-    )
+  it.each(['deepseek-v4-pro', 'deepseek-flash'])(
+    'passes %s thinking toggle and official effort levels to provider options',
+    (modelId) => {
+      const deepseek = new TestDeepSeek(
+        {
+          apiKey: 'test-key',
+          model: reasoningModel(modelId),
+          temperature: 0.7,
+          topP: 0.9,
+        },
+        createDependencies()
+      )
 
-    const defaultThinking = deepseek.exposeCallSettings({})
-    const enabled = deepseek.exposeCallSettings({
-      providerOptions: {
+      const defaultThinking = deepseek.exposeCallSettings({})
+      const enabled = deepseek.exposeCallSettings({
+        providerOptions: {
+          deepseek: {
+            thinking: {
+              type: 'enabled',
+            },
+            reasoningEffort: 'max',
+          },
+        },
+      })
+      const disabled = deepseek.exposeCallSettings({
+        providerOptions: {
+          deepseek: {
+            thinking: {
+              type: 'disabled',
+            },
+          },
+        },
+      })
+
+      expect(defaultThinking.temperature).toBeUndefined()
+      expect(defaultThinking.topP).toBeUndefined()
+      expect(enabled.temperature).toBeUndefined()
+      expect(enabled.topP).toBeUndefined()
+      expect(enabled.providerOptions).toEqual({
         deepseek: {
           thinking: {
             type: 'enabled',
           },
           reasoningEffort: 'max',
         },
-      },
-    })
-    const disabled = deepseek.exposeCallSettings({
-      providerOptions: {
+      })
+      expect(disabled.temperature).toBe(0.7)
+      expect(disabled.topP).toBe(0.9)
+      expect(disabled.providerOptions).toEqual({
         deepseek: {
           thinking: {
             type: 'disabled',
           },
         },
-      },
-    })
-
-    expect(defaultThinking.temperature).toBeUndefined()
-    expect(defaultThinking.topP).toBeUndefined()
-    expect(enabled.temperature).toBeUndefined()
-    expect(enabled.topP).toBeUndefined()
-    expect(enabled.providerOptions).toEqual({
-      deepseek: {
-        thinking: {
-          type: 'enabled',
-        },
-        reasoningEffort: 'max',
-      },
-    })
-    expect(disabled.temperature).toBe(0.7)
-    expect(disabled.topP).toBe(0.9)
-    expect(disabled.providerOptions).toEqual({
-      deepseek: {
-        thinking: {
-          type: 'disabled',
-        },
-      },
-    })
-  })
+      })
+    }
+  )
 
   it('passes OpenRouter reasoning effort and response inclusion options to provider options', () => {
     const openrouter = new TestOpenRouter(

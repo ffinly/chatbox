@@ -489,27 +489,41 @@ describe('reasoning-control', () => {
     )
   })
 
-  it('keeps native DeepSeek provider enabled even when UI fallback adds openai apiStyle', () => {
-    const reasoner = model('deepseek-reasoner', 'openai')
-    const v4 = model('deepseek-v4-pro', 'openai')
-    const options = getReasoningProviderOptions(ModelProviderEnum.DeepSeek, reasoner, 'high')
+  it.each(['deepseek-v4-pro', 'deepseek-flash'])(
+    'keeps native DeepSeek %s enabled even when UI fallback adds openai apiStyle',
+    (modelId) => {
+      const reasoner = model('deepseek-reasoner', 'openai')
+      const v4 = model(modelId, 'openai')
+      const options = getReasoningProviderOptions(ModelProviderEnum.DeepSeek, reasoner, 'high')
 
-    expect(getReasoningControlCapabilities(ModelProviderEnum.DeepSeek, reasoner)).toEqual({
-      supported: true,
-      kind: 'toggle',
-    })
-    expect(getReasoningControlCapabilities(ModelProviderEnum.DeepSeek, v4)).toEqual({
+      expect(getReasoningControlCapabilities(ModelProviderEnum.DeepSeek, reasoner)).toEqual({
+        supported: true,
+        kind: 'toggle',
+      })
+      expect(getReasoningControlCapabilities(ModelProviderEnum.DeepSeek, v4)).toEqual({
+        supported: true,
+        kind: 'deepseek-effort',
+      })
+      expect(getReasoningControlOptions(ModelProviderEnum.DeepSeek, v4)).toEqual([
+        { level: 'default', label: 'default' },
+        { level: 'off', label: 'off' },
+        { level: 'low', label: 'low' },
+        { level: 'medium', label: 'medium' },
+        { level: 'high', label: 'high' },
+      ])
+      expect(options?.deepseek).toEqual({ thinking: { type: 'enabled' } })
+    }
+  )
+
+  it('supports Flash effort through a custom OpenAI-compatible provider', () => {
+    const flash = model('deepseek-flash', 'openai')
+    expect(getReasoningControlCapabilities('custom-deepseek', flash)).toEqual({
       supported: true,
       kind: 'deepseek-effort',
     })
-    expect(getReasoningControlOptions(ModelProviderEnum.DeepSeek, v4)).toEqual([
-      { level: 'default', label: 'default' },
-      { level: 'off', label: 'off' },
-      { level: 'low', label: 'low' },
-      { level: 'medium', label: 'medium' },
-      { level: 'high', label: 'high' },
-    ])
-    expect(options?.deepseek).toEqual({ thinking: { type: 'enabled' } })
+    expect(getReasoningProviderOptions('custom-deepseek', flash, 'high')).toEqual({
+      deepseek: { thinking: { type: 'enabled' }, reasoningEffort: 'max' },
+    })
   })
 
   it.each([
@@ -535,31 +549,33 @@ describe('reasoning-control', () => {
       off: { openai: { reasoningEffort: 'none' as const, forceReasoning: true } },
     },
   ])('supports ChatboxAI DeepSeek effort through $apiStyle API style', ({ apiStyle, low, medium, high, off }) => {
-    const modelInfo: ProviderModelInfo = {
-      modelId: 'deepseek-v4-pro',
-      apiStyle,
-      capabilities: ['tool_use'],
-    }
+    for (const modelId of ['deepseek-v4-pro', 'deepseek-flash']) {
+      const modelInfo: ProviderModelInfo = {
+        modelId,
+        apiStyle,
+        capabilities: ['tool_use'],
+      }
 
-    expect(getReasoningControlCapabilities(ModelProviderEnum.ChatboxAI, modelInfo)).toEqual({
-      supported: true,
-      kind: 'deepseek-effort',
-    })
-    expect(getReasoningControlOptions(ModelProviderEnum.ChatboxAI, modelInfo).map((option) => option.level)).toEqual([
-      'default',
-      'off',
-      'low',
-      'medium',
-      'high',
-    ])
-    expect(getReasoningProviderOptions(ModelProviderEnum.ChatboxAI, modelInfo, 'low')).toEqual(low)
-    expect(getReasoningProviderOptions(ModelProviderEnum.ChatboxAI, modelInfo, 'medium')).toEqual(medium)
-    expect(getReasoningProviderOptions(ModelProviderEnum.ChatboxAI, modelInfo, 'high')).toEqual(high)
-    expect(getReasoningProviderOptions(ModelProviderEnum.ChatboxAI, modelInfo, 'off')).toEqual(off)
-    expect(getReasoningControlLevel(ModelProviderEnum.ChatboxAI, modelInfo, low)).toBe('low')
-    expect(getReasoningControlLevel(ModelProviderEnum.ChatboxAI, modelInfo, medium)).toBe('medium')
-    expect(getReasoningControlLevel(ModelProviderEnum.ChatboxAI, modelInfo, high)).toBe('high')
-    expect(getReasoningControlLevel(ModelProviderEnum.ChatboxAI, modelInfo, off)).toBe('off')
+      expect(getReasoningControlCapabilities(ModelProviderEnum.ChatboxAI, modelInfo)).toEqual({
+        supported: true,
+        kind: 'deepseek-effort',
+      })
+      expect(getReasoningControlOptions(ModelProviderEnum.ChatboxAI, modelInfo).map((option) => option.level)).toEqual([
+        'default',
+        'off',
+        'low',
+        'medium',
+        'high',
+      ])
+      expect(getReasoningProviderOptions(ModelProviderEnum.ChatboxAI, modelInfo, 'low')).toEqual(low)
+      expect(getReasoningProviderOptions(ModelProviderEnum.ChatboxAI, modelInfo, 'medium')).toEqual(medium)
+      expect(getReasoningProviderOptions(ModelProviderEnum.ChatboxAI, modelInfo, 'high')).toEqual(high)
+      expect(getReasoningProviderOptions(ModelProviderEnum.ChatboxAI, modelInfo, 'off')).toEqual(off)
+      expect(getReasoningControlLevel(ModelProviderEnum.ChatboxAI, modelInfo, low)).toBe('low')
+      expect(getReasoningControlLevel(ModelProviderEnum.ChatboxAI, modelInfo, medium)).toBe('medium')
+      expect(getReasoningControlLevel(ModelProviderEnum.ChatboxAI, modelInfo, high)).toBe('high')
+      expect(getReasoningControlLevel(ModelProviderEnum.ChatboxAI, modelInfo, off)).toBe('off')
+    }
   })
 
   it('reads missing or invalid V4 effort as default instead of inventing a level', () => {
