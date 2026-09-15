@@ -53,4 +53,24 @@ describe('createSettingsStore', () => {
     store.getState().destroy()
     service.dispose()
   })
+  test('preserves store actions when a settings update includes the projected state', async () => {
+    const storage = new MemorySettingsStorage()
+    const service = new SettingsService(storage, { isDesktopLike: false })
+    const store = createSettingsStore(service)
+    await store.getState().hydrate()
+    const getSettings = store.getState().getSettings
+    const hydrate = store.getState().hydrate
+
+    service.updateSettings({ ...store.getState(), language: 'ja' })
+
+    expect(store.getState().getSettings).toBe(getSettings)
+    expect(store.getState().hydrate).toBe(hydrate)
+    expect(store.getState().getSettings().language).toBe('ja')
+    store.getState().setSettings({ theme: 1 })
+    expect(store.getState().getSettings().theme).toBe(1)
+    expect(store.getState().hydrationStatus).toBe('hydrated')
+    await service.flushPersistence()
+    store.getState().destroy()
+    service.dispose()
+  })
 })
