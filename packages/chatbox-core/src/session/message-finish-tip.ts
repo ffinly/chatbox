@@ -10,7 +10,9 @@ export function getMessageFinishTip(
     case 'content-filter':
       return t('The response was interrupted by the provider’s content safety filter. Try rephrasing your request.')
     case 'length':
-      return t('Length limit reached. Send “Continue” to ask the model to keep going.')
+      return t(
+        'The model reached the length limit for this response, so the content may be incomplete. Send “Continue” to ask it to keep going.'
+      )
     case 'error':
       return message.error || message.errorCode
         ? undefined

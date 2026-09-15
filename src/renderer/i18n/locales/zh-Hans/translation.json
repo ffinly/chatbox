@@ -1,6 +1,7 @@
 {
+  "You can also adjust Max Output Tokens in <settings>Conversation Settings</settings>.": "也可在<settings>对话设置</settings>中调整最大输出 Token。",
   "The response was interrupted by the provider’s content safety filter. Try rephrasing your request.": "回复因触发服务商的内容安全过滤而中断，请尝试调整提问内容。",
-  "Length limit reached. Send “Continue” to ask the model to keep going.": "回复已达到长度上限。可输入“继续生成”让模型接着回复。",
+  "The model reached the length limit for this response, so the content may be incomplete. Send “Continue” to ask it to keep going.": "模型本次回复已达到长度上限，内容可能尚未完成。可发送“继续生成”，让模型接着回复。",
   "The response was interrupted by an error. Please try again.": "回复因错误而中断，请重试。",
   " for free now!": "立即免费体验！",
   "(Remaining/Total)": "(剩余/总量)",

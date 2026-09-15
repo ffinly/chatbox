@@ -25,7 +25,7 @@ async function expectLengthTip(model: LanguageModel) {
   const result = await generateText({ model, prompt: 'Hello', maxOutputTokens: 16, maxRetries: 0 })
   expect(result.finishReason).toBe('length')
   expect(getMessageFinishTip({ role: 'assistant', finishReason: result.finishReason }, (key) => key)).toContain(
-    'Length limit reached'
+    'length limit for this response'
   )
 }
 

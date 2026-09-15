@@ -1,6 +1,7 @@
 {
+  "You can also adjust Max Output Tokens in <settings>Conversation Settings</settings>.": "<settings>대화 설정</settings>에서 최대 출력 토큰 수도 조정할 수 있습니다.",
   "The response was interrupted by the provider’s content safety filter. Try rephrasing your request.": "제공업체의 콘텐츠 안전 필터로 인해 응답이 중단되었습니다. 질문을 바꿔 보세요.",
-  "Length limit reached. Send “Continue” to ask the model to keep going.": "응답이 길이 제한에 도달했습니다. “계속 생성해 줘”라고 보내 모델에 이어서 답변하도록 요청하세요.",
+  "The model reached the length limit for this response, so the content may be incomplete. Send “Continue” to ask it to keep going.": "모델이 이번 응답의 길이 제한에 도달하여 내용이 완성되지 않았을 수 있습니다. “계속 생성해 줘”라고 보내 이어서 답변하도록 요청하세요.",
   "The response was interrupted by an error. Please try again.": "오류로 인해 응답이 중단되었습니다. 다시 시도해 주세요.",
   " for free now!": "지금 무료로 사용하세요!",
   "(Remaining/Total)": "(잔여/전체)",

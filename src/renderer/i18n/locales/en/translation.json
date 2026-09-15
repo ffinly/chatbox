@@ -1,6 +1,7 @@
 {
+  "You can also adjust Max Output Tokens in <settings>Conversation Settings</settings>.": "You can also adjust Max Output Tokens in <settings>Conversation Settings</settings>.",
   "The response was interrupted by the provider’s content safety filter. Try rephrasing your request.": "The response was interrupted by the provider’s content safety filter. Try rephrasing your request.",
-  "Length limit reached. Send “Continue” to ask the model to keep going.": "Length limit reached. Send “Continue” to ask the model to keep going.",
+  "The model reached the length limit for this response, so the content may be incomplete. Send “Continue” to ask it to keep going.": "The model reached the length limit for this response, so the content may be incomplete. Send “Continue” to ask it to keep going.",
   "The response was interrupted by an error. Please try again.": "The response was interrupted by an error. Please try again.",
   " for free now!": " for free now!",
   "(Remaining/Total)": "(Remaining/Total)",

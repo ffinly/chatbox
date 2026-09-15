@@ -10,6 +10,7 @@ describe('getMessageFinishTip', () => {
   })
   it('suggests asking the model to continue when the length limit is reached', () => {
     const tip = getMessageFinishTip({ ...message, finishReason: 'length' }, t)
+    expect(tip).toContain('content may be incomplete')
     expect(tip).toContain('Send “Continue”')
   })
   it.each(['stop', 'tool-calls', 'canceled', 'tool-call-paused', 'steered', 'unknown', undefined])(

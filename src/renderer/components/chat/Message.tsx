@@ -42,7 +42,7 @@ import clsx from 'clsx'
 import * as dateFns from 'date-fns'
 import type React from 'react'
 import { type FC, forwardRef, type MouseEventHandler, memo, useCallback, useMemo, useRef, useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { trackAgentModeSuggestionAction } from '@/analytics/agent-mode'
 import { trackJkClickEvent } from '@/analytics/jk'
 import { JK_EVENTS, JK_PAGE_NAMES } from '@/analytics/jk-events'
@@ -1083,9 +1083,14 @@ const _Message: FC<Props> = (props) => {
               {msg.finishReason === 'length' && (
                 <>
                   {' '}
-                  <Anchor component="button" size="xs" c="chatbox-brand" onClick={onClickAssistantAvatar}>
-                    {t('Conversation Settings')}
-                  </Anchor>
+                  <Trans
+                    i18nKey="You can also adjust Max Output Tokens in <settings>Conversation Settings</settings>."
+                    components={{
+                      settings: (
+                        <Anchor component="button" size="xs" c="chatbox-brand" onClick={onClickAssistantAvatar} />
+                      ),
+                    }}
+                  />
                 </>
               )}
             </Text>
