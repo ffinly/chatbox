@@ -1,4 +1,7 @@
 {
+  "The response was interrupted by the provider’s content safety filter. Try rephrasing your request.": "Die Antwort wurde durch den Inhaltssicherheitsfilter des Anbieters unterbrochen. Formuliere deine Anfrage um.",
+  "Length limit reached. Increase Max Output Tokens within the model’s limit, or shorten the context.": "Längenlimit erreicht. Erhöhe die maximalen Ausgabe-Tokens innerhalb des Modelllimits oder kürze den Kontext.",
+  "The response was interrupted by an error. Please try again.": "Die Antwort wurde durch einen Fehler unterbrochen. Bitte versuche es erneut.",
   " for free now!": "jetzt kostenlos!",
   "(Remaining/Total)": "(Verbleibend/Gesamt)",
   ") — Detailed feature documentation\n- 🆘 [Help Center](": ") — Detaillierte Funktionsdokumentation - 🆘 [Hilfecenter](",

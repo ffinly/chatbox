@@ -1,4 +1,7 @@
 {
+  "The response was interrupted by the provider’s content safety filter. Try rephrasing your request.": "回覆因觸發服務商的內容安全過濾而中斷，請嘗試調整提問內容。",
+  "Length limit reached. Increase Max Output Tokens within the model’s limit, or shorten the context.": "回覆達到長度上限，可調大輸出 Token（不超模型上限）或精簡上下文。",
+  "The response was interrupted by an error. Please try again.": "回覆因錯誤而中斷，請重試。",
   " for free now!": "現在免費！",
   "(Remaining/Total)": "(剩餘/總計)",
   ") — Detailed feature documentation\n- 🆘 [Help Center](": ") — 詳細功能說明文件\n- 🆘 [幫助中心](",

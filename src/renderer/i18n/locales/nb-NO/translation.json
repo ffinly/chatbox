@@ -1,4 +1,7 @@
 {
+  "The response was interrupted by the provider’s content safety filter. Try rephrasing your request.": "Svaret ble avbrutt av leverandørens innholdssikkerhetsfilter. Prøv å omformulere forespørselen.",
+  "Length limit reached. Increase Max Output Tokens within the model’s limit, or shorten the context.": "Lengdegrensen er nådd. Øk maksimalt antall utdatatokener innenfor modellens grense, eller forkort konteksten.",
+  "The response was interrupted by an error. Please try again.": "Svaret ble avbrutt av en feil. Prøv igjen.",
   " for free now!": " gratis nå!",
   "(Remaining/Total)": "(Gjenværende/Totalt)",
   ") — Detailed feature documentation\n- 🆘 [Help Center](": ") — Detaljert dokumentasjon for funksjoner\n- 🆘 [Hjelpesenter](",

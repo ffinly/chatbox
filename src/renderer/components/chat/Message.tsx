@@ -8,6 +8,7 @@ import {
   shouldShowConcurrentReplyStop,
 } from '@chatbox/core/session/action-gates'
 import { isCancellableGeneratingAssistantMessage } from '@chatbox/core/session/generation-state'
+import { getMessageFinishTip } from '@chatbox/core/session/message-finish-tip'
 import { isActionAvailableInMode, type SessionMode } from '@chatbox/core/session/mode-policy'
 import type { PromptCacheDeleteTarget } from '@chatbox/core/session/prompt-cache-policy'
 import NiceModal from '@ebay/nice-modal-react'
@@ -498,9 +499,7 @@ const _Message: FC<Props> = (props) => {
     }
   }
 
-  if (msg.finishReason && ['content-filter', 'length', 'error'].includes(msg.finishReason)) {
-    tips.push({ label: msg.finishReason })
-  }
+  const finishTip = getMessageFinishTip(msg, t)
 
   if (showMessageTimestamp && msg.timestamp !== undefined) {
     const date = new Date(msg.timestamp)
@@ -1076,6 +1075,14 @@ const _Message: FC<Props> = (props) => {
           </div>
         )}
         {!isBubbleLayout && msg.error && <div className="mt-2">{errorTipsElement}</div>}
+        {finishTip && (
+          <Flex align="flex-start" gap={6} mt="xs" role="status">
+            <ScalableIcon icon={IconInfoCircle} size={14} className="flex-none mt-[2px] text-chatbox-tint-tertiary" />
+            <Text size="xs" c="chatbox-tertiary" lh={1.45}>
+              {finishTip}
+            </Text>
+          </Flex>
+        )}
         {leadingStatuses && leadingStatuses.length > 0 && <div className="mt-2">{statusElements}</div>}
       </div>
     </>
