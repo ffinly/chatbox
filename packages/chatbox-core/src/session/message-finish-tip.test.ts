@@ -8,10 +8,9 @@ describe('getMessageFinishTip', () => {
   it.each(['content-filter', 'length', 'error'])('explains %s even for an empty response', (finishReason) => {
     expect(getMessageFinishTip({ ...message, finishReason }, t)).toBeTruthy()
   })
-  it('bounds the length guidance by the model output limit and offers a fallback', () => {
+  it('suggests asking the model to continue when the length limit is reached', () => {
     const tip = getMessageFinishTip({ ...message, finishReason: 'length' }, t)
-    expect(tip).toContain('within the model’s limit')
-    expect(tip).toContain('shorten the context')
+    expect(tip).toContain('Send “Continue”')
   })
   it.each(['stop', 'tool-calls', 'canceled', 'tool-call-paused', 'steered', 'unknown', undefined])(
     'does not show an interruption tip for %s',

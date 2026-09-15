@@ -1,6 +1,6 @@
 {
   "The response was interrupted by the provider’s content safety filter. Try rephrasing your request.": "La risposta è stata interrotta dal filtro di sicurezza dei contenuti del provider. Prova a riformulare la richiesta.",
-  "Length limit reached. Increase Max Output Tokens within the model’s limit, or shorten the context.": "Limite di lunghezza raggiunto. Aumenta i token massimi di output entro il limite del modello o riduci il contesto.",
+  "Length limit reached. Send “Continue” to ask the model to keep going.": "Limite di lunghezza raggiunto. Invia «Continua» per chiedere al modello di proseguire.",
   "The response was interrupted by an error. Please try again.": "La risposta è stata interrotta da un errore. Riprova.",
   " for free now!": "gratis ora!",
   "(Remaining/Total)": "(Rimanenti/Totale)",

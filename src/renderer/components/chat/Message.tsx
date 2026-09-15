@@ -12,7 +12,7 @@ import { getMessageFinishTip } from '@chatbox/core/session/message-finish-tip'
 import { isActionAvailableInMode, type SessionMode } from '@chatbox/core/session/mode-policy'
 import type { PromptCacheDeleteTarget } from '@chatbox/core/session/prompt-cache-policy'
 import NiceModal from '@ebay/nice-modal-react'
-import { ActionIcon, type ActionIconProps, Button, Flex, Loader, Modal, Stack, Text } from '@mantine/core'
+import { ActionIcon, type ActionIconProps, Anchor, Button, Flex, Loader, Modal, Stack, Text } from '@mantine/core'
 import { Box, Grid, useTheme } from '@mui/material'
 import { TestId } from '@shared/automation/testids'
 import { findMessageLocation } from '@shared/session/message-forks'
@@ -1080,6 +1080,14 @@ const _Message: FC<Props> = (props) => {
             <ScalableIcon icon={IconInfoCircle} size={14} className="flex-none mt-[2px] text-chatbox-tint-tertiary" />
             <Text size="xs" c="chatbox-tertiary" lh={1.45}>
               {finishTip}
+              {msg.finishReason === 'length' && (
+                <>
+                  {' '}
+                  <Anchor component="button" size="xs" c="chatbox-brand" onClick={onClickAssistantAvatar}>
+                    {t('Conversation Settings')}
+                  </Anchor>
+                </>
+              )}
             </Text>
           </Flex>
         )}

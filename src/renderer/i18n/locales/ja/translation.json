@@ -1,6 +1,6 @@
 {
   "The response was interrupted by the provider’s content safety filter. Try rephrasing your request.": "プロバイダーのコンテンツ安全フィルターにより回答が中断されました。質問の内容を変えてお試しください。",
-  "Length limit reached. Increase Max Output Tokens within the model’s limit, or shorten the context.": "長さの上限に達しました。モデルの上限内で最大出力トークン数を増やすか、コンテキストを短くしてください。",
+  "Length limit reached. Send “Continue” to ask the model to keep going.": "回答が長さの上限に達しました。「続きを生成して」と送信して、モデルに続きを依頼できます。",
   "The response was interrupted by an error. Please try again.": "エラーにより回答が中断されました。もう一度お試しください。",
   " for free now!": "今すぐ無料で利用可能！",
   "(Remaining/Total)": "(残量/合計)",
