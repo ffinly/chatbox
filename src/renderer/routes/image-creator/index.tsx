@@ -501,7 +501,7 @@ function ImageCreatorPage() {
         return modelName
       }
       const providerName = group?.label || provider?.name || model.provider
-      return `${providerName} - ${modelName}`
+      return providerName ? `${providerName} - ${modelName}` : modelName
     },
     [imageModelGroups, providers]
   )
