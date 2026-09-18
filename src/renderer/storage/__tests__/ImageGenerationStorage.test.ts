@@ -71,9 +71,11 @@ describe('IndexedDBImageGenerationStorage', () => {
     await storage.create(record)
 
     const page = await storage.getPage(0, 20)
-    expect(page.total).toBe(2)
     expect(page.items.map((item) => item.id)).toEqual([record.id])
     expect(page.nextCursor).toBeNull()
+    // Counts what paging can actually yield, so a consumer recomputing the offset agrees.
+    expect(page.total).toBe(1)
+    expect(await storage.getTotal()).toBe(2)
   })
 
   it('keeps a record without a model readable', async () => {
@@ -86,5 +88,22 @@ describe('IndexedDBImageGenerationStorage', () => {
     const expected = { ...withoutModel, model: { provider: '', modelId: '' } }
     expect(await storage.getById(record.id)).toEqual(expected)
     expect((await storage.getPage(0)).items).toEqual([expected])
+  })
+
+  it('fills the other required fields consumers dereference', async () => {
+    await writeRaw({ id: record.id, createdAt: record.createdAt, status: 'done' })
+
+    const storage = new IndexedDBImageGenerationStorage()
+    await storage.initialize()
+
+    expect(await storage.getById(record.id)).toEqual({
+      id: record.id,
+      createdAt: record.createdAt,
+      status: 'done',
+      model: { provider: '', modelId: '' },
+      prompt: '',
+      referenceImages: [],
+      generatedImages: [],
+    })
   })
 })

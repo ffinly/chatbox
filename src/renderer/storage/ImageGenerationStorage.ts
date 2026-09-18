@@ -7,11 +7,18 @@ const STORE_NAME = 'records'
 
 /**
  * Records already on disk are not guaranteed to carry every field the schema declares.
- * Reads must stay renderable, so fill the gaps a consumer would otherwise dereference.
+ * Reads must stay renderable, so fill the required fields consumers dereference. Writes
+ * stay strict, so a record that loses a field still surfaces as a bug at its source.
  */
 function normalizeRecord(record: ImageGeneration): ImageGeneration {
-  if (record.model) return record
-  return { ...record, model: { provider: '', modelId: '' } }
+  if (record.model && record.prompt && record.referenceImages && record.generatedImages) return record
+  return {
+    ...record,
+    model: record.model ?? { provider: '', modelId: '' },
+    prompt: record.prompt ?? '',
+    referenceImages: record.referenceImages ?? [],
+    generatedImages: record.generatedImages ?? [],
+  }
 }
 
 export interface ImageGenerationStorage {
@@ -120,7 +127,7 @@ export class IndexedDBImageGenerationStorage implements ImageGenerationStorage {
 
   async getPage(cursor: number = 0, limit: number = PAGE_SIZE): Promise<ImageGenerationPage> {
     await this.initialize()
-    const total = await this.getTotal()
+    const total = await this.countListable()
 
     return new Promise((resolve, reject) => {
       const store = this.getStore('readonly')
@@ -130,9 +137,6 @@ export class IndexedDBImageGenerationStorage implements ImageGenerationStorage {
 
       const request = index.openCursor(null, 'prev')
 
-      // The cursor walks the createdAt index, which holds fewer entries than the store
-      // counts whenever a record lacks a createdAt. Paging must therefore end on the
-      // cursor being exhausted rather than on the offset catching up with the total.
       request.onsuccess = (event) => {
         const cursor_ = (event.target as IDBRequest<IDBCursorWithValue>).result
         if (!cursor_) {
@@ -154,6 +158,19 @@ export class IndexedDBImageGenerationStorage implements ImageGenerationStorage {
         }
       }
 
+      request.onerror = () => reject(request.error)
+    })
+  }
+
+  /**
+   * A record is only listable once it is in the createdAt index, so paging counts and
+   * terminates on that index rather than on the store's full record count.
+   */
+  private async countListable(): Promise<number> {
+    await this.initialize()
+    return new Promise((resolve, reject) => {
+      const request = this.getStore('readonly').index('createdAt').count()
+      request.onsuccess = () => resolve(request.result)
       request.onerror = () => reject(request.error)
     })
   }
