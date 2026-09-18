@@ -1,3 +1,4 @@
+import { type CurrentThreadTarget, getCurrentThreadTarget } from '@chatbox/core/application/session'
 import { isThreadHistoryAvailable, resolveSessionMode } from '@chatbox/core/session/mode-policy'
 import NiceModal from '@ebay/nice-modal-react'
 import { ActionIcon, Badge, Flex, ScrollArea, Text } from '@mantine/core'
@@ -12,7 +13,7 @@ import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { currentSessionIdAtom, showThreadHistoryDrawerAtom } from '@/stores/atoms'
 import { scrollToIndex } from '@/stores/scrollActions'
 import { useSessionAgentMode } from '@/stores/session/agent-mode'
-import { removeCurrentThread, removeThread, switchThread as switchThreadAction } from '@/stores/session/threads'
+import { removeThread, switchThread as switchThreadAction } from '@/stores/session/threads'
 import { getAllMessageList, getCurrentThreadHistoryHash } from '@/stores/sessionHelpers'
 import { useLanguage } from '@/stores/settingsStore'
 import { CHATBOX_BUILD_PLATFORM } from '@/variables'
@@ -97,7 +98,7 @@ export default function ThreadHistoryDrawer({ session }: { session: Session }) {
         </ActionIcon>
       </Flex>
       <ScrollArea className="flex-1">
-        {threadList.map((thread, index) => (
+        {threadList.map((thread) => (
           <ThreadItem
             key={thread.id}
             thread={thread}
@@ -105,7 +106,8 @@ export default function ThreadHistoryDrawer({ session }: { session: Session }) {
             showHistoryDrawer={showDrawer}
             switchThread={handleSwitchThread}
             allowStructureActions={sessionMode === 'chat'}
-            lastOne={index === threadList.length - 1}
+            sessionId={session.id}
+            currentThreadTarget={getCurrentThreadTarget(session)}
           />
         ))}
       </ScrollArea>
@@ -119,10 +121,11 @@ function ThreadItem(props: {
   showHistoryDrawer: string | boolean
   switchThread(threadId: string): void
   allowStructureActions: boolean
-  lastOne?: boolean
+  sessionId: string
+  currentThreadTarget: CurrentThreadTarget
 }) {
   const { t } = useTranslation()
-  const { thread, goto, switchThread, allowStructureActions, lastOne } = props
+  const { thread, goto, switchThread, allowStructureActions, sessionId, currentThreadTarget } = props
   const threadName = thread.name || t('New Thread')
   const currentSessionId = useAtomValue(currentSessionIdAtom)
   const isSmallScreen = useIsSmallScreen()
@@ -174,11 +177,7 @@ function ThreadItem(props: {
                     if (!currentSessionId) {
                       return
                     }
-                    if (lastOne) {
-                      void removeCurrentThread(currentSessionId)
-                    } else {
-                      void removeThread(currentSessionId, thread.id)
-                    }
+                    return removeThread(sessionId, thread.id, currentThreadTarget)
                   },
                 },
               ]

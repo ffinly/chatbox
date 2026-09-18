@@ -33,7 +33,7 @@ import { lastUsedModelStore } from '@/stores/lastUsedModelStore'
 import * as scrollActions from '@/stores/scrollActions'
 import { switchCurrentSession } from '@/stores/session/crud'
 import { submitNewUserMessage } from '@/stores/session/messages'
-import { removeCurrentThread, startNewThread } from '@/stores/session/threads'
+import { startNewThread } from '@/stores/session/threads'
 import { clearSessionActivity } from '@/stores/sessionActivityStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { add as addToast } from '@/stores/toastActions'
@@ -163,25 +163,16 @@ function RouteComponent() {
     [currentSession]
   )
 
-  const onStartNewThread = useCallback(() => {
-    if (!currentSession) {
-      return false
-    }
-    void startNewThread(currentSession.id)
+  const onStartNewThread = useCallback(async () => {
+    if (!currentSession) return
+    const rollback = await startNewThread(currentSession.id)
+    if (!rollback) return
     if (currentSession.copilotId) {
       void remote
         .recordCopilotUsage({ id: currentSession.copilotId, action: 'create_thread' })
         .catch((error) => console.warn('[recordCopilotUsage] failed', error))
     }
-    return true
-  }, [currentSession])
-
-  const onRollbackThread = useCallback(() => {
-    if (!currentSession) {
-      return false
-    }
-    void removeCurrentThread(currentSession.id)
-    return true
+    return rollback
   }, [currentSession])
 
   const onSubmit = useCallback(
@@ -314,7 +305,6 @@ function RouteComponent() {
             sessionType={currentSession.type}
             model={model}
             onStartNewThread={onStartNewThread}
-            onRollbackThread={onRollbackThread}
             onSelectModel={onSelectModel}
             onClickSessionSettings={onClickSessionSettings}
             onSubmit={onSubmit}

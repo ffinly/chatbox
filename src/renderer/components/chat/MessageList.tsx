@@ -1,3 +1,4 @@
+import { type CurrentThreadTarget, getCurrentThreadTarget } from '@chatbox/core/application/session'
 import { getSessionActionGate } from '@chatbox/core/session/action-gates'
 import {
   isActionAvailableInMode,
@@ -505,7 +506,14 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
       if (shouldHideSystemPrompt) {
         return (
           <Stack key={msg.id} gap={0}>
-            {thread && <ThreadLabel thread={thread} sessionId={currentSession.id} sessionMode={sessionMode} />}
+            {thread && (
+              <ThreadLabel
+                thread={thread}
+                sessionId={currentSession.id}
+                sessionMode={sessionMode}
+                currentThreadTarget={getCurrentThreadTarget(currentSession)}
+              />
+            )}
             {/* Virtuoso items must keep a measurable height so their canonical message indices
                 remain stable; the placeholder also carries the first/last paddings the hidden
                 message would have contributed, keeping the visible transcript's spacing. */}
@@ -522,7 +530,14 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>((props, ref) =>
 
       return (
         <Stack key={msg.id} gap={0} pt={msg.role === 'user' ? 4 : 0}>
-          {thread && <ThreadLabel thread={thread} sessionId={currentSession.id} sessionMode={sessionMode} />}
+          {thread && (
+            <ThreadLabel
+              thread={thread}
+              sessionId={currentSession.id}
+              sessionMode={sessionMode}
+              currentThreadTarget={getCurrentThreadTarget(currentSession)}
+            />
+          )}
           <ErrorBoundary name={`message-item`}>
             {msg.isForkMarker ? (
               <ForkMarkerMessage
@@ -751,8 +766,9 @@ type ThreadLabelProps = {
   sessionId: string
   sessionMode: SessionMode
   thread: SessionThreadBrief
+  currentThreadTarget?: CurrentThreadTarget
 }
-const ThreadLabel: FC<ThreadLabelProps> = memo(({ thread, sessionId, sessionMode }) => {
+const ThreadLabel: FC<ThreadLabelProps> = memo(({ thread, sessionId, sessionMode, currentThreadTarget }) => {
   const { t } = useTranslation()
   const setShowHistoryDrawer = useSetAtom(atoms.showThreadHistoryDrawerAtom)
 
@@ -776,9 +792,9 @@ const ThreadLabel: FC<ThreadLabelProps> = memo(({ thread, sessionId, sessionMode
   }, [sessionId, thread.id])
 
   const handleDeleteThread = useCallback(() => {
-    if (!thread.id) return
-    void removeThread(sessionId, thread.id)
-  }, [sessionId, thread.id])
+    if (!thread.id || (thread.id === sessionId && !currentThreadTarget)) return
+    return removeThread(sessionId, thread.id, currentThreadTarget)
+  }, [sessionId, thread.id, currentThreadTarget])
 
   return (
     <div className="text-center pb-4 pt-8">
