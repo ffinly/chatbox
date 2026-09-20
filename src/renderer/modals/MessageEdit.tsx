@@ -3,11 +3,12 @@ import NiceModal, { useModal } from '@ebay/nice-modal-react'
 import { Button, Combobox, Input, InputBase, Stack, Text, Textarea, useCombobox } from '@mantine/core'
 import { findMessageLocation } from '@shared/session/message-forks'
 import { type Message, type MessageContentParts, type MessageRole, MessageRoleEnum } from '@shared/types'
+import { applyLastOutputTextEdit, getEditableTextPartIndexes } from '@shared/utils/message'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { rendererApplication } from '@/app/renderer-application'
 import { AdaptiveModal } from '@/components/common/AdaptiveModal'
 import { AssistantAvatar, SystemAvatar, UserAvatar } from '@/components/common/Avatar'
-import { rendererApplication } from '@/app/renderer-application'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { getSessionLockStateNow } from '@/stores/session/action-guard'
 import { saveAndResendMessage } from '@/stores/session/generation'
@@ -16,7 +17,13 @@ import * as toastActions from '@/stores/toastActions'
 import { notifySessionLockBlocked } from '@/utils/session-lock-copy'
 
 const MessageEdit = NiceModal.create(
-  (props: { sessionId: string; msg: Message; hideSaveAndResend?: boolean; resendOnly?: boolean }) => {
+  (props: {
+    sessionId: string
+    msg: Message
+    hideSaveAndResend?: boolean
+    resendOnly?: boolean
+    lastOutputTextOnly?: boolean
+  }) => {
     const modal = useModal()
 
     if (!props.msg) {
@@ -31,6 +38,7 @@ const MessageEdit = NiceModal.create(
         opened={modal.visible}
         hideSaveAndResend={props.hideSaveAndResend}
         resendOnly={props.resendOnly}
+        lastOutputTextOnly={props.lastOutputTextOnly}
         onClose={() => {
           modal.resolve()
           modal.hide()
@@ -49,6 +57,7 @@ const MessageEditModal = ({
   onClose,
   hideSaveAndResend,
   resendOnly,
+  lastOutputTextOnly,
 }: {
   sessionId: string
   msg: Message
@@ -56,11 +65,16 @@ const MessageEditModal = ({
   onClose(): void
   hideSaveAndResend?: boolean
   /**
-   * Work mode: editing must resend (append-only history — a silent save would
-   * rewrite context the assistant never saw). Hides plain Save and locks the
-   * role selector; Ctrl+Enter maps to Save & Resend.
+   * Work mode user messages: editing must resend (append-only history — a
+   * silent save would rewrite context the assistant never saw). Hides plain
+   * Save and locks the role selector; Ctrl+Enter maps to Save & Resend.
    */
   resendOnly?: boolean
+  /**
+   * Work-mode assistant edits: keep tool history and earlier step text, and
+   * only rewrite the last visible output text.
+   */
+  lastOutputTextOnly?: boolean
 }) => {
   const { t } = useTranslation()
   const isSmallScreen = useIsSmallScreen()
@@ -119,6 +133,20 @@ const MessageEditModal = ({
     return ids
   }, [msg.id])
 
+  const lockRole = Boolean(resendOnly || lastOutputTextOnly)
+  const textPartIndexes = useMemo(
+    () => getEditableTextPartIndexes(msg.contentParts, { lastOutputTextOnly }),
+    [lastOutputTextOnly, msg.contentParts]
+  )
+
+  const buildSavedMessage = useCallback((): Message => {
+    if (!lastOutputTextOnly) return msg
+    return {
+      ...msg,
+      contentParts: applyLastOutputTextEdit(initialMsg.contentParts, msg.contentParts),
+    }
+  }, [initialMsg.contentParts, lastOutputTextOnly, msg])
+
   // Handle close with dirty check
   const handleClose = useCallback(() => {
     if (isDirty) {
@@ -172,7 +200,7 @@ const MessageEditModal = ({
       void notifySessionLockBlocked('message-streaming', t)
       return
     }
-    void modifyMessage(sessionId, msg, true)
+    void modifyMessage(sessionId, buildSavedMessage(), true)
     onClose()
   }
   const onSaveAndReply = async () => {
@@ -201,7 +229,7 @@ const MessageEditModal = ({
       return
     }
     onClose()
-    void saveAndResendMessage(sessionId, msg)
+    void saveAndResendMessage(sessionId, buildSavedMessage())
   }
 
   const onContentPartInput = (index: number, text: string) => {
@@ -221,13 +249,8 @@ const MessageEditModal = ({
     const cursorPosition = target.selectionStart
     const textLength = target.value.length
 
-    // Find the indices of all text parts
-    const textPartIndices: number[] = []
-    msg.contentParts.forEach((part, idx) => {
-      if (part.type === 'text') {
-        textPartIndices.push(idx)
-      }
-    })
+    // Find the indices of editable text parts
+    const textPartIndices = getEditableTextPartIndexes(msg.contentParts, { lastOutputTextOnly })
 
     const currentTextPartIndex = textPartIndices.indexOf(index)
 
@@ -331,11 +354,11 @@ const MessageEditModal = ({
                 component="button"
                 type="button"
                 classNames={{ root: 'self-start', input: 'p-xs pr-8 h-auto ' }}
-                pointer={!resendOnly}
-                rightSection={resendOnly ? undefined : <Combobox.Chevron />}
+                pointer={!lockRole}
+                rightSection={lockRole ? undefined : <Combobox.Chevron />}
                 rightSectionPointerEvents="none"
                 onClick={() => {
-                  if (!resendOnly) combobox.toggleDropdown()
+                  if (!lockRole) combobox.toggleDropdown()
                 }}
               >
                 {msg.role ? avatars[msg.role] : <Input.Placeholder>Pick value</Input.Placeholder>}
@@ -352,7 +375,7 @@ const MessageEditModal = ({
               </Combobox.Options>
             </Combobox.Dropdown>
           </Combobox>
-          {msg.contentParts.filter((part) => part.type === 'text').length === 0 ? (
+          {textPartIndexes.length === 0 ? (
             <Textarea
               id={`${msg.id}-input`}
               autoFocus={!isSmallScreen}
@@ -364,7 +387,7 @@ const MessageEditModal = ({
               onChange={(e) => {
                 if (e.target.value) {
                   setMsg({
-                    contentParts: [{ type: 'text', text: e.target.value }],
+                    contentParts: [...msg.contentParts, { type: 'text', text: e.target.value }],
                   })
                 }
               }}
@@ -374,27 +397,26 @@ const MessageEditModal = ({
               }}
             />
           ) : (
-            msg.contentParts.map((part, index, arr) => {
-              if (part.type === 'text') {
-                return (
-                  <Textarea
-                    key={textPartIds[index] || `text-part-${index}`}
-                    id={`${msg.id}-input-${index}`}
-                    autoFocus={!isSmallScreen && index === 0}
-                    autosize
-                    minRows={arr.length > 1 ? 1 : 5}
-                    maxRows={15}
-                    placeholder="prompt"
-                    value={part.text}
-                    onChange={(e) => onContentPartInput(index, e.target.value)}
-                    onKeyDown={(e) => handleTextPartKeyDown(e, index)}
-                    styles={{
-                      input: { touchAction: 'manipulation' },
-                    }}
-                  />
-                )
-              }
-              return null
+            textPartIndexes.map((index, visibleIndex) => {
+              const part = msg.contentParts[index]
+              if (part?.type !== 'text') return null
+              return (
+                <Textarea
+                  key={textPartIds[index] || `text-part-${index}`}
+                  id={`${msg.id}-input-${index}`}
+                  autoFocus={!isSmallScreen && visibleIndex === 0}
+                  autosize
+                  minRows={textPartIndexes.length > 1 ? 1 : 5}
+                  maxRows={15}
+                  placeholder="prompt"
+                  value={part.text}
+                  onChange={(e) => onContentPartInput(index, e.target.value)}
+                  onKeyDown={(e) => handleTextPartKeyDown(e, index)}
+                  styles={{
+                    input: { touchAction: 'manipulation' },
+                  }}
+                />
+              )
             })
           )}
         </Stack>

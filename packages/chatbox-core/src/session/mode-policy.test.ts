@@ -5,6 +5,7 @@ import {
   isActionAvailableInMode,
   isThreadHistoryAvailable,
   resolveSessionMode,
+  shouldRestrictMessageEditToLastOutput,
 } from './mode-policy'
 
 describe('resolveSessionMode', () => {
@@ -20,7 +21,6 @@ describe('isActionAvailableInMode', () => {
   it('removes structural surgery and the session system prompt from work mode', () => {
     for (const action of [
       'reply-below',
-      'edit-assistant-message',
       'delete-fork',
       'save-message-edit',
       'session-system-prompt',
@@ -30,6 +30,11 @@ describe('isActionAvailableInMode', () => {
       expect(isActionAvailableInMode(action, 'work')).toBe(false)
       expect(isActionAvailableInMode(action, 'chat')).toBe(true)
     }
+  })
+
+  it('keeps assistant message editing available in both modes', () => {
+    expect(isActionAvailableInMode('edit-assistant-message', 'work')).toBe(true)
+    expect(isActionAvailableInMode('edit-assistant-message', 'chat')).toBe(true)
   })
 
   it('keeps single-message delete available in both modes', () => {
@@ -42,6 +47,19 @@ describe('isActionAvailableInMode', () => {
       expect(isActionAvailableInMode(action, 'chat')).toBe(false)
       expect(isActionAvailableInMode(action, 'work')).toBe(true)
     }
+  })
+})
+
+describe('shouldRestrictMessageEditToLastOutput', () => {
+  it('limits work-mode assistant and system edits to the last output text', () => {
+    expect(shouldRestrictMessageEditToLastOutput('work', 'assistant')).toBe(true)
+    expect(shouldRestrictMessageEditToLastOutput('work', 'system')).toBe(true)
+    expect(shouldRestrictMessageEditToLastOutput('work', 'user')).toBe(false)
+  })
+
+  it('leaves chat-mode edits unrestricted', () => {
+    expect(shouldRestrictMessageEditToLastOutput('chat', 'assistant')).toBe(false)
+    expect(shouldRestrictMessageEditToLastOutput('chat', 'user')).toBe(false)
   })
 })
 

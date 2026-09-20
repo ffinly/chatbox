@@ -1,4 +1,4 @@
-import type { AgentModeValue, Session } from '../types'
+import type { AgentModeValue, MessageRole, Session } from '../types'
 
 /**
  * Static capability policy for the chat/work mode split (see
@@ -55,7 +55,6 @@ export function resolveSessionMode(agentModeValue: AgentModeValue | undefined): 
 
 const WORK_MODE_UNAVAILABLE: ReadonlySet<ModePolicyAction> = new Set([
   'reply-below',
-  'edit-assistant-message',
   'delete-fork',
   'save-message-edit',
   'session-system-prompt',
@@ -67,6 +66,14 @@ const CHAT_MODE_UNAVAILABLE: ReadonlySet<ModePolicyAction> = new Set(['queue-mes
 
 export function isActionAvailableInMode(action: ModePolicyAction, mode: SessionMode): boolean {
   return !(mode === 'work' ? WORK_MODE_UNAVAILABLE : CHAT_MODE_UNAVAILABLE).has(action)
+}
+
+/**
+ * Work-mode assistant/system edits keep tool history and intermediate step
+ * text intact: only the last visible output text is rewritten.
+ */
+export function shouldRestrictMessageEditToLastOutput(mode: SessionMode, role: MessageRole): boolean {
+  return mode === 'work' && role !== 'user'
 }
 
 /**
