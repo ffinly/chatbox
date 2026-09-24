@@ -3,6 +3,30 @@ import type { Message, Session, SessionThread } from '../../types'
 import { getMessageText } from '../../utils/message'
 import type { SessionUseCasePort } from './session-use-case-port'
 
+/** Identity of the visible conversation, independent of the reusable session ID. */
+export interface CurrentThreadTarget {
+  sessionId: string
+  firstMessageId: string | undefined
+  lastArchivedThreadId: string | undefined
+}
+
+export function getCurrentThreadTarget(session: Session): CurrentThreadTarget {
+  return {
+    sessionId: session.id,
+    firstMessageId: session.messages[0]?.id,
+    lastArchivedThreadId: session.threads?.at(-1)?.id,
+  }
+}
+
+function matchesCurrentThread(session: Session, target: CurrentThreadTarget): boolean {
+  const current = getCurrentThreadTarget(session)
+  return (
+    current.sessionId === target.sessionId &&
+    current.firstMessageId === target.firstMessageId &&
+    current.lastArchivedThreadId === target.lastArchivedThreadId
+  )
+}
+
 export interface ThreadServiceDependencies {
   sessions: SessionUseCasePort
   createId(): string
@@ -36,11 +60,11 @@ export class ThreadService {
     return true
   }
 
-  async remove(sessionId: string, threadId: string): Promise<boolean> {
+  async remove(sessionId: string, threadId: string, expectedCurrent?: CurrentThreadTarget): Promise<boolean> {
     const session = await this.dependencies.sessions.getSession(sessionId)
     if (!session) return false
     if (sessionId === threadId) {
-      return this.removeCurrentFromSession(session.id)
+      return this.removeCurrentFromSession(session.id, expectedCurrent ?? getCurrentThreadTarget(session))
     }
 
     const target = session.threads?.find((thread) => thread.id === threadId)
@@ -80,8 +104,13 @@ export class ThreadService {
   }
 
   async refreshContextAndCreateNew(sessionId: string): Promise<boolean> {
+    return (await this.createWithRollback(sessionId)) !== null
+  }
+
+  async createWithRollback(sessionId: string): Promise<CurrentThreadTarget | null> {
     const session = await this.dependencies.sessions.getSession(sessionId)
-    if (!session) return false
+    if (!session) return null
+    let target: CurrentThreadTarget | null = null
 
     this.dependencies.cancelMessages(sessionId, getCurrentConversationMessages(session))
     // Archive from the queue's current Session so an overlapping compaction
@@ -89,7 +118,7 @@ export class ThreadService {
     await this.dependencies.sessions.updateSessionWithMessages(session.id, (current) => {
       if (!current) throw new Error(`Session ${sessionId} not found during thread creation`)
       const systemPrompt = current.messages.find((message) => message.role === 'system')
-      return {
+      const next: Session = {
         ...current,
         threads: [...(current.threads ?? []), this.createThreadSnapshot(current)],
         messages: [
@@ -103,13 +132,21 @@ export class ThreadService {
           ? { ...current.settings, sessionPromptContextSnapshot: undefined }
           : current.settings,
       }
+      target = getCurrentThreadTarget(next)
+      return next
     })
-    return true
+    return target
   }
 
-  async removeCurrent(sessionId: string): Promise<boolean> {
+  async removeCurrent(sessionId: string, expectedCurrent?: CurrentThreadTarget): Promise<boolean> {
     const session = await this.dependencies.sessions.getSession(sessionId)
-    return session ? this.removeCurrentFromSession(session.id) : false
+    return session
+      ? this.removeCurrentFromSession(session.id, expectedCurrent ?? getCurrentThreadTarget(session))
+      : false
+  }
+
+  async rollbackCreated(target: CurrentThreadTarget): Promise<boolean> {
+    return this.removeCurrentFromSession(target.sessionId, target, true)
   }
 
   async compressAndCreate(sessionId: string, summary: string): Promise<boolean> {
@@ -195,9 +232,21 @@ export class ThreadService {
     }
   }
 
-  private async removeCurrentFromSession(sessionId: string): Promise<boolean> {
+  private async removeCurrentFromSession(
+    sessionId: string,
+    target: CurrentThreadTarget,
+    onlyEmpty = false
+  ): Promise<boolean> {
+    let removed = false
     await this.dependencies.sessions.updateSessionWithMessages(sessionId, (current) => {
       if (!current) throw new Error(`Session ${sessionId} not found during thread removal`)
+      if (!matchesCurrentThread(current, target)) return current
+      if (
+        onlyEmpty &&
+        (current.messages.length !== 1 || current.messages[0]?.role !== 'system' || !current.threads?.length)
+      )
+        return current
+      removed = true
       this.dependencies.cancelMessages(sessionId, getCurrentConversationMessages(current))
       // Discard the current conversation's compaction points with its messages;
       // when restoring a thread, restore that thread's points with its messages.
@@ -224,7 +273,7 @@ export class ThreadService {
       }
       return update
     })
-    return true
+    return removed
   }
 
   private async moveCurrentToConversationFromSession(session: Session): Promise<string> {
@@ -238,7 +287,7 @@ export class ThreadService {
       threadName: session.threadName ?? '',
       messageForksHash: session.messageForksHash,
     })
-    await this.removeCurrentFromSession(session.id)
+    await this.removeCurrentFromSession(session.id, getCurrentThreadTarget(session))
     return copied.id
   }
 }

@@ -416,7 +416,9 @@ function Root() {
                 boxShadow: { xs: 'none', sm: platform.type === 'web' ? 'none' : '0 0 22px rgba(0, 0, 0, 0.11)' },
               }}
             >
-              <ErrorBoundary name="main">
+              {/* Keyed per route so a crashing page stays contained to that page
+                  instead of latching the whole main area until the app restarts. */}
+              <ErrorBoundary key={location.pathname} name="main">
                 <Outlet />
               </ErrorBoundary>
             </Box>

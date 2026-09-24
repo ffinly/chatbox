@@ -1,4 +1,13 @@
 const changelog = `
+## v1.23.5 - 2026.09.24
+1. Fixed external one-click MCP setup links failing to open the prefilled server dialog when the app was not running
+
+## v1.23.4 - 2026.09.23
+1. You can now edit the last output of a Work Mode reply
+2. Fixed Image Creator history going blank or failing to finish loading when a record is incomplete
+3. Fixed undoing a new topic sometimes deleting the previous conversation
+4. Fixed leftover digits in the message input after pasting during nine-key typing
+
 ## v1.23.3 - 2026.09.17
 1. When a reply is cut off, you'll see why and how to continue
 2. Fixed thinking controls for DeepSeek V4.1 Flash

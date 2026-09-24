@@ -1,4 +1,4 @@
-import { ThreadService } from '@chatbox/core/application/session'
+import { type CurrentThreadTarget, ThreadService } from '@chatbox/core/application/session'
 import { isActionAvailableInMode, resolveSessionMode } from '@chatbox/core/session/mode-policy'
 import * as defaults from '@shared/defaults'
 import type { SessionThread } from '@shared/types'
@@ -33,8 +33,8 @@ export function editThread(sessionId: string, threadId: string, newThread: Pick<
   return threadService.edit(sessionId, threadId, newThread)
 }
 
-export function removeThread(sessionId: string, threadId: string) {
-  return threadService.remove(sessionId, threadId)
+export function removeThread(sessionId: string, threadId: string, expectedCurrent?: CurrentThreadTarget) {
+  return threadService.remove(sessionId, threadId, expectedCurrent)
 }
 
 export async function switchThread(sessionId: string, threadId: string) {
@@ -43,7 +43,7 @@ export async function switchThread(sessionId: string, threadId: string) {
   }
 }
 
-export async function refreshContextAndCreateNewThread(sessionId: string) {
+async function createThreadWithRollback(sessionId: string) {
   const session = await rendererApplication.sessionQueryBridge.getSession(sessionId)
   if (!session) return false
   // Mode-policy backstop: work mode is a single linear conversation and has
@@ -53,15 +53,21 @@ export async function refreshContextAndCreateNewThread(sessionId: string) {
   ) {
     return false
   }
-  return threadService.refreshContextAndCreateNew(sessionId)
+  return threadService.createWithRollback(sessionId)
+}
+
+export async function refreshContextAndCreateNewThread(sessionId: string) {
+  return Boolean(await createThreadWithRollback(sessionId))
 }
 
 export async function startNewThread(sessionId: string) {
-  if (!(await refreshContextAndCreateNewThread(sessionId))) return
+  const target = await createThreadWithRollback(sessionId)
+  if (!target) return
   setTimeout(() => {
     scrollActions.scrollToBottom()
     dom.focusMessageInput()
   }, 100)
+  return () => threadService.rollbackCreated(target)
 }
 
 export function removeCurrentThread(sessionId: string) {

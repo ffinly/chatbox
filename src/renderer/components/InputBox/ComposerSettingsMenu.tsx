@@ -8,6 +8,7 @@ import { ScalableIcon } from '../common/ScalableIcon'
 type ComposerSettingsMenuProps = {
   canCreateThread: boolean
   toolbarIconSize: number
+  threadActionPending?: boolean
   onStartNewThread?: () => void
   onClickSessionSettings?: () => void
 }
@@ -15,6 +16,7 @@ type ComposerSettingsMenuProps = {
 export const ComposerSettingsMenu: FC<ComposerSettingsMenuProps> = ({
   canCreateThread,
   toolbarIconSize,
+  threadActionPending,
   onStartNewThread,
   onClickSessionSettings,
 }) => {
@@ -48,6 +50,7 @@ export const ComposerSettingsMenu: FC<ComposerSettingsMenuProps> = ({
             data-testid={TestId.chat.newThread}
             leftSection={<ScalableIcon icon={IconPlus} size={16} />}
             onClick={onStartNewThread}
+            disabled={threadActionPending || !onStartNewThread}
           >
             {t('New Thread')}
           </Menu.Item>

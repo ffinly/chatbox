@@ -254,6 +254,10 @@ if (MAIN_RUNTIME_POLICY.registerProtocolClient) {
 // --------- 全局变量 ---------
 
 let mainWindow: BrowserWindow | null = null
+// macOS delivers the URL that launched the app through open-url before the startup window exists;
+// it is held here and opened once startup has created the window.
+let startupWindowCreated = false
+let startupDeepLink: string | undefined
 let tray: Tray | null = null
 
 // --------- 快捷键 ---------
@@ -682,6 +686,7 @@ if (quitForInstallRequested) {
     .then(async () => {
       await knowledgeBaseInitPromise
       await createWindow()
+      startupWindowCreated = true
       await initializeSessionAttachmentRagAfterAppReady()
       ensureTray()
       // HarmonyOS HAP updates are distributed outside electron-updater.
@@ -689,21 +694,22 @@ if (quitForInstallRequested) {
         new AppUpdater(() => mainWindow)
       }
 
-      // 处理启动时的 Deep Link (Windows/Linux)
-      // macOS 会通过 open-url 事件处理，不需要在这里处理
-      if (process.platform !== 'darwin') {
-        const url = process.argv.find((arg) => arg.startsWith('chatbox://') || arg.startsWith('chatbox-dev://'))
-        if (url && mainWindow) {
-          // 确保窗口加载完成后再处理 Deep Link
-          if (mainWindow.webContents.isLoading()) {
-            mainWindow.webContents.once('did-finish-load', () => {
-              if (mainWindow) {
-                handleDeepLink(mainWindow, url)
-              }
-            })
-          } else {
-            handleDeepLink(mainWindow, url)
-          }
+      // 处理启动时的 Deep Link：macOS 来自窗口创建前的 open-url 事件，Windows/Linux 来自命令行参数
+      const url =
+        process.platform === 'darwin'
+          ? startupDeepLink
+          : process.argv.find((arg) => arg.startsWith('chatbox://') || arg.startsWith('chatbox-dev://'))
+      startupDeepLink = undefined
+      if (url && mainWindow) {
+        // 确保窗口加载完成后再处理 Deep Link
+        if (mainWindow.webContents.isLoading()) {
+          mainWindow.webContents.once('did-finish-load', () => {
+            if (mainWindow) {
+              handleDeepLink(mainWindow, url)
+            }
+          })
+        } else {
+          handleDeepLink(mainWindow, url)
         }
       }
       app.on('activate', () => {
@@ -754,6 +760,10 @@ if (quitForInstallRequested) {
 
 // macos uses this event to handle deep links
 app.on('open-url', async (_event, url) => {
+  if (!startupWindowCreated) {
+    startupDeepLink = url
+    return
+  }
   if (!mainWindow) {
     // 窗口未创建，立即创建
     await createWindow()

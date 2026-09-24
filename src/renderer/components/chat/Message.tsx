@@ -9,7 +9,11 @@ import {
 } from '@chatbox/core/session/action-gates'
 import { isCancellableGeneratingAssistantMessage } from '@chatbox/core/session/generation-state'
 import { getMessageFinishTip } from '@chatbox/core/session/message-finish-tip'
-import { isActionAvailableInMode, type SessionMode } from '@chatbox/core/session/mode-policy'
+import {
+  isActionAvailableInMode,
+  type SessionMode,
+  shouldRestrictMessageEditToLastOutput,
+} from '@chatbox/core/session/mode-policy'
 import type { PromptCacheDeleteTarget } from '@chatbox/core/session/prompt-cache-policy'
 import NiceModal from '@ebay/nice-modal-react'
 import { ActionIcon, type ActionIconProps, Anchor, Button, Flex, Loader, Modal, Stack, Text } from '@mantine/core'
@@ -250,13 +254,15 @@ const _Message: FC<Props> = (props) => {
   const generationLocked = isGenerationLocked(sessionLocks)
 
   // Static mode policy (hidden entries), as opposed to the transient
-  // sessionLocks gates (disabled + notice). Work mode allows delete;
-  // user messages may only be edited together with a resend.
+  // sessionLocks gates (disabled + notice). Work mode allows delete and
+  // assistant edits (last output text only); user messages may only be
+  // edited together with a resend.
   const canReplyBelow = isActionAvailableInMode('reply-below', sessionMode)
   const canDeleteMessage = isActionAvailableInMode('delete-message', sessionMode)
   const [confirmCacheBreakingDelete, setConfirmCacheBreakingDelete] = useState(false)
   const canEditMessage = msg.role === 'user' || isActionAvailableInMode('edit-assistant-message', sessionMode)
-  const editIsResendOnly = !isActionAvailableInMode('save-message-edit', sessionMode)
+  const editIsResendOnly = msg.role === 'user' && !isActionAvailableInMode('save-message-edit', sessionMode)
+  const lastOutputTextOnly = shouldRestrictMessageEditToLastOutput(sessionMode, msg.role)
 
   const notifyActionBlocked = useCallback(
     (reason: SessionActionBlockReason) => {
@@ -442,8 +448,8 @@ const _Message: FC<Props> = (props) => {
     // regenerate-class action and stays locked like Retry.
     const resendGate = getSessionActionGate('save-and-resend', sessionLocks, { messageGenerating: msg.generating })
     if (editIsResendOnly && !resendGate.allowed) {
-      // Work mode edits must resend; with the resend gate closed the editor
-      // would have no primary action left, so surface the block instead.
+      // Work-mode user edits must resend; with the resend gate closed the
+      // editor would have no primary action left, so surface the block instead.
       notifyActionBlocked(resendGate.reason)
       return
     }
@@ -452,8 +458,9 @@ const _Message: FC<Props> = (props) => {
       msg,
       hideSaveAndResend: !resendGate.allowed,
       resendOnly: editIsResendOnly,
+      lastOutputTextOnly,
     })
-  }, [sessionLocks, msg, notifyActionBlocked, sessionId, editIsResendOnly])
+  }, [sessionLocks, msg, notifyActionBlocked, sessionId, editIsResendOnly, lastOutputTextOnly])
 
   const onViewMessageJson = useCallback(async () => {
     await NiceModal.show('json-viewer', { title: t('Message Raw JSON'), data: msg })

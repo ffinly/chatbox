@@ -133,6 +133,7 @@ import { getComposerPlaceholder, getSubmitAction, getSubmitControl } from './sub
 import TokenCountMenu from './TokenCountMenu'
 import { useModelToolCapabilities } from './useModelToolCapabilities'
 import { useReasoningControlState } from './useReasoningControlState'
+import { useThreadCreation } from './useThreadCreation'
 import { WebSearchUnavailableBanner } from './WebSearchUnavailableBanner'
 import WorkModeStatusRow from './WorkModeStatusRow'
 
@@ -164,8 +165,7 @@ export type InputBoxProps = {
   onSubmit?(payload: InputBoxPayload): Promise<void>
   onStopGenerating?(): boolean
   stopGenerationStatus?: 'idle' | 'stopping' | 'failed'
-  onStartNewThread?(): boolean
-  onRollbackThread?(): boolean
+  onStartNewThread?(): Promise<(() => Promise<boolean>) | undefined>
   onClickSessionSettings?(): boolean | Promise<boolean>
   onViewCompactionSummary?(summaryMessageId: string): void
 }
@@ -209,7 +209,6 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
       onStopGenerating,
       stopGenerationStatus = 'idle',
       onStartNewThread,
-      onRollbackThread,
       onClickSessionSettings,
       onViewCompactionSummary,
     },
@@ -835,17 +834,17 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
       [currentSessionId, isNewSession]
     )
 
-    const [showRollbackThreadButton, setShowRollbackThreadButton] = useState(false)
-    useEffect(() => {
-      if (showRollbackThreadButton) {
-        const tid = setTimeout(() => {
-          setShowRollbackThreadButton(false)
-        }, 5000)
-        return () => {
-          clearTimeout(tid)
-        }
-      }
-    }, [showRollbackThreadButton])
+    const {
+      pending: threadActionPending,
+      canRollback: showRollbackThreadButton,
+      start: startNewThread,
+      rollback: rollbackThread,
+      dismissUndo: dismissThreadRollback,
+    } = useThreadCreation({
+      sessionId: currentSessionId || 'new',
+      create: onStartNewThread,
+      onError: (error) => toastActions.add(`${t('Failed')}: ${error instanceof Error ? error.message : String(error)}`),
+    })
 
     useImperativeHandle(
       ref,
@@ -987,7 +986,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
             },
             message: undefined,
           })
-          setShowRollbackThreadButton(false)
+          dismissThreadRollback()
           markReasoningSettingsCommitted()
           if (platform.type !== 'mobile' && messageTextForHistory) {
             addInputBoxHistory(messageTextForHistory)
@@ -1172,20 +1171,6 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
         sessionMode,
       ]
     )
-
-    const startNewThread = () => {
-      const res = onStartNewThread?.()
-      if (res) {
-        setShowRollbackThreadButton(true)
-      }
-    }
-
-    const rollbackThread = () => {
-      const res = onRollbackThread?.()
-      if (res) {
-        setShowRollbackThreadButton(false)
-      }
-    }
 
     const startFilePreprocessing = (file: File, options: InsertFilesOptions = {}) => {
       const fileKey = StorageKeyGenerator.fileUniqKey(file)
@@ -1963,14 +1948,19 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                         data-testid={TestId.chat.newThread}
                         aria-label={t('New Thread')}
                         onClick={startNewThread}
-                        disabled={!onStartNewThread}
+                        disabled={!onStartNewThread || threadActionPending}
+                        aria-busy={threadActionPending}
                         className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors disabled:opacity-50"
                       >
-                        <IconFilePencil
-                          size={toolbarIconSize}
-                          strokeWidth={1.8}
-                          className="text-[var(--chatbox-tint-secondary)]"
-                        />
+                        {threadActionPending ? (
+                          <Loader size={toolbarIconSize} />
+                        ) : (
+                          <IconFilePencil
+                            size={toolbarIconSize}
+                            strokeWidth={1.8}
+                            className="text-[var(--chatbox-tint-secondary)]"
+                          />
+                        )}
                       </UnstyledButton>
                     </Tooltip>
                   ))}
@@ -1998,6 +1988,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                     canCreateThread={canCreateThread}
                     toolbarIconSize={toolbarIconSize}
                     onStartNewThread={startNewThread}
+                    threadActionPending={threadActionPending}
                     onClickSessionSettings={onClickSessionSettings}
                   />
                 )}
